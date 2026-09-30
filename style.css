@@ -1,0 +1,98 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #0f2a1d;
+  color: #f3f3f3;
+  font-family: system-ui, sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+h1 {
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.wheel-box {
+  position: relative;
+  width: min(85vw, 460px);
+  aspect-ratio: 1;
+}
+
+#wheel {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  /* само вращение: JS меняет transform, а CSS плавно анимирует */
+  transition: transform 5s cubic-bezier(0.15, 0.6, 0.1, 1);
+}
+
+/* неподвижная стрелка сверху */
+.pointer {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 28px solid #ffd54a;
+  z-index: 2;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+
+button {
+  padding: 12px 40px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1b1b1b;
+  background: #ffd54a;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #ffe27d;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+  min-height: 48px;
+}
+
+.result-number {
+  min-width: 48px;
+  padding: 4px 12px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 8px;
+  background: #444;
+}
+
+.result-number.red   { background: #c62828; }
+.result-number.black { background: #111; }
+.result-number.green { background: #1b8f3a; }
