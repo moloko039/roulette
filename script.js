@@ -20,7 +20,21 @@ const spinBtn = document.getElementById('spin');
 const numberEl = document.getElementById('result-number');
 const colorEl = document.getElementById('result-color');
 
+const START_BALANCE = 1000;
+const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, number: 35 }; // выплата «N к 1»
+const BET_NAME = { red: 'Красное', black: 'Чёрное', even: 'Чёт', odd: 'Нечет' };
+
+const balanceEl = document.getElementById('balance');
+const amountEl = document.getElementById('amount');
+const numberInput = document.getElementById('number');
+const betListEl = document.getElementById('bet-list');
+const messageEl = document.getElementById('message');
+const restartBtn = document.getElementById('restart');
+const betsPanel = document.getElementById('bets');
+
 let rotation = 0; // сколько градусов колесо прокрутили всего
+let balance = START_BALANCE;
+let bets = []; // { type, value, amount }
 
 function getColor(n) {
   if (n === 0) return 'green';
@@ -75,8 +89,105 @@ function drawWheel() {
   ctx.stroke();
 }
 
+function renderBalance() {
+  balanceEl.textContent = balance;
+}
+
+function betLabel(b) {
+  return b.type === 'number' ? `Число ${b.value}` : BET_NAME[b.type];
+}
+
+function renderBets() {
+  betListEl.innerHTML = '';
+  if (bets.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'пока нет';
+    betListEl.appendChild(li);
+    return;
+  }
+  bets.forEach((b) => {
+    const li = document.createElement('li');
+    li.textContent = `${betLabel(b)} — ${b.amount}`;
+    betListEl.appendChild(li);
+  });
+}
+
+function setMessage(text, kind = '') {
+  messageEl.textContent = text;
+  messageEl.className = 'message ' + kind;
+}
+
+// Блокирует/разблокирует все кнопки и поля ставок
+function setBettingEnabled(enabled) {
+  betsPanel.querySelectorAll('button, input').forEach((el) => {
+    el.disabled = !enabled;
+  });
+  spinBtn.disabled = !enabled;
+}
+
+// Ставка списывается с баланса сразу; одинаковые ставки складываются
+function placeBet(type, value = null) {
+  const amount = Number(amountEl.value);
+  if (!Number.isInteger(amount) || amount < 1) {
+    setMessage('Введите целую сумму ставки от 1', 'lose');
+    return;
+  }
+  if (amount > balance) {
+    setMessage('Недостаточно фишек', 'lose');
+    return;
+  }
+  if (type === 'number' && (!Number.isInteger(value) || value < 0 || value > 36)) {
+    setMessage('Число должно быть от 0 до 36', 'lose');
+    return;
+  }
+  balance -= amount;
+  const existing = bets.find((b) => b.type === type && b.value === value);
+  if (existing) existing.amount += amount;
+  else bets.push({ type, value, amount });
+  setMessage('');
+  renderBalance();
+  renderBets();
+}
+
+function clearBets() {
+  balance += bets.reduce((sum, b) => sum + b.amount, 0);
+  bets = [];
+  setMessage('');
+  renderBalance();
+  renderBets();
+}
+
+// Выигрывает ли ставка при выпавшем числе n (у нуля нет цвета и чётности)
+function isWinning(b, n) {
+  switch (b.type) {
+    case 'red':    return getColor(n) === 'red';
+    case 'black':  return getColor(n) === 'black';
+    case 'even':   return n !== 0 && n % 2 === 0;
+    case 'odd':    return n % 2 === 1;
+    case 'number': return n === b.value;
+  }
+}
+
+// Возвращает чистый результат раунда (выигрыш минус все ставки)
+function settleBets(n) {
+  let returned = 0;
+  let staked = 0;
+  bets.forEach((b) => {
+    staked += b.amount;
+    if (isWinning(b, n)) returned += b.amount * (PAYOUT[b.type] + 1); // ставка + выигрыш
+  });
+  balance += returned;
+  bets = [];
+  return returned - staked;
+}
+
 function spin() {
-  spinBtn.disabled = true;
+  if (bets.length === 0) {
+    setMessage('Сначала сделайте ставку', 'lose');
+    return;
+  }
+  setBettingEnabled(false);
+  setMessage('');
 
   // 1. Выбираем случайный индекс сектора (а значит и число)
   const index = Math.floor(Math.random() * WHEEL_ORDER.length);
@@ -103,8 +214,54 @@ function showResult(n) {
   numberEl.textContent = n;
   numberEl.className = 'result-number ' + color;
   colorEl.textContent = COLOR_NAME[color];
-  spinBtn.disabled = false;
+
+  const net = settleBets(n);
+  renderBalance();
+  renderBets();
+  if (net > 0) setMessage(`Вы выиграли ${net} фишек!`, 'win');
+  else if (net < 0) setMessage(`Вы проиграли ${-net} фишек`, 'lose');
+  else setMessage('Ничья: ставки вернулись', '');
+
+  if (balance === 0) {
+    // фишки закончились — прячем ставки и предлагаем начать заново
+    betsPanel.querySelectorAll('.row, .placed').forEach((el) => (el.hidden = true));
+    spinBtn.hidden = true;
+    restartBtn.hidden = false;
+    setMessage('Фишки закончились. Игра окончена.', 'lose');
+  } else {
+    setBettingEnabled(true);
+  }
+}
+
+function restart() {
+  balance = START_BALANCE;
+  bets = [];
+  numberEl.textContent = '—';
+  numberEl.className = 'result-number';
+  colorEl.textContent = '';
+  betsPanel.querySelectorAll('.row, .placed').forEach((el) => (el.hidden = false));
+  restartBtn.hidden = true;
+  spinBtn.hidden = false;
+  setBettingEnabled(true);
+  setMessage('');
+  renderBalance();
+  renderBets();
 }
 
 drawWheel();
+renderBalance();
+renderBets();
 spinBtn.addEventListener('click', spin);
+restartBtn.addEventListener('click', restart);
+document.getElementById('clear-bets').addEventListener('click', clearBets);
+document.getElementById('bet-number').addEventListener('click', () => {
+  placeBet('number', Number(numberInput.value));
+});
+betsPanel.querySelectorAll('.bet[data-type]').forEach((btn) => {
+  btn.addEventListener('click', () => placeBet(btn.dataset.type));
+});
+betsPanel.querySelectorAll('.chip').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    amountEl.value = btn.dataset.amount;
+  });
+});

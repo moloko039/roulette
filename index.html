@@ -15,7 +15,38 @@
       <canvas id="wheel" width="600" height="600"></canvas>
     </div>
 
+    <div class="balance">Баланс: <strong id="balance">1000</strong> фишек</div>
+
+    <section class="bets" id="bets">
+      <div class="row">
+        <label for="amount">Сумма ставки:</label>
+        <input id="amount" type="number" min="1" step="1" value="10">
+        <button type="button" class="chip" data-amount="10">10</button>
+        <button type="button" class="chip" data-amount="50">50</button>
+        <button type="button" class="chip" data-amount="100">100</button>
+        <button type="button" class="chip" data-amount="500">500</button>
+      </div>
+      <div class="row">
+        <button type="button" class="bet bet-red" data-type="red">Красное</button>
+        <button type="button" class="bet bet-black" data-type="black">Чёрное</button>
+        <button type="button" class="bet" data-type="even">Чёт</button>
+        <button type="button" class="bet" data-type="odd">Нечет</button>
+      </div>
+      <div class="row">
+        <label for="number">Число:</label>
+        <input id="number" type="number" min="0" max="36" step="1" value="7">
+        <button type="button" class="bet" id="bet-number">Поставить на число</button>
+      </div>
+      <div class="placed">
+        <span>Ваши ставки:</span>
+        <ul id="bet-list"></ul>
+        <button type="button" class="link" id="clear-bets">Убрать ставки</button>
+      </div>
+      <div class="message" id="message" aria-live="polite"></div>
+    </section>
+
     <button id="spin" type="button">Крутить</button>
+    <button id="restart" type="button" hidden>Начать заново</button>
 
     <div class="result" id="result" aria-live="polite">
       <span class="result-label">Выпало:</span>
