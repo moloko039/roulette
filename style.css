@@ -147,21 +147,62 @@ input[type="number"] {
   transform: translateY(-2px);
 }
 
-.bet {
-  padding: 8px 16px;
-  font: 700 1rem Georgia, serif;
+/* стол со ставками */
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.outside {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.cell {
+  position: relative;
+  height: 40px;
+  padding: 0;
+  font: 700 1.05rem Georgia, serif;
   color: #fff;
   background: #1f5a3a;
   border: 1px solid var(--gold);
-  border-radius: 8px;
   cursor: pointer;
 }
 
-.bet:hover:not(:disabled) { background: #2a7a4d; }
-.bet-red   { background: var(--red); }
-.bet-black { background: var(--black); }
-.bet-red:hover:not(:disabled)   { background: #e53935; }
-.bet-black:hover:not(:disabled) { background: #2a2a2a; }
+.cell.red   { background: var(--red); }
+.cell.black { background: var(--black); }
+.cell.green { background: var(--green); }
+.cell.zero  { grid-column: 1 / -1; }
+.cell:hover:not(:disabled) { filter: brightness(1.3); }
+
+/* фишка, лежащая на клетке */
+.stack {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 0.75rem Georgia, serif;
+  font-style: normal;
+  color: #3a2a00;
+  background: radial-gradient(circle, #fff3b0 50%, var(--gold) 52%);
+  border: 3px dashed #7a5d10;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
 
 .placed ul {
   margin: 4px 0;

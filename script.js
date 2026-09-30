@@ -26,7 +26,7 @@ const BET_NAME = { red: 'Красное', black: 'Чёрное', even: 'Чёт',
 
 const balanceEl = document.getElementById('balance');
 const amountEl = document.getElementById('amount');
-const numberInput = document.getElementById('number');
+const tableEl = document.getElementById('table');
 const betListEl = document.getElementById('bet-list');
 const messageEl = document.getElementById('message');
 const restartBtn = document.getElementById('restart');
@@ -129,7 +129,53 @@ function betLabel(b) {
   return b.type === 'number' ? `Число ${b.value}` : BET_NAME[b.type];
 }
 
+// Строим стол: 0, числа 1–36 по три в ряд и внешние ставки
+function buildTable() {
+  const addCell = (parent, cls, label, type, value = null) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cell ' + cls;
+    btn.dataset.key = `${type}:${value}`;
+    const text = document.createElement('span');
+    text.textContent = label;
+    btn.appendChild(text);
+    btn.addEventListener('click', () => placeBet(type, value));
+    parent.appendChild(btn);
+  };
+
+  const numbers = document.createElement('div');
+  numbers.className = 'numbers';
+  addCell(numbers, 'zero green', '0', 'number', 0);
+  for (let n = 1; n <= 36; n++) {
+    addCell(numbers, getColor(n), String(n), 'number', n);
+  }
+  tableEl.appendChild(numbers);
+
+  const outside = document.createElement('div');
+  outside.className = 'outside';
+  addCell(outside, 'red', 'Красное', 'red');
+  addCell(outside, 'black', 'Чёрное', 'black');
+  addCell(outside, 'plain', 'Чёт', 'even');
+  addCell(outside, 'plain', 'Нечет', 'odd');
+  tableEl.appendChild(outside);
+}
+
+// Кладём на клетки стола фишки с суммой ставки
+function renderChips() {
+  tableEl.querySelectorAll('.cell').forEach((cell) => {
+    const old = cell.querySelector('.stack');
+    if (old) old.remove();
+    const bet = bets.find((b) => `${b.type}:${b.value}` === cell.dataset.key);
+    if (!bet) return;
+    const chip = document.createElement('i');
+    chip.className = 'stack';
+    chip.textContent = bet.amount >= 1000 ? Math.round(bet.amount / 100) / 10 + 'k' : bet.amount;
+    cell.appendChild(chip);
+  });
+}
+
 function renderBets() {
+  renderChips();
   betListEl.innerHTML = '';
   if (bets.length === 0) {
     const li = document.createElement('li');
@@ -261,7 +307,7 @@ function showResult(n) {
 
   if (balance === 0) {
     // фишки закончились — прячем ставки и предлагаем начать заново
-    betsPanel.querySelectorAll('.row, .placed').forEach((el) => (el.hidden = true));
+    betsPanel.querySelectorAll('.row, .table, .placed').forEach((el) => (el.hidden = true));
     spinBtn.hidden = true;
     restartBtn.hidden = false;
     setMessage('Фишки закончились. Игра окончена.', 'lose');
@@ -278,7 +324,7 @@ function restart() {
   colorEl.textContent = '';
   spinHistory = [];
   renderHistory();
-  betsPanel.querySelectorAll('.row, .placed').forEach((el) => (el.hidden = false));
+  betsPanel.querySelectorAll('.row, .table, .placed').forEach((el) => (el.hidden = false));
   restartBtn.hidden = true;
   spinBtn.hidden = false;
   setBettingEnabled(true);
@@ -288,18 +334,13 @@ function restart() {
 }
 
 drawWheel();
+buildTable();
 renderBalance();
 renderBets();
 renderHistory();
 spinBtn.addEventListener('click', spin);
 restartBtn.addEventListener('click', restart);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
-document.getElementById('bet-number').addEventListener('click', () => {
-  placeBet('number', Number(numberInput.value));
-});
-betsPanel.querySelectorAll('.bet[data-type]').forEach((btn) => {
-  btn.addEventListener('click', () => placeBet(btn.dataset.type));
-});
 betsPanel.querySelectorAll('.chip').forEach((btn) => {
   btn.addEventListener('click', () => {
     amountEl.value = btn.dataset.amount;
