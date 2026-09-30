@@ -43,7 +43,6 @@
     </section>
 
     <button id="spin" type="button">Крутить</button>
-    <button id="restart" type="button" hidden>Начать заново</button>
 
     <div class="result" id="result" aria-live="polite">
       <span class="result-label">Выпало:</span>
@@ -51,6 +50,11 @@
       <span class="result-color" id="result-color"></span>
     </div>
   </main>
+
+  <!-- поверх размытого фона, когда фишки закончились -->
+  <div class="loan" id="loan" hidden>
+    <button id="loan-btn" type="button">Взять микрозайм</button>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>

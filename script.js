@@ -28,7 +28,9 @@ const balanceEl = document.getElementById('balance');
 const amountEl = document.getElementById('amount');
 const tableEl = document.getElementById('table');
 const messageEl = document.getElementById('message');
-const restartBtn = document.getElementById('restart');
+const loanOverlay = document.getElementById('loan');
+const loanBtn = document.getElementById('loan-btn');
+const LOAN_AMOUNT = 1000;
 const betsPanel = document.getElementById('bets');
 
 let rotation = 0; // сколько градусов колесо прокрутили всего
@@ -69,7 +71,7 @@ function drawWheel() {
     ctx.closePath();
     ctx.fillStyle = COLOR_HEX[getColor(num)];
     ctx.fill();
-    ctx.strokeStyle = '#d9b84a';
+    ctx.strokeStyle = '#3fd0e8';
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -88,9 +90,9 @@ function drawWheel() {
   // центр колеса
   ctx.beginPath();
   ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-  ctx.fillStyle = '#2b1d0e';
+  ctx.fillStyle = '#0b121c';
   ctx.fill();
-  ctx.strokeStyle = '#d9b84a';
+  ctx.strokeStyle = '#3fd0e8';
   ctx.lineWidth = 4;
   ctx.stroke();
 }
@@ -323,32 +325,19 @@ function showResult(n) {
   else setMessage('Ничья: ставки вернулись', '');
 
   if (balance === 0) {
-    // фишки закончились — прячем ставки и предлагаем начать заново
-    document.querySelectorAll('#bets .row, #table').forEach((el) => (el.hidden = true));
-    spinBtn.hidden = true;
-    restartBtn.hidden = false;
-    setMessage('Фишки закончились. Игра окончена.', 'lose');
+    // фишки закончились — фон размывается, остаётся только кнопка микрозайма
+    loanOverlay.hidden = false;
   } else {
     setBettingEnabled(true);
   }
 }
 
-function restart() {
-  balance = START_BALANCE;
-  bets = [];
-  lastBets = [];
-  numberEl.textContent = '—';
-  numberEl.className = 'result-number';
-  colorEl.textContent = '';
-  spinHistory = [];
-  renderHistory();
-  document.querySelectorAll('#bets .row, #table').forEach((el) => (el.hidden = false));
-  restartBtn.hidden = true;
-  spinBtn.hidden = false;
+function takeLoan() {
+  balance += LOAN_AMOUNT;
+  loanOverlay.hidden = true;
   setBettingEnabled(true);
   setMessage('');
   renderBalance();
-  renderBets();
 }
 
 drawWheel();
@@ -357,7 +346,7 @@ renderBalance();
 renderBets();
 renderHistory();
 spinBtn.addEventListener('click', spin);
-restartBtn.addEventListener('click', restart);
+loanBtn.addEventListener('click', takeLoan);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
 document.getElementById('repeat-bets').addEventListener('click', repeatBets);
 betsPanel.querySelectorAll('.chip').forEach((btn) => {
