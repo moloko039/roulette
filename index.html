@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Рулетка</title>
+  <title>Депная</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
-    <h1>Рулетка</h1>
+    <h1>Депная</h1>
 
     <div class="wheel-box">
       <div class="pointer"></div>
@@ -26,17 +26,7 @@
         <button type="button" class="chip" data-amount="100">100</button>
         <button type="button" class="chip" data-amount="500">500</button>
       </div>
-      <div class="row">
-        <button type="button" class="bet bet-red" data-type="red">Красное</button>
-        <button type="button" class="bet bet-black" data-type="black">Чёрное</button>
-        <button type="button" class="bet" data-type="even">Чёт</button>
-        <button type="button" class="bet" data-type="odd">Нечет</button>
-      </div>
-      <div class="row">
-        <label for="number">Число:</label>
-        <input id="number" type="number" min="0" max="36" step="1" value="7">
-        <button type="button" class="bet" id="bet-number">Поставить на число</button>
-      </div>
+      <div class="table" id="table" aria-label="Стол"></div>
       <div class="placed">
         <span>Ваши ставки:</span>
         <ul id="bet-list"></ul>
