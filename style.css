@@ -1,3 +1,12 @@
+:root {
+  --gold: #d9b84a;
+  --gold-light: #ffe27d;
+  --gold-dark: #9a7a1e;
+  --red: #c62828;
+  --black: #111;
+  --green: #1b8f3a;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -7,36 +16,53 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  background: #0f2a1d;
-  color: #f3f3f3;
-  font-family: system-ui, sans-serif;
+  color: #f6f1e0;
+  font-family: Georgia, 'Times New Roman', serif;
+  /* зелёное сукно: радиальный свет + лёгкая «ткань» из диагональных линий */
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 4px),
+    radial-gradient(ellipse at center, #1f7a48 0%, #0d4a2a 60%, #062a18 100%);
+  background-attachment: fixed;
 }
 
 .app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  padding: 20px;
+  gap: 18px;
+  padding: 24px 16px 40px;
 }
 
 h1 {
   margin: 0;
-  letter-spacing: 2px;
+  font-size: 2.6rem;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--gold-light), var(--gold) 50%, var(--gold-dark));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
 }
+
+/* ---------- колесо ---------- */
 
 .wheel-box {
   position: relative;
   width: min(85vw, 460px);
   aspect-ratio: 1;
+  padding: 10px;
+  border-radius: 50%;
+  /* золотой обод */
+  background: conic-gradient(var(--gold-light), var(--gold-dark), var(--gold-light), var(--gold-dark), var(--gold-light));
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.7);
 }
 
 #wheel {
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
   /* само вращение: JS меняет transform, а CSS плавно анимирует */
   transition: transform 5s cubic-bezier(0.15, 0.6, 0.1, 1);
 }
@@ -44,71 +70,46 @@ h1 {
 /* неподвижная стрелка сверху */
 .pointer {
   position: absolute;
-  top: -8px;
+  top: -10px;
   left: 50%;
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-left: 14px solid transparent;
-  border-right: 14px solid transparent;
-  border-top: 28px solid #ffd54a;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 32px solid var(--gold-light);
   z-index: 2;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
 }
 
-button {
-  padding: 12px 40px;
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #1b1b1b;
-  background: #ffd54a;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: #ffe27d;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.result {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1.3rem;
-  min-height: 48px;
-}
-
-.result-number {
-  min-width: 48px;
-  padding: 4px 12px;
-  text-align: center;
-  font-weight: 700;
-  border-radius: 8px;
-  background: #444;
-}
-
-.result-number.red   { background: #c62828; }
-.result-number.black { background: #111; }
-.result-number.green { background: #1b8f3a; }
+/* ---------- баланс и панели ---------- */
 
 .balance {
+  padding: 8px 22px;
   font-size: 1.2rem;
+  border: 2px solid var(--gold);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
 }
+
+.balance strong {
+  color: var(--gold-light);
+  font-size: 1.4rem;
+}
+
+.balance.win  { animation: flash-win 1.2s ease-out; }
+.balance.lose { animation: flash-lose 1.2s ease-out; }
 
 .bets {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: min(92vw, 460px);
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
+  gap: 12px;
+  width: min(92vw, 480px);
+  padding: 16px;
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 .row {
@@ -123,24 +124,42 @@ input[type="number"] {
   padding: 6px 8px;
   font-size: 1rem;
   border-radius: 6px;
-  border: 1px solid #555;
-  background: #fff;
+  border: 1px solid var(--gold-dark);
+  background: #fffaf0;
   color: #111;
 }
 
-.chip, .bet {
-  padding: 6px 14px;
-  font-size: 1rem;
-  font-weight: 600;
+/* фишки выбора суммы — круглые, с золотой каймой */
+.chip {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  font: 700 0.95rem Georgia, serif;
   color: #fff;
-  background: #3a5a48;
-  border: 1px solid #6f8f7d;
-  border-radius: 8px;
+  background: radial-gradient(circle, #2b2b6b 55%, #1a1a45 56%);
+  border: 3px dashed var(--gold-light);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
 }
 
-.chip:hover:not(:disabled), .bet:hover:not(:disabled) { background: #4b7560; }
-.bet-red   { background: #c62828; border-color: #e57373; }
-.bet-black { background: #111; border-color: #666; }
+.chip:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.bet {
+  padding: 8px 16px;
+  font: 700 1rem Georgia, serif;
+  color: #fff;
+  background: #1f5a3a;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.bet:hover:not(:disabled) { background: #2a7a4d; }
+.bet-red   { background: var(--red); }
+.bet-black { background: var(--black); }
 .bet-red:hover:not(:disabled)   { background: #e53935; }
 .bet-black:hover:not(:disabled) { background: #2a2a2a; }
 
@@ -153,14 +172,145 @@ input[type="number"] {
 .link {
   padding: 0;
   font-size: 0.9rem;
-  font-weight: 400;
-  color: #ffd54a;
+  color: var(--gold-light);
   background: none;
+  border: none;
   text-decoration: underline;
+  cursor: pointer;
 }
 
-.message { min-height: 1.4em; font-weight: 600; }
+.message {
+  min-height: 1.4em;
+  font-weight: 700;
+  text-align: center;
+}
+
 .message.win  { color: #7dff9b; }
 .message.lose { color: #ff8a80; }
+
+/* ---------- главная кнопка ---------- */
+
+#spin, #restart {
+  padding: 14px 52px;
+  font: 700 1.3rem Georgia, serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #3a2a00;
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+  border: 2px solid #fff3b0;
+  border-radius: 999px;
+  box-shadow: 0 5px 0 #6b5212, 0 10px 20px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s, filter 0.2s;
+}
+
+#spin:hover:not(:disabled), #restart:hover {
+  filter: brightness(1.1);
+}
+
+#spin:active:not(:disabled), #restart:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #6b5212, 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- результат и история ---------- */
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.3rem;
+  min-height: 48px;
+}
+
+.result-number {
+  min-width: 52px;
+  padding: 4px 12px;
+  text-align: center;
+  font-weight: 700;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: #444;
+}
+
+.result-number.red   { background: var(--red); }
+.result-number.black { background: var(--black); }
+.result-number.green { background: var(--green); }
+
+.history {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-title {
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+}
+
+.history-list {
+  display: flex;
+  gap: 6px;
+  min-height: 38px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-list li {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+}
+
+.history-list li.red   { background: var(--red); }
+.history-list li.black { background: var(--black); }
+.history-list li.green { background: var(--green); }
+.history-list li:first-child { box-shadow: 0 0 10px var(--gold-light); }
+
+.history-empty {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- подсветка выигрыша / проигрыша ---------- */
+
+.app.win  .wheel-box { animation: glow-win 1.6s ease-out; }
+.app.lose .wheel-box { animation: glow-lose 1.6s ease-out; }
+
+@keyframes glow-win {
+  0%, 40% { box-shadow: 0 0 50px 16px rgba(80, 255, 130, 0.9); }
+  100%    { box-shadow: 0 10px 35px rgba(0, 0, 0, 0.7); }
+}
+
+@keyframes glow-lose {
+  0%, 40% { box-shadow: 0 0 50px 16px rgba(255, 60, 60, 0.85); }
+  100%    { box-shadow: 0 10px 35px rgba(0, 0, 0, 0.7); }
+}
+
+@keyframes flash-win {
+  0%, 40% { background: rgba(60, 200, 100, 0.85); }
+  100%    { background: rgba(0, 0, 0, 0.45); }
+}
+
+@keyframes flash-lose {
+  0%, 40% { background: rgba(200, 50, 50, 0.85); }
+  100%    { background: rgba(0, 0, 0, 0.45); }
+}
 
 [hidden] { display: none !important; }
