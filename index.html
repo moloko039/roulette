@@ -10,12 +10,21 @@
   <main class="app">
     <h1>Депная</h1>
 
-    <div class="wheel-box">
-      <div class="pointer"></div>
-      <canvas id="wheel" width="600" height="600"></canvas>
-    </div>
-
     <div class="balance">Баланс: <strong id="balance">1000</strong> фишек</div>
+
+    <section class="history">
+      <span class="history-title">Последние числа</span>
+      <ol class="history-list" id="history-list"></ol>
+    </section>
+
+    <!-- колесо и стол — единый игровой стол -->
+    <section class="casino">
+      <div class="wheel-box">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="600" height="600"></canvas>
+      </div>
+      <div class="table" id="table" aria-label="Стол"></div>
+    </section>
 
     <section class="bets" id="bets">
       <div class="row">
@@ -26,11 +35,9 @@
         <button type="button" class="chip" data-amount="100">100</button>
         <button type="button" class="chip" data-amount="500">500</button>
       </div>
-      <div class="table" id="table" aria-label="Стол"></div>
-      <div class="placed">
-        <span>Ваши ставки:</span>
-        <ul id="bet-list"></ul>
-        <button type="button" class="link" id="clear-bets">Убрать ставки</button>
+      <div class="row">
+        <button type="button" class="action" id="repeat-bets">Повторить ставку</button>
+        <button type="button" class="action" id="clear-bets">Убрать ставки</button>
       </div>
       <div class="message" id="message" aria-live="polite"></div>
     </section>
@@ -43,11 +50,6 @@
       <span class="result-number" id="result-number">—</span>
       <span class="result-color" id="result-color"></span>
     </div>
-
-    <section class="history">
-      <span class="history-title">Последние числа</span>
-      <ol class="history-list" id="history-list"></ol>
-    </section>
   </main>
   <script src="script.js"></script>
 </body>
