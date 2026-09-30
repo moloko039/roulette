@@ -31,14 +31,22 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 24px 16px 40px;
+  gap: 12px;
+  padding: 12px 16px 20px;
+}
+
+.header, .info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 28px;
 }
 
 h1 {
   margin: 0;
-  font-size: 2.6rem;
-  letter-spacing: 6px;
+  font-size: 2rem;
+  letter-spacing: 5px;
   text-transform: uppercase;
   background: linear-gradient(180deg, var(--accent-light), var(--accent) 50%, var(--accent-dark));
   -webkit-background-clip: text;
@@ -52,12 +60,9 @@ h1 {
 .wheel-box {
   position: relative;
   flex: 0 0 auto;
-  width: min(86vw, 420px);
+  width: min(86vw, 330px);
   aspect-ratio: 1;
-  padding: 10px;
   border-radius: 50%;
-  /* золотой обод */
-  background: conic-gradient(var(--accent-light), var(--accent-dark), var(--accent-light), var(--accent-dark), var(--accent-light));
   box-shadow: var(--wheel-shadow);
 }
 
@@ -66,23 +71,20 @@ h1 {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  /* само вращение: JS меняет transform, а CSS плавно анимирует */
-  transition: transform 5s cubic-bezier(0.15, 0.6, 0.1, 1);
 }
 
-/* неподвижная стрелка сверху */
-.pointer {
+/* шарик: положение задаёт скрипт */
+.ball {
   position: absolute;
-  top: -10px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 15px solid transparent;
-  border-right: 15px solid transparent;
-  border-top: 32px solid var(--accent-light);
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #cfd8dc 55%, #78909c);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
   z-index: 2;
-  filter: drop-shadow(0 0 6px var(--accent));
 }
 
 /* ---------- баланс и панели ---------- */
@@ -106,10 +108,12 @@ h1 {
 
 .bets {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: min(92vw, 480px);
-  padding: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 22px;
+  max-width: 92vw;
+  padding: 10px 18px;
   border: 2px solid var(--accent);
   border-radius: 14px;
   background: rgba(8, 14, 24, 0.7);
@@ -159,7 +163,7 @@ input[type="number"] {
   justify-content: center;
   align-items: center;
   gap: 24px;
-  padding: 22px;
+  padding: 16px 20px;
   border: 3px solid var(--accent);
   border-radius: 28px;
   background: linear-gradient(160deg, #0f1c2e, #080d16);
@@ -167,28 +171,16 @@ input[type="number"] {
 }
 
 .table {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: min(86vw, 280px);
-}
-
-.numbers {
   display: grid;
-  grid-template-columns: 1.2fr repeat(3, 1fr);
-  grid-auto-rows: 36px;
+  grid-template-columns: 54px repeat(12, 1fr);
+  grid-auto-rows: 42px;
   gap: 3px;
-}
-
-.outside {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
+  width: min(92vw, 660px);
 }
 
 .cell {
   position: relative;
-  min-height: 36px;
+  min-height: 0;
   padding: 0;
   font: 700 1.05rem Georgia, serif;
   color: #fff;
@@ -237,7 +229,7 @@ input[type="number"] {
 .action:hover:not(:disabled) { background: rgba(63, 208, 232, 0.18); }
 
 .message {
-  min-height: 1.4em;
+  flex: 1 1 220px;
   font-weight: 700;
   text-align: center;
 }
@@ -248,7 +240,7 @@ input[type="number"] {
 /* ---------- главная кнопка ---------- */
 
 #spin, #loan-btn {
-  padding: 14px 52px;
+  padding: 10px 48px;
   font: 700 1.3rem Georgia, serif;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -281,8 +273,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 1.3rem;
-  min-height: 48px;
+  font-size: 1.1rem;
 }
 
 .result-number {
@@ -302,9 +293,8 @@ button:disabled {
 
 .history {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .history-title {
@@ -317,15 +307,15 @@ button:disabled {
 .history-list {
   display: flex;
   gap: 6px;
-  min-height: 38px;
+  min-height: 32px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .history-list li {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -374,7 +364,7 @@ button:disabled {
 
 [hidden] { display: none !important; }
 
-.outside .cell { font-size: 0.78rem; }
+.cell.outside { font-size: 0.9rem; }
 
 .history-list li.history-empty {
   box-shadow: none !important;

@@ -8,27 +8,35 @@
 </head>
 <body>
   <main class="app">
-    <h1>Депная</h1>
+    <header class="header">
+      <h1>Депная</h1>
+      <div class="balance">Баланс: <strong id="balance">1000</strong> фишек</div>
+    </header>
 
-    <div class="balance">Баланс: <strong id="balance">1000</strong> фишек</div>
-
-    <section class="history">
-      <span class="history-title">Последние числа</span>
-      <ol class="history-list" id="history-list"></ol>
-    </section>
+    <div class="info">
+      <div class="result" id="result" aria-live="polite">
+        <span class="result-label">Выпало:</span>
+        <span class="result-number" id="result-number">—</span>
+        <span class="result-color" id="result-color"></span>
+      </div>
+      <section class="history">
+        <span class="history-title">Последние числа</span>
+        <ol class="history-list" id="history-list"></ol>
+      </section>
+    </div>
 
     <!-- колесо и стол — единый игровой стол -->
     <section class="casino">
       <div class="wheel-box">
-        <div class="pointer"></div>
         <canvas id="wheel" width="600" height="600"></canvas>
+        <div class="ball" id="ball"></div>
       </div>
       <div class="table" id="table" aria-label="Стол"></div>
     </section>
 
     <section class="bets" id="bets">
       <div class="row">
-        <label for="amount">Сумма ставки:</label>
+        <label for="amount">Ставка:</label>
         <input id="amount" type="number" min="1" step="1" value="10">
         <button type="button" class="chip" data-amount="10">10</button>
         <button type="button" class="chip" data-amount="50">50</button>
@@ -43,12 +51,6 @@
     </section>
 
     <button id="spin" type="button">Крутить</button>
-
-    <div class="result" id="result" aria-live="polite">
-      <span class="result-label">Выпало:</span>
-      <span class="result-number" id="result-number">—</span>
-      <span class="result-color" id="result-color"></span>
-    </div>
   </main>
 
   <!-- поверх размытого фона, когда фишки закончились -->

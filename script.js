@@ -12,7 +12,7 @@ const COLOR_HEX = { red: '#c62828', black: '#111111', green: '#1b8f3a' };
 const COLOR_NAME = { red: 'красное', black: 'чёрное', green: 'зелёное (зеро)' };
 
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
-const SPIN_TIME_MS = 5000;               // должно совпадать с transition в style.css
+const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
 
 const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
@@ -33,7 +33,14 @@ const loanBtn = document.getElementById('loan-btn');
 const LOAN_AMOUNT = 1000;
 const betsPanel = document.getElementById('bets');
 
-let rotation = 0; // сколько градусов колесо прокрутили всего
+let wheelAngle = 0;  // поворот колеса, градусы (по часовой от верха)
+let ballRel = 0;     // положение шарика относительно колеса, градусы
+let ballRadius = 0;  // расстояние шарика от центра, в долях радиуса колеса
+
+const ballEl = document.getElementById('ball');
+const wheelBox = document.querySelector('.wheel-box');
+const BALL_TRACK = 0.955;  // радиус, по которому шарик катится по ободу
+const BALL_POCKET = 0.885; // радиус, на котором он лежит в ячейке
 let balance = START_BALANCE;
 let bets = []; // { type, value, amount }
 let lastBets = []; // ставки предыдущего раунда — для кнопки «Повторить»
@@ -55,10 +62,21 @@ function drawWheel() {
   const size = canvas.width;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = size / 2 - 4;
+  const outer = size / 2;       // внешний край обода
+  const radius = outer - 22;    // внешний край секторов — обод одинаковой толщины со всех сторон
   const rad = (deg) => (deg * Math.PI) / 180;
 
   ctx.clearRect(0, 0, size, size);
+
+  // Обод рисуем прямо на колесе: он вращается вместе с ним и везде одинаков
+  const rim = ctx.createRadialGradient(cx, cy, radius, cx, cy, outer);
+  rim.addColorStop(0, '#1c7f99');
+  rim.addColorStop(0.5, '#a8f0ff');
+  rim.addColorStop(1, '#3fd0e8');
+  ctx.beginPath();
+  ctx.arc(cx, cy, outer, 0, Math.PI * 2);
+  ctx.fillStyle = rim;
+  ctx.fill();
 
   WHEEL_ORDER.forEach((num, i) => {
     // в canvas угол 0 — справа, поэтому сдвигаем на -90°, чтобы считать от верха
@@ -86,6 +104,13 @@ function drawWheel() {
     ctx.fillText(String(num), 0, -radius + 34);
     ctx.restore();
   });
+
+  // тонкая линия по границе секторов и обода
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = '#0b121c';
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
   // центр колеса
   ctx.beginPath();
@@ -143,31 +168,29 @@ function buildTable() {
     parent.appendChild(btn);
   };
 
-  // Сетка 4 колонки: слева сектора-дюжины, справа числа по три в ряд, сверху 0
-  const numbers = document.createElement('div');
-  numbers.className = 'numbers';
-  addCell(numbers, 'zero green', '0', 'number', 0, { row: '1', col: '2 / 5' });
+  // Сетка 13 колонок: слева 0, дальше 12 колонок по три числа.
+  // Ряд 1: 3, 6, 9…  ряд 2: 2, 5, 8…  ряд 3: 1, 4, 7…  ряд 4: сектора  ряд 5: внешние ставки
+  addCell(tableEl, 'green', '0', 'number', 0, { row: '1 / span 3', col: '1' });
   for (let n = 1; n <= 36; n++) {
-    addCell(numbers, getColor(n), String(n), 'number', n, {
-      row: String(Math.ceil(n / 3) + 1),
-      col: String(((n - 1) % 3) + 2)
+    addCell(tableEl, getColor(n), String(n), 'number', n, {
+      row: String(3 - ((n - 1) % 3)),
+      col: String(Math.ceil(n / 3) + 1)
     });
   }
   for (let d = 1; d <= 3; d++) {
-    addCell(numbers, 'dozen', DOZEN_NAME[d], 'dozen', d, {
-      row: `${2 + (d - 1) * 4} / span 4`,
-      col: '1'
+    addCell(tableEl, 'dozen', DOZEN_NAME[d], 'dozen', d, {
+      row: '4',
+      col: `${2 + (d - 1) * 4} / span 4`
     });
   }
-  tableEl.appendChild(numbers);
-
-  const outside = document.createElement('div');
-  outside.className = 'outside';
-  addCell(outside, 'red', 'Красное', 'red');
-  addCell(outside, 'black', 'Чёрное', 'black');
-  addCell(outside, 'plain', 'Чёт', 'even');
-  addCell(outside, 'plain', 'Нечет', 'odd');
-  tableEl.appendChild(outside);
+  [
+    ['plain', 'Чёт', 'even'],
+    ['red', 'Красное', 'red'],
+    ['black', 'Чёрное', 'black'],
+    ['plain', 'Нечет', 'odd']
+  ].forEach(([cls, label, type], i) => {
+    addCell(tableEl, cls + ' outside', label, type, null, { row: '5', col: `${2 + i * 3} / span 3` });
+  });
 }
 
 // Кладём на клетки стола фишки с суммой ставки
@@ -277,6 +300,73 @@ function settleBets(n) {
   return returned - staked;
 }
 
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+
+// Шарик подпрыгивает, прежде чем успокоиться в ячейке
+function easeOutBounce(t) {
+  const n = 7.5625;
+  const d = 2.75;
+  if (t < 1 / d) return n * t * t;
+  if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
+  if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
+  return n * (t -= 2.625 / d) * t + 0.984375;
+}
+
+// Ставит колесо и шарик в нужное положение
+function renderSpin() {
+  canvas.style.transform = `rotate(${wheelAngle}deg)`;
+  const theta = ((wheelAngle + ballRel) * Math.PI) / 180;
+  const half = wheelBox.clientWidth / 2;
+  const x = Math.sin(theta) * ballRadius * half;
+  const y = -Math.cos(theta) * ballRadius * half;
+  ballEl.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+}
+
+// Шарик (angle, radius) считается относительно колеса: сначала он несётся по ободу
+// против вращения колеса, затем падает вниз и, попрыгав, замирает в ячейке.
+// Так он всегда заканчивает в нужной ячейке и дальше едет вместе с колесом.
+function animateSpin(index, onDone) {
+  const finalRel = index * SECTOR;
+  const wheelStart = wheelAngle;
+  const wheelTravel = 720 + Math.random() * 360;
+  const laps = 7 + Math.floor(Math.random() * 3);
+  // стартовое положение шарика: ячейка прошлого результата, откуда он взлетает
+  const back = (((ballRel - finalRel) % 360) + 360) % 360;
+  const startRel = finalRel + back - laps * 360;
+  const startRadius = ballRadius;
+  const t0 = performance.now();
+
+  function frame(now) {
+    const p = Math.min((now - t0) / SPIN_TIME_MS, 1);
+    const e = easeOutCubic(p);
+    wheelAngle = wheelStart + wheelTravel * e;
+
+    let rel = finalRel + (startRel - finalRel) * (1 - e);
+    if (p < 0.04) {
+      const u = p / 0.04; // взлёт на обод
+      ballRadius = startRadius + (BALL_TRACK - startRadius) * (u * u * (3 - 2 * u));
+    } else if (p < 0.6) {
+      ballRadius = BALL_TRACK;
+    } else {
+      const q = (p - 0.6) / 0.4; // падение в ячейки
+      ballRadius = BALL_TRACK + (BALL_POCKET - BALL_TRACK) * easeOutBounce(q);
+      rel += SECTOR * 1.6 * Math.sin(q * Math.PI * 5) * Math.pow(1 - q, 2);
+    }
+    ballRel = rel;
+    renderSpin();
+
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      ballRel = finalRel;
+      ballRadius = BALL_POCKET;
+      renderSpin();
+      onDone();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
 function spin() {
   if (bets.length === 0) {
     setMessage('Сначала сделайте ставку', 'lose');
@@ -290,20 +380,8 @@ function spin() {
   const index = Math.floor(Math.random() * WHEEL_ORDER.length);
   const winner = WHEEL_ORDER[index];
 
-  // 2. Считаем, на какой угол надо повернуть колесо, чтобы этот сектор
-  //    оказался под стрелкой. Небольшой случайный сдвиг внутри сектора
-  //    делает остановку более «живой».
-  const jitter = (Math.random() - 0.5) * SECTOR * 0.7;
-  const targetMod = (360 - index * SECTOR + jitter + 360) % 360;
-  const currentMod = ((rotation % 360) + 360) % 360;
-  const delta = (targetMod - currentMod + 360) % 360;
-  const fullTurns = 5 + Math.floor(Math.random() * 3); // 5–7 полных оборотов
-
-  rotation += fullTurns * 360 + delta;
-  canvas.style.transform = `rotate(${rotation}deg)`;
-
-  // 3. Когда анимация закончилась — показываем результат
-  setTimeout(() => showResult(winner), SPIN_TIME_MS + 100);
+  // 2. Крутим колесо и пускаем шарик; он упадёт именно в ячейку выбранного числа
+  animateSpin(index, () => showResult(winner));
 }
 
 function showResult(n) {
@@ -341,6 +419,9 @@ function takeLoan() {
 }
 
 drawWheel();
+ballRadius = BALL_POCKET;
+renderSpin();
+window.addEventListener('resize', renderSpin);
 buildTable();
 renderBalance();
 renderBets();
