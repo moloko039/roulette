@@ -21,13 +21,12 @@ const numberEl = document.getElementById('result-number');
 const colorEl = document.getElementById('result-color');
 
 const START_BALANCE = 1000;
-const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, number: 35 }; // выплата «N к 1»
-const BET_NAME = { red: 'Красное', black: 'Чёрное', even: 'Чёт', odd: 'Нечет' };
+const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, dozen: 2, number: 35 }; // выплата «N к 1»
+const DOZEN_NAME = { 1: '1–12', 2: '13–24', 3: '25–36' };
 
 const balanceEl = document.getElementById('balance');
 const amountEl = document.getElementById('amount');
 const tableEl = document.getElementById('table');
-const betListEl = document.getElementById('bet-list');
 const messageEl = document.getElementById('message');
 const restartBtn = document.getElementById('restart');
 const betsPanel = document.getElementById('bets');
@@ -35,6 +34,7 @@ const betsPanel = document.getElementById('bets');
 let rotation = 0; // сколько градусов колесо прокрутили всего
 let balance = START_BALANCE;
 let bets = []; // { type, value, amount }
+let lastBets = []; // ставки предыдущего раунда — для кнопки «Повторить»
 
 const HISTORY_SIZE = 10;
 const historyEl = document.getElementById('history-list');
@@ -125,17 +125,15 @@ function renderBalance() {
   balanceEl.textContent = balance;
 }
 
-function betLabel(b) {
-  return b.type === 'number' ? `Число ${b.value}` : BET_NAME[b.type];
-}
-
 // Строим стол: 0, числа 1–36 по три в ряд и внешние ставки
 function buildTable() {
-  const addCell = (parent, cls, label, type, value = null) => {
+  const addCell = (parent, cls, label, type, value = null, place = {}) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'cell ' + cls;
     btn.dataset.key = `${type}:${value}`;
+    if (place.row) btn.style.gridRow = place.row;
+    if (place.col) btn.style.gridColumn = place.col;
     const text = document.createElement('span');
     text.textContent = label;
     btn.appendChild(text);
@@ -143,11 +141,21 @@ function buildTable() {
     parent.appendChild(btn);
   };
 
+  // Сетка 4 колонки: слева сектора-дюжины, справа числа по три в ряд, сверху 0
   const numbers = document.createElement('div');
   numbers.className = 'numbers';
-  addCell(numbers, 'zero green', '0', 'number', 0);
+  addCell(numbers, 'zero green', '0', 'number', 0, { row: '1', col: '2 / 5' });
   for (let n = 1; n <= 36; n++) {
-    addCell(numbers, getColor(n), String(n), 'number', n);
+    addCell(numbers, getColor(n), String(n), 'number', n, {
+      row: String(Math.ceil(n / 3) + 1),
+      col: String(((n - 1) % 3) + 2)
+    });
+  }
+  for (let d = 1; d <= 3; d++) {
+    addCell(numbers, 'dozen', DOZEN_NAME[d], 'dozen', d, {
+      row: `${2 + (d - 1) * 4} / span 4`,
+      col: '1'
+    });
   }
   tableEl.appendChild(numbers);
 
@@ -176,18 +184,6 @@ function renderChips() {
 
 function renderBets() {
   renderChips();
-  betListEl.innerHTML = '';
-  if (bets.length === 0) {
-    const li = document.createElement('li');
-    li.textContent = 'пока нет';
-    betListEl.appendChild(li);
-    return;
-  }
-  bets.forEach((b) => {
-    const li = document.createElement('li');
-    li.textContent = `${betLabel(b)} — ${b.amount}`;
-    betListEl.appendChild(li);
-  });
 }
 
 function setMessage(text, kind = '') {
@@ -197,7 +193,7 @@ function setMessage(text, kind = '') {
 
 // Блокирует/разблокирует все кнопки и поля ставок
 function setBettingEnabled(enabled) {
-  betsPanel.querySelectorAll('button, input').forEach((el) => {
+  document.querySelectorAll('#bets button, #bets input, #table button').forEach((el) => {
     el.disabled = !enabled;
   });
   spinBtn.disabled = !enabled;
@@ -227,6 +223,25 @@ function placeBet(type, value = null) {
   renderBets();
 }
 
+// Повторяет ставки прошлого раунда (текущие ставки заменяются)
+function repeatBets() {
+  if (lastBets.length === 0) {
+    setMessage('Нет прошлой ставки для повтора', 'lose');
+    return;
+  }
+  const current = bets.reduce((sum, b) => sum + b.amount, 0);
+  const needed = lastBets.reduce((sum, b) => sum + b.amount, 0);
+  if (needed > balance + current) {
+    setMessage('Недостаточно фишек для повтора ставки', 'lose');
+    return;
+  }
+  balance += current - needed;
+  bets = lastBets.map((b) => ({ ...b }));
+  setMessage('');
+  renderBalance();
+  renderBets();
+}
+
 function clearBets() {
   balance += bets.reduce((sum, b) => sum + b.amount, 0);
   bets = [];
@@ -242,6 +257,7 @@ function isWinning(b, n) {
     case 'black':  return getColor(n) === 'black';
     case 'even':   return n !== 0 && n % 2 === 0;
     case 'odd':    return n % 2 === 1;
+    case 'dozen':  return n !== 0 && Math.ceil(n / 12) === b.value;
     case 'number': return n === b.value;
   }
 }
@@ -264,6 +280,7 @@ function spin() {
     setMessage('Сначала сделайте ставку', 'lose');
     return;
   }
+  lastBets = bets.map((b) => ({ ...b }));
   setBettingEnabled(false);
   setMessage('');
 
@@ -307,7 +324,7 @@ function showResult(n) {
 
   if (balance === 0) {
     // фишки закончились — прячем ставки и предлагаем начать заново
-    betsPanel.querySelectorAll('.row, .table, .placed').forEach((el) => (el.hidden = true));
+    document.querySelectorAll('#bets .row, #table').forEach((el) => (el.hidden = true));
     spinBtn.hidden = true;
     restartBtn.hidden = false;
     setMessage('Фишки закончились. Игра окончена.', 'lose');
@@ -319,12 +336,13 @@ function showResult(n) {
 function restart() {
   balance = START_BALANCE;
   bets = [];
+  lastBets = [];
   numberEl.textContent = '—';
   numberEl.className = 'result-number';
   colorEl.textContent = '';
   spinHistory = [];
   renderHistory();
-  betsPanel.querySelectorAll('.row, .table, .placed').forEach((el) => (el.hidden = false));
+  document.querySelectorAll('#bets .row, #table').forEach((el) => (el.hidden = false));
   restartBtn.hidden = true;
   spinBtn.hidden = false;
   setBettingEnabled(true);
@@ -341,6 +359,7 @@ renderHistory();
 spinBtn.addEventListener('click', spin);
 restartBtn.addEventListener('click', restart);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
+document.getElementById('repeat-bets').addEventListener('click', repeatBets);
 betsPanel.querySelectorAll('.chip').forEach((btn) => {
   btn.addEventListener('click', () => {
     amountEl.value = btn.dataset.amount;
