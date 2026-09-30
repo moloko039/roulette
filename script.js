@@ -36,6 +36,12 @@ let rotation = 0; // сколько градусов колесо прокрут
 let balance = START_BALANCE;
 let bets = []; // { type, value, amount }
 
+const HISTORY_SIZE = 10;
+const historyEl = document.getElementById('history-list');
+const appEl = document.querySelector('.app');
+const balanceBox = document.querySelector('.balance');
+let spinHistory = []; // последние выпавшие числа, новое — первым
+
 function getColor(n) {
   if (n === 0) return 'green';
   return RED_NUMBERS.has(n) ? 'red' : 'black';
@@ -87,6 +93,32 @@ function drawWheel() {
   ctx.strokeStyle = '#d9b84a';
   ctx.lineWidth = 4;
   ctx.stroke();
+}
+
+function renderHistory() {
+  historyEl.innerHTML = '';
+  if (spinHistory.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'history-empty';
+    li.textContent = 'пока пусто';
+    historyEl.appendChild(li);
+    return;
+  }
+  spinHistory.forEach((n) => {
+    const li = document.createElement('li');
+    li.className = getColor(n);
+    li.textContent = n;
+    historyEl.appendChild(li);
+  });
+}
+
+// Подсветка результата раунда: зелёная при выигрыше, красная при проигрыше
+function flash(net) {
+  const kind = net > 0 ? 'win' : net < 0 ? 'lose' : '';
+  [appEl, balanceBox].forEach((el) => el.classList.remove('win', 'lose'));
+  if (!kind) return;
+  void appEl.offsetWidth; // перезапускаем CSS-анимацию
+  [appEl, balanceBox].forEach((el) => el.classList.add(kind));
 }
 
 function renderBalance() {
@@ -215,9 +247,14 @@ function showResult(n) {
   numberEl.className = 'result-number ' + color;
   colorEl.textContent = COLOR_NAME[color];
 
+  spinHistory.unshift(n);
+  spinHistory.length = Math.min(spinHistory.length, HISTORY_SIZE);
+  renderHistory();
+
   const net = settleBets(n);
   renderBalance();
   renderBets();
+  flash(net);
   if (net > 0) setMessage(`Вы выиграли ${net} фишек!`, 'win');
   else if (net < 0) setMessage(`Вы проиграли ${-net} фишек`, 'lose');
   else setMessage('Ничья: ставки вернулись', '');
@@ -239,6 +276,8 @@ function restart() {
   numberEl.textContent = '—';
   numberEl.className = 'result-number';
   colorEl.textContent = '';
+  spinHistory = [];
+  renderHistory();
   betsPanel.querySelectorAll('.row, .placed').forEach((el) => (el.hidden = false));
   restartBtn.hidden = true;
   spinBtn.hidden = false;
@@ -251,6 +290,7 @@ function restart() {
 drawWheel();
 renderBalance();
 renderBets();
+renderHistory();
 spinBtn.addEventListener('click', spin);
 restartBtn.addEventListener('click', restart);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
