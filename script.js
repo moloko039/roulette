@@ -51,6 +51,35 @@ const appEl = document.querySelector('.app');
 const balanceBox = document.querySelector('.balance');
 let spinHistory = []; // последние выпавшие числа, новое — первым
 
+const STORAGE_KEY = 'depnaya-state';
+
+// Сохраняем состояние после раунда: баланс, выпавшие числа и ставки последнего раунда
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ balance, spinHistory, lastBets }));
+  } catch (e) {
+    // localStorage может быть недоступен — игра просто работает без сохранения
+  }
+}
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved) return;
+    if (Number.isInteger(saved.balance) && saved.balance >= 0) balance = saved.balance;
+    if (Array.isArray(saved.spinHistory)) {
+      spinHistory = saved.spinHistory.filter((n) => WHEEL_ORDER.includes(n)).slice(0, HISTORY_SIZE);
+    }
+    if (Array.isArray(saved.lastBets)) {
+      lastBets = saved.lastBets.filter(
+        (b) => b && b.type in PAYOUT && Number.isInteger(b.amount) && b.amount > 0
+      );
+    }
+  } catch (e) {
+    // повреждённые данные игнорируем и начинаем с начального состояния
+  }
+}
+
 function getColor(n) {
   if (n === 0) return 'green';
   return RED_NUMBERS.has(n) ? 'red' : 'black';
@@ -397,6 +426,7 @@ function showResult(n) {
   const net = settleBets(n);
   renderBalance();
   renderBets();
+  saveState();
   flash(net);
   if (net > 0) setMessage(`Вы выиграли ${net} фишек!`, 'win');
   else if (net < 0) setMessage(`Вы проиграли ${-net} фишек`, 'lose');
@@ -416,8 +446,10 @@ function takeLoan() {
   setBettingEnabled(true);
   setMessage('');
   renderBalance();
+  saveState();
 }
 
+loadState();
 drawWheel();
 ballRadius = BALL_POCKET;
 renderSpin();
@@ -426,6 +458,10 @@ buildTable();
 renderBalance();
 renderBets();
 renderHistory();
+if (balance === 0) {
+  loanOverlay.hidden = false;
+  setBettingEnabled(false);
+}
 spinBtn.addEventListener('click', spin);
 loanBtn.addEventListener('click', takeLoan);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
