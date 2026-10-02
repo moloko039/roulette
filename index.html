@@ -2,56 +2,51 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Депная</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
-    <header class="header">
-      <h1>Депная</h1>
-      <div class="balance">Баланс: <strong id="balance">1000</strong> фишек</div>
+    <header class="top">
+      <div class="balance">Баланс: <strong id="balance">1000</strong></div>
+      <div class="result" id="result" aria-live="polite">
+        <span class="result-label">Выпало</span>
+        <span class="result-number" id="result-number">—</span>
+      </div>
     </header>
 
-    <div class="info">
-      <div class="result" id="result" aria-live="polite">
-        <span class="result-label">Выпало:</span>
-        <span class="result-number" id="result-number">—</span>
-        <span class="result-color" id="result-color"></span>
-      </div>
-      <section class="history">
-        <span class="history-title">Последние числа</span>
-        <ol class="history-list" id="history-list"></ol>
-      </section>
-    </div>
+    <ol class="history-list" id="history-list" aria-label="Последние числа"></ol>
 
-    <!-- колесо и стол — единый игровой стол -->
-    <section class="casino">
-      <div class="wheel-box">
-        <canvas id="wheel" width="600" height="600"></canvas>
-        <div class="ball" id="ball"></div>
-      </div>
-      <div class="table" id="table" aria-label="Стол"></div>
-    </section>
+    <div class="table" id="table" aria-label="Стол"></div>
+
+    <div class="message" id="message" aria-live="polite"></div>
 
     <section class="bets" id="bets">
       <div class="row">
-        <label for="amount">Ставка:</label>
-        <input id="amount" type="number" min="1" step="1" value="10">
+        <input id="amount" type="number" inputmode="numeric" min="1" step="1" value="10" aria-label="Сумма ставки">
         <button type="button" class="chip" data-amount="10">10</button>
         <button type="button" class="chip" data-amount="50">50</button>
         <button type="button" class="chip" data-amount="100">100</button>
         <button type="button" class="chip" data-amount="500">500</button>
       </div>
       <div class="row">
-        <button type="button" class="action" id="repeat-bets">Повторить ставку</button>
-        <button type="button" class="action" id="clear-bets">Убрать ставки</button>
+        <button type="button" class="action" id="repeat-bets">Повтор</button>
+        <button type="button" class="action" id="clear-bets">Убрать</button>
+        <button id="spin" type="button">Крутить</button>
       </div>
-      <div class="message" id="message" aria-live="polite"></div>
     </section>
-
-    <button id="spin" type="button">Крутить</button>
   </main>
+
+  <!-- колесо показывается поверх стола только во время вращения -->
+  <div class="wheel-layer" id="wheel-layer" aria-hidden="true">
+    <div class="wheel-box">
+      <canvas id="wheel" width="600" height="600"></canvas>
+      <div class="ball" id="ball"></div>
+    </div>
+    <div class="layer-result" id="layer-result"></div>
+  </div>
 
   <!-- поверх размытого фона, когда фишки закончились -->
   <div class="loan" id="loan" hidden>
