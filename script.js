@@ -9,7 +9,6 @@ const RED_NUMBERS = new Set([
 ]);
 
 const COLOR_HEX = { red: '#c62828', black: '#111111', green: '#1b8f3a' };
-const COLOR_NAME = { red: 'красное', black: 'чёрное', green: 'зелёное (зеро)' };
 
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
 const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
@@ -18,11 +17,12 @@ const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
 const spinBtn = document.getElementById('spin');
 const numberEl = document.getElementById('result-number');
-const colorEl = document.getElementById('result-color');
 
 const START_BALANCE = 1000;
-const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, dozen: 2, number: 35 }; // выплата «N к 1»
+const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, dozen: 2, column: 2, number: 35 }; // выплата «N к 1»
 const DOZEN_NAME = { 1: '1–12', 2: '13–24', 3: '25–36' };
+// ряды стола: 1 — верхний (3, 6, 9…), 2 — средний (2, 5, 8…), 3 — нижний (1, 4, 7…)
+const rowOf = (n) => 3 - ((n - 1) % 3);
 
 const balanceEl = document.getElementById('balance');
 const amountEl = document.getElementById('amount');
@@ -39,6 +39,9 @@ let ballRadius = 0;  // расстояние шарика от центра, в 
 
 const ballEl = document.getElementById('ball');
 const wheelBox = document.querySelector('.wheel-box');
+const wheelLayer = document.getElementById('wheel-layer');
+const layerResultEl = document.getElementById('layer-result');
+const RESULT_HOLD_MS = 1500; // сколько колесо остаётся на экране после остановки
 const BALL_TRACK = 0.955;  // радиус, по которому шарик катится по ободу
 const BALL_POCKET = 0.885; // радиус, на котором он лежит в ячейке
 let balance = START_BALANCE;
@@ -181,7 +184,8 @@ function renderBalance() {
   balanceEl.textContent = balance;
 }
 
-// Строим стол: 0, числа 1–36 по три в ряд и внешние ставки
+// Строим вертикальный стол: 0 сверху, слева дюжины, три колонки чисел 1–36,
+// под ними место под ставки на колонки, внизу внешние ставки.
 function buildTable() {
   const addCell = (parent, cls, label, type, value = null, place = {}) => {
     const btn = document.createElement('button');
@@ -197,29 +201,39 @@ function buildTable() {
     parent.appendChild(btn);
   };
 
-  // Сетка 13 колонок: слева 0, дальше 12 колонок по три числа.
-  // Ряд 1: 3, 6, 9…  ряд 2: 2, 5, 8…  ряд 3: 1, 4, 7…  ряд 4: сектора  ряд 5: внешние ставки
-  addCell(tableEl, 'green', '0', 'number', 0, { row: '1 / span 3', col: '1' });
+  // Сетка: колонка 1 — дюжины, колонки 2–4 — числа (в ряду r: 3r-2, 3r-1, 3r).
+  // Ряд 1: «0», ряды 2–13: числа, ряд 14: колонки (пока без ставок), ряд 15: внешние ставки
+  addCell(tableEl, 'green', '0', 'number', 0, { row: '1', col: '1 / -1' });
   for (let n = 1; n <= 36; n++) {
     addCell(tableEl, getColor(n), String(n), 'number', n, {
-      row: String(3 - ((n - 1) % 3)),
-      col: String(Math.ceil(n / 3) + 1)
+      row: String(2 + Math.floor((n - 1) / 3)),
+      col: String(2 + ((n - 1) % 3))
     });
   }
   for (let d = 1; d <= 3; d++) {
     addCell(tableEl, 'dozen', DOZEN_NAME[d], 'dozen', d, {
-      row: '4',
-      col: `${2 + (d - 1) * 4} / span 4`
+      row: `${2 + (d - 1) * 4} / span 4`,
+      col: '1'
     });
   }
+  for (let i = 0; i < 3; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.textContent = '2 к 1';
+    slot.style.gridRow = '14';
+    slot.style.gridColumn = String(2 + i);
+    tableEl.appendChild(slot);
+  }
+  const outsideRow = document.createElement('div');
+  outsideRow.className = 'outside-row';
+  outsideRow.style.gridRow = '15';
+  tableEl.appendChild(outsideRow);
   [
     ['plain', 'Чёт', 'even'],
-    ['red', 'Красное', 'red'],
-    ['black', 'Чёрное', 'black'],
+    ['red', 'Красн.', 'red'],
+    ['black', 'Чёрн.', 'black'],
     ['plain', 'Нечет', 'odd']
-  ].forEach(([cls, label, type], i) => {
-    addCell(tableEl, cls + ' outside', label, type, null, { row: '5', col: `${2 + i * 3} / span 3` });
-  });
+  ].forEach(([cls, label, type]) => addCell(outsideRow, cls + ' outside', label, type));
 }
 
 // Кладём на клетки стола фишки с суммой ставки
@@ -312,6 +326,7 @@ function isWinning(b, n) {
     case 'even':   return n !== 0 && n % 2 === 0;
     case 'odd':    return n % 2 === 1;
     case 'dozen':  return n !== 0 && Math.ceil(n / 12) === b.value;
+    case 'column': return n !== 0 && rowOf(n) === b.value;
     case 'number': return n === b.value;
   }
 }
@@ -410,14 +425,21 @@ function spin() {
   const winner = WHEEL_ORDER[index];
 
   // 2. Крутим колесо и пускаем шарик; он упадёт именно в ячейку выбранного числа
-  animateSpin(index, () => showResult(winner));
+  layerResultEl.className = 'layer-result';
+  layerResultEl.textContent = '';
+  wheelLayer.classList.add('active');
+  animateSpin(index, () => {
+    layerResultEl.textContent = winner;
+    layerResultEl.className = 'layer-result ' + getColor(winner);
+    showResult(winner);
+    setTimeout(() => wheelLayer.classList.remove('active'), RESULT_HOLD_MS);
+  });
 }
 
 function showResult(n) {
   const color = getColor(n);
   numberEl.textContent = n;
   numberEl.className = 'result-number ' + color;
-  colorEl.textContent = COLOR_NAME[color];
 
   spinHistory.unshift(n);
   spinHistory.length = Math.min(spinHistory.length, HISTORY_SIZE);
@@ -447,6 +469,18 @@ function takeLoan() {
   setMessage('');
   renderBalance();
   saveState();
+}
+
+// Telegram Mini App: вне Telegram объекта нет, и игра работает как обычная страница
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  try {
+    tg.ready();
+    tg.expand();
+    if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes(); // Bot API 7.7+
+  } catch (e) {
+    // сбой Telegram API не должен ронять игру
+  }
 }
 
 loadState();
