@@ -23,7 +23,9 @@ from levels import profile_level
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import farm
-from db import buy_upgrade, chat_top, farm_status, get_player, init_db, spin_roulette, touch_chat_member
+import mines
+from db import (buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+                mines_start, mines_state, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
                       validate_request_id)
@@ -200,6 +202,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return limited
 
         now = int(time.time())
+        settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
         player = get_player(user_id, now=now, db_path=db_path)
         if _in_group(info):
             try:
@@ -282,6 +285,75 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "level_locked", "required_level": exc.required_level}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+
+    # ---------- мины ----------
+    # Раскладка мин активной игры не попадает ни в один ответ (только завершённые игры раскрывают mine_cells)
+
+    def _mines_user(request_headers, group):
+        """id игрока из проверенной подписи и ограничение частоты; (user_id, ответ 429 или None)."""
+        try:
+            scheme, _, init_data = (request_headers.get("authorization") or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            user_id = validate_init_data(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        return user_id, throttled(user_id, group)
+
+    async def _mines_post(request, keys, run):
+        """Общий разбор POST мин: подпись, лимит, тело с точным набором ключей, ошибки в одном формате."""
+        user_id, limited = _mines_user(request.headers, "write")
+        if limited is not None:
+            return limited
+        try:
+            raw = await request.body()
+            if len(raw) > MAX_BODY_BYTES:
+                raise ValueError()
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != keys:
+                raise ValueError()
+            request_id = validate_request_id(data["request_id"])
+            call = run(user_id, request_id, data)   # проверки типов и диапазонов: ValueError -> 400
+        except Exception:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        try:
+            return await run_in_threadpool(call)
+        except mines.MinesError as exc:
+            return JSONResponse({"detail": exc.code}, status_code=409)
+        except InsufficientFunds:
+            return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+
+    @app.post("/api/mines/start")
+    async def mines_start_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            bet, count = data["bet"], data["mines"]
+            if (type(bet) is not int or not 1 <= bet <= mines.MINES_MAX_BET
+                    or type(count) is not int or not mines.MINES_MIN_COUNT <= count <= mines.MINES_MAX_COUNT):
+                raise ValueError()
+            return lambda: mines_start(user_id, request_id, bet, count, db_path=db_path)
+        return await _mines_post(request, {"request_id", "bet", "mines"}, prepare)
+
+    @app.post("/api/mines/reveal")
+    async def mines_reveal_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            cell = data["cell"]
+            if type(cell) is not int or not 0 <= cell < mines.FIELD_CELLS:
+                raise ValueError()
+            return lambda: mines_reveal(user_id, request_id, cell, db_path=db_path)
+        return await _mines_post(request, {"request_id", "cell"}, prepare)
+
+    @app.post("/api/mines/cashout")
+    async def mines_cashout_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            return lambda: mines_cashout(user_id, request_id, db_path=db_path)
+        return await _mines_post(request, {"request_id"}, prepare)
+
+    @app.get("/api/mines/state")
+    def mines_state_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return mines_state(user_id, db_path=db_path)
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):

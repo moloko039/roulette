@@ -239,6 +239,10 @@ def run_maintenance_once(config, db_path, now, last_purge, events=None):
         newest = list_backups(config["dir"])[-1]
         logger.info("Резервная копия пропущена: свежая уже есть, файл=%s возраст_часов=%d интервал_часов=%d",
                     newest, max(0, now - backup_time(newest)) // 3600, config["interval_hours"])
+    try:
+        db.close_expired_mines(now=now, db_path=db_path)  # просроченные игры в мины закрываются раз в проход (час)
+    except Exception as exc:
+        logger.error("Закрытие просроченных игр в мины не выполнено: %s", type(exc).__name__)
     if last_purge is None or now - last_purge >= 86400:
         db.purge_old_data(now=now, db_path=db_path, rounds_days=config["rounds_days"],
                           member_days=config["member_days"])

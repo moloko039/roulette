@@ -199,7 +199,7 @@ try:
         ok = name == "wallet.py" or (name == "db.py" and "last_accrual" in line)
         assert ok, "прямое изменение баланса вне wallet: %s:%d" % (name, number)
     check("wallet меняет баланс", sorted({n for n, _, _ in found}), ["db.py", "wallet.py"])
-    check("начисление по часам в db.py (get_player, spin, buy_upgrade)", len([1 for n, _, _ in found if n == "db.py"]), 3)
+    check("начисление по часам в db.py (get_player, spin, buy_upgrade, мины)", len([1 for n, _, _ in found if n == "db.py"]), 4)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
