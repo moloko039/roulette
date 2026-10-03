@@ -13,6 +13,12 @@ class StubBot:
         self.webhook_calls = []
         self.fail_with = fail_with
 
+    async def set_my_commands(self, commands, scope=None, **kwargs):
+        if getattr(self, "fail_commands", None):
+            raise self.fail_commands
+        self.commands_calls = getattr(self, "commands_calls", [])
+        self.commands_calls.append((list(commands), scope))
+
     async def set_webhook(self, **kwargs):
         if self.fail_with:
             raise self.fail_with
@@ -50,3 +56,59 @@ class StubApplication:
 
     async def shutdown(self):
         self.events.append("shutdown")
+
+
+# ---------- заглушки Update для обработчиков команд ----------
+
+class FakeChat:
+    def __init__(self, chat_id, chat_type):
+        self.id = chat_id
+        self.type = chat_type
+
+
+class FakeUser:
+    def __init__(self, user_id):
+        self.id = user_id
+
+
+class FakeMessage:
+    """Запоминает ответы бота: тексты с параметрами и отправленные файлы."""
+
+    def __init__(self, chat):
+        self.chat = chat
+        self.replies = []
+        self.documents = []
+
+    async def reply_text(self, text, **kwargs):
+        self.replies.append({"text": text, **kwargs})
+
+    async def reply_document(self, document, filename=None, **kwargs):
+        self.documents.append({"data": document.read(), "filename": filename, **kwargs})
+
+
+class FakeQuery:
+    def __init__(self, data, user_id, chat):
+        self.data = data
+        self.from_user = FakeUser(user_id)
+        self.message = FakeMessage(chat)
+        self.answers = 0
+        self.edits = []
+
+    async def answer(self, *args, **kwargs):
+        self.answers += 1
+
+    async def edit_message_text(self, text, **kwargs):
+        self.edits.append({"text": text, **kwargs})
+
+
+class FakeUpdate:
+    def __init__(self, chat_type="private", user_id=1, chat_id=None, query_data=None):
+        chat = FakeChat(chat_id if chat_id is not None else user_id, chat_type)
+        self.effective_chat = chat
+        self.effective_user = FakeUser(user_id)
+        self.effective_message = FakeMessage(chat)
+        self.callback_query = FakeQuery(query_data, user_id, chat) if query_data is not None else None
+
+    @property
+    def replies(self):
+        return self.effective_message.replies

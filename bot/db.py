@@ -332,3 +332,68 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
         if e[2] == telegram_id:
             me = {"rank": i + 1, "balance": -e[0], "total": len(entries)}
     return {"scope": "chat", "top": top, "me": me}
+
+
+# ---------- права на данные: выгрузка и удаление ----------
+
+def get_player_export(telegram_id, rounds_limit=100, db_path=None):
+    """Данные игрока для /mydata (только чтение). None, если о нём вообще ничего нет.
+
+    В выгрузку не входят идентификаторы чатов и данные других игроков.
+    """
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN")  # один снимок для всех запросов
+        try:
+            player = conn.execute(
+                "SELECT telegram_id, balance, rate, last_accrual, created_at FROM players WHERE telegram_id = ?",
+                (telegram_id,),
+            ).fetchone()
+            rounds = conn.execute(
+                "SELECT created_at, bets_json, number, stake_total, payout_total FROM roulette_rounds "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
+            chats = conn.execute(
+                "SELECT first_seen, last_seen, first_name FROM chat_members "
+                "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
+                (telegram_id,),
+            ).fetchall()
+        finally:
+            conn.execute("COMMIT")
+    finally:
+        conn.close()
+    if player is None and not rounds and not chats:
+        return None
+    return {
+        "player": dict(player) if player is not None else None,
+        "rounds": [
+            {"time": r["created_at"], "bets": json.loads(r["bets_json"]), "number": r["number"],
+             "stake_total": r["stake_total"], "payout_total": r["payout_total"]}
+            for r in rounds
+        ],
+        "chats": [{"first_seen": c["first_seen"], "last_seen": c["last_seen"], "name": c["first_name"]}
+                  for c in chats],
+    }
+
+
+def delete_player_data(telegram_id, db_path=None):
+    """Удаляет все данные игрока в одной транзакции. Возвращает число удалённых строк по таблицам."""
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            counts = {
+                "players": conn.execute("DELETE FROM players WHERE telegram_id = ?", (telegram_id,)).rowcount,
+                "roulette_rounds": conn.execute(
+                    "DELETE FROM roulette_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount,
+                "chat_members": conn.execute(
+                    "DELETE FROM chat_members WHERE telegram_id = ?", (telegram_id,)).rowcount,
+            }
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+    return counts

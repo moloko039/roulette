@@ -123,7 +123,8 @@ a = build_application(TOKEN, use_updater=False)
 check("webhook: без updater", a.updater, None)
 a = build_application(TOKEN)
 assert a.updater is not None
-check("обработчики", len(a.handlers[0]), 2)
+# 8 команд (start, play, balance, help, privacy, developer_info, mydata, deletemydata) и кнопки удаления
+check("обработчики", len(a.handlers[0]), 9)
 
 # ---------- DB_PATH: папка создаётся ----------
 tmp = tempfile.mkdtemp()
