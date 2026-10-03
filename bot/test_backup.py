@@ -60,8 +60,8 @@ try:
 
     def seed():
         conn = sqlite3.connect(main_db)
-        conn.execute("INSERT INTO players VALUES (?, ?, 100, ?, ?)", (SECRET_ID, SECRET_BALANCE, T, T))
-        conn.execute("INSERT INTO players VALUES (2, 1000, 100, ?, ?)", (T, T))
+        conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, ?, 100, ?, ?)", (SECRET_ID, SECRET_BALANCE, T, T))
+        conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (2, 1000, 100, ?, ?)", (T, T))
         conn.executemany("INSERT INTO roulette_rounds VALUES (?, ?, 17, 10, 0, '[]', ?)",
                          [(SECRET_ID, "req-%06d" % i, T - i) for i in range(300)])
         conn.execute("INSERT INTO chat_members VALUES ('room', ?, ?, ?, ?)", (SECRET_ID, SECRET_NAME, T, T))
@@ -82,7 +82,7 @@ try:
     latest = os.path.join(bdir, "latest.db")
     check("latest.db", (backup.inspect_database(latest), stat.S_IMODE(os.stat(latest).st_mode)), (want_counts, 0o600))
     # latest обновляется
-    sql("INSERT INTO players VALUES (3, 1000, 100, ?, ?)", (T, T))
+    sql("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (3, 1000, 100, ?, ?)", (T, T))
     path2 = backup.create_snapshot(main_db, bdir, now=T + 100)
     check("latest обновлён", backup.inspect_database(latest)["players"], 3)
     check("старая копия не тронута", backup.inspect_database(path)["players"], 2)
@@ -105,7 +105,7 @@ try:
         i = 0
         try:
             while not stop.is_set():
-                c.execute("INSERT INTO players VALUES (?, 1000, 100, ?, ?)", (10_000 + i, T, T))
+                c.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, 1000, 100, ?, ?)", (10_000 + i, T, T))
                 c.commit()
                 written.append(i)
                 i += 1
@@ -133,7 +133,7 @@ try:
         c = sqlite3.connect(big, timeout=30)
         n = 0
         while not stop2.is_set():
-            c.execute("INSERT INTO players VALUES (?, 1, 1, 1, 1)", (900_000 + n, ))
+            c.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, 1, 1, 1, 1)", (900_000 + n, ))
             c.commit()
             n += 1
             time.sleep(0.001)
@@ -344,7 +344,7 @@ try:
     db.init_db(pdb)
     NOW = T + 200 * DAY
     conn = sqlite3.connect(pdb)
-    conn.execute("INSERT INTO players VALUES (1, 1000, 100, 1, 1), (2, 5, 100, 1, 1)")
+    conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (1, 1000, 100, 1, 1), (2, 5, 100, 1, 1)")
     rounds = [("old", NOW - 40 * DAY), ("mid", NOW - 20 * DAY), ("new", NOW - DAY), ("h36", NOW - 36 * 3600), ("d3", NOW - 3 * DAY)]
     conn.executemany("INSERT INTO roulette_rounds VALUES (1, ?, 1, 1, 0, '[]', ?)", rounds)
     members = [("a", NOW - 100 * DAY), ("b", NOW - 50 * DAY), ("c", NOW - 5 * DAY), ("d", NOW - 8 * DAY)]
@@ -364,7 +364,7 @@ try:
     check("36 часов остаётся", "h36" in [r[0] for r in sql("SELECT request_id FROM roulette_rounds", path=pdb)], True)
     check("участник 5 суток остаётся", 2 in [r[0] for r in sql("SELECT telegram_id FROM chat_members", path=pdb)], True)
     # пачки
-    sql("INSERT INTO players VALUES (9, 1, 1, 1, 1)", path=pdb)
+    sql("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (9, 1, 1, 1, 1)", path=pdb)
     conn = sqlite3.connect(pdb)
     conn.executemany("INSERT INTO roulette_rounds VALUES (9, ?, 1, 1, 0, '[]', ?)", [("batch-%03d" % i, NOW - 60 * DAY) for i in range(35)])
     conn.commit()

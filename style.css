@@ -154,7 +154,7 @@ button {
 .rating-list li {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 2px 8px;
   align-items: center;
   padding: 6px 8px;
   font-size: 0.9rem;
@@ -179,9 +179,27 @@ button {
 
 .rating-bal { color: var(--accent-light); }
 
+/* сумма ставок: вторая строка под именем, переносится, а не растягивает строку на узком экране */
+.rating-staked {
+  grid-column: 2 / -1;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.rating-total {
+  font-size: 0.8rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  overflow-wrap: anywhere;
+}
+
 .rating-me {
   font-size: 0.85rem;
   text-align: center;
+  overflow-wrap: anywhere;
   color: rgba(255, 255, 255, 0.8);
 }
 

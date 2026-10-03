@@ -206,7 +206,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             raise _unauthorized()
         if not _in_group(info):
             return {"scope": "none"}
-        # в ответе только rank, name, balance, is_me: ни telegram_id, ни chat_instance, ни username
+        # в ответе только rank, name, balance, is_me, staked и chat_staked: ни telegram_id, ни chat_instance, ни username
         return chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
 
     @app.post("/api/roulette/spin")

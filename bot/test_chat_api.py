@@ -111,11 +111,11 @@ try:
     check("scope", body["scope"], "chat")
     check("порядок", [(e["rank"], e["name"], e["balance"], e["is_me"]) for e in body["top"]],
           [(1, "P102", 3000, False), (2, "P103", 2000, True), (3, "P101", 1500, False)])
-    check("me", body["me"], {"rank": 2, "balance": 2000, "total": 3})
+    check("me", body["me"], {"rank": 2, "balance": 2000, "total": 3, "staked": 0})
 
     # другой chat_instance не видит этих игроков
     r = top(999, chat_instance="chat-OTHER", first_name="Чужой")
-    check("другая беседа", (len(r.json()["top"]), r.json()["me"]), (1, {"rank": 1, "balance": 1000, "total": 1}))
+    check("другая беседа", (len(r.json()["top"]), r.json()["me"]), (1, {"rank": 1, "balance": 1000, "total": 1, "staked": 0}))
     r = top(101, chat_instance="chat-T")
     check("первая беседа без чужого", [e["name"] for e in r.json()["top"]], ["P102", "P103", "P101"])
 
@@ -126,7 +126,7 @@ try:
         sql(path, "UPDATE players SET balance = ? WHERE telegram_id = ?", (5000 - i * 100, uid))
     body = top(210, chat_instance="chat-12", first_name="U10").json()  # 11-й по балансу
     check("в top 10 записей", len(body["top"]), 10)
-    check("me вне десятки", body["me"], {"rank": 11, "balance": 4000, "total": 12})
+    check("me вне десятки", body["me"], {"rank": 11, "balance": 4000, "total": 12, "staked": 0})
     check("is_me нет среди первых 10", any(e["is_me"] for e in body["top"]), False)
     check("последний в top", body["top"][-1]["rank"], 10)
 
@@ -173,9 +173,9 @@ try:
     for secret in ["987654321", "987654322", "chat-secret-77", "secret_user", "username", "telegram_id", "chat_instance"]:
         assert secret not in raw, "в ответе есть " + secret
     body = r.json()
-    check("поля записи", sorted(body["top"][0]), ["balance", "is_me", "name", "rank"])
-    check("поля me", sorted(body["me"]), ["balance", "rank", "total"])
-    check("поля ответа", sorted(body), ["me", "scope", "top"])
+    check("поля записи", sorted(body["top"][0]), ["balance", "is_me", "name", "rank", "staked"])
+    check("поля me", sorted(body["me"]), ["balance", "rank", "staked", "total"])
+    check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "top"])
 
     # ---------- запрос без подписи ----------
     for h in [{}, {"Authorization": ""}, {"Authorization": "tma garbage"}]:
