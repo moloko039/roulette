@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050506">
   <title>Депная</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="style.css">
@@ -11,33 +13,42 @@
   <div class="shell">
   <main class="app screen" data-screen="roulette">
     <header class="top">
-      <div class="balance">Баланс: <strong id="balance">Загрузка…</strong></div>
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="game-switch" aria-label="Сменить игру">
+        <span id="game-switch-icon" aria-hidden="true"></span>
+        <span id="game-switch-name">Рулетка</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+
+    <div class="strip">
       <div class="result" id="result" aria-live="polite">
         <span class="result-label">Выпало</span>
         <span class="result-number" id="result-number">—</span>
       </div>
-    </header>
-
-    <ol class="history-list" id="history-list" aria-label="Последние числа"></ol>
+      <ol class="history-list" id="history-list" aria-label="Последние числа"></ol>
+    </div>
 
     <div class="table" id="table" aria-label="Стол"></div>
 
-    <div class="message" aria-live="polite">
-      <div id="message-line" hidden><span id="message-text"></span> <small id="message-code"></small></div>
-      <div id="status-line" hidden><span id="status-text"></span> <small id="status-code"></small></div>
-    </div>
-
     <section class="bets" id="bets">
+      <div class="message" aria-live="polite">
+        <div id="message-line" hidden><span id="message-text"></span> <small id="message-code"></small></div>
+      </div>
+      <div id="status-line" hidden><span id="status-text"></span> <small id="status-code"></small></div>
       <div class="row">
+        <button type="button" class="chip" data-amount="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-amount="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-amount="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-amount="500" aria-pressed="false">500</button>
         <input id="amount" type="number" inputmode="numeric" min="1" step="1" value="10" aria-label="Сумма ставки">
-        <button type="button" class="chip" data-amount="10">10</button>
-        <button type="button" class="chip" data-amount="50">50</button>
-        <button type="button" class="chip" data-amount="100">100</button>
-        <button type="button" class="chip" data-amount="500">500</button>
       </div>
       <div class="row">
-        <button type="button" class="action" id="repeat-bets">Повтор</button>
-        <button type="button" class="action" id="clear-bets">Убрать</button>
+        <button type="button" class="action" id="repeat-bets"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Повтор</button>
+        <button type="button" class="action" id="clear-bets"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>Убрать</button>
         <button id="spin" type="button">Крутить</button>
       </div>
     </section>
@@ -50,16 +61,32 @@
       <div class="rating-total" id="rating-total" hidden></div>
       <div class="rating-me" id="rating-me"></div>
     </div>
+    <div class="skeleton-card" id="rating-skel" hidden aria-hidden="true">
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
     <p class="profile-msg" id="rating-msg"></p>
     <small class="profile-code" id="rating-code"></small>
     <button type="button" class="action profile-retry" id="rating-retry" hidden>Повторить</button>
   </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
+    <div class="profile-head">
+      <span class="avatar" id="profile-avatar" aria-hidden="true"></span>
+      <span class="profile-name" id="profile-name"></span>
+    </div>
     <div class="profile-card" id="profile-data" hidden>
-      <div>Баланс на сервере: <strong id="profile-balance"></strong></div>
-      <div>Доход: <strong id="profile-rate"></strong> в час</div>
-      <div>Следующее начисление через <strong id="profile-timer"></strong></div>
+      <div class="stat"><span class="stat-label">Баланс на сервере</span><strong id="profile-balance"></strong></div>
+      <div class="stat"><span class="stat-label">Доход</span><span><strong id="profile-rate"></strong> в час</span></div>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="52"/>
+          <circle class="ring-fill" id="profile-ring" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="ring-inner"><strong class="num" id="profile-timer"></strong><small>до начисления</small></div>
+      </div>
+    </div>
+    <div class="skeleton-card" id="profile-skel" hidden aria-hidden="true">
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton tall"></div>
     </div>
     <p class="profile-msg" id="profile-msg" aria-live="polite"></p>
     <small class="profile-code" id="profile-code"></small>
@@ -73,11 +100,16 @@
       <div class="ball" id="ball"></div>
     </div>
     <div class="layer-result" id="layer-result"></div>
+    <div class="layer-win" id="layer-win" aria-hidden="true"></div>
   </div>
 
-  <!-- меню игр: плитки строятся в script.js из массива GAMES -->
+  <!-- выбор игры: нижняя шторка, плитки строятся в script.js из массива GAMES -->
   <div class="game-menu" id="game-menu">
-    <div class="game-panel" id="game-panel" role="menu"></div>
+    <div class="game-panel" id="game-panel" role="menu">
+      <span class="sheet-grabber" aria-hidden="true"></span>
+      <h3 class="sheet-title">Выберите игру</h3>
+      <div class="sheet-grid" id="game-grid"></div>
+    </div>
   </div>
 
   <!-- кнопки строятся в script.js из массива TABS -->

@@ -43,7 +43,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   и bot/DEPLOY.md.
 
 ## Где что лежит
-- Клиент в корне: index.html, style.css, script.js, privacy.html.
+- Клиент в корне: index.html, style.css, script.js, privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: api.py (эндпоинты, фоновая задача), auth.py (проверка initData), db.py (SQLite),
   economy.py (начисления), roulette.py (правила и ставки), bot.py (команды бота),
   antiabuse.py, backup.py, notify.py, verify_backup.py.
