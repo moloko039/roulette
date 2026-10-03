@@ -10,6 +10,7 @@ import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
 import farm
+import mines
 import wallet
 from levels import profile_level
 from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
@@ -81,6 +82,46 @@ def init_db(db_path=None):
                 level_after INTEGER NOT NULL,
                 cost        INTEGER NOT NULL,
                 created_at  INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
+        # игры в мины: раскладка (mine_mask) хранится только здесь и никогда не уходит клиенту до конца игры
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mines_games (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id    INTEGER NOT NULL,
+                bet            INTEGER NOT NULL,
+                mines_count    INTEGER NOT NULL,
+                mine_mask      INTEGER NOT NULL,
+                revealed_mask  INTEGER NOT NULL DEFAULT 0,
+                status         TEXT    NOT NULL,
+                payout         INTEGER NOT NULL DEFAULT 0,
+                staked_counted INTEGER NOT NULL DEFAULT 0,
+                created_at     INTEGER NOT NULL,
+                updated_at     INTEGER NOT NULL,
+                finished_at    INTEGER
+            )
+            """
+        )
+        # не больше одной активной игры на игрока
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_mines_active ON mines_games(telegram_id) WHERE status = 'active'"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mines_history ON mines_games(telegram_id, finished_at)"
+        )
+        # действия в игре: ключ (игрок, request_id) даёт идемпотентность повторов
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mines_actions (
+                telegram_id   INTEGER NOT NULL,
+                request_id    TEXT    NOT NULL,
+                action        TEXT    NOT NULL,
+                params        TEXT    NOT NULL,
+                response_json TEXT    NOT NULL,
+                created_at    INTEGER NOT NULL,
                 PRIMARY KEY (telegram_id, request_id)
             )
             """
@@ -457,6 +498,277 @@ def farm_status(telegram_id, now=None, db_path=None):
     return farm.status(player["balance"], player["total_staked"], player["income_level"], player["storage_level"])
 
 
+# ---------- мины ----------
+# Все изменения баланса идут через wallet. Раскладка мин активной игры не попадает ни в ответы, ни в лог,
+# ни в response_json, ни в выгрузку данных. Баланс игрока с активной игрой не включает ставку, лежащую в игре
+# (она возвращается при завершении), в рейтинге беседы это так же.
+
+def _accrue_write(conn, telegram_id, now):
+    """Начисление по часам как в spin_roulette: пишет баланс и last_accrual (единая _accrue_player)."""
+    row = conn.execute(
+        "SELECT balance, rate, last_accrual, storage_level FROM players WHERE telegram_id = ?", (telegram_id,)
+    ).fetchone()
+    earned, new_last = _accrue_player(row, now)
+    conn.execute(
+        "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
+        (row["balance"] + earned, new_last, telegram_id),
+    )
+
+
+def _credit_capped(conn, telegram_id, amount):
+    """Зачисляет min(amount, MAX_SAFE_INT - баланс) (на практике недостижимо). Возвращает зачисленное."""
+    amount = min(amount, MAX_SAFE_INT - wallet.get_balance(conn, telegram_id))
+    if amount > 0:
+        wallet.credit(conn, telegram_id, amount)
+        return amount
+    return 0
+
+
+def _active_game(conn, telegram_id):
+    return conn.execute(
+        "SELECT * FROM mines_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
+    ).fetchone()
+
+
+def _game_view(row):
+    """Активная игра для клиента. Раскладки мин здесь нет."""
+    m = row["mines_count"]
+    k = mines.popcount(row["revealed_mask"])
+    left = mines.FIELD_CELLS - m - k
+    return {
+        "bet": row["bet"],
+        "mines": m,
+        "revealed": mines.cells_of(row["revealed_mask"]),
+        "safe_left": left,
+        "multiplier": mines.multiplier_text(m, k),
+        "payout_now": mines.payout(row["bet"], m, k),
+        "next_multiplier": mines.multiplier_text(m, k + 1) if left > 0 else None,
+        "next_payout": mines.payout(row["bet"], m, k + 1) if left > 0 else None,
+        "expires_at": row["updated_at"] + mines.MINES_IDLE_SECONDS,
+    }
+
+
+def _last_view(row):
+    """Завершённая игра: раскладка мин раскрывается только здесь."""
+    return {
+        "status": row["status"],
+        "bet": row["bet"],
+        "mines": row["mines_count"],
+        "revealed": mines.cells_of(row["revealed_mask"]),
+        "mine_cells": mines.cells_of(row["mine_mask"]),
+        "payout": row["payout"],
+        "finished_at": row["finished_at"],
+    }
+
+
+def _finish_game(conn, game_id, status, payout, now):
+    conn.execute(
+        "UPDATE mines_games SET status = ?, payout = ?, finished_at = ?, updated_at = ? WHERE id = ?",
+        (status, payout, now, now, game_id),
+    )
+
+
+def _settle_expired_in(conn, telegram_id, now):
+    """Закрывает просроченную активную игру игрока (внутри открытой транзакции). True, если закрыла."""
+    game = _active_game(conn, telegram_id)
+    if game is None or now - game["updated_at"] < mines.MINES_IDLE_SECONDS:
+        return False
+    k = mines.popcount(game["revealed_mask"])
+    if k == 0:
+        _finish_game(conn, game["id"], "refunded", _credit_capped(conn, telegram_id, game["bet"]), now)
+    else:
+        owed = mines.payout(game["bet"], game["mines_count"], k)
+        _finish_game(conn, game["id"], "auto_cashed", _credit_capped(conn, telegram_id, owed), now)
+    return True
+
+
+def settle_expired_mines(telegram_id, now=None, db_path=None):
+    """Закрывает просроченную игру игрока отдельной транзакцией (идемпотентно). True, если закрыла."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            closed = _settle_expired_in(conn, telegram_id, now)
+            conn.execute("COMMIT")
+            return closed
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+MINES_CLOSE_BATCH = 200
+
+
+def close_expired_mines(now=None, db_path=None, batch=MINES_CLOSE_BATCH):
+    """Фоновое закрытие просроченных активных игр всех игроков (не больше batch за проход). Возвращает число."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mines_games'").fetchone() is None:
+            return 0
+        owners = [r["telegram_id"] for r in conn.execute(
+            "SELECT telegram_id FROM mines_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
+            (now, mines.MINES_IDLE_SECONDS, batch),
+        )]
+    finally:
+        conn.close()
+    closed = sum(1 for owner in owners if settle_expired_mines(owner, now=now, db_path=db_path))
+    if closed:
+        logger.info("Закрыто просроченных игр в мины: %d", closed)  # только количество
+    return closed
+
+
+def _run_mines_action(telegram_id, request_id, action, params, body, now, db_path):
+    """Общий порядок действия: закрытие просроченной игры, повтор по request_id, начисление по часам, тело
+    действия, запись ответа. Один request_id с другим действием или параметрами даёт RequestConflict."""
+    if now is None:
+        now = int(time.time())
+    settle_expired_mines(telegram_id, now=now, db_path=db_path)
+    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute(
+                "SELECT action, params, response_json FROM mines_actions WHERE telegram_id = ? AND request_id = ?",
+                (telegram_id, request_id),
+            ).fetchone()
+            if old is not None:
+                if old["action"] != action or old["params"] != params_json:
+                    raise mines.RequestConflict()
+                response = json.loads(old["response_json"])
+                response["replayed"] = True
+                conn.execute("COMMIT")
+                return response
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            response = body(conn, now)
+            response["balance"] = wallet.get_balance(conn, telegram_id)
+            response["replayed"] = False
+            conn.execute(
+                "INSERT INTO mines_actions (telegram_id, request_id, action, params, response_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now),
+            )
+            conn.execute("COMMIT")
+            return response
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def mines_start(telegram_id, request_id, bet, mines_count, now=None, db_path=None, rng=None):
+    """Старт игры: нет активной игры, списание ставки через wallet, раскладка мин. Ставка в total_staked
+    на этом шаге не засчитывается."""
+    if type(bet) is not int or not 1 <= bet <= mines.MINES_MAX_BET:
+        raise ValueError("bet out of range")
+    if type(mines_count) is not int or not mines.MINES_MIN_COUNT <= mines_count <= mines.MINES_MAX_COUNT:
+        raise ValueError("mines out of range")
+
+    def body(conn, now_):
+        if _active_game(conn, telegram_id) is not None:
+            raise mines.ActiveGameExists()
+        wallet.debit(conn, telegram_id, bet)   # wallet.InsufficientFunds, если фишек не хватает
+        conn.execute(
+            "INSERT INTO mines_games (telegram_id, bet, mines_count, mine_mask, revealed_mask, status, payout, "
+            "staked_counted, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 'active', 0, 0, ?, ?)",
+            (telegram_id, bet, mines_count, mines.new_layout(mines_count, rng), now_, now_),
+        )
+        return {"game": _game_view(_active_game(conn, telegram_id))}
+
+    return _run_mines_action(telegram_id, request_id, "start", {"bet": bet, "mines": mines_count}, body, now, db_path)
+
+
+def mines_reveal(telegram_id, request_id, cell, now=None, db_path=None):
+    """Открытие клетки. При первом открытии ставка добавляется к total_staked (один раз за игру)."""
+    if type(cell) is not int or not 0 <= cell < mines.FIELD_CELLS:
+        raise ValueError("cell out of range")
+
+    def body(conn, now_):
+        game = _active_game(conn, telegram_id)
+        if game is None:
+            raise mines.NoActiveGame()
+        bit = 1 << cell
+        if game["revealed_mask"] & bit:
+            raise mines.AlreadyRevealed()
+        if not game["staked_counted"]:
+            conn.execute(
+                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
+                (game["bet"], MAX_SAFE_INT, telegram_id),
+            )
+            conn.execute("UPDATE mines_games SET staked_counted = 1 WHERE id = ?", (game["id"],))
+        if game["mine_mask"] & bit:
+            _finish_game(conn, game["id"], "lost", 0, now_)
+            last = conn.execute("SELECT * FROM mines_games WHERE id = ?", (game["id"],)).fetchone()
+            return {"result": "mine", "game": None, "last": _last_view(last)}
+        revealed = game["revealed_mask"] | bit
+        k = mines.popcount(revealed)
+        conn.execute("UPDATE mines_games SET revealed_mask = ?, updated_at = ? WHERE id = ?", (revealed, now_, game["id"]))
+        if k == mines.FIELD_CELLS - game["mines_count"]:
+            owed = mines.payout(game["bet"], game["mines_count"], k)
+            _finish_game(conn, game["id"], "cashed", _credit_capped(conn, telegram_id, owed), now_)
+            last = conn.execute("SELECT * FROM mines_games WHERE id = ?", (game["id"],)).fetchone()
+            return {"result": "cleared", "game": None, "last": _last_view(last)}
+        return {"result": "safe", "game": _game_view(_active_game(conn, telegram_id))}
+
+    return _run_mines_action(telegram_id, request_id, "reveal", {"cell": cell}, body, now, db_path)
+
+
+def mines_cashout(telegram_id, request_id, now=None, db_path=None):
+    """Забрать выигрыш: при нуле открытых клеток возвращается ставка (refunded, в total_staked не идёт)."""
+    def body(conn, now_):
+        game = _active_game(conn, telegram_id)
+        if game is None:
+            raise mines.NoActiveGame()
+        k = mines.popcount(game["revealed_mask"])
+        if k == 0:
+            _finish_game(conn, game["id"], "refunded", _credit_capped(conn, telegram_id, game["bet"]), now_)
+        else:
+            owed = mines.payout(game["bet"], game["mines_count"], k)
+            _finish_game(conn, game["id"], "cashed", _credit_capped(conn, telegram_id, owed), now_)
+        last = conn.execute("SELECT * FROM mines_games WHERE id = ?", (game["id"],)).fetchone()
+        return {"last": _last_view(last)}
+
+    return _run_mines_action(telegram_id, request_id, "cashout", {}, body, now, db_path)
+
+
+def mines_state(telegram_id, now=None, db_path=None):
+    """Активная игра или None, последняя завершённая или None, баланс (с начислением, как /api/me)."""
+    if now is None:
+        now = int(time.time())
+    settle_expired_mines(telegram_id, now=now, db_path=db_path)
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            active = _active_game(conn, telegram_id)
+            last = conn.execute(
+                "SELECT * FROM mines_games WHERE telegram_id = ? AND status != 'active' "
+                "ORDER BY finished_at DESC, id DESC LIMIT 1", (telegram_id,),
+            ).fetchone()
+            result = {
+                "game": _game_view(active) if active is not None else None,
+                "last": _last_view(last) if last is not None else None,
+                "balance": wallet.get_balance(conn, telegram_id),
+            }
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
 # ---------- рейтинг беседы ----------
 NAME_MAX = 32
 DEFAULT_NAME = "Игрок"
@@ -603,6 +915,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "WHERE telegram_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
                 (telegram_id, rounds_limit),
             ).fetchall()
+            games = conn.execute(
+                "SELECT created_at, bet, mines_count, revealed_mask, status, payout, finished_at FROM mines_games "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -612,7 +929,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases:
+    if player is None and not rounds and not chats and not purchases and not games:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -620,6 +937,13 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             {"time": r["created_at"], "bets": json.loads(r["bets_json"]), "number": r["number"],
              "stake_total": r["stake_total"], "payout_total": r["payout_total"]}
             for r in rounds
+        ],
+        # раскладка мин (mine_mask) в выгрузку не входит никогда: она раскрыла бы поле текущей игры
+        "mines_games": [
+            {"created_at": g["created_at"], "bet": g["bet"], "mines": g["mines_count"],
+             "opened": mines.popcount(g["revealed_mask"]), "status": g["status"], "payout": g["payout"],
+             "finished_at": g["finished_at"]}
+            for g in games
         ],
         "farm_purchases": [
             {"time": p["created_at"], "kind": p["kind"], "level": p["level_after"], "cost": p["cost"]}
@@ -655,7 +979,11 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                     "DELETE FROM chat_members WHERE telegram_id = ?", (telegram_id,)).rowcount,
                 "farm_purchases": conn.execute(
                     "DELETE FROM farm_purchases WHERE telegram_id = ?", (telegram_id,)).rowcount,
+                # незавершённая игра удаляется вместе со ставкой
+                "mines_games": conn.execute(
+                    "DELETE FROM mines_games WHERE telegram_id = ?", (telegram_id,)).rowcount,
             }
+            conn.execute("DELETE FROM mines_actions WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",
@@ -690,7 +1018,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     rounds_days = max(int(rounds_days), 2)
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
-    deleted = {"roulette_rounds": 0, "farm_purchases": 0, "chat_members": 0, "deletion_tombstones": 0}
+    deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
+               "chat_members": 0, "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
 
@@ -719,6 +1048,17 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM farm_purchases WHERE rowid IN "
                 "(SELECT rowid FROM farm_purchases WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "mines_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
+            deleted["mines_games"] = batches(
+                "DELETE FROM mines_games WHERE id IN "
+                "(SELECT id FROM mines_games WHERE status != 'active' AND finished_at IS NOT NULL "
+                "AND finished_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
+        if "mines_actions" in present:
+            deleted["mines_actions"] = batches(
+                "DELETE FROM mines_actions WHERE rowid IN "
+                "(SELECT rowid FROM mines_actions WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "
@@ -731,7 +1071,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
-                deleted["farm_purchases"])
+                deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"])
     return deleted
