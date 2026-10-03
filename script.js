@@ -776,6 +776,7 @@ const ratingEls = {
   card: document.getElementById('rating-card'),
   list: document.getElementById('rating-list'),
   me: document.getElementById('rating-me'),
+  total: document.getElementById('rating-total'),
   msg: document.getElementById('rating-msg'),
   code: document.getElementById('rating-code'),
   retry: document.getElementById('rating-retry')
@@ -849,9 +850,26 @@ function showRating(d) {
     bal.className = 'rating-bal';
     bal.textContent = formatNumber(e.balance);
     li.append(rank, name, bal);
+    // сумма ставок за всё время (поле staked); в старом ответе его нет, тогда строки нет
+    if (isCount(e.staked)) {
+      const staked = document.createElement('span');
+      staked.className = 'rating-staked';
+      staked.textContent = 'поставлено ' + formatNumber(e.staked);
+      li.appendChild(staked);
+    }
     ratingEls.list.appendChild(li);
   });
-  ratingEls.me.textContent = `Вы: ${d.me.rank}-е место из ${d.me.total}, баланс ${formatNumber(d.me.balance)}`;
+  let meText = `Вы: ${d.me.rank}-е место из ${d.me.total}, баланс ${formatNumber(d.me.balance)}`;
+  if (isCount(d.me.staked)) meText += `, поставлено ${formatNumber(d.me.staked)}`;
+  ratingEls.me.textContent = meText;
+  // итог по беседе (поле chat_staked); без поля строка скрыта
+  if (isCount(d.chat_staked)) {
+    ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatNumber(d.chat_staked);
+    ratingEls.total.hidden = false;
+  } else {
+    ratingEls.total.textContent = '';
+    ratingEls.total.hidden = true;
+  }
   ratingEls.card.hidden = false;
 }
 

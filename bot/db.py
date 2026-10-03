@@ -46,7 +46,8 @@ def init_db(db_path=None):
                 balance      INTEGER NOT NULL,
                 rate         INTEGER NOT NULL,
                 last_accrual INTEGER NOT NULL,
-                created_at   INTEGER NOT NULL
+                created_at   INTEGER NOT NULL,
+                total_staked INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -96,6 +97,7 @@ def init_db(db_path=None):
             )
             """
         )
+        _migrate_total_staked(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",
@@ -103,6 +105,34 @@ def init_db(db_path=None):
         )
     finally:
         conn.close()
+
+
+def _migrate_total_staked(conn):
+    """Добавляет players.total_staked в старую базу (идемпотентно, одной транзакцией).
+
+    Начальное значение игрока = сумма stake_total из roulette_rounds. Учитывается только то, что ещё
+    хранится: раунды старше срока хранения уже удалены очисткой, поэтому у старых игроков значение
+    может быть меньше фактической суммы ставок. Дальше счётчик растёт в spin_roulette и очисткой
+    раундов не уменьшается.
+    """
+    def has_column():
+        return any(r["name"] == "total_staked" for r in conn.execute("PRAGMA table_info(players)"))
+
+    if has_column():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not has_column():  # повторная проверка внутри транзакции
+            conn.execute("ALTER TABLE players ADD COLUMN total_staked INTEGER NOT NULL DEFAULT 0")
+            conn.execute(
+                "UPDATE players SET total_staked = MIN(COALESCE("
+                "(SELECT SUM(r.stake_total) FROM roulette_rounds r WHERE r.telegram_id = players.telegram_id), 0), ?)",
+                (MAX_SAFE_INT,),
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
 
 
 def get_meta(key, db_path=None):
@@ -262,9 +292,11 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             new_balance = balance - stake_total + payout_total
 
             # (е) новый баланс и запись раунда
+            # total_staked растёт в той же транзакции, что и списание ставки (не выше MAX_SAFE_INT)
             conn.execute(
-                "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
-                (new_balance, new_last, telegram_id),
+                "UPDATE players SET balance = ?, last_accrual = ?, total_staked = MIN(total_staked + ?, ?) "
+                "WHERE telegram_id = ?",
+                (new_balance, new_last, stake_total, MAX_SAFE_INT, telegram_id),
             )
             conn.execute(
                 "INSERT INTO roulette_rounds "
@@ -367,7 +399,8 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
             _register_player(conn, telegram_id, now)
             _touch_member(conn, chat_instance, telegram_id, first_name, now)
             rows = conn.execute(
-                "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual "
+                "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual, "
+                "       p.total_staked "
                 "FROM (SELECT telegram_id, first_name, first_seen FROM chat_members "
                 "      WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
                 "JOIN players p ON p.telegram_id = m.telegram_id",
@@ -383,18 +416,22 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     entries = []
     for r in rows:
         earned, _ = accrue(r["last_accrual"], now, r["rate"])
-        entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"]))
+        entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"],
+                        r["total_staked"]))
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
     top = [
-        {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id}
+        {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4]}
         for i, e in enumerate(entries[:TOP_SIZE])
     ]
     me = None
     for i, e in enumerate(entries):
         if e[2] == telegram_id:
-            me = {"rank": i + 1, "balance": -e[0], "total": len(entries)}
-    return {"scope": "chat", "top": top, "me": me}
+            # total здесь число участников рейтинга (не сумма ставок); сумма ставок: staked и chat_staked
+            me = {"rank": i + 1, "balance": -e[0], "total": len(entries), "staked": e[4]}
+    # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
+    chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
+    return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked}
 
 
 # ---------- права на данные: выгрузка и удаление ----------
@@ -409,7 +446,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         conn.execute("BEGIN")  # один снимок для всех запросов
         try:
             player = conn.execute(
-                "SELECT telegram_id, balance, rate, last_accrual, created_at FROM players WHERE telegram_id = ?",
+                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked FROM players "
+                "WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
             rounds = conn.execute(
