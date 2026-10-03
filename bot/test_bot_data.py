@@ -21,8 +21,19 @@ def check(name, got, expected):
     assert got == expected, f"{name}: получили {got}, ожидали {expected}"
 
 
+class _Bot:
+    username = None
+
+    async def send_message(self, **kwargs):
+        pass  # ответы в группе уходят через send_message
+
+
+class _Ctx:
+    bot = _Bot()
+
+
 def run(handler, update):
-    asyncio.run(handler(update, None))
+    asyncio.run(handler(update, _Ctx()))
     return update
 
 
@@ -42,8 +53,9 @@ def counts(path, uid):
 
 
 def reset():
-    for lim in (bot.group_limiter, bot.mydata_limiter, bot.delete_limiter):
+    for lim in (bot.group_limiter, bot.mydata_limiter, bot.delete_limiter, bot.balance_pair_limiter):
         lim.last.clear()
+    bot.balance_chat_limiter.times.clear()
 
 
 class Clock:

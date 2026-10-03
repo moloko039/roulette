@@ -3,12 +3,13 @@ import contextlib
 import logging
 import os
 import re
+import sqlite3
 import tempfile
 from unittest import mock
 
 import bot
 from db import init_db
-from stubs import FakeUpdate, StubApplication
+from stubs import FakeChat, FakeUpdate, StubApplication
 
 LINK = "https://t.me/test_bot/game"
 PRIVACY = "https://example.test/privacy.html"
@@ -23,20 +24,21 @@ def check(name, got, expected):
 class FakeBot:
     """Запоминает send_message (ответы в группе уходят через него, а не через reply_text)."""
 
-    def __init__(self):
+    def __init__(self, username=None):
         self.sent = []
+        self.username = username
 
     async def send_message(self, **kwargs):
         self.sent.append(kwargs)
 
 
 class Ctx:
-    def __init__(self):
-        self.bot = FakeBot()
+    def __init__(self, username=None):
+        self.bot = FakeBot(username)
 
 
-def run(handler, update):
-    ctx = Ctx()
+def run(handler, update, username=None):
+    ctx = Ctx(username)
     asyncio.run(handler(update, ctx))
     update.sent = ctx.bot.sent
     return update
@@ -88,8 +90,9 @@ FULL = dict(GAME_LINK=LINK, PRIVACY_URL=PRIVACY, DEVELOPER_CONTACT=CONTACT)
 
 
 def reset():
-    for lim in (bot.group_limiter, bot.mydata_limiter, bot.delete_limiter):
+    for lim in (bot.group_limiter, bot.mydata_limiter, bot.delete_limiter, bot.balance_pair_limiter):
         lim.last.clear()
+    bot.balance_chat_limiter.times.clear()
 
 
 class Clock:
@@ -211,7 +214,7 @@ try:
             clk.t = 1010
             check("2-й вызов через 10с молча", answers(run(bot.play, FakeUpdate("group", chat_id=-1))), 0)
             check("другой чат отвечает", answers(run(bot.play, FakeUpdate("group", chat_id=-2))), 1)
-            check("/balance делит лимит с /play", answers(run(bot.balance, FakeUpdate("group", chat_id=-1))), 0)
+            check("/balance не зависит от лимита /play", answers(run(bot.balance, FakeUpdate("group", chat_id=-1))), 1)
             clk.t = 1021
             check("через 21с отвечает", answers(run(bot.play, FakeUpdate("group", chat_id=-1))), 1)
             # очистка словаря
@@ -229,10 +232,13 @@ try:
         init_db()
         u = run(bot.balance, FakeUpdate("private", user_id=42))
         assert u.replies[0]["text"].startswith("Баланс: 1000 фишек\nДо следующего начисления: "), u.replies
-        u = run(bot.balance, FakeUpdate("supergroup", user_id=42, chat_id=-9))
-        check("/balance в группе", u.replies[0]["text"],
-              "Баланс смотрите в игре (вкладка «Профиль») или в личной переписке с ботом")
-        reset()
+        # в группе настоящий баланс, тем же текстом, что в личке; ответ с цитатой (reply_text)
+        for kind in ("group", "supergroup"):
+            u = run(bot.balance, FakeUpdate(kind, user_id=4200 + len(kind), chat_id=-9))
+            assert u.replies[0]["text"].startswith("Баланс: 1000 фишек\nДо следующего начисления: "), u.replies
+            check("balance в группе: цитата, а не send_message", (len(u.replies), u.sent), (1, []))
+            assert "parse_mode" not in u.replies[0]
+            reset()
 
         # ---------- channel: молчание ----------
         for h in (bot.start, bot.play, bot.balance, bot.help_command, bot.privacy, bot.developer_info,
@@ -244,16 +250,139 @@ try:
         t = run(bot.help_command, FakeUpdate("private")).replies[0]["text"]
         for c in ("/start", "/play", "/balance", "/help" if False else "/privacy", "/developer_info", "/mydata", "/deletemydata"):
             assert c in t, "в /help (private) нет " + c
-        t = run(bot.help_command, FakeUpdate("group", chat_id=-3)).replies[0]["text"]
+        t = run(bot.help_command, FakeUpdate("group", chat_id=-3)).sent[0]["text"]
         assert "/play" in t and "/help" in t
         for c in ("/mydata", "/deletemydata", "/balance", "/privacy", "/developer_info"):
             assert c not in t, "в /help группы лишняя команда " + c
 
         # ---------- /privacy и /developer_info ----------
         check("/privacy", run(bot.privacy, FakeUpdate("private")).replies[0]["text"], PRIVACY)
-        check("/privacy в группе", run(bot.privacy, FakeUpdate("group", chat_id=-4)).replies[0]["text"], PRIVACY)
+        check("/privacy в группе", run(bot.privacy, FakeUpdate("group", chat_id=-4)).sent[0]["text"], PRIVACY)
         check("/developer_info", run(bot.developer_info, FakeUpdate("private")).replies[0]["text"],
               f"Независимый разработчик. Контакт: {CONTACT}. Политика конфиденциальности: {PRIVACY}")
+
+        # ---------- группы: help, privacy, developer_info через send_message ----------
+        NAME = "TestBot"
+        for h in (bot.help_command, bot.privacy, bot.developer_info):
+            for kind in ("group", "supergroup"):
+                reset()
+                u = run(h, FakeUpdate(kind, chat_id=-300), username=NAME)
+                check("%s в %s: send_message" % (h.__name__, kind), (u.replies, len(u.sent)), ([], 1))
+                m1 = u.sent[0]
+                check("чат", m1["chat_id"], -300)
+                for absent in ("reply_parameters", "reply_to_message_id", "parse_mode", "reply_markup", "message_thread_id"):
+                    assert absent not in m1, f"{h.__name__}: в ответе есть {absent}"
+        reset()
+        # из темы форума: та же тема во всех групповых ответах
+        for h in (bot.help_command, bot.privacy, bot.developer_info, bot.play):
+            reset()
+            u = FakeUpdate("supergroup", chat_id=-301)
+            u.effective_message.is_topic_message = True
+            u.effective_message.message_thread_id = 555
+            run(h, u, username=NAME)
+            check("тема форума: " + h.__name__, u.sent[0]["message_thread_id"], 555)
+            u = FakeUpdate("supergroup", chat_id=-301)
+            u.effective_message.is_topic_message = False
+            u.effective_message.message_thread_id = 555
+            reset()
+            run(h, u, username=NAME)
+            assert "message_thread_id" not in u.sent[0], "тема вне форума: " + h.__name__
+        reset()
+
+        # текст группового /help
+        want = ("🎰 /play@TestBot — открыть игру\n💰 /balance@TestBot — ваш баланс\nℹ️ /help@TestBot — список команд\n"
+                "🔒 /privacy@TestBot — политика конфиденциальности\n👤 /developer_info@TestBot — о разработчике\n"
+                "Копия и удаление данных — в личной переписке с ботом.")
+        check("групповой /help с именем", run(bot.help_command, FakeUpdate("group", chat_id=-302), username=NAME).sent[0]["text"], want)
+        reset()
+        t = run(bot.help_command, FakeUpdate("group", chat_id=-303)).sent[0]["text"]
+        check("без имени бота прежний текст", t, bot.GROUP_HELP)
+        assert "@" not in t
+        reset()
+        check("личный /help без изменений", run(bot.help_command, FakeUpdate("private"), username=NAME).replies[0]["text"], bot.PRIVATE_HELP)
+
+        # лимит 20 секунд на чат для help/privacy/developer_info (общий с /play)
+        with Clock(5000.0) as clk:
+            reset()
+            check("help 1", answers(run(bot.help_command, FakeUpdate("group", chat_id=-310))), 1)
+            clk.t = 5010
+            check("privacy через 10с молча", answers(run(bot.privacy, FakeUpdate("group", chat_id=-310))), 0)
+            check("другой чат отвечает", answers(run(bot.developer_info, FakeUpdate("group", chat_id=-311))), 1)
+            clk.t = 5021
+            check("через 21с отвечает", answers(run(bot.privacy, FakeUpdate("group", chat_id=-310))), 1)
+            reset()
+
+        # ---------- /balance в группе: защита и лимиты ----------
+        def players_count(uid):
+            conn = sqlite3.connect(path)
+            try:
+                return conn.execute("SELECT COUNT(*) FROM players WHERE telegram_id = ?", (uid,)).fetchone()[0]
+            finally:
+                conn.close()
+
+        # новый игрок создаётся с 1000 фишек
+        check("до вызова игрока нет", players_count(8001), 0)
+        u = run(bot.balance, FakeUpdate("group", user_id=8001, chat_id=-400))
+        assert u.replies[0]["text"].startswith("Баланс: 1000 фишек"), u.replies
+        check("игрок создан", players_count(8001), 1)
+        for foreign in ("8001", "Тест", "-400"):
+            assert foreign not in u.replies[0]["text"], "в ответе лишние данные: " + foreign
+        reset()
+
+        # от имени чата (анонимный администратор, канал), от бота, без пользователя: молча и без записи
+        u = FakeUpdate("supergroup", user_id=8002, chat_id=-401)
+        u.effective_message.sender_chat = FakeChat(-401, "supergroup")
+        run(bot.balance, u)
+        check("sender_chat", (answers(u), players_count(8002)), (0, 0))
+        u = FakeUpdate("group", user_id=8003, chat_id=-402)
+        u.effective_user.is_bot = True
+        run(bot.balance, u)
+        check("бот", (answers(u), players_count(8003)), (0, 0))
+        u = FakeUpdate("group", user_id=8004, chat_id=-403)
+        u.effective_user = None
+        run(bot.balance, u)
+        check("без пользователя", answers(u), 0)
+        # отказ не расходует лимиты: сразу после отказа настоящий игрок отвечает
+        u = run(bot.balance, FakeUpdate("group", user_id=8005, chat_id=-401))
+        check("после отказов отвечает", (answers(u), players_count(8005)), (1, 1))
+        reset()
+
+        # 20 секунд на пару (чат, игрок); другой игрок в том же чате не блокируется
+        with Clock(7000.0) as clk:
+            check("первый запрос", answers(run(bot.balance, FakeUpdate("group", user_id=8010, chat_id=-410))), 1)
+            clk.t = 7010
+            check("повтор через 10с молча", answers(run(bot.balance, FakeUpdate("group", user_id=8010, chat_id=-410))), 0)
+            check("другой игрок в том же чате", answers(run(bot.balance, FakeUpdate("group", user_id=8011, chat_id=-410))), 1)
+            check("тот же игрок в другом чате", answers(run(bot.balance, FakeUpdate("group", user_id=8010, chat_id=-411))), 1)
+            clk.t = 7021
+            check("через 21с снова", answers(run(bot.balance, FakeUpdate("group", user_id=8010, chat_id=-410))), 1)
+
+            # не больше 10 ответов в минуту на чат
+            reset()
+            clk.t = 8000.0
+            got = []
+            for i in range(14):
+                got.append(answers(run(bot.balance, FakeUpdate("group", user_id=9000 + i, chat_id=-420))))
+                clk.t += 1
+            check("10 в минуту на чат", got, [1] * 10 + [0] * 4)
+            check("другой чат не затронут", answers(run(bot.balance, FakeUpdate("group", user_id=9100, chat_id=-421))), 1)
+            clk.t = 8000.0 + 61
+            check("через минуту снова", answers(run(bot.balance, FakeUpdate("group", user_id=9200, chat_id=-420))), 1)
+
+            # очистка словарей
+            reset()
+            clk.t = 9000.0
+            for i in range(30):
+                run(bot.balance, FakeUpdate("group", user_id=9300 + i, chat_id=-500 - i))
+            check("записано", (len(bot.balance_pair_limiter.last), len(bot.balance_chat_limiter.times)), (30, 30))
+            clk.t = 9070.0
+            run(bot.balance, FakeUpdate("group", user_id=9400, chat_id=-600))
+            check("старые записи удалены", (len(bot.balance_pair_limiter.last), len(bot.balance_chat_limiter.times)), (1, 1))
+            reset()
+
+        # личный /balance без групповых лимитов
+        for _ in range(3):
+            check("личный /balance", answers(run(bot.balance, FakeUpdate("private", user_id=8020))), 1)
 
     # ---------- настройки не заданы или неверны ----------
     UN = "Эта функция пока недоступна"
@@ -336,7 +465,7 @@ try:
     check("команды личных", [c.command for c in priv],
           ["start", "play", "balance", "help", "privacy", "developer_info", "mydata", "deletemydata"])
     check("область личных", priv_scope.type, "all_private_chats")
-    check("команды групп", [c.command for c in grp], ["play", "help"])
+    check("команды групп", [c.command for c in grp], ["play", "balance", "help", "privacy", "developer_info"])
     check("область групп", grp_scope.type, "all_group_chats")
     assert all(c.description for c in priv + grp)
 
