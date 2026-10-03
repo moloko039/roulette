@@ -126,6 +126,65 @@ button {
   width: 160px;
 }
 
+/* рейтинг беседы: прокручивается только список, а не страница */
+.rating { min-height: 0; }
+
+.rating-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  min-height: 0;
+  padding: 10px;
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.7);
+  box-shadow: var(--glow-soft);
+}
+
+.rating-list {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.rating-list li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+  text-align: left;
+  border-radius: 8px;
+}
+
+.rating-list li.me {
+  font-weight: 700;
+  border: 1px solid var(--accent);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.rating-rank { color: rgba(255, 255, 255, 0.6); }
+
+.rating-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rating-bal { color: var(--accent-light); }
+
+.rating-me {
+  font-size: 0.85rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .nav {
   grid-row: 2;
   z-index: 3; /* выше меню игр, чтобы центральная кнопка оставалась нажимаемой */
