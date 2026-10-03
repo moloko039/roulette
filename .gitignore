@@ -6,3 +6,6 @@ __pycache__/
 *.db.tmp
 backups/
 CLAUDE.local.md
+*.enc
+*.key
+roulette-backup-private.key

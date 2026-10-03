@@ -247,7 +247,7 @@ def run_maintenance_once(config, db_path, now, last_purge, events=None):
 
 
 async def maintenance_loop(config, db_path, first_delay=FIRST_DELAY_SECONDS, tick=TICK_SECONDS,
-                           clock=time.time, once=False, notifier=None):
+                           clock=time.time, once=False, notifier=None, sender=None):
     """Фоновая задача сервиса. Любая ошибка логируется (только тип) и не роняет сервис;
     блокирующая работа идёт в пуле потоков. Корректно отменяется при остановке."""
     last_purge = None
@@ -264,6 +264,13 @@ async def maintenance_loop(config, db_path, first_delay=FIRST_DELAY_SECONDS, tic
             raise
         except Exception as exc:
             logger.error("Ошибка фоновой задачи: %s", type(exc).__name__)
+        if sender is not None:
+            try:
+                events.extend(await sender.run_scheduled(now))
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("Ошибка отправки зашифрованной копии: %s", type(exc).__name__)
         if notifier is not None:
             try:
                 await notifier.run(events, now)
