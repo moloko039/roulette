@@ -9,6 +9,7 @@ import time
 import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
+import farm
 import wallet
 from levels import profile_level
 from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
@@ -49,7 +50,9 @@ def init_db(db_path=None):
                 rate         INTEGER NOT NULL,
                 last_accrual INTEGER NOT NULL,
                 created_at   INTEGER NOT NULL,
-                total_staked INTEGER NOT NULL DEFAULT 0
+                total_staked INTEGER NOT NULL DEFAULT 0,
+                income_level INTEGER NOT NULL DEFAULT 0,
+                storage_level INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -64,6 +67,20 @@ def init_db(db_path=None):
                 payout_total INTEGER NOT NULL,
                 bets_json    TEXT    NOT NULL,
                 created_at   INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
+        # покупки улучшений фермы: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS farm_purchases (
+                telegram_id INTEGER NOT NULL,
+                request_id  TEXT    NOT NULL,
+                kind        TEXT    NOT NULL,
+                level_after INTEGER NOT NULL,
+                cost        INTEGER NOT NULL,
+                created_at  INTEGER NOT NULL,
                 PRIMARY KEY (telegram_id, request_id)
             )
             """
@@ -100,6 +117,7 @@ def init_db(db_path=None):
             """
         )
         _migrate_total_staked(conn)
+        _migrate_farm_levels(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",
@@ -135,6 +153,35 @@ def _migrate_total_staked(conn):
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def _migrate_farm_levels(conn):
+    """Добавляет players.income_level и players.storage_level в старую базу (идемпотентно).
+
+    Новые столбцы 0: потолок накопления прежний (30 часов). Столбец rate не трогаем: у старых игроков он
+    уже равен базовой ставке, а при покупке дохода обновляется до farm.income_rate(уровень)."""
+    def columns():
+        return {r["name"] for r in conn.execute("PRAGMA table_info(players)")}
+
+    if {"income_level", "storage_level"} <= columns():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        present = columns()  # повторная проверка внутри транзакции
+        if "income_level" not in present:
+            conn.execute("ALTER TABLE players ADD COLUMN income_level INTEGER NOT NULL DEFAULT 0")
+        if "storage_level" not in present:
+            conn.execute("ALTER TABLE players ADD COLUMN storage_level INTEGER NOT NULL DEFAULT 0")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def _accrue_player(row, now):
+    """Начисление по часам для строки игрока: единственное место, где вызывается economy.accrue.
+    Ставка берётся из players.rate, потолок часов из уровня хранилища игрока."""
+    return accrue(row["last_accrual"], now, row["rate"], max_hours=farm.storage_hours(row["storage_level"]))
 
 
 def get_meta(key, db_path=None):
@@ -200,12 +247,13 @@ def get_player(telegram_id, now=None, db_path=None):
             # новый игрок получает стартовый баланс (или 0 в период защиты); существующего не трогаем
             _register_player(conn, telegram_id, now)
             row = conn.execute(
-                "SELECT balance, rate, last_accrual, total_staked FROM players WHERE telegram_id = ?",
+                "SELECT balance, rate, last_accrual, total_staked, income_level, storage_level "
+                "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
 
             # начисление по часам: единственная правка баланса вне wallet (это не игровое списание или выплата)
-            earned, new_last = accrue(row["last_accrual"], now, row["rate"])
+            earned, new_last = _accrue_player(row, now)
             balance = row["balance"] + earned
 
             if earned or new_last != row["last_accrual"]:
@@ -226,6 +274,8 @@ def get_player(telegram_id, now=None, db_path=None):
         "rate": row["rate"],
         "last_accrual": new_last,
         "total_staked": row["total_staked"],
+        "income_level": row["income_level"],
+        "storage_level": row["storage_level"],
     }
 
 
@@ -276,10 +326,10 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             # Начисление по часам записывается сразу (при ошибке ниже транзакция откатится целиком)
             _register_player(conn, telegram_id, now)
             row = conn.execute(
-                "SELECT balance, rate, last_accrual FROM players WHERE telegram_id = ?",
+                "SELECT balance, rate, last_accrual, storage_level FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
-            earned, new_last = accrue(row["last_accrual"], now, row["rate"])
+            earned, new_last = _accrue_player(row, now)
             conn.execute(
                 "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
                 (row["balance"] + earned, new_last, telegram_id),
@@ -322,6 +372,89 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
         conn.close()
 
     return _round_result(number, stake_total, payout_total, new_balance, False)
+
+
+# ---------- ферма: улучшения дохода и хранилища ----------
+
+def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
+    """Покупка улучшения (kind "income" или "storage") в одной транзакции BEGIN IMMEDIATE.
+
+    Порядок: повтор по request_id; начисление накопленного по старой ставке и старому потолку; проверки
+    (максимальный уровень, лимит по уровню профиля, достаточно ли фишек); списание через wallet.debit;
+    повышение уровня (для дохода и players.rate); запись покупки. Бросает farm.MaxLevel, farm.LevelLocked,
+    wallet.InsufficientFunds; при любой ошибке в базе ничего не меняется.
+    """
+    if kind not in farm.KINDS:
+        raise ValueError("unknown kind")
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # (а) повтор: тот же ответ, без списания (balance, как у spin, текущий)
+            old = conn.execute(
+                "SELECT kind, level_after, cost FROM farm_purchases WHERE telegram_id = ? AND request_id = ?",
+                (telegram_id, request_id),
+            ).fetchone()
+            if old is not None:
+                cur = conn.execute("SELECT balance FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+                result = {"kind": old["kind"], "level_after": old["level_after"], "cost": old["cost"],
+                          "balance": cur["balance"] if cur else 0, "replayed": True}
+                conn.execute("COMMIT")
+                return result
+
+            # (б) начисление по СТАРОЙ ставке и СТАРОМУ потолку: новые значения на прошлое не действуют
+            _register_player(conn, telegram_id, now)
+            row = conn.execute(
+                "SELECT balance, rate, last_accrual, total_staked, income_level, storage_level "
+                "FROM players WHERE telegram_id = ?",
+                (telegram_id,),
+            ).fetchone()
+            earned, new_last = _accrue_player(row, now)
+            conn.execute(
+                "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
+                (row["balance"] + earned, new_last, telegram_id),
+            )
+
+            # (в) проверки по порядку
+            level = row["income_level"] if kind == "income" else row["storage_level"]
+            cost = farm.income_cost(level) if kind == "income" else farm.storage_cost(level)
+            if cost is None:
+                raise farm.MaxLevel()
+            used = row["income_level"] + row["storage_level"]
+            if used >= profile_level(row["total_staked"]):
+                raise farm.LevelLocked(used + 1)
+
+            # (г) списание, повышение уровня, запись покупки
+            wallet.debit(conn, telegram_id, cost)   # wallet.InsufficientFunds, если фишек не хватает
+            if kind == "income":
+                conn.execute(
+                    "UPDATE players SET income_level = ?, rate = ? WHERE telegram_id = ?",
+                    (level + 1, farm.income_rate(level + 1), telegram_id),
+                )
+            else:
+                conn.execute("UPDATE players SET storage_level = ? WHERE telegram_id = ?", (level + 1, telegram_id))
+            conn.execute(
+                "INSERT INTO farm_purchases (telegram_id, request_id, kind, level_after, cost, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (telegram_id, request_id, kind, level + 1, cost, now),
+            )
+            result = {"kind": kind, "level_after": level + 1, "cost": cost,
+                      "balance": wallet.get_balance(conn, telegram_id), "replayed": False}
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def farm_status(telegram_id, now=None, db_path=None):
+    """Данные экрана фермы (GET /api/farm). Баланс с начислением, как в /api/me."""
+    player = get_player(telegram_id, now=now, db_path=db_path)
+    return farm.status(player["balance"], player["total_staked"], player["income_level"], player["storage_level"])
 
 
 # ---------- рейтинг беседы ----------
@@ -408,7 +541,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
             _touch_member(conn, chat_instance, telegram_id, first_name, now)
             rows = conn.execute(
                 "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual, "
-                "       p.total_staked "
+                "       p.total_staked, p.storage_level "
                 "FROM (SELECT telegram_id, first_name, first_seen FROM chat_members "
                 "      WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
                 "JOIN players p ON p.telegram_id = m.telegram_id",
@@ -423,7 +556,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
 
     entries = []
     for r in rows:
-        earned, _ = accrue(r["last_accrual"], now, r["rate"])
+        earned, _ = _accrue_player(r, now)
         entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"],
                         r["total_staked"]))
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
@@ -456,12 +589,17 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         conn.execute("BEGIN")  # один снимок для всех запросов
         try:
             player = conn.execute(
-                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked FROM players "
-                "WHERE telegram_id = ?",
+                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked, income_level, storage_level "
+                "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
             rounds = conn.execute(
                 "SELECT created_at, bets_json, number, stake_total, payout_total FROM roulette_rounds "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
+            purchases = conn.execute(
+                "SELECT created_at, kind, level_after, cost FROM farm_purchases "
                 "WHERE telegram_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?",
                 (telegram_id, rounds_limit),
             ).fetchall()
@@ -474,7 +612,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats:
+    if player is None and not rounds and not chats and not purchases:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -482,6 +620,10 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             {"time": r["created_at"], "bets": json.loads(r["bets_json"]), "number": r["number"],
              "stake_total": r["stake_total"], "payout_total": r["payout_total"]}
             for r in rounds
+        ],
+        "farm_purchases": [
+            {"time": p["created_at"], "kind": p["kind"], "level": p["level_after"], "cost": p["cost"]}
+            for p in purchases
         ],
         "chats": [{"first_seen": c["first_seen"], "last_seen": c["last_seen"], "name": c["first_name"]}
                   for c in chats],
@@ -511,6 +653,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                     "DELETE FROM roulette_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount,
                 "chat_members": conn.execute(
                     "DELETE FROM chat_members WHERE telegram_id = ?", (telegram_id,)).rowcount,
+                "farm_purchases": conn.execute(
+                    "DELETE FROM farm_purchases WHERE telegram_id = ?", (telegram_id,)).rowcount,
             }
             if counts["players"] > 0:
                 conn.execute(
@@ -546,7 +690,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     rounds_days = max(int(rounds_days), 2)
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
-    deleted = {"roulette_rounds": 0, "chat_members": 0, "deletion_tombstones": 0}
+    deleted = {"roulette_rounds": 0, "farm_purchases": 0, "chat_members": 0, "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
 
@@ -570,6 +714,11 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM roulette_rounds WHERE rowid IN "
                 "(SELECT rowid FROM roulette_rounds WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "farm_purchases" in present:  # тот же срок хранения, что у раундов
+            deleted["farm_purchases"] = batches(
+                "DELETE FROM farm_purchases WHERE rowid IN "
+                "(SELECT rowid FROM farm_purchases WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "
@@ -582,6 +731,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d",
-                deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"])
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d",
+                deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
+                deleted["farm_purchases"])
     return deleted

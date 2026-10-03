@@ -22,7 +22,8 @@ import ratelimit
 from levels import profile_level
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
-from db import chat_top, get_player, init_db, spin_roulette, touch_chat_member
+import farm
+from db import buy_upgrade, chat_top, farm_status, get_player, init_db, spin_roulette, touch_chat_member
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
                       validate_request_id)
@@ -210,6 +211,8 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "rate": player["rate"],
             "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
             "level": profile_level(player["total_staked"]),
+            "income_level": player["income_level"],
+            "storage_level": player["storage_level"],
         }
 
     @app.get("/api/chat/top")
@@ -228,6 +231,57 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return {"scope": "none"}
         # в ответе только rank, name, balance, is_me, staked и chat_staked: ни telegram_id, ни chat_instance, ни username
         return chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
+
+    @app.get("/api/farm")
+    def farm_endpoint(authorization: str = Header(default=None)):
+        try:
+            scheme, _, init_data = (authorization or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            user_id = validate_init_data(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        limited = throttled(user_id, "read")
+        if limited is not None:
+            return limited
+        return farm_status(user_id, db_path=db_path)
+
+    @app.post("/api/farm/buy")
+    async def farm_buy(request: Request):
+        try:
+            scheme, _, init_data = (request.headers.get("authorization") or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            user_id = validate_init_data(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        limited = throttled(user_id, "write")
+        if limited is not None:
+            return limited
+
+        # любая ошибка формы тела: 400 с одним и тем же текстом
+        try:
+            raw = await request.body()
+            if len(raw) > MAX_BODY_BYTES:
+                raise ValueError()
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != {"request_id", "kind"}:
+                raise ValueError()
+            request_id = validate_request_id(data["request_id"])
+            kind = data["kind"]
+            if type(kind) is not str or kind not in farm.KINDS:
+                raise ValueError()
+        except Exception:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+
+        try:
+            return await run_in_threadpool(buy_upgrade, user_id, request_id, kind, None, db_path)
+        except farm.MaxLevel:
+            return JSONResponse({"detail": "max_level"}, status_code=409)
+        except farm.LevelLocked as exc:
+            return JSONResponse({"detail": "level_locked", "required_level": exc.required_level}, status_code=409)
+        except InsufficientFunds:
+            return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):
