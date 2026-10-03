@@ -14,8 +14,8 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from telegram import Update
 
-from auth import InvalidInitData, validate_init_data
-from db import get_player, init_db, spin_roulette
+from auth import InvalidInitData, validate_init_data, validate_init_data_full
+from db import chat_top, get_player, init_db, spin_roulette, touch_chat_member
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
                       validate_request_id)
@@ -47,6 +47,10 @@ configure_logging()
 def _unauthorized():
     # одно и то же сообщение при любой причине отказа
     return HTTPException(status_code=401, detail="Unauthorized")
+
+
+def _in_group(info):
+    return info["chat_type"] in ("group", "supergroup") and info["chat_instance"] is not None
 
 
 def _forbidden():
@@ -127,17 +131,37 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             scheme, _, init_data = (authorization or "").partition(" ")
             if scheme != "tma":
                 raise InvalidInitData()
-            user_id = validate_init_data(init_data, bot_token)
+            info = validate_init_data_full(init_data, bot_token)
         except InvalidInitData:
             raise _unauthorized()
+        user_id = info["user_id"]
 
         now = int(time.time())
         player = get_player(user_id, now=now, db_path=db_path)
+        if _in_group(info):
+            try:
+                touch_chat_member(info["chat_instance"], user_id, info["first_name"], now=now, db_path=db_path)
+            except Exception:
+                pass  # рейтинг не должен ломать /api/me
         return {
             "balance": player["balance"],
             "rate": player["rate"],
             "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
         }
+
+    @app.get("/api/chat/top")
+    def chat_top_endpoint(authorization: str = Header(default=None)):
+        try:
+            scheme, _, init_data = (authorization or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            info = validate_init_data_full(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        if not _in_group(info):
+            return {"scope": "none"}
+        # в ответе только rank, name, balance, is_me: ни telegram_id, ни chat_instance, ни username
+        return chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):

@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import re
 import time
 from urllib.parse import parse_qsl
 
@@ -72,3 +73,36 @@ def _validate(init_data, bot_token, now, max_age):
     if not isinstance(user_id, int) or isinstance(user_id, bool):
         raise InvalidInitData()
     return user_id
+
+
+# ---------- дополнительные поля: беседа и имя ----------
+# chat_type и chat_instance приходят в initData только при запуске по прямой ссылке
+# (t.me/<бот>/<приложение>) и входят в подпись, поэтому подделать их нельзя.
+CHAT_TYPES = frozenset(["sender", "private", "group", "supergroup", "channel"])
+CHAT_INSTANCE_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
+    """Как validate_init_data, но возвращает словарь:
+    {user_id, chat_type, chat_instance, first_name}.
+
+    Подпись проверяет сама validate_init_data (её логика не менялась). Остальные поля
+    достаются уже из проверенной строки; отсутствующие или неверного вида дают None.
+    """
+    user_id = validate_init_data(init_data, bot_token, now=now, max_age=max_age)
+    chat_type = chat_instance = first_name = None
+    try:
+        fields = dict(parse_qsl(init_data, keep_blank_values=True))
+        value = fields.get("chat_type")
+        if value in CHAT_TYPES:
+            chat_type = value
+        value = fields.get("chat_instance")
+        if isinstance(value, str) and CHAT_INSTANCE_RE.fullmatch(value):
+            chat_instance = value
+        name = json.loads(fields["user"]).get("first_name")
+        if isinstance(name, str):
+            first_name = name
+    except Exception:
+        pass
+    return {"user_id": user_id, "chat_type": chat_type, "chat_instance": chat_instance,
+            "first_name": first_name}
