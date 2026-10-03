@@ -1,14 +1,14 @@
 :root {
-  --accent: #3fd0e8;
-  --accent-light: #a8f0ff;
-  --accent-dark: #1c7f99;
-  --glow: rgba(63, 208, 232, 0.35);
-  --glow-soft: 0 0 14px var(--glow), inset 0 0 10px rgba(63, 208, 232, 0.08);
+  --accent: #fff;
+  --accent-light: #fff;
+  --accent-dark: #777;
+  --glow: rgba(255, 255, 255, 0.35);
+  --glow-soft: 0 0 14px var(--glow), inset 0 0 10px rgba(255, 255, 255, 0.06);
   --wheel-shadow: 0 0 40px rgba(63, 208, 232, 0.4), 0 10px 35px rgba(0, 0, 0, 0.8);
   --red: #c62828;
   --black: #111;
   --green: #1b8f3a;
-  --cell-bg: #12303a;
+  --cell-bg: #1a1a1a;
 }
 
 * {
@@ -23,7 +23,7 @@ html, body {
 body {
   color: #e6eef5;
   font-family: Georgia, 'Times New Roman', serif;
-  background: radial-gradient(ellipse at 50% 40%, #122338 0%, #0a1220 55%, #04060b 100%);
+  background: #000;
   background-attachment: fixed;
 }
 
@@ -36,6 +36,7 @@ button {
 
 /* оболочка занимает высоту окна Telegram: сверху экран, снизу панель навигации */
 .shell {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   height: var(--tg-viewport-stable-height, 100dvh);
@@ -57,6 +58,8 @@ button {
 
 .stub {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
@@ -67,15 +70,22 @@ button {
 
 /* ---------- нижняя панель навигации ---------- */
 
+.stub h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+
 .nav {
   grid-row: 2;
+  z-index: 3; /* выше меню игр, чтобы центральная кнопка оставалась нажимаемой */
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 50px;
   height: calc(52px + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 2px solid var(--accent);
-  background: rgba(6, 11, 20, 0.95);
+  background: rgba(0, 0, 0, 0.95);
   box-shadow: 0 -4px 18px var(--glow);
 }
 
@@ -88,12 +98,12 @@ button {
   height: 50px;
   padding: 0;
   font: 700 0.65rem Georgia, serif;
-  color: rgba(168, 240, 255, 0.55);
+  color: rgba(255, 255, 255, 0.5);
   background: none;
   border: none;
 }
 
-.tab svg {
+.tab svg, .tile svg {
   width: 22px;
   height: 22px;
   fill: none;
@@ -115,17 +125,88 @@ button {
   width: 58px;
   height: 58px;
   margin-top: -8px;
-  background: radial-gradient(circle at 50% 35%, #1d3c52, #0a1626);
+  background: radial-gradient(circle at 50% 35%, #2a2a2a, #0a0a0a);
   border: 2px solid var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 16px var(--glow), inset 0 0 10px rgba(63, 208, 232, 0.2);
+  box-shadow: 0 0 16px var(--glow), inset 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 .tab.main svg { width: 26px; height: 26px; }
 
+/* ---------- меню выбора игр над центральной кнопкой ---------- */
+
+.game-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 8px calc(52px + env(safe-area-inset-bottom) + 14px);
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s, visibility 0.18s;
+}
+
+.game-menu.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.game-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 88px);
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  background: #000;
+  box-shadow: 0 0 18px var(--glow);
+  transform: translateY(12px);
+  transition: transform 0.18s ease-out;
+}
+
+.game-menu.open .game-panel { transform: none; }
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 66px;
+  padding: 0;
+  font: 700 0.7rem Georgia, serif;
+  color: #fff;
+  background: #1a1a1a;
+  border: 1px solid var(--accent-dark);
+  border-radius: 12px;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.18s, transform 0.18s;
+  transition-delay: calc(var(--i) * 25ms);
+}
+
+.tile svg { width: 26px; height: 26px; }
+
+.game-menu.open .tile {
+  opacity: 1;
+  transform: none;
+}
+
+.tile[aria-current="true"] {
+  color: #000;
+  background: linear-gradient(180deg, #fff, #ddd 55%, #888);
+}
+
+.tile:active { filter: brightness(1.3); }
+
 .tab.main[aria-current="page"] {
-  color: #04222a;
-  background: linear-gradient(180deg, var(--accent-light), var(--accent) 55%, var(--accent-dark));
+  color: #000;
+  background: linear-gradient(180deg, #fff, #ddd 55%, #888);
   text-shadow: none;
   box-shadow: 0 0 22px var(--accent), inset 0 0 8px rgba(255, 255, 255, 0.4);
 }
@@ -173,7 +254,7 @@ button {
   color: #fff;
   border: 2px solid var(--accent);
   border-radius: 8px;
-  background: #2a3442;
+  background: #1a1a1a;
   box-shadow: 0 0 10px var(--glow);
 }
 
@@ -231,7 +312,7 @@ button {
   padding: 4px;
   border: 2px solid var(--accent);
   border-radius: 14px;
-  background: linear-gradient(160deg, #0f1c2e, #080d16);
+  background: #050505;
   box-shadow: var(--glow-soft);
 }
 
@@ -279,7 +360,7 @@ button {
   justify-content: center;
   min-width: 0;
   font-size: 0.75rem;
-  color: rgba(168, 240, 255, 0.45);
+  color: rgba(255, 255, 255, 0.4);
   border: 1px dashed var(--accent-dark);
   border-radius: 4px;
 }
@@ -297,8 +378,8 @@ button {
   justify-content: center;
   font: 700 0.6rem Georgia, serif;
   font-style: normal;
-  color: #04222a;
-  background: radial-gradient(circle, #e8fcff 50%, var(--accent) 52%);
+  color: #000;
+  background: radial-gradient(circle, #fff 50%, #bbb 52%);
   border: 2px dashed var(--accent-dark);
   border-radius: 50%;
   box-shadow: 0 0 8px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.7);
@@ -327,7 +408,7 @@ button {
   padding: 6px;
   border: 2px solid var(--accent);
   border-radius: 14px;
-  background: rgba(8, 14, 24, 0.7);
+  background: rgba(0, 0, 0, 0.7);
   box-shadow: var(--glow-soft);
 }
 
@@ -346,7 +427,7 @@ input[type="number"] {
   color: #111;
   border: 1px solid var(--accent-dark);
   border-radius: 8px;
-  background: #e8f6fa;
+  background: #fff;
 }
 
 .chip {
@@ -356,7 +437,7 @@ input[type="number"] {
   padding: 0;
   font: 700 0.95rem Georgia, serif;
   color: #fff;
-  background: radial-gradient(circle, #2b2b6b 55%, #1a1a45 56%);
+  background: radial-gradient(circle, #2a2a2a 55%, #111 56%);
   border: 2px dashed var(--accent-light);
   border-radius: 20px;
   box-shadow: 0 0 8px var(--glow);
@@ -374,7 +455,7 @@ input[type="number"] {
   border-radius: 10px;
 }
 
-.action:active:not(:disabled) { background: rgba(63, 208, 232, 0.18); }
+.action:active:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
 
 /* ---------- главные кнопки ---------- */
 
@@ -382,11 +463,11 @@ input[type="number"] {
   font: 700 1.1rem Georgia, serif;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #04222a;
-  background: linear-gradient(180deg, var(--accent-light) 0%, var(--accent) 50%, var(--accent-dark) 100%);
+  color: #000;
+  background: linear-gradient(180deg, #fff 0%, #ddd 50%, #888 100%);
   border: 2px solid var(--accent-light);
   border-radius: 999px;
-  box-shadow: 0 4px 0 #0f4a5a, 0 0 18px var(--glow);
+  box-shadow: 0 4px 0 #444, 0 0 18px var(--glow);
   transition: transform 0.1s, box-shadow 0.1s;
 }
 
@@ -401,7 +482,7 @@ input[type="number"] {
 
 #spin:active:not(:disabled), #loan-btn:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #0f4a5a, 0 0 12px var(--glow);
+  box-shadow: 0 1px 0 #444, 0 0 12px var(--glow);
 }
 
 button:disabled {
@@ -476,7 +557,7 @@ button:disabled {
   color: #fff;
   border: 2px solid var(--accent);
   border-radius: 12px;
-  background: #2a3442;
+  background: #1a1a1a;
   box-shadow: 0 0 14px var(--glow);
   opacity: 0;
 }

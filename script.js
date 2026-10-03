@@ -483,7 +483,35 @@ if (tg) {
   }
 }
 
-// Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур)
+// Кошелёк для всех игр: общий баланс и его сохранение в localStorage.
+// Рулетка работает с той же переменной balance напрямую, её логика не менялась.
+const wallet = {
+  listeners: [],                       // функции, которые вызываются при изменении баланса
+  get: () => balance,
+  set(value) {
+    balance = value;
+    renderBalance();
+    saveState();
+    this.listeners.forEach((fn) => fn(balance));
+  },
+  add(delta) { this.set(balance + delta); }
+};
+
+// Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
+// Для ready: false экран-заглушка «Скоро» создаётся автоматически.
+// Иконка — вложенный SVG (24×24, контур)
+const GAMES = [
+  { id: 'roulette',  label: 'Рулетка',   ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
+  { id: 'crash',     label: 'Краш',      ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  ready: false, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'mines',     label: 'Мины',      ready: false, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
+  { id: 'keno',      label: 'Кено',      ready: false, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
+];
+const START_GAME = 'roulette';
+let currentGame = START_GAME;
+
+// Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур).
+// Иконка центральной кнопки подменяется иконкой открытой игры.
 const TABS = [
   { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
   { id: 'play',    label: 'Играть',  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>', main: true },
@@ -492,9 +520,21 @@ const TABS = [
 const START_TAB = 'play';
 const navEl = document.getElementById('nav');
 
-// Экраны только прячутся и показываются, игровые элементы не пересоздаются
+const shellEl = document.querySelector('.shell');
+const gameMenu = document.getElementById('game-menu');
+const gamePanel = document.getElementById('game-panel');
+let activeTab = START_TAB;
+
+const iconSvg = (path) => `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+const getGame = (id) => GAMES.find((g) => g.id === id);
+
+// Экраны только прячутся и показываются, игровые элементы не пересоздаются.
+// Вкладка «Играть» показывает экран выбранной игры.
 function showTab(id) {
-  document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== id; });
+  activeTab = id;
+  const screen = id === 'play' ? currentGame : id;
+  document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
+  closeGameMenu();
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
@@ -506,11 +546,65 @@ TABS.forEach((tab) => {
   btn.type = 'button';
   btn.className = 'tab' + (tab.main ? ' main' : '');
   btn.dataset.tab = tab.id;
-  btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${tab.icon}</svg><span>${tab.label}</span>`;
-  btn.addEventListener('click', () => showTab(tab.id));
+  btn.innerHTML = `${iconSvg(tab.icon)}<span>${tab.label}</span>`;
+  btn.addEventListener('click', () => {
+    // повторное нажатие на «Играть» открывает и закрывает меню игр
+    if (tab.id === 'play' && activeTab === 'play') toggleGameMenu();
+    else showTab(tab.id);
+  });
   navEl.appendChild(btn);
 });
-showTab(START_TAB);
+
+// Меню игр: нельзя открыть, пока колесо на экране (вращение и пауза после него)
+function closeGameMenu() {
+  gameMenu.classList.remove('open');
+  navEl.querySelector('.tab.main').setAttribute('aria-expanded', 'false');
+}
+
+function toggleGameMenu() {
+  if (gameMenu.classList.contains('open')) {
+    closeGameMenu();
+    return;
+  }
+  if (wheelLayer.classList.contains('active')) return;
+  gameMenu.classList.add('open');
+  navEl.querySelector('.tab.main').setAttribute('aria-expanded', 'true');
+}
+
+function selectGame(id) {
+  currentGame = id;
+  navEl.querySelector('.tab.main svg').outerHTML = iconSvg(getGame(id).icon);
+  gamePanel.querySelectorAll('.tile').forEach((t) => {
+    t.setAttribute('aria-current', String(t.dataset.game === id));
+  });
+  showTab('play');
+}
+
+// Плитки меню и экраны-заглушки строятся из реестра GAMES
+GAMES.forEach((game, i) => {
+  const tile = document.createElement('button');
+  tile.type = 'button';
+  tile.className = 'tile';
+  tile.dataset.game = game.id;
+  tile.style.setProperty('--i', i);
+  tile.setAttribute('role', 'menuitem');
+  tile.innerHTML = `${iconSvg(game.icon)}<span>${game.label}</span>`;
+  tile.addEventListener('click', () => selectGame(game.id));
+  gamePanel.appendChild(tile);
+
+  if (!game.ready) {
+    const stub = document.createElement('section');
+    stub.className = 'screen stub';
+    stub.dataset.screen = game.id;
+    stub.hidden = true;
+    stub.innerHTML = `<h2>${game.label}</h2><span>Скоро</span>`;
+    shellEl.insertBefore(stub, wheelLayer);
+  }
+});
+gameMenu.addEventListener('click', (e) => {
+  if (e.target === gameMenu) closeGameMenu(); // нажатие мимо плиток
+});
+selectGame(START_GAME);
 
 loadState();
 drawWheel();
