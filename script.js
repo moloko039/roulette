@@ -11,7 +11,18 @@ const RED_NUMBERS = new Set([
   1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
 ]);
 
-const COLOR_HEX = { red: '#c62828', black: '#111111', green: '#1b8f3a' };
+// цвета секторов колеса: те же, что у токенов --red, --surface-2, --green в style.css
+const COLOR_HEX = { red: '#B3262B', black: '#17171B', green: '#1E9E4A' };
+
+// числа с разделителем тысяч («1 300»); если Intl недоступен, без него
+const formatNumber = (() => {
+  try {
+    const f = new Intl.NumberFormat('ru-RU');
+    return (n) => f.format(n);
+  } catch (e) {
+    return (n) => String(n);
+  }
+})();
 
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
 const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
@@ -43,6 +54,8 @@ const ballEl = document.getElementById('ball');
 const wheelBox = document.querySelector('.wheel-box');
 const wheelLayer = document.getElementById('wheel-layer');
 const layerResultEl = document.getElementById('layer-result');
+const layerWinEl = document.getElementById('layer-win');
+const gameSwitchEl = document.getElementById('game-switch');
 const RESULT_HOLD_MS = 1500; // сколько колесо остаётся на экране после остановки
 const BALL_TRACK = 0.955;  // радиус, по которому шарик катится по ободу
 const BALL_POCKET = 0.885; // радиус, на котором он лежит в ячейке
@@ -112,9 +125,9 @@ function drawWheel() {
 
   // Обод рисуем прямо на колесе: он вращается вместе с ним и везде одинаков
   const rim = ctx.createRadialGradient(cx, cy, radius, cx, cy, outer);
-  rim.addColorStop(0, '#1c7f99');
-  rim.addColorStop(0.5, '#a8f0ff');
-  rim.addColorStop(1, '#3fd0e8');
+  rim.addColorStop(0, '#55555B');
+  rim.addColorStop(0.5, '#F5F5F2');
+  rim.addColorStop(1, '#8A8A90');
   ctx.beginPath();
   ctx.arc(cx, cy, outer, 0, Math.PI * 2);
   ctx.fillStyle = rim;
@@ -131,7 +144,7 @@ function drawWheel() {
     ctx.closePath();
     ctx.fillStyle = COLOR_HEX[getColor(num)];
     ctx.fill();
-    ctx.strokeStyle = '#3fd0e8';
+    ctx.strokeStyle = 'rgba(245, 245, 242, 0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -139,8 +152,8 @@ function drawWheel() {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(rad(i * SECTOR));
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 28px system-ui, sans-serif';
+    ctx.fillStyle = '#F5F5F2';
+    ctx.font = 'bold 28px "Playfair Display", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(num), 0, -radius + 34);
@@ -150,16 +163,16 @@ function drawWheel() {
   // тонкая линия по границе секторов и обода
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = '#0b121c';
+  ctx.strokeStyle = '#050506';
   ctx.lineWidth = 3;
   ctx.stroke();
 
   // центр колеса
   ctx.beginPath();
   ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-  ctx.fillStyle = '#0b121c';
+  ctx.fillStyle = '#0F0F12';
   ctx.fill();
-  ctx.strokeStyle = '#3fd0e8';
+  ctx.strokeStyle = 'rgba(245, 245, 242, 0.5)';
   ctx.lineWidth = 4;
   ctx.stroke();
 }
@@ -195,8 +208,40 @@ const stakedTotal = () => bets.reduce((sum, b) => sum + b.amount, 0);
 const availableBalance = () => srv.balance - stakedTotal();
 
 function renderBalance() {
-  if (srv.loaded) balanceEl.textContent = availableBalance();
+  stopBalanceAnimation(); // промежуточные кадры накрутки не должны перебивать актуальное значение
+  const loading = !srv.loaded && !srv.error;
+  balanceEl.classList.toggle('skeleton', loading);
+  if (srv.loaded) balanceEl.textContent = formatNumber(availableBalance());
   else balanceEl.textContent = srv.error ? '—' : 'Загрузка…';
+}
+
+// Накрутка баланса после раунда: только отображение, значение уже серверное и итоговое
+let balanceAnimFrame = 0;
+function stopBalanceAnimation() {
+  if (balanceAnimFrame) cancelAnimationFrame(balanceAnimFrame);
+  balanceAnimFrame = 0;
+}
+
+function animateBalance(from, to) {
+  stopBalanceAnimation();
+  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (calm || from === null || from === to) return;
+  const t0 = performance.now();
+  const DURATION = 700;
+  const frame = (now) => {
+    const p = Math.min((now - t0) / DURATION, 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    balanceEl.textContent = formatNumber(Math.round(from + (to - from) * e));
+    balanceAnimFrame = p < 1 ? requestAnimationFrame(frame) : 0;
+  };
+  balanceAnimFrame = requestAnimationFrame(frame);
+}
+
+// Подсветка плашки баланса без подсветки колеса (например, «недостаточно фишек»)
+function flashBalance(kind) {
+  balanceBox.classList.remove('win', 'lose');
+  void balanceBox.offsetWidth;
+  balanceBox.classList.add(kind);
 }
 
 // Колонка в нумерации СЕРВЕРА по числам, которые она покрывает: 1 — 1, 4, 7…34;
@@ -276,6 +321,9 @@ function renderBets() {
 function setMessage(text, kind = '', code = '') {
   messageLineEl.hidden = !text;
   messageLineEl.className = kind;
+  messageLineEl.style.animation = 'none'; // тост показывается заново при каждом сообщении
+  void messageLineEl.offsetWidth;
+  messageLineEl.style.animation = '';
   messageTextEl.textContent = text;
   messageCodeEl.textContent = code ? 'код: ' + code : '';
 }
@@ -319,6 +367,7 @@ function updateControls() {
   spinBtn.disabled = retry ? game.phase === 'sending' : !canBet;
   // пока идёт запрос, анимация или раунд не подтверждён, уйти с экрана нельзя
   navEl.querySelectorAll('.tab').forEach((el) => { el.disabled = gameBusy(); });
+  gameSwitchEl.disabled = gameBusy();
 }
 
 // Ставки пока только на столе: сервер о них не знает. Лимита на размер ставки нет,
@@ -332,6 +381,8 @@ function placeBet(type, value = null) {
   }
   if (amount > availableBalance()) {
     setMessage('Недостаточно фишек', 'lose');
+    flashBalance('lose');
+    haptic('error');
     return;
   }
   const existing = bets.find((b) => b.type === type && b.value === value);
@@ -339,6 +390,9 @@ function placeBet(type, value = null) {
   else bets.push({ type, value, amount });
   setMessage('');
   renderBets();
+  haptic('light');
+  const stack = tableEl.querySelector(`.cell[data-key="${type}:${value}"] .stack`);
+  if (stack) stack.classList.add('drop'); // фишка «садится» на клетку
 }
 
 // Повторяет ставки прошлого раунда (текущие ставки заменяются)
@@ -351,6 +405,8 @@ function repeatBets() {
   const needed = lastBets.reduce((sum, b) => sum + b.amount, 0);
   if (needed > srv.balance) {
     setMessage('Недостаточно фишек для повтора ставки', 'lose');
+    flashBalance('lose');
+    haptic('error');
     return;
   }
   bets = lastBets.map((b) => ({ ...b }));
@@ -552,6 +608,8 @@ function playRound(round, data) {
   updateControls();
   layerResultEl.className = 'layer-result';
   layerResultEl.textContent = '';
+  layerWinEl.className = 'layer-win';
+  layerWinEl.textContent = '';
   wheelLayer.classList.add('active');
   animateSpin(WHEEL_ORDER.indexOf(data.number), () => {
     layerResultEl.textContent = data.number;
@@ -562,6 +620,7 @@ function playRound(round, data) {
 }
 
 function showResult(round, data) {
+  const shownBefore = srv.loaded ? availableBalance() : null; // что было на экране до результата
   const n = data.number;
   numberEl.textContent = n;
   numberEl.className = 'result-number ' + getColor(n);
@@ -579,10 +638,17 @@ function showResult(round, data) {
   game.round = null;
   saveState();
   flash(data.net);
-  if (data.net > 0) setMessage(`Вы выиграли ${data.net} фишек!`, 'win');
-  else if (data.net < 0) setMessage(`Вы проиграли ${-data.net} фишек`, 'lose');
+  if (data.net > 0) setMessage(`Вы выиграли ${formatNumber(data.net)} фишек!`, 'win');
+  else if (data.net < 0) setMessage(`Вы проиграли ${formatNumber(-data.net)} фишек`, 'lose');
   else setMessage('Ничья: ставки вернулись', '');
   renderAll();
+  // оформление результата: накрутка баланса, итог на колесе, вибрация (данные раунда не меняются)
+  animateBalance(shownBefore, srv.balance);
+  if (data.net !== 0) {
+    layerWinEl.textContent = (data.net > 0 ? '+' : '−') + formatNumber(Math.abs(data.net));
+    layerWinEl.className = 'layer-win ' + (data.net > 0 ? 'win' : 'lose');
+  }
+  haptic(data.net > 0 ? 'success' : data.net < 0 ? 'error' : 'light');
   loadServer('after'); // обновит таймер (не чаще, чем раз в 5 секунд)
 }
 
@@ -595,6 +661,27 @@ if (tg) {
     if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes(); // Bot API 7.7+
   } catch (e) {
     // сбой Telegram API не должен ронять игру
+  }
+  // цвет шапки, фона и нижней панели Telegram = фон приложения (--bg), чтобы не было швов
+  const THEME_BG = '#050506';
+  [['6.1', 'setHeaderColor'], ['6.1', 'setBackgroundColor'], ['7.10', 'setBottomBarColor']].forEach(([ver, fn]) => {
+    try {
+      if (typeof tg[fn] === 'function' && tg.isVersionAtLeast(ver)) tg[fn](THEME_BG);
+    } catch (e) {
+      // старый клиент Telegram: цвета останутся по умолчанию
+    }
+  });
+}
+
+// Вибрация: 'light' (касание), 'success' (выигрыш), 'error' (проигрыш или отказ). Без Telegram ничего не делает
+function haptic(kind) {
+  try {
+    const h = tg && tg.HapticFeedback;
+    if (!h) return;
+    if (kind === 'light') h.impactOccurred('light');
+    else h.notificationOccurred(kind);
+  } catch (e) {
+    // вибрация необязательна
   }
 }
 
@@ -619,6 +706,10 @@ const profileEls = {
   balance: document.getElementById('profile-balance'),
   rate: document.getElementById('profile-rate'),
   timer: document.getElementById('profile-timer'),
+  ring: document.getElementById('profile-ring'),
+  skel: document.getElementById('profile-skel'),
+  name: document.getElementById('profile-name'),
+  avatar: document.getElementById('profile-avatar'),
   msg: document.getElementById('profile-msg'),
   code: document.getElementById('profile-code'),
   retry: document.getElementById('profile-retry')
@@ -634,14 +725,17 @@ let srvFetchTimer = null;       // отложенный запрос (ноль �
 const srvWanted = () => activeTab === 'profile' || (activeTab === 'play' && currentGame === 'roulette');
 
 function renderProfile() {
+  renderProfileIdentity();
   if (srv.error) {
+    profileEls.skel.hidden = true;
     profileEls.data.hidden = true;
     profileEls.msg.textContent = srv.error.text;
     profileEls.code.textContent = 'код: ' + srv.error.code;
     profileEls.retry.hidden = !srv.error.retry;
   } else if (srv.loaded) {
-    profileEls.balance.textContent = srv.balance; // серверный, без вычета ставок на столе
-    profileEls.rate.textContent = srv.rate;
+    profileEls.balance.textContent = formatNumber(srv.balance); // серверный, без вычета ставок на столе
+    profileEls.rate.textContent = formatNumber(srv.rate);
+    profileEls.skel.hidden = true;
     profileEls.data.hidden = false;
     profileEls.msg.textContent = '';
     profileEls.code.textContent = '';
@@ -649,14 +743,39 @@ function renderProfile() {
     renderProfileTimer();
   } else {
     profileEls.data.hidden = true;
-    profileEls.msg.textContent = 'Загрузка…';
+    profileEls.skel.hidden = false; // скелетон вместо спиннера
+    profileEls.msg.textContent = '';
     profileEls.code.textContent = '';
     profileEls.retry.hidden = true;
   }
 }
 
+// Имя и аватар из Telegram (initDataUnsafe) только для показа на этом экране: никуда не отправляются,
+// в localStorage не пишутся; картинок нет, аватар — круг с первой буквой имени
+const initialOf = (name) => (Array.from(String(name || '').trim())[0] || '·');
+
+function renderProfileIdentity() {
+  const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  const name = user && typeof user.first_name === 'string' ? user.first_name : '';
+  profileEls.name.textContent = name;
+  profileEls.avatar.textContent = initialOf(name);
+  profileEls.name.parentElement.hidden = !name;
+}
+
+// Кольцо до следующего начисления: фишки приходят раз в час
+const ACCRUAL_PERIOD_S = 3600;
+const RING_LENGTH = 2 * Math.PI * 52;
+let ringFraction = 0;
+
 function renderProfileTimer() {
-  profileEls.timer.textContent = mmss((srv.deadline - performance.now()) / 1000);
+  const left = (srv.deadline - performance.now()) / 1000;
+  profileEls.timer.textContent = mmss(left);
+  const fraction = Math.min(1, Math.max(0, 1 - left / ACCRUAL_PERIOD_S));
+  profileEls.ring.style.strokeDasharray = String(RING_LENGTH);
+  // после начисления кольцо сбрасывается сразу, без обратной анимации
+  profileEls.ring.style.transition = fraction < ringFraction - 0.5 ? 'none' : '';
+  profileEls.ring.style.strokeDashoffset = String(RING_LENGTH * (1 - fraction));
+  ringFraction = fraction;
 }
 
 function renderAll() {
@@ -779,7 +898,8 @@ const ratingEls = {
   total: document.getElementById('rating-total'),
   msg: document.getElementById('rating-msg'),
   code: document.getElementById('rating-code'),
-  retry: document.getElementById('rating-retry')
+  retry: document.getElementById('rating-retry'),
+  skel: document.getElementById('rating-skel')
 };
 
 let ratingInFlight = false;
@@ -787,17 +907,8 @@ let ratingLastRequestAt = -Infinity; // performance.now() последнего �
 let ratingTimer = null;              // отложенное нажатие «Повторить»
 let ratingHasData = false;
 
-// числа с разделителем тысяч; если Intl недоступен, без него
-const formatNumber = (() => {
-  try {
-    const f = new Intl.NumberFormat('ru-RU');
-    return (n) => f.format(n);
-  } catch (e) {
-    return (n) => String(n);
-  }
-})();
-
 function showRatingMessage(text, code, canRetry) {
+  ratingEls.skel.hidden = true;
   ratingEls.card.hidden = true;
   ratingEls.title.textContent = 'Рейтинг';
   ratingEls.msg.textContent = text;
@@ -824,7 +935,10 @@ function validRating(d) {
 }
 
 // Все тексты с сервера (в том числе имена) выводятся только через textContent
+const CROWN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
+
 function showRating(d) {
+  ratingEls.skel.hidden = true;
   ratingEls.msg.textContent = '';
   ratingEls.code.textContent = '';
   ratingEls.retry.hidden = true;
@@ -839,17 +953,26 @@ function showRating(d) {
   ratingEls.list.textContent = '';
   d.top.forEach((e) => {
     const li = document.createElement('li');
-    if (e.is_me) li.className = 'me';
+    li.className = (e.is_me ? 'me ' : '') + (e.rank >= 1 && e.rank <= 3 ? 'top' + e.rank : '');
     const rank = document.createElement('span');
     rank.className = 'rating-rank';
-    rank.textContent = e.rank;
+    if (e.rank === 1) {
+      rank.innerHTML = CROWN_SVG; // постоянная разметка иконки, данных сервера в ней нет
+      rank.setAttribute('aria-label', '1');
+    } else {
+      rank.textContent = e.rank;
+    }
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = initialOf(e.name);
     const name = document.createElement('span');
     name.className = 'rating-name';
     name.textContent = e.name;
     const bal = document.createElement('span');
     bal.className = 'rating-bal';
     bal.textContent = formatNumber(e.balance);
-    li.append(rank, name, bal);
+    li.append(rank, avatar, name, bal);
     // сумма ставок за всё время (поле staked); в старом ответе его нет, тогда строки нет
     if (isCount(e.staked)) {
       const staked = document.createElement('span');
@@ -859,9 +982,27 @@ function showRating(d) {
     }
     ratingEls.list.appendChild(li);
   });
-  let meText = `Вы: ${d.me.rank}-е место из ${d.me.total}, баланс ${formatNumber(d.me.balance)}`;
-  if (isCount(d.me.staked)) meText += `, поставлено ${formatNumber(d.me.staked)}`;
-  ratingEls.me.textContent = meText;
+  // строка текущего пользователя закреплена под списком
+  const me = ratingEls.me;
+  me.textContent = '';
+  const myRank = document.createElement('span');
+  myRank.className = 'rating-rank';
+  myRank.textContent = d.me.rank;
+  const myAvatar = document.createElement('span');
+  myAvatar.className = 'avatar';
+  myAvatar.setAttribute('aria-hidden', 'true');
+  const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  myAvatar.textContent = initialOf(tgUser && tgUser.first_name ? tgUser.first_name : 'Я');
+  const myName = document.createElement('span');
+  myName.className = 'rating-name';
+  myName.textContent = 'Вы';
+  const myBal = document.createElement('span');
+  myBal.className = 'rating-bal';
+  myBal.textContent = formatNumber(d.me.balance);
+  const mySub = document.createElement('span');
+  mySub.className = 'rating-staked';
+  mySub.textContent = `${d.me.rank}-е место из ${d.me.total}` + (isCount(d.me.staked) ? `, поставлено ${formatNumber(d.me.staked)}` : '');
+  me.append(myRank, myAvatar, myName, myBal, mySub);
   // итог по беседе (поле chat_staked); без поля строка скрыта
   if (isCount(d.chat_staked)) {
     ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatNumber(d.chat_staked);
@@ -900,7 +1041,8 @@ async function loadRating(reason) {
   ratingInFlight = true;
   ratingLastRequestAt = now;
   if (!ratingHasData) {
-    ratingEls.msg.textContent = 'Загрузка…';
+    ratingEls.skel.hidden = false; // скелетон вместо спиннера
+    ratingEls.msg.textContent = '';
     ratingEls.code.textContent = '';
     ratingEls.retry.hidden = true;
   }
@@ -946,11 +1088,11 @@ document.addEventListener('visibilitychange', () => {
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
-  { id: 'roulette',  label: 'Рулетка',   ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
-  { id: 'crash',     label: 'Краш',      ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  ready: false, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
-  { id: 'mines',     label: 'Мины',      ready: false, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
-  { id: 'keno',      label: 'Кено',      ready: false, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
+  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
+  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: false, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: false, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
+  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', ready: false, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
 ];
 const START_GAME = 'roulette';
 let currentGame = START_GAME;
@@ -968,6 +1110,7 @@ const navEl = document.getElementById('nav');
 const shellEl = document.querySelector('.shell');
 const gameMenu = document.getElementById('game-menu');
 const gamePanel = document.getElementById('game-panel');
+const gameGrid = document.getElementById('game-grid');
 let activeTab = START_TAB;
 
 const iconSvg = (path) => `<svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
@@ -1005,6 +1148,8 @@ TABS.forEach((tab) => {
 // Меню игр: нельзя открыть, пока колесо на экране (вращение и пауза после него)
 function closeGameMenu() {
   gameMenu.classList.remove('open');
+  gamePanel.classList.remove('dragging');
+  gamePanel.style.transform = '';
   navEl.querySelector('.tab.main').setAttribute('aria-expanded', 'false');
 }
 
@@ -1021,6 +1166,8 @@ function toggleGameMenu() {
 function selectGame(id) {
   currentGame = id;
   navEl.querySelector('.tab.main svg').outerHTML = iconSvg(getGame(id).icon);
+  document.getElementById('game-switch-icon').innerHTML = iconSvg(getGame(id).icon); // постоянная разметка из реестра
+  document.getElementById('game-switch-name').textContent = getGame(id).label;
   gamePanel.querySelectorAll('.tile').forEach((t) => {
     t.setAttribute('aria-current', String(t.dataset.game === id));
   });
@@ -1035,9 +1182,10 @@ GAMES.forEach((game, i) => {
   tile.dataset.game = game.id;
   tile.style.setProperty('--i', i);
   tile.setAttribute('role', 'menuitem');
-  tile.innerHTML = `${iconSvg(game.icon)}<span>${game.label}</span>`;
+  tile.dataset.soon = String(!game.ready);
+  tile.innerHTML = `${iconSvg(game.icon)}<span class="tile-name">${game.label}</span><span class="tile-hint">${game.hint || ''}</span>`;
   tile.addEventListener('click', () => selectGame(game.id));
-  gamePanel.appendChild(tile);
+  gameGrid.appendChild(tile);
 
   if (!game.ready) {
     const stub = document.createElement('section');
@@ -1049,8 +1197,35 @@ GAMES.forEach((game, i) => {
   }
 });
 gameMenu.addEventListener('click', (e) => {
-  if (e.target === gameMenu) closeGameMenu(); // нажатие мимо плиток
+  if (e.target === gameMenu) closeGameMenu(); // нажатие по затемнению
 });
+gameSwitchEl.addEventListener('click', toggleGameMenu);
+
+// Шторка закрывается свайпом вниз
+(() => {
+  let startY = null;
+  let dy = 0;
+  gamePanel.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    dy = 0;
+  }, { passive: true });
+  gamePanel.addEventListener('touchmove', (e) => {
+    if (startY === null) return;
+    dy = Math.max(0, e.touches[0].clientY - startY);
+    gamePanel.classList.add('dragging');
+    gamePanel.style.transform = `translateY(${dy}px)`;
+  }, { passive: true });
+  const end = () => {
+    if (startY === null) return;
+    const far = dy > 80;
+    startY = null;
+    gamePanel.classList.remove('dragging');
+    gamePanel.style.transform = '';
+    if (far) closeGameMenu();
+  };
+  gamePanel.addEventListener('touchend', end);
+  gamePanel.addEventListener('touchcancel', end);
+})();
 selectGame(START_GAME);
 
 loadState();
@@ -1063,11 +1238,25 @@ renderHistory();
 spinBtn.addEventListener('click', spin);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
 document.getElementById('repeat-bets').addEventListener('click', repeatBets);
+const syncChips = () => {
+  betsPanel.querySelectorAll('.chip').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(Number(amountEl.value) === Number(btn.dataset.amount)));
+  });
+};
 betsPanel.querySelectorAll('.chip').forEach((btn) => {
   btn.addEventListener('click', () => {
     amountEl.value = btn.dataset.amount;
+    syncChips();
+    haptic('light');
   });
 });
+amountEl.addEventListener('input', syncChips);
+syncChips();
+
+// шрифты грузятся локально: после загрузки колесо перерисовывается (числа на секторах)
+if (document.fonts && document.fonts.load) {
+  document.fonts.load('700 28px "Playfair Display"').then(drawWheel, () => {});
+}
 
 // всё собрано: показываем состояние и загружаем баланс с сервера
 started = true;
