@@ -105,7 +105,7 @@ try:
     get_player(OTHER, now=T, db_path=path)
     other_before = counts(path, OTHER)
     res = delete_player_data(UID, db_path=path, now=T + 5)
-    check("счётчики прежнего вида", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1})
+    check("счётчики прежнего вида (и покупки фермы)", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1, "farm_purchases": 0})
     rows = tombstones(path)
     check("одна запись", len(rows), 1)
     h, deleted_at = rows[0]
@@ -120,10 +120,10 @@ try:
     assert antiabuse.key_hash(UID, b"another") != h
 
     # без существующего игрока tombstone не создаётся
-    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0})
+    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0})
     check("tombstone не создан", len(tombstones(path)), 1)
     # повторное удаление сразу ничего не меняет и не добавляет записей
-    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0})
+    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0})
     check("запись прежняя", tombstones(path), [(h, T + 5)])
 
     # ---------- регистрация в период защиты: баланс 0 и скорость 100 ----------
@@ -282,7 +282,7 @@ try:
             "начисляться по 100 в час. Для защиты от злоупотреблений на это время сохраняется обезличенный "
             "идентификатор, через 30 дней он удаляется.") in t, t
     assert "будет создан новый игрок с 1000 фишек" not in t
-    assert t.startswith("Будут удалены ваш баланс, история раундов и участие в рейтингах. Это нельзя отменить. Данные на вашем устройстве")
+    assert t.startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, а также участие в рейтингах. Это нельзя отменить. Данные на вашем устройстве")
     check("кнопки на месте", [b.text for b in u.replies[0]["reply_markup"].inline_keyboard[0]], ["Удалить всё", "Отмена"])
     # подтверждение с секретом удаляет и создаёт tombstone только у нажавшего
     q = FakeUpdate("private", user_id=X, chat_id=X, query_data="del:yes:%d" % int(time.time()))

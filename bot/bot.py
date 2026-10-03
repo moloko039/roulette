@@ -386,6 +386,7 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "generated_at_iso": _iso(now),
         "player": export["player"],
         "rounds": export["rounds"],
+        "farm_purchases": export["farm_purchases"],
         "chats": {"count": len(export["chats"]), "items": export["chats"]},
     }
     data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -420,7 +421,7 @@ async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 DELETE_WARNING = (
-    "Будут удалены ваш баланс, история раундов и участие в рейтингах. Это нельзя отменить. "
+    "Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, а также участие в рейтингах. Это нельзя отменить. "
     "Данные на вашем устройстве (последние числа и ставки) останутся, их можно убрать очисткой "
     "кэша Telegram. Если вы снова откроете игру в ближайшие %d дней, стартовые 1000 фишек не выдаются: "
     "фишки будут начисляться по 100 в час. Для защиты от злоупотреблений на это время сохраняется "
@@ -489,8 +490,9 @@ async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     # edit_message_text без reply_markup убирает кнопки
     await query.edit_message_text(
-        "Готово: ваши данные удалены. Удалено записей: игрок — %d, раунды рулетки — %d, участие в рейтингах — %d"
-        % (counts["players"], counts["roulette_rounds"], counts["chat_members"])
+        "Готово: ваши данные удалены. Удалено записей: игрок — %d, раунды рулетки — %d, участие в рейтингах — %d, "
+        "покупки улучшений — %d"
+        % (counts["players"], counts["roulette_rounds"], counts["chat_members"], counts["farm_purchases"])
     )
 
 

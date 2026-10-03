@@ -123,7 +123,7 @@ try:
 
     # ================= db: выгрузка и удаление =================
     ex = get_player_export(ME, db_path=path)
-    check("player", sorted(ex["player"]), ["balance", "created_at", "last_accrual", "rate", "telegram_id", "total_staked"])
+    check("player", sorted(ex["player"]), ["balance", "created_at", "income_level", "last_accrual", "rate", "storage_level", "telegram_id", "total_staked"])
     check("player.id", (ex["player"]["telegram_id"], ex["player"]["balance"]), (ME, 7654321))
     check("раундов", len(ex["rounds"]), 2)
     check("раунд", sorted(ex["rounds"][0]), ["bets", "number", "payout_total", "stake_total", "time"])
@@ -159,7 +159,7 @@ try:
         check("имя файла", doc["filename"], "mydata.json")
         text = doc["data"].decode("utf-8")
         data = json.loads(text)
-        check("поля", sorted(data), ["chats", "generated_at", "generated_at_iso", "player", "rounds"])
+        check("поля", sorted(data), ["chats", "farm_purchases", "generated_at", "generated_at_iso", "player", "rounds"])
         check("время", (data["generated_at"], data["generated_at_iso"]), (1_700_000_000, "2023-11-14T22:13:20Z"))
         check("player", (data["player"]["telegram_id"], data["player"]["balance"]), (ME, 7654321))
         check("раунды", [(r["number"], r["stake_total"], r["payout_total"]) for r in data["rounds"]], [(17, 5, 180), (17, 10, 0)])
@@ -192,7 +192,8 @@ try:
         # ================= /deletemydata =================
         u = run(bot.deletemydata, FakeUpdate("private", user_id=ME))
         r = u.replies[0]
-        assert r["text"].startswith("Будут удалены ваш баланс, история раундов и участие в рейтингах. Это нельзя отменить.")
+        assert r["text"].startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, а также участие в рейтингах. Это нельзя отменить.")
+        assert "уровни улучшений" in r["text"] and "история раундов и покупок" in r["text"], r["text"]
         assert "1000 фишек" in r["text"] and "очисткой кэша Telegram" in r["text"]
         buttons = r["reply_markup"].inline_keyboard[0]
         check("кнопки", [b.text for b in buttons], ["Удалить всё", "Отмена"])
@@ -240,7 +241,7 @@ try:
         q = press("del:yes:%d" % (clk.wall - 299), ME)
         check("ответ на нажатие", q.answers, 1)
         t = q.edits[0]["text"]
-        assert t.startswith("Готово: ваши данные удалены") and "игрок — 1" in t and "раунды рулетки — 2" in t and "участие в рейтингах — 2" in t, t
+        assert t.startswith("Готово: ваши данные удалены") and "игрок — 1" in t and "раунды рулетки — 2" in t and "участие в рейтингах — 2" in t and "покупки улучшений — 0" in t, t
         assert "reply_markup" not in q.edits[0], "кнопки должны исчезнуть"
         check("данные нажавшего удалены", counts(path, ME), (0, 0, 0))
         check("другой игрок цел", counts(path, OTHER), before_other)
@@ -262,8 +263,8 @@ try:
     # ================= db: удаление =================
     seed(path)
     init_db(path)
-    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1})
-    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0})
+    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0})
+    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0})
     check("другие не затронуты", counts(path, ME)[0], 1)
 
     # ================= логи =================
