@@ -9,7 +9,7 @@
 </head>
 <body>
   <div class="shell">
-  <main class="app screen" data-screen="play">
+  <main class="app screen" data-screen="roulette">
     <header class="top">
       <div class="balance">Баланс: <strong id="balance">1000</strong></div>
       <div class="result" id="result" aria-live="polite">
@@ -50,6 +50,11 @@
       <div class="ball" id="ball"></div>
     </div>
     <div class="layer-result" id="layer-result"></div>
+  </div>
+
+  <!-- меню игр: плитки строятся в script.js из массива GAMES -->
+  <div class="game-menu" id="game-menu">
+    <div class="game-panel" id="game-panel" role="menu"></div>
   </div>
 
   <!-- кнопки строятся в script.js из массива TABS -->
