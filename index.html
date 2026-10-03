@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app">
+  <div class="shell">
+  <main class="app screen" data-screen="play">
     <header class="top">
       <div class="balance">Баланс: <strong id="balance">1000</strong></div>
       <div class="result" id="result" aria-live="polite">
@@ -39,13 +40,20 @@
     </section>
   </main>
 
-  <!-- колесо показывается поверх стола только во время вращения -->
+  <section class="screen stub" data-screen="rating" hidden>Скоро</section>
+  <section class="screen stub" data-screen="profile" hidden>Скоро</section>
+
+  <!-- колесо показывается поверх экрана только во время вращения, закрывает и панель -->
   <div class="wheel-layer" id="wheel-layer" aria-hidden="true">
     <div class="wheel-box">
       <canvas id="wheel" width="600" height="600"></canvas>
       <div class="ball" id="ball"></div>
     </div>
     <div class="layer-result" id="layer-result"></div>
+  </div>
+
+  <!-- кнопки строятся в script.js из массива TABS -->
+  <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
 
   <!-- поверх размытого фона, когда фишки закончились -->
