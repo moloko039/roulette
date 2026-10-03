@@ -12,12 +12,19 @@ class StubBot:
     def __init__(self, fail_with=None):
         self.webhook_calls = []
         self.fail_with = fail_with
+        self.sent = []           # send_message: список словарей аргументов
+        self.fail_send = None    # исключение, которое бросит send_message
 
     async def set_my_commands(self, commands, scope=None, **kwargs):
         if getattr(self, "fail_commands", None):
             raise self.fail_commands
         self.commands_calls = getattr(self, "commands_calls", [])
         self.commands_calls.append((list(commands), scope))
+
+    async def send_message(self, **kwargs):
+        if self.fail_send:
+            raise self.fail_send
+        self.sent.append(kwargs)
 
     async def set_webhook(self, **kwargs):
         if self.fail_with:

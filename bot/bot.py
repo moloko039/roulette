@@ -14,6 +14,7 @@ from telegram import (BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeA
                       InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update, WebAppInfo)
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
+import antiabuse
 from db import delete_player_data, get_player, get_player_export, init_db
 from economy import HOUR
 
@@ -141,6 +142,8 @@ def warn_missing_config():
     if missing:
         logger.warning("Не заданы или неверны переменные: %s. Соответствующие команды отвечают «%s»",
                        ", ".join(missing), UNAVAILABLE)
+    if antiabuse.tombstone_secret() is None:
+        logger.warning("Не задан TOMBSTONE_SECRET: удаление данных командой /deletemydata недоступно")
     if _env("PLAY_MODE") and _env("PLAY_MODE").lower() not in PLAY_MODES:
         logger.warning("Неизвестное значение PLAY_MODE, используется card")
 
@@ -390,8 +393,17 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
 DELETE_WARNING = (
     "Будут удалены ваш баланс, история раундов и участие в рейтингах. Это нельзя отменить. "
     "Данные на вашем устройстве (последние числа и ставки) останутся, их можно убрать очисткой "
-    "кэша Telegram. Если вы снова откроете игру, будет создан новый игрок с 1000 фишек."
+    "кэша Telegram. Если вы снова откроете игру в ближайшие %d дней, стартовые 1000 фишек не выдаются: "
+    "фишки будут начисляться по 100 в час. Для защиты от злоупотреблений на это время сохраняется "
+    "обезличенный идентификатор, через %d дней он удаляется."
+    % (antiabuse.REGISTRATION_COOLDOWN_DAYS, antiabuse.REGISTRATION_COOLDOWN_DAYS)
 )
+DELETE_UNAVAILABLE = "Автоматическое удаление сейчас недоступно."
+
+
+def _delete_unavailable_text():
+    contact = developer_contact()
+    return DELETE_UNAVAILABLE + (f" Напишите разработчику: {contact}" if contact else "")
 EXPIRED = "Время подтверждения истекло, отправьте /deletemydata снова"
 NOTHING_TO_DELETE = "Данных для удаления нет"
 CALLBACK_PATTERN = r"^del:(yes:\d{1,12}|no)$"
@@ -406,6 +418,10 @@ async def deletemydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not delete_limiter.allow(update.effective_user.id):
         await _reply(update, "Слишком часто, повторите чуть позже")
+        return
+    if antiabuse.tombstone_secret() is None:
+        # без секрета удалять нельзя (защиту от повторной регистрации потом не включить)
+        await _reply(update, _delete_unavailable_text())
         return
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("Удалить всё", callback_data="del:yes:%d" % _wall()),
@@ -432,7 +448,13 @@ async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(EXPIRED)
         return
     # id берём из данных Telegram (кто нажал), а не из callback_data
-    counts = await asyncio.to_thread(delete_player_data, query.from_user.id)
+    try:
+        counts = await asyncio.to_thread(delete_player_data, query.from_user.id)
+    except Exception as exc:
+        # нет TOMBSTONE_SECRET или сбой базы: ничего не удалено; в лог только тип ошибки
+        logger.error("Удаление данных не выполнено: %s", type(exc).__name__)
+        await query.edit_message_text(_delete_unavailable_text())
+        return
     if sum(counts.values()) == 0:
         await query.edit_message_text(NOTHING_TO_DELETE)
         return

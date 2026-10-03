@@ -11,6 +11,10 @@ import bot
 from db import init_db
 from stubs import FakeChat, FakeUpdate, StubApplication
 
+# тест не зависит от окружения и bot/.env: на время теста эти переменные очищаются
+_ENV_KEYS = ("GAME_LINK", "PRIVACY_URL", "DEVELOPER_CONTACT", "PLAY_MODE", "TOMBSTONE_SECRET")
+_saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
+
 LINK = "https://t.me/test_bot/game"
 PRIVACY = "https://example.test/privacy.html"
 CONTACT = "dev@example.test"
@@ -116,7 +120,9 @@ def button(update, index=0):
 fd, path = tempfile.mkstemp(suffix=".db")
 os.close(fd)
 old_db = os.environ.get("DB_PATH")
+old_secret = os.environ.get("TOMBSTONE_SECRET")
 os.environ["DB_PATH"] = path
+os.environ["TOMBSTONE_SECRET"] = "test-secret-not-real"  # без него бот предупреждает при старте
 try:
     init_db()
     with mock.patch.object(bot, "WEBAPP_URL", WEBAPP), env(**FULL):
@@ -442,6 +448,17 @@ try:
         text = [r for r in cap.records if r.levelno == logging.WARNING][0].getMessage()
         assert "PRIVACY_URL" in text and "DEVELOPER_CONTACT" in text and "GAME_LINK" not in text.split(":")[1].split(".")[0]
         assert "плохо" not in text, "значение переменной попало в лог"
+        # нет TOMBSTONE_SECRET: отдельное предупреждение без значений
+        cap.records.clear()
+        saved = os.environ.pop("TOMBSTONE_SECRET")
+        try:
+            with env(**FULL):
+                bot.warn_missing_config()
+        finally:
+            os.environ["TOMBSTONE_SECRET"] = saved
+        warns = [r.getMessage() for r in cap.records if r.levelno == logging.WARNING]
+        check("без TOMBSTONE_SECRET: одно предупреждение", len(warns), 1)
+        assert "TOMBSTONE_SECRET" in warns[0] and saved not in warns[0]
         # неизвестный PLAY_MODE: одно предупреждение (без значения), известные значения молчат
         for good in (None, "card", "link", "button", "Link"):
             cap.records.clear()
@@ -507,6 +524,16 @@ finally:
         os.environ.pop("DB_PATH", None)
     else:
         os.environ["DB_PATH"] = old_db
+    if old_secret is None:
+        os.environ.pop("TOMBSTONE_SECRET", None)
+    else:
+        os.environ["TOMBSTONE_SECRET"] = old_secret
     os.remove(path)
+
+for _k, _v in _saved_env.items():
+    if _v is None:
+        os.environ.pop(_k, None)
+    else:
+        os.environ[_k] = _v
 
 print("Все проверки прошли")
