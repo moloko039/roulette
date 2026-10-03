@@ -15,12 +15,15 @@ concurrency:
 
 jobs:
   tests:
-    name: Тесты (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Тесты (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # ubuntu-26.04 пока только проверка совместимости: падение там не делает общий результат красным
+    continue-on-error: ${{ matrix.os == 'ubuntu-26.04' }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
         python-version: ["3.9", "3.12"]
     steps:
       - uses: actions/checkout@v7
@@ -40,7 +43,7 @@ jobs:
 
   repo-check:
     name: Проверка репозитория (секреты и базы)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
