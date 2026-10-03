@@ -1,4 +1,5 @@
 import asyncio
+import html
 import io
 import json
 import logging
@@ -10,7 +11,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from telegram import (BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats,
-                      InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo)
+                      InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update, WebAppInfo)
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from db import delete_player_data, get_player, get_player_export, init_db
@@ -90,6 +91,15 @@ def developer_contact():
     return value if ok else None
 
 
+PLAY_MODES = ("card", "link", "button")
+
+
+def play_mode():
+    """card (по умолчанию), link или button. Неизвестное значение считается card."""
+    value = _env("PLAY_MODE").lower()
+    return value if value in PLAY_MODES else "card"
+
+
 def warn_missing_config():
     """Одно предупреждение при старте: каких необязательных настроек нет (только имена)."""
     missing = [name for name, getter in (("GAME_LINK", game_link), ("PRIVACY_URL", privacy_url),
@@ -97,6 +107,8 @@ def warn_missing_config():
     if missing:
         logger.warning("Не заданы или неверны переменные: %s. Соответствующие команды отвечают «%s»",
                        ", ".join(missing), UNAVAILABLE)
+    if _env("PLAY_MODE") and _env("PLAY_MODE").lower() not in PLAY_MODES:
+        logger.warning("Неизвестное значение PLAY_MODE, используется card")
 
 
 # ---------- вспомогательное ----------
@@ -140,14 +152,31 @@ async def _open_game_private(update):
     await _reply(update, "Нажми кнопку, чтобы открыть игру\nСписок команд: /help", reply_markup=keyboard)
 
 
-async def _open_game_group(update):
+async def _open_game_group(update, context):
     link = game_link()
     if link is None:
         await _group_reply(update, UNAVAILABLE)
         return
-    # обычная URL-кнопка (не web_app): в группе мини-апп открывается по прямой ссылке
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("Играть", url=link)]])
-    await _group_reply(update, "Играть: " + link, reply_markup=keyboard)
+    if not group_limiter.allow(update.effective_chat.id):
+        return
+    mode = play_mode()
+    message = update.effective_message
+    kwargs = {"chat_id": update.effective_chat.id, "text": "🎰"}
+    # из темы форума отвечаем в ту же тему
+    if getattr(message, "is_topic_message", False) and getattr(message, "message_thread_id", None):
+        kwargs["message_thread_id"] = message.message_thread_id
+    if mode == "link":
+        # карточку строит Telegram из ссылки в тексте
+        kwargs["text"] = '<a href="%s">🎰</a>' % html.escape(link)
+        kwargs["parse_mode"] = "HTML"
+    else:
+        # карточка мини-приложения без ссылки в тексте: адрес задаётся параметром предпросмотра
+        kwargs["link_preview_options"] = LinkPreviewOptions(url=link)
+        if mode == "button":
+            # обычная URL-кнопка (не web_app): в группе мини-апп открывается по прямой ссылке
+            kwargs["reply_markup"] = InlineKeyboardMarkup([[InlineKeyboardButton("Играть", url=link)]])
+    # send_message, а не reply_text: команда не цитируется
+    await context.bot.send_message(**kwargs)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -155,7 +184,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if kind == "private":
         await _open_game_private(update)
     elif kind in GROUP_TYPES:
-        await _open_game_group(update)
+        await _open_game_group(update, context)
 
 
 async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
