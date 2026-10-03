@@ -767,6 +767,163 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadServer('visible');
 });
 
+// ---------- вкладка «Рейтинг»: рейтинг беседы с сервера (только чтение) ----------
+// Какая это беседа, решает сервер по подписи initData; клиент ничего из неё не разбирает.
+// Данные хранятся только в памяти страницы, в localStorage не пишутся. Автоповтора при
+// ошибке нет: только кнопка «Повторить».
+const ratingEls = {
+  title: document.getElementById('rating-title'),
+  card: document.getElementById('rating-card'),
+  list: document.getElementById('rating-list'),
+  me: document.getElementById('rating-me'),
+  msg: document.getElementById('rating-msg'),
+  code: document.getElementById('rating-code'),
+  retry: document.getElementById('rating-retry')
+};
+
+let ratingInFlight = false;
+let ratingLastRequestAt = -Infinity; // performance.now() последнего запроса
+let ratingTimer = null;              // отложенное нажатие «Повторить»
+let ratingHasData = false;
+
+// числа с разделителем тысяч; если Intl недоступен, без него
+const formatNumber = (() => {
+  try {
+    const f = new Intl.NumberFormat('ru-RU');
+    return (n) => f.format(n);
+  } catch (e) {
+    return (n) => String(n);
+  }
+})();
+
+function showRatingMessage(text, code, canRetry) {
+  ratingEls.card.hidden = true;
+  ratingEls.title.textContent = 'Рейтинг';
+  ratingEls.msg.textContent = text;
+  ratingEls.code.textContent = code ? 'код: ' + code : '';
+  ratingEls.retry.hidden = !canRetry;
+  ratingHasData = false;
+}
+
+function failRating(text, code, canRetry) {
+  showRatingMessage(text, code, canRetry);
+}
+
+const isCount = (v) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+
+// форма ответа: scope «none» или «chat» с не более чем 10 записями и позицией игрока
+function validRating(d) {
+  if (!d || typeof d !== 'object' || typeof d.scope !== 'string') return false;
+  if (d.scope === 'none') return true;
+  if (d.scope !== 'chat') return false;
+  if (!Array.isArray(d.top) || d.top.length > 10) return false;
+  const rowsOk = d.top.every((e) => e && typeof e === 'object' && isCount(e.rank) && isCount(e.balance)
+    && typeof e.name === 'string' && typeof e.is_me === 'boolean');
+  return rowsOk && !!d.me && typeof d.me === 'object' && isCount(d.me.rank) && isCount(d.me.balance) && isCount(d.me.total);
+}
+
+// Все тексты с сервера (в том числе имена) выводятся только через textContent
+function showRating(d) {
+  ratingEls.msg.textContent = '';
+  ratingEls.code.textContent = '';
+  ratingEls.retry.hidden = true;
+  ratingHasData = true;
+  if (d.scope === 'none') {
+    ratingEls.card.hidden = true;
+    ratingEls.title.textContent = 'Рейтинг';
+    ratingEls.msg.textContent = 'Рейтинг работает в беседах. Откройте игру по ссылке из группового чата, и здесь появится рейтинг участников';
+    return;
+  }
+  ratingEls.title.textContent = 'Рейтинг беседы';
+  ratingEls.list.textContent = '';
+  d.top.forEach((e) => {
+    const li = document.createElement('li');
+    if (e.is_me) li.className = 'me';
+    const rank = document.createElement('span');
+    rank.className = 'rating-rank';
+    rank.textContent = e.rank;
+    const name = document.createElement('span');
+    name.className = 'rating-name';
+    name.textContent = e.name;
+    const bal = document.createElement('span');
+    bal.className = 'rating-bal';
+    bal.textContent = formatNumber(e.balance);
+    li.append(rank, name, bal);
+    ratingEls.list.appendChild(li);
+  });
+  ratingEls.me.textContent = `Вы: ${d.me.rank}-е место из ${d.me.total}, баланс ${formatNumber(d.me.balance)}`;
+  ratingEls.card.hidden = false;
+}
+
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual' («Повторить»).
+// Между любыми двумя запросами не меньше 5 секунд
+async function loadRating(reason) {
+  if (ratingInFlight || activeTab !== 'rating') return;
+  const now = performance.now();
+  const sinceLast = now - ratingLastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') {
+      // нажатие не теряем: запрос уйдёт, когда пройдут 5 секунд
+      clearTimeout(ratingTimer);
+      ratingTimer = setTimeout(() => loadRating('manual'), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
+
+  // вне Telegram запрос не отправляем
+  const initData = tg && tg.initData;
+  if (!initData) {
+    failRating('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    return;
+  }
+
+  clearTimeout(ratingTimer);
+  ratingInFlight = true;
+  ratingLastRequestAt = now;
+  if (!ratingHasData) {
+    ratingEls.msg.textContent = 'Загрузка…';
+    ratingEls.code.textContent = '';
+    ratingEls.retry.hidden = true;
+  }
+
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/chat/top', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      failRating('Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', '401', false);
+      return;
+    }
+    if (!res.ok) {
+      failRating('Нет связи с сервером', String(res.status), true);
+      return;
+    }
+    const d = await res.json();
+    if (!validRating(d)) {
+      failRating('Нет связи с сервером', 'ответ', true);
+      return;
+    }
+    showRating(d);
+  } catch (e) {
+    // fetch не различает сбой сети и запрет CORS, поэтому код с вопросом
+    failRating('Нет связи с сервером', e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', true);
+  } finally {
+    clearTimeout(timeout);
+    ratingInFlight = false;
+  }
+}
+
+ratingEls.retry.addEventListener('click', () => loadRating('manual'));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadRating('visible');
+});
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
@@ -806,6 +963,7 @@ function showTab(id) {
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
   if (started && (screen === 'profile' || screen === 'roulette')) loadServer('open');
+  if (started && screen === 'rating') loadRating('open');
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');

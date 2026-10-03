@@ -43,7 +43,16 @@
     </section>
   </main>
 
-  <section class="screen stub" data-screen="rating" hidden>Скоро</section>
+  <section class="screen profile rating" data-screen="rating" hidden>
+    <h2 id="rating-title">Рейтинг</h2>
+    <div class="rating-card" id="rating-card" hidden>
+      <ol class="rating-list" id="rating-list"></ol>
+      <div class="rating-me" id="rating-me"></div>
+    </div>
+    <p class="profile-msg" id="rating-msg"></p>
+    <small class="profile-code" id="rating-code"></small>
+    <button type="button" class="action profile-retry" id="rating-retry" hidden>Повторить</button>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-card" id="profile-data" hidden>
