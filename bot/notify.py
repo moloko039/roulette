@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+from urllib.parse import urlsplit
 from datetime import datetime, timezone
 
 import backup
@@ -17,6 +18,8 @@ REMINDER_SECONDS = 7 * DAY
 MIN_FREE_FRACTION = 0.15            # предупреждение о месте: меньше 15% или меньше 50 МБ
 MIN_FREE_BYTES = 50 * 1024 * 1024
 SEND_TIMEOUT = 30
+HOST_PLACEHOLDER = "<домен сервиса>"
+HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
 
 # время последней отправки каждого вида хранится в service_meta (unix, целое)
 PERIODS = {"snapshot_failed": DAY, "stale": DAY, "space": DAY, "reminder": REMINDER_SECONDS}
@@ -34,6 +37,17 @@ def load_owner_id(env=None):
     if re.fullmatch(r"[0-9]{1,15}", raw) and int(raw) > 0:
         return int(raw)
     return None
+
+
+def public_host(env=None):
+    """Хост из PUBLIC_URL (без схемы, порта и пути) или заглушка, если определить нельзя."""
+    env = os.environ if env is None else env
+    raw = (env.get("PUBLIC_URL") or "").strip()
+    try:
+        host = urlsplit(raw if "//" in raw else "//" + raw).hostname or ""
+    except ValueError:
+        host = ""
+    return host if HOST_RE.match(host) else HOST_PLACEHOLDER
 
 
 def warn_owner(owner_id):
@@ -113,11 +127,14 @@ class Notifier:
             except Exception as exc:
                 logger.error("Напоминание не подготовлено: %s", type(exc).__name__)
             else:
+                host = public_host()
                 found["reminder"] = (
                     "Напоминание о резервной копии. Последняя копия на сервере: %s, %d КБ, игроков: %d. "
-                    "Скачайте её: railway volume files download /backups/latest.db ./latest.db, затем "
-                    "python3 verify_backup.py ./latest.db и удалите на компьютере копии старше 30 дней."
-                    % (_stamp(made), size_kb, players))
+                    "Скачайте её командами:\n"
+                    "scp %s@ssh.railway.com:%s/latest.db ~/roulette-backups/latest-$(date +%%F).db\n"
+                    "python3 bot/verify_backup.py ~/roulette-backups/latest-$(date +%%F).db\n"
+                    "и удалите на компьютере копии старше 30 дней."
+                    % (_stamp(made), size_kb, players, host, self.config["dir"].rstrip("/")))
         return [(kind, found[kind]) for kind in ORDER if kind in found]
 
     def _reserve(self, kind, now):
