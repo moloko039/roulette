@@ -18,6 +18,8 @@ from telegram import Update
 
 import backup
 import backup_send
+import ratelimit
+from levels import profile_level
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 from db import chat_top, get_player, init_db, spin_roulette, touch_chat_member
@@ -151,7 +153,8 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application, main
 
 
 def create_app(bot_token, allowed_origins, db_path=None, mode="api",
-               public_url=None, webhook_secret=None, application=None, maintenance=None):
+               public_url=None, webhook_secret=None, application=None, maintenance=None,
+               rate_limiter=None):
     app = FastAPI(
         docs_url=None, redoc_url=None, openapi_url=None,
         lifespan=make_lifespan(mode, bot_token, public_url, webhook_secret, application, maintenance),
@@ -171,6 +174,16 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
     def health():
         return {"ok": True}
 
+    def throttled(user_id, group):
+        """Ограничение частоты (общее для всех игр). Вызывается только после проверки подписи initData.
+        Возвращает ответ 429 с Retry-After или None. Без rate_limiter (тесты) ограничения нет."""
+        if rate_limiter is None:
+            return None
+        wait = rate_limiter.check(user_id, group)
+        if wait is None:
+            return None
+        return JSONResponse({"error": "too_many_requests"}, status_code=429, headers={"Retry-After": str(wait)})
+
     @app.get("/api/me")
     def me(authorization: str = Header(default=None)):
         try:
@@ -181,6 +194,9 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         except InvalidInitData:
             raise _unauthorized()
         user_id = info["user_id"]
+        limited = throttled(user_id, "read")
+        if limited is not None:
+            return limited
 
         now = int(time.time())
         player = get_player(user_id, now=now, db_path=db_path)
@@ -193,6 +209,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "balance": player["balance"],
             "rate": player["rate"],
             "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
+            "level": profile_level(player["total_staked"]),
         }
 
     @app.get("/api/chat/top")
@@ -204,6 +221,9 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             info = validate_init_data_full(init_data, bot_token)
         except InvalidInitData:
             raise _unauthorized()
+        limited = throttled(info["user_id"], "read")
+        if limited is not None:
+            return limited
         if not _in_group(info):
             return {"scope": "none"}
         # в ответе только rank, name, balance, is_me, staked и chat_staked: ни telegram_id, ни chat_instance, ни username
@@ -219,6 +239,9 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             user_id = validate_init_data(init_data, bot_token)
         except InvalidInitData:
             raise _unauthorized()
+        limited = throttled(user_id, "write")  # повторы с тем же request_id тоже считаются
+        if limited is not None:
+            return limited
 
         # любая ошибка формы тела: 400 с одним и тем же текстом (без стандартных 422)
         try:
@@ -307,8 +330,11 @@ def create_app_from_env():
     notify.warn_owner(owner_id)
     send_config = backup_send.load_config(os.environ, owner_id)
     backup_send.warn_config(send_config)
+    rate_config = ratelimit.load_config(os.environ)
+    ratelimit.warn_config(rate_config)
     return create_app(s["token"], s["origins"], mode=s["mode"],
                       public_url=s["public_url"], webhook_secret=s["secret"],
+                      rate_limiter=ratelimit.RateLimiter(rate_config),
                       maintenance={"config": config, "db_path": db_path, "owner_id": owner_id,
                                        "send_config": send_config})
 

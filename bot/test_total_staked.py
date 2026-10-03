@@ -224,10 +224,10 @@ try:
     check("порядок прежний", [e["name"] for e in body["top"]],
           ["P%d" % i for i in range(1, 11)])
     check("у каждого staked", [e["staked"] for e in body["top"]], [0] + [i * 1000 for i in range(2, 11)])
-    check("поля записи", sorted(body["top"][0]), ["balance", "is_me", "name", "rank", "staked"])
+    check("поля записи", sorted(body["top"][0]), ["balance", "is_me", "level", "name", "rank", "staked"])
     check("me: staked 0 без вращений", body["me"]["staked"], 0)
     check("me.total по-прежнему число участников", body["me"]["total"], 14)
-    check("поля me", sorted(body["me"]), ["balance", "rank", "staked", "total"])
+    check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])
     r = client.get("/api/chat/top", headers=auth(113, name="P13"))
     me = r.json()["me"]
     check("me вне топа: staked", (me["rank"], me["staked"]), (13, 13000))
@@ -308,7 +308,8 @@ try:
     assert "http://" not in page and "https://" not in page and "src=" not in page.lower(), "внешние ресурсы"
     assert "[КОНТАКТ]" not in page and "[РЕГИОН]" not in page
     assert "общая сумма ваших ставок за всё время (число; считается и хранится, пока существует ваш игровой профиль)" in page
-    assert ("видят в рейтинге ваше имя в Telegram, баланс и общую сумму ваших ставок, а также общую сумму ставок "
+    assert ("видят в рейтинге ваше имя в Telegram, баланс, общую сумму ваших ставок и уровень профиля "
+            "(число, считается по общей сумме ваших ставок), а также общую сумму ставок "
             "всех участников беседы (суммарное число без разбивки по людям)") in page
     sec2 = page[page.index("<h2>2."):page.index("<h2>3.")]
     sec4 = page[page.index("<h2>4."):page.index("<h2>5.")]
