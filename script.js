@@ -483,6 +483,35 @@ if (tg) {
   }
 }
 
+// Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур)
+const TABS = [
+  { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
+  { id: 'play',    label: 'Играть',  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>', main: true },
+  { id: 'profile', label: 'Профиль', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' }
+];
+const START_TAB = 'play';
+const navEl = document.getElementById('nav');
+
+// Экраны только прячутся и показываются, игровые элементы не пересоздаются
+function showTab(id) {
+  document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== id; });
+  navEl.querySelectorAll('.tab').forEach((btn) => {
+    if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
+    else btn.removeAttribute('aria-current');
+  });
+}
+
+TABS.forEach((tab) => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'tab' + (tab.main ? ' main' : '');
+  btn.dataset.tab = tab.id;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${tab.icon}</svg><span>${tab.label}</span>`;
+  btn.addEventListener('click', () => showTab(tab.id));
+  navEl.appendChild(btn);
+});
+showTab(START_TAB);
+
 loadState();
 drawWheel();
 ballRadius = BALL_POCKET;
