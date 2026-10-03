@@ -292,7 +292,7 @@ function renderStatus() {
   if (!srv.loaded && srv.error) {
     text = srv.error.text;
     code = srv.error.code;
-  } else if (srv.loaded && game.phase === 'idle' && availableBalance() === 0) {
+  } else if (srv.loaded && game.phase === 'idle' && srv.balance === 0) {
     text = 'Фишки закончились. Следующее начисление через ' + mmss((srv.deadline - performance.now()) / 1000);
   }
   statusLineEl.hidden = !text;
