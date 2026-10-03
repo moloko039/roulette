@@ -228,9 +228,17 @@ def run_maintenance_once(config, db_path, now, last_purge, events=None):
     """Один проход: копия (если включена и пора) и очистка старых данных (раз в сутки).
     Возвращает время последней очистки. Сбой копии добавляет "snapshot_failed" в events."""
     import db
-    if config["enabled"] and snapshot_due(config["dir"], config["interval_hours"], now):
+    first_pass = last_purge is None  # причины пропуска пишем в первом проходе, чтобы не засорять лог каждый час
+    if not config["enabled"]:
+        if first_pass:
+            logger.info("Резервная копия пропущена: отключена (BACKUP_ENABLED=0)")
+    elif snapshot_due(config["dir"], config["interval_hours"], now):
         if create_snapshot(db_path, config["dir"], now=now, keep=config["keep"]) is None and events is not None:
             events.append("snapshot_failed")
+    elif first_pass:
+        newest = list_backups(config["dir"])[-1]
+        logger.info("Резервная копия пропущена: свежая уже есть, файл=%s возраст_часов=%d интервал_часов=%d",
+                    newest, max(0, now - backup_time(newest)) // 3600, config["interval_hours"])
     if last_purge is None or now - last_purge >= 86400:
         db.purge_old_data(now=now, db_path=db_path, rounds_days=config["rounds_days"],
                           member_days=config["member_days"])
@@ -243,6 +251,8 @@ async def maintenance_loop(config, db_path, first_delay=FIRST_DELAY_SECONDS, tic
     """Фоновая задача сервиса. Любая ошибка логируется (только тип) и не роняет сервис;
     блокирующая работа идёт в пуле потоков. Корректно отменяется при остановке."""
     last_purge = None
+    logger.info("Фоновая задача запущена: копии=%s интервал_часов=%d хранить=%d первая проверка через %d с",
+                "вкл" if config["enabled"] else "выкл", config["interval_hours"], config["keep"], first_delay)
     await asyncio.sleep(first_delay)
     while True:
         now = int(clock())
