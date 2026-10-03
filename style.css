@@ -603,7 +603,7 @@ input[type="number"]:focus { border-color: var(--border-strong); }
   grid-row: 2;
   z-index: 3; /* выше меню игр, чтобы центральная кнопка оставалась нажимаемой */
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   grid-template-rows: var(--nav-h);
   height: calc(var(--nav-h) + var(--inset-bottom));
   padding-bottom: var(--inset-bottom);
@@ -979,6 +979,110 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 
 .rating-me { flex: none; }
 .rating-me:empty { display: none; }
+
+/* уровень рядом с именем: имя сокращается многоточием, «Ур. N» остаётся */
+.rating-who {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.rating-who .rating-name { flex: 0 1 auto; }
+
+.rating-lvl {
+  flex: none;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* сокращённые числа: по нажатию показывается полное значение (полное значение есть и в title) */
+.num-tap { cursor: pointer; text-decoration: underline dotted var(--text-dim); text-underline-offset: 3px; }
+.rating-bal, .farm-balance b, .farm-cost b, .farm-progress b { overflow-wrap: anywhere; }
+
+/* ферма */
+.farm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
+  text-align: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.farm-body {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+}
+
+.farm-profile, .farm-card {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.farm-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.farm-level { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.farm-balance { font-size: 13px; color: var(--text-muted); min-width: 0; }
+.farm-balance b { color: var(--text); font-size: 15px; font-weight: 600; }
+
+.farm-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.farm-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s ease-out;
+}
+
+.farm-progress, .farm-slots { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-progress b { color: var(--text); font-weight: 600; }
+
+.farm-cards { display: grid; gap: var(--space-3); min-width: 0; }
+
+.farm-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.farm-card h3 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.farm-lvl { font-size: 12px; color: var(--text-muted); }
+.farm-effect { font-size: 14px; overflow-wrap: anywhere; }
+.farm-cost { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-cost b { color: var(--text); font-weight: 600; }
+.farm-buy { flex: none; width: 100%; }
+.farm-reason { min-height: 16px; font-size: 12px; color: var(--text-muted); }
+.farm-note { min-height: 18px; margin: 0; font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+.farm-note.win  { color: var(--text); }
+.farm-note.lose { color: var(--text-muted); }
 
 /* ---------- скелетоны вместо спиннеров ---------- */
 
