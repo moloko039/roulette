@@ -68,6 +68,32 @@
     <small class="profile-code" id="rating-code"></small>
     <button type="button" class="action profile-retry" id="rating-retry" hidden>Повторить</button>
   </section>
+  <section class="screen stub" data-screen="style" hidden>
+    <h2>Стиль</h2>
+    <span>Скоро: украшения и стили</span>
+  </section>
+  <section class="screen farm" data-screen="farm" hidden>
+    <h2>Ферма</h2>
+    <div class="farm-body" id="farm-body" hidden>
+      <div class="farm-profile">
+        <div class="farm-top">
+          <strong class="farm-level" id="farm-level"></strong>
+          <span class="farm-balance">Баланс <b class="num" id="farm-balance"></b></span>
+        </div>
+        <div class="farm-bar" id="farm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="farm-bar-fill" id="farm-bar-fill"></div></div>
+        <div class="farm-progress" id="farm-progress"></div>
+        <div class="farm-slots" id="farm-slots"></div>
+      </div>
+      <div class="farm-cards" id="farm-cards"></div>
+      <p class="farm-note" id="farm-note" aria-live="polite"></p>
+    </div>
+    <div class="skeleton-card" id="farm-skel" hidden aria-hidden="true">
+      <div class="skeleton tall"></div><div class="skeleton tall"></div><div class="skeleton tall"></div>
+    </div>
+    <p class="profile-msg" id="farm-msg"></p>
+    <small class="profile-code" id="farm-code"></small>
+    <button type="button" class="action profile-retry" id="farm-retry" hidden>Повторить</button>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">
@@ -77,6 +103,7 @@
     <div class="profile-card" id="profile-data" hidden>
       <div class="stat"><span class="stat-label">Баланс на сервере</span><strong id="profile-balance"></strong></div>
       <div class="stat"><span class="stat-label">Доход</span><span><strong id="profile-rate"></strong> в час</span></div>
+      <div class="stat" id="profile-upgrades-row" hidden><span class="stat-label">Улучшения</span><span id="profile-upgrades"></span></div>
       <div class="ring-wrap">
         <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
           <circle class="ring-track" cx="60" cy="60" r="52"/>

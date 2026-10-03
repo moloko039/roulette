@@ -24,6 +24,32 @@ const formatNumber = (() => {
   }
 })();
 
+// Сокращение от миллиона: «1,2 млн», «3,4 млрд». Полное значение остаётся в title и открывается нажатием
+const COMPACT_UNITS = [[1e15, 'квадр.'], [1e12, 'трлн'], [1e9, 'млрд'], [1e6, 'млн']];
+function formatCompact(n) {
+  if (!(n >= 1e6)) return formatNumber(n);
+  for (const [unit, name] of COMPACT_UNITS) {
+    if (n >= unit) return String(Math.floor((n / unit) * 10) / 10).replace('.', ',') + ' ' + name;
+  }
+  return formatNumber(n);
+}
+
+function setNumber(el, n) {
+  const full = formatNumber(n);
+  const short = formatCompact(n);
+  el.textContent = short;
+  el.title = full;
+  el.dataset.short = short;
+  el.dataset.full = full;
+  el.classList.toggle('num-tap', short !== full);
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target instanceof Element ? e.target.closest('.num-tap') : null;
+  if (!el) return;
+  el.textContent = el.textContent === el.dataset.full ? el.dataset.short : el.dataset.full;
+});
+
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
 const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
 
@@ -522,18 +548,53 @@ function makeRequestId() {
 
 const isInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
 
+// Единое место для всех POST-запросов. Если сервер ответил 429 (слишком часто), это временный сбой:
+// ждём Retry-After (не меньше 1 и не больше 10 секунд) и повторяем ТОТ ЖЕ запрос (с тем же request_id),
+// всего не более 3 повторов на один request_id (счёт общий для всех попыток вызывающего кода; через минуту
+// он сбрасывается). Остальные ответы и ошибки сети отдаются вызывающему как есть.
+const RATE_LIMIT_RETRIES = 3;
+const RATE_BUDGET_MS = 60000;
+const rateBudget = new Map(); // request_id -> { used, at }
+const retryAfterMs = (res) => {
+  const sec = parseInt(res.headers.get('Retry-After'), 10);
+  return Math.min(10, Math.max(1, Number.isFinite(sec) ? sec : 1)) * 1000;
+};
+
+async function postJson(path, payload) {
+  for (;;) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(API_URL + path, {
+        method: 'POST',
+        headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    const key = payload.request_id;
+    if (res.status !== 429) {
+      rateBudget.delete(key);
+      return res;
+    }
+    const now = performance.now();
+    let budget = rateBudget.get(key);
+    if (!budget || now - budget.at > RATE_BUDGET_MS) budget = { used: 0, at: now };
+    if (budget.used >= RATE_LIMIT_RETRIES) return res; // повторы исчерпаны: 429 уходит вызывающему коду
+    budget.used += 1;
+    rateBudget.set(key, budget);
+    await sleep(retryAfterMs(res));
+  }
+}
+
 // Один POST. Возвращает { kind: 'ok', data } | { kind: 'fatal', text, code, refresh } | { kind: 'retry', code }
 async function postRound(round) {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(API_URL + '/api/roulette/spin', {
-      method: 'POST',
-      headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ request_id: round.id, bets: round.bets }),
-      cache: 'no-store',
-      signal: ctrl.signal
-    });
+    const res = await postJson('/api/roulette/spin', { request_id: round.id, bets: round.bets });
     if (res.status === 401) {
       return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401' };
     }
@@ -553,8 +614,6 @@ async function postRound(round) {
     return valid ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
   } catch (e) {
     return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -708,7 +767,9 @@ const srv = {
   balance: 0,
   rate: 0,
   deadline: 0,     // performance.now(), когда таймер дойдёт до нуля
-  error: null      // { text, code, retry } последней неудачной загрузки
+  error: null,     // { text, code, retry } последней неудачной загрузки
+  incomeLevel: null,
+  storageLevel: null
 };
 
 const profileEls = {
@@ -719,6 +780,8 @@ const profileEls = {
   ring: document.getElementById('profile-ring'),
   skel: document.getElementById('profile-skel'),
   name: document.getElementById('profile-name'),
+  upgrades: document.getElementById('profile-upgrades'),
+  upgradesRow: document.getElementById('profile-upgrades-row'),
   avatar: document.getElementById('profile-avatar'),
   msg: document.getElementById('profile-msg'),
   code: document.getElementById('profile-code'),
@@ -732,7 +795,7 @@ let srvLastFailed = false;
 let srvFetchTimer = null;       // отложенный запрос (ноль таймера или автоповтор после ошибки)
 
 // данные нужны, только пока открыт экран рулетки или «Профиль»
-const srvWanted = () => activeTab === 'profile' || (activeTab === 'play' && currentGame === 'roulette');
+const srvWanted = () => activeTab === 'profile' || activeTab === 'farm' || (activeTab === 'play' && currentGame === 'roulette');
 
 function renderProfile() {
   renderProfileIdentity();
@@ -746,6 +809,9 @@ function renderProfile() {
     profileEls.balance.textContent = formatNumber(srv.balance); // серверный, без вычета ставок на столе
     fitNumberFont(profileEls.balance, profileEls.balance.textContent.length);
     profileEls.rate.textContent = formatNumber(srv.rate);
+    const hasUpgrades = srv.incomeLevel !== null && srv.storageLevel !== null;
+    profileEls.upgradesRow.hidden = !hasUpgrades; // без поля от сервера строки нет
+    if (hasUpgrades) profileEls.upgrades.textContent = `доход ${srv.incomeLevel}, хранилище ${srv.storageLevel}`;
     profileEls.skel.hidden = true;
     profileEls.data.hidden = false;
     profileEls.msg.textContent = '';
@@ -879,6 +945,9 @@ async function loadServer(reason) {
     srv.loaded = true;
     srv.balance = d.balance;
     srv.rate = d.rate;
+    // уровни улучшений (если сервер их прислал) нужны только для показа в профиле
+    srv.incomeLevel = isCount(d.income_level) ? d.income_level : null;
+    srv.storageLevel = isCount(d.storage_level) ? d.storage_level : null;
     srv.deadline = performance.now() + d.seconds_to_next * 1000;
     renderAll();
     scheduleServerFetch(d.seconds_to_next * 1000 + ZERO_DELAY_MS);
@@ -946,6 +1015,13 @@ function validRating(d) {
 }
 
 // Все тексты с сервера (в том числе имена) выводятся только через textContent
+function levelBadge(level) {
+  const el = document.createElement('span');
+  el.className = 'rating-lvl';
+  el.textContent = 'Ур. ' + level;
+  return el;
+}
+
 const CROWN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
 
 function showRating(d) {
@@ -980,10 +1056,14 @@ function showRating(d) {
     const name = document.createElement('span');
     name.className = 'rating-name';
     name.textContent = e.name;
+    const who = document.createElement('span');
+    who.className = 'rating-who';
+    who.appendChild(name);
+    if (isCount(e.level)) who.appendChild(levelBadge(e.level)); // без поля level подписи нет
     const bal = document.createElement('span');
     bal.className = 'rating-bal';
-    bal.textContent = formatNumber(e.balance);
-    li.append(rank, avatar, name, bal);
+    setNumber(bal, e.balance);
+    li.append(rank, avatar, who, bal);
     // сумма ставок за всё время (поле staked); в старом ответе его нет, тогда строки нет
     if (isCount(e.staked)) {
       const staked = document.createElement('span');
@@ -1007,13 +1087,17 @@ function showRating(d) {
   const myName = document.createElement('span');
   myName.className = 'rating-name';
   myName.textContent = 'Вы';
+  const myWho = document.createElement('span');
+  myWho.className = 'rating-who';
+  myWho.appendChild(myName);
+  if (isCount(d.me.level)) myWho.appendChild(levelBadge(d.me.level));
   const myBal = document.createElement('span');
   myBal.className = 'rating-bal';
-  myBal.textContent = formatNumber(d.me.balance);
+  setNumber(myBal, d.me.balance);
   const mySub = document.createElement('span');
   mySub.className = 'rating-staked';
   mySub.textContent = `${d.me.rank}-е место из ${d.me.total}` + (isCount(d.me.staked) ? `, поставлено ${formatNumber(d.me.staked)}` : '');
-  me.append(myRank, myAvatar, myName, myBal, mySub);
+  me.append(myRank, myAvatar, myWho, myBal, mySub);
   // итог по беседе (поле chat_staked); без поля строка скрыта
   if (isCount(d.chat_staked)) {
     ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatNumber(d.chat_staked);
@@ -1095,6 +1179,290 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadRating('visible');
 });
 
+// ---------- вкладка «Ферма»: улучшения дохода и хранилища за фишки ----------
+// Все числа и состояния приходят с сервера (GET /api/farm), клиент ничего не считает и не хранит.
+// Покупка: POST /api/farm/buy, до 3 попыток с одним request_id; 429 повторяется в postJson.
+const farmEls = {
+  body: document.getElementById('farm-body'),
+  skel: document.getElementById('farm-skel'),
+  msg: document.getElementById('farm-msg'),
+  code: document.getElementById('farm-code'),
+  retry: document.getElementById('farm-retry'),
+  note: document.getElementById('farm-note'),
+  level: document.getElementById('farm-level'),
+  balance: document.getElementById('farm-balance'),
+  bar: document.getElementById('farm-bar'),
+  barFill: document.getElementById('farm-bar-fill'),
+  progress: document.getElementById('farm-progress'),
+  slots: document.getElementById('farm-slots'),
+  cards: document.getElementById('farm-cards')
+};
+const FARM_KINDS = { income: 'Доход', storage: 'Хранилище' };
+const FARM_REASONS = {
+  level_locked: 'Нужен уровень профиля',
+  insufficient_funds: 'Не хватает фишек',
+  max_level: 'Максимальный уровень'
+};
+
+let farmInFlight = false;
+let farmLastRequestAt = -Infinity;
+let farmTimer = null;
+let farmHasData = false;
+let farmBusy = false;   // идёт покупка
+let farmData = null;    // последний ответ GET /api/farm
+
+const farmCards = {};
+Object.keys(FARM_KINDS).forEach((kind) => {
+  const card = document.createElement('article');
+  card.className = 'farm-card';
+  const head = document.createElement('div');
+  head.className = 'farm-card-head';
+  const title = document.createElement('h3');
+  title.textContent = FARM_KINDS[kind];
+  const lvl = document.createElement('span');
+  lvl.className = 'farm-lvl';
+  head.append(title, lvl);
+  const effect = document.createElement('div');
+  effect.className = 'farm-effect';
+  const cost = document.createElement('div');
+  cost.className = 'farm-cost';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'action farm-buy';
+  btn.textContent = 'Улучшить';
+  btn.addEventListener('click', () => buyUpgrade(kind));
+  const reason = document.createElement('small');
+  reason.className = 'farm-reason';
+  card.append(head, effect, cost, btn, reason);
+  farmEls.cards.appendChild(card);
+  farmCards[kind] = { lvl, effect, cost, btn, reason };
+});
+
+function setFarmNote(text, kind = '') {
+  farmEls.note.textContent = text;
+  farmEls.note.className = 'farm-note' + (kind ? ' ' + kind : '');
+}
+
+function showFarmMessage(text, code, canRetry) {
+  farmEls.skel.hidden = true;
+  farmEls.body.hidden = true;
+  farmEls.msg.textContent = text;
+  farmEls.code.textContent = code ? 'код: ' + code : '';
+  farmEls.retry.hidden = !canRetry;
+  farmHasData = false;
+}
+
+const isLevelPair = (o, extra) => !!o && typeof o === 'object' && isCount(o.level) && isCount(o.max)
+  && extra.every((k) => isCount(o[k])) && typeof o.can_buy === 'boolean'
+  && (o.reason === null || typeof o.reason === 'string');
+
+function validFarm(d) {
+  if (!d || typeof d !== 'object' || !isCount(d.balance)) return false;
+  const p = d.profile;
+  const s = d.slots;
+  if (!p || !isCount(p.level) || !isCount(p.staked) || !(p.next_threshold === null || isCount(p.next_threshold))) return false;
+  if (!s || !isCount(s.used) || !isCount(s.total)) return false;
+  const nullable = (o, k) => o[k] === null || isCount(o[k]);
+  return isLevelPair(d.income, ['rate']) && nullable(d.income, 'next_rate') && nullable(d.income, 'next_cost')
+    && isLevelPair(d.storage, ['hours']) && nullable(d.storage, 'next_hours') && nullable(d.storage, 'next_cost');
+}
+
+function renderFarmCard(kind, o, slots) {
+  const c = farmCards[kind];
+  c.lvl.textContent = `${o.level} / ${o.max}`;
+  if (kind === 'income') {
+    c.effect.textContent = `${formatNumber(o.rate)} в час` + (o.next_rate !== null ? ` → ${formatNumber(o.next_rate)} в час` : '');
+  } else {
+    c.effect.textContent = `${o.hours} ч` + (o.next_hours !== null ? ` → ${o.next_hours} ч` : '');
+  }
+  c.cost.textContent = '';
+  if (o.next_cost !== null) {
+    const value = document.createElement('b');
+    setNumber(value, o.next_cost);
+    c.cost.append('Цена: ', value);
+  }
+  c.btn.disabled = !o.can_buy || farmBusy;
+  let reason = o.reason ? FARM_REASONS[o.reason] || '' : '';
+  if (o.reason === 'level_locked') reason += ' ' + (slots.used + 1);
+  c.reason.textContent = reason;
+}
+
+function renderFarm(d) {
+  farmData = d;
+  farmHasData = true;
+  farmEls.skel.hidden = true;
+  farmEls.msg.textContent = '';
+  farmEls.code.textContent = '';
+  farmEls.retry.hidden = true;
+  farmEls.body.hidden = false;
+  farmEls.level.textContent = 'Уровень ' + d.profile.level;
+  setNumber(farmEls.balance, d.balance);
+  farmEls.progress.textContent = '';
+  if (d.profile.next_threshold === null) {
+    farmEls.progress.textContent = 'Максимальный уровень';
+    farmEls.barFill.style.width = '100%';
+    farmEls.bar.setAttribute('aria-valuenow', '100');
+  } else {
+    const staked = document.createElement('b');
+    const next = document.createElement('b');
+    setNumber(staked, d.profile.staked);
+    setNumber(next, d.profile.next_threshold);
+    farmEls.progress.append('Поставлено ', staked, ' / ', next);
+    const pct = Math.min(100, Math.floor((d.profile.staked / d.profile.next_threshold) * 100));
+    farmEls.barFill.style.width = pct + '%';
+    farmEls.bar.setAttribute('aria-valuenow', String(pct));
+  }
+  farmEls.slots.textContent = `Слоты улучшений: ${d.slots.used} / ${d.slots.total}`;
+  renderFarmCard('income', d.income, d.slots);
+  renderFarmCard('storage', d.storage, d.slots);
+}
+
+function updateFarmButtons() {
+  if (!farmData) return;
+  renderFarmCard('income', farmData.income, farmData.slots);
+  renderFarmCard('storage', farmData.storage, farmData.slots);
+}
+
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual' | 'after' (после покупки; не теряется,
+// а откладывается). Между любыми двумя запросами не меньше 5 секунд
+async function loadFarm(reason) {
+  if (farmInFlight || activeTab !== 'farm') return;
+  const now = performance.now();
+  const sinceLast = now - farmLastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual' || reason === 'after') {
+      clearTimeout(farmTimer);
+      farmTimer = setTimeout(() => loadFarm(reason), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && reason !== 'after' && sinceLast < REFRESH_MIN_MS) return;
+
+  // вне Telegram запрос не отправляем
+  const initData = tg && tg.initData;
+  if (!initData) {
+    showFarmMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    return;
+  }
+
+  clearTimeout(farmTimer);
+  farmInFlight = true;
+  farmLastRequestAt = now;
+  if (!farmHasData) {
+    farmEls.skel.hidden = false; // скелетон вместо спиннера
+    farmEls.msg.textContent = '';
+    farmEls.code.textContent = '';
+    farmEls.retry.hidden = true;
+  }
+
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/farm', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      showFarmMessage('Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', '401', false);
+      return;
+    }
+    if (res.status === 429) {
+      showFarmMessage('Слишком много запросов, подождите немного', '429', true);
+      return;
+    }
+    if (!res.ok) {
+      showFarmMessage('Нет связи с сервером', String(res.status), true);
+      return;
+    }
+    const d = await res.json();
+    if (!validFarm(d)) {
+      showFarmMessage('Нет связи с сервером', 'ответ', true);
+      return;
+    }
+    renderFarm(d);
+  } catch (e) {
+    showFarmMessage('Нет связи с сервером', e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', true);
+  } finally {
+    clearTimeout(timeout);
+    farmInFlight = false;
+  }
+}
+
+// Один POST покупки. Возвращает { kind: 'ok', data } | { kind: 'fatal', text, refresh } | { kind: 'retry', code }
+async function postFarmBuy(id, kind) {
+  try {
+    const res = await postJson('/api/farm/buy', { request_id: id, kind });
+    if (res.status === 401) {
+      return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
+    }
+    if (res.status === 400) return { kind: 'fatal', text: 'Ошибка запроса' };
+    if (res.status === 409) {
+      let body = {};
+      try { body = await res.json(); } catch (e) { body = {}; }
+      if (body.detail === 'max_level') return { kind: 'fatal', text: 'Максимальный уровень', refresh: true };
+      if (body.detail === 'level_locked') {
+        const need = isCount(body.required_level) ? ' ' + body.required_level : '';
+        return { kind: 'fatal', text: 'Нужен уровень профиля' + need, refresh: true };
+      }
+      if (body.detail === 'insufficient_funds') return { kind: 'fatal', text: 'Не хватает фишек', refresh: true };
+      return { kind: 'retry', code: '409' };
+    }
+    if (!res.ok) return { kind: 'retry', code: String(res.status) };
+    const d = await res.json();
+    const valid = d && typeof d.kind === 'string' && isCount(d.level_after) && isCount(d.cost)
+      && isCount(d.balance) && typeof d.replayed === 'boolean';
+    return valid ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+  } catch (e) {
+    return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
+  }
+}
+
+// Покупка: кнопки блокируются, до 3 попыток с ТЕМ ЖЕ request_id (повтор безопасен, сервер не спишет дважды)
+async function buyUpgrade(kind) {
+  if (farmBusy || !(tg && tg.initData) || !farmData) return;
+  const id = makeRequestId();
+  if (!id) {
+    setFarmNote('Ошибка', 'lose');
+    return;
+  }
+  farmBusy = true;
+  updateFarmButtons();
+  setFarmNote('Покупка…');
+  let last = { code: 'сеть' };
+  let done = null;
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !done; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await postFarmBuy(id, kind);
+    if (r.kind === 'retry') {
+      last = r;
+      continue;
+    }
+    done = r;
+  }
+  farmBusy = false;
+  if (done && done.kind === 'ok') {
+    setFarmNote(`Куплено: ${FARM_KINDS[done.data.kind] || FARM_KINDS[kind]}, уровень ${done.data.level_after}`, 'win');
+  } else if (done) {
+    setFarmNote(done.text, 'lose');
+  } else if (last.code === '429') {
+    setFarmNote('Слишком много запросов, попробуйте чуть позже', 'lose'); // сервер отклонил запрос до обработки
+  } else {
+    setFarmNote('Нет связи. Покупка могла пройти: проверьте карточки (код: ' + last.code + ')', 'lose');
+  }
+  updateFarmButtons();
+  if (!done || done.kind === 'ok' || done.refresh) {
+    loadFarm('after');   // новые карточки и баланс с сервера
+    loadServer('after'); // баланс в шапке и таймер до начисления (/api/me)
+  }
+}
+
+farmEls.retry.addEventListener('click', () => loadFarm('manual'));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadFarm('visible');
+});
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
@@ -1112,7 +1480,9 @@ let currentGame = START_GAME;
 // Иконка центральной кнопки подменяется иконкой открытой игры.
 const TABS = [
   { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
+  { id: 'style',   label: 'Стиль',   icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15v4M17 17h4"/>' },
   { id: 'play',    label: 'Играть',  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>', main: true },
+  { id: 'farm',    label: 'Ферма',   icon: '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>' },
   { id: 'profile', label: 'Профиль', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' }
 ];
 const START_TAB = 'play';
@@ -1136,6 +1506,7 @@ function showTab(id) {
   closeGameMenu();
   if (started && (screen === 'profile' || screen === 'roulette')) loadServer('open');
   if (started && screen === 'rating') loadRating('open');
+  if (started && screen === 'farm') loadFarm('open');
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
