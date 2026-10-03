@@ -9,6 +9,8 @@ import time
 import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
+import wallet
+from levels import profile_level
 from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
 
 logger = logging.getLogger("depnaya.db")
@@ -198,10 +200,11 @@ def get_player(telegram_id, now=None, db_path=None):
             # новый игрок получает стартовый баланс (или 0 в период защиты); существующего не трогаем
             _register_player(conn, telegram_id, now)
             row = conn.execute(
-                "SELECT balance, rate, last_accrual FROM players WHERE telegram_id = ?",
+                "SELECT balance, rate, last_accrual, total_staked FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
 
+            # начисление по часам: единственная правка баланса вне wallet (это не игровое списание или выплата)
             earned, new_last = accrue(row["last_accrual"], now, row["rate"])
             balance = row["balance"] + earned
 
@@ -222,6 +225,7 @@ def get_player(telegram_id, now=None, db_path=None):
         "balance": balance,
         "rate": row["rate"],
         "last_accrual": new_last,
+        "total_staked": row["total_staked"],
     }
 
 
@@ -268,20 +272,24 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
                 conn.execute("COMMIT")
                 return result
 
-            # (б) игрок и начисление: потратить можно и только что начисленное
+            # (б) игрок и начисление: потратить можно и только что начисленное.
+            # Начисление по часам записывается сразу (при ошибке ниже транзакция откатится целиком)
             _register_player(conn, telegram_id, now)
             row = conn.execute(
                 "SELECT balance, rate, last_accrual FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
             earned, new_last = accrue(row["last_accrual"], now, row["rate"])
-            balance = row["balance"] + earned
+            conn.execute(
+                "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
+                (row["balance"] + earned, new_last, telegram_id),
+            )
 
-            # (в) хватает ли фишек и не упрётся ли баланс в предел точных чисел JavaScript
+            # (в) списание ставки через кошелёк (InsufficientFunds, если фишек не хватает) и проверка,
+            # не упрётся ли баланс в предел точных чисел JavaScript при самой большой выплате
             stake_total = sum(b["amount"] for b in bets)
-            if stake_total > balance:
-                raise InsufficientFunds()
-            if balance - stake_total + max_payout(bets) > MAX_SAFE_INT:
+            wallet.debit(conn, telegram_id, stake_total)
+            if wallet.get_balance(conn, telegram_id) + max_payout(bets) > MAX_SAFE_INT:
                 raise BalanceLimit()
 
             # (г) число, (д) выигрыш
@@ -289,14 +297,14 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             if type(number) is not int or not 0 <= number <= 36:
                 raise RuntimeError("bad random number")
             stake_total, payout_total = settle(bets, number)
-            new_balance = balance - stake_total + payout_total
 
-            # (е) новый баланс и запись раунда
-            # total_staked растёт в той же транзакции, что и списание ставки (не выше MAX_SAFE_INT)
+            # (е) выплата через кошелёк, запись раунда и счётчик ставок (в той же транзакции)
+            if payout_total > 0:
+                wallet.credit(conn, telegram_id, payout_total)
+            new_balance = wallet.get_balance(conn, telegram_id)
             conn.execute(
-                "UPDATE players SET balance = ?, last_accrual = ?, total_staked = MIN(total_staked + ?, ?) "
-                "WHERE telegram_id = ?",
-                (new_balance, new_last, stake_total, MAX_SAFE_INT, telegram_id),
+                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
+                (stake_total, MAX_SAFE_INT, telegram_id),
             )
             conn.execute(
                 "INSERT INTO roulette_rounds "
@@ -421,14 +429,16 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
     top = [
-        {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4]}
+        {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4],
+         "level": profile_level(e[4])}
         for i, e in enumerate(entries[:TOP_SIZE])
     ]
     me = None
     for i, e in enumerate(entries):
         if e[2] == telegram_id:
             # total здесь число участников рейтинга (не сумма ставок); сумма ставок: staked и chat_staked
-            me = {"rank": i + 1, "balance": -e[0], "total": len(entries), "staked": e[4]}
+            me = {"rank": i + 1, "balance": -e[0], "total": len(entries), "staked": e[4],
+                  "level": profile_level(e[4])}
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
     return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked}
