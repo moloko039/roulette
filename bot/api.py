@@ -57,6 +57,11 @@ def _forbidden():
     return JSONResponse({"detail": "Forbidden"}, status_code=403)
 
 
+async def _register_commands(bot_app):
+    from bot import register_commands  # меню команд; ошибка регистрации не роняет запуск
+    await register_commands(bot_app)
+
+
 def make_lifespan(mode, bot_token, public_url, webhook_secret, application):
     @asynccontextmanager
     async def lifespan(app):
@@ -87,6 +92,7 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application):
                     raise RuntimeError("webhook registration failed") from None
                 app.state.application = bot_app
                 logger.info("Бот запущен в режиме webhook")
+                await _register_commands(bot_app)
             else:
                 # ВНИМАНИЕ: start_polling снимает webhook у бота (Telegram не отдаёт
                 # обновления одновременно через webhook и getUpdates). Если тот же бот
@@ -94,6 +100,7 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application):
                 # перезапустят сервис и webhook не зарегистрируется снова.
                 await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
                 logger.info("Бот запущен в режиме polling")
+                await _register_commands(bot_app)
             yield
         finally:
             if mode == "polling":
