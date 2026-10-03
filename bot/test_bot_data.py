@@ -12,6 +12,10 @@ from db import (delete_player_data, get_player, get_player_export, init_db, spin
                 touch_chat_member)
 from stubs import FakeUpdate
 
+# тест не зависит от окружения и bot/.env: на время теста эти переменные очищаются
+_ENV_KEYS = ("GAME_LINK", "PRIVACY_URL", "DEVELOPER_CONTACT", "PLAY_MODE", "TOMBSTONE_SECRET")
+_saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
+
 TOKEN = "123456:TEST-TOKEN-not-real"
 ME, OTHER, STRANGER = 1234567891, 2222222222, 3333333333
 CHAT_A, CHAT_B = "chat-secret-AAA", "chat-secret-BBB"
@@ -85,6 +89,11 @@ class Capture(logging.Handler):
 
 def seed(path):
     """Два игрока: у каждого баланс, раунды и участие в беседах."""
+    # после удаления действует защита от повторной регистрации (баланс 0): сбрасываем её,
+    # чтобы тест снова мог завести игроков со стартовым балансом
+    sql(path, "DELETE FROM deletion_tombstones")
+    for table in ("players", "roulette_rounds", "chat_members"):
+        sql(path, "DELETE FROM %s WHERE telegram_id IN (?, ?)" % table, (ME, OTHER))
     rng = lambda n: 17  # noqa: E731
     for uid, name, chats in [(ME, "СекретноеИмя", (CHAT_A, CHAT_B)), (OTHER, "Другой", (CHAT_A,))]:
         spin_roulette(uid, "seed-request-%d-1" % uid, [{"type": "red", "value": None, "amount": 10}],
@@ -99,7 +108,9 @@ def seed(path):
 fd, path = tempfile.mkstemp(suffix=".db")
 os.close(fd)
 old_db = os.environ.get("DB_PATH")
+old_secret = os.environ.get("TOMBSTONE_SECRET")
 os.environ["DB_PATH"] = path
+os.environ["TOMBSTONE_SECRET"] = "test-secret-not-real"  # удаление данных требует секрет
 cap = Capture()
 root = logging.getLogger()
 old_level = root.level
@@ -238,8 +249,8 @@ try:
         q = press("del:yes:%d" % clk.wall, ME)
         check("повторное нажатие", (q.answers, q.edits[0]["text"]), (1, "Данных для удаления нет"))
         check("после удаления нет данных", run(bot.mydata, FakeUpdate("private", user_id=ME)).replies[0]["text"], "Данных о вас нет")
-        # после удаления игра начинается заново
-        check("новый игрок", get_player(ME, now=1_700_000_500, db_path=path)["balance"], 1000)
+        # после удаления игра начинается заново, но 30 дней без стартовых фишек (защита от абьюза)
+        check("новый игрок: в период защиты баланс 0", get_player(ME, now=1_700_000_500, db_path=path)["balance"], 0)
 
     # id берётся из данных Telegram, а не из callback_data: удаляем второго игрока его же нажатием
     with Clock() as clk:
@@ -280,6 +291,16 @@ finally:
         os.environ.pop("DB_PATH", None)
     else:
         os.environ["DB_PATH"] = old_db
+    if old_secret is None:
+        os.environ.pop("TOMBSTONE_SECRET", None)
+    else:
+        os.environ["TOMBSTONE_SECRET"] = old_secret
     os.remove(path)
+
+for _k, _v in _saved_env.items():
+    if _v is None:
+        os.environ.pop(_k, None)
+    else:
+        os.environ[_k] = _v
 
 print("Все проверки прошли")

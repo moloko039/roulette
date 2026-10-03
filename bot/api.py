@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import hmac
 import json
 import logging
@@ -14,6 +16,8 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from telegram import Update
 
+import backup
+import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 from db import chat_top, get_player, init_db, spin_roulette, touch_chat_member
 from economy import HOUR
@@ -62,10 +66,11 @@ async def _register_commands(bot_app):
     await register_commands(bot_app)
 
 
-def make_lifespan(mode, bot_token, public_url, webhook_secret, application):
+def make_lifespan(mode, bot_token, public_url, webhook_secret, application, maintenance=None):
     @asynccontextmanager
-    async def lifespan(app):
+    async def bot_lifespan(app):
         app.state.application = None
+        app.state.notify_bot = None
         if mode == "api":
             logger.info("Бот отключён: режим только API")
             yield
@@ -101,21 +106,44 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application):
                 await bot_app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
                 logger.info("Бот запущен в режиме polling")
                 await _register_commands(bot_app)
+            app.state.notify_bot = bot_app.bot  # уведомления владельцу возможны, только пока бот работает
             yield
         finally:
+            app.state.notify_bot = None
             if mode == "polling":
                 await bot_app.updater.stop()
             await bot_app.stop()
             await bot_app.shutdown()
 
+    @asynccontextmanager
+    async def lifespan(app):
+        # фоновая задача (резервные копии и очистка) работает во всех режимах; в тестах выключена
+        task = None
+        if maintenance is not None:
+            notifier = None
+            if maintenance.get("owner_id") is not None:
+                notifier = notify.Notifier(maintenance["owner_id"], lambda: app.state.notify_bot,
+                                           maintenance["db_path"], maintenance["config"])
+            task = asyncio.create_task(backup.maintenance_loop(
+                maintenance["config"], maintenance["db_path"], notifier=notifier,
+                **maintenance.get("loop_args", {})))
+        try:
+            async with bot_lifespan(app):
+                yield
+        finally:
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
     return lifespan
 
 
 def create_app(bot_token, allowed_origins, db_path=None, mode="api",
-               public_url=None, webhook_secret=None, application=None):
+               public_url=None, webhook_secret=None, application=None, maintenance=None):
     app = FastAPI(
         docs_url=None, redoc_url=None, openapi_url=None,
-        lifespan=make_lifespan(mode, bot_token, public_url, webhook_secret, application),
+        lifespan=make_lifespan(mode, bot_token, public_url, webhook_secret, application, maintenance),
     )
     app.state.application = None
 
@@ -251,13 +279,24 @@ def load_settings(env):
             "public_url": public_url or None, "secret": secret or None}
 
 
+def _resolve_db_path():
+    import db
+    return db._resolve_path(None)
+
+
 def create_app_from_env():
     load_dotenv()
     configure_logging()
     s = load_settings(os.environ)
     init_db()  # без таблицы первый же валидный запрос упал бы с ошибкой
+    db_path = _resolve_db_path()
+    config = backup.load_config(os.environ, db_path)
+    backup.warn_config(config)
+    owner_id = notify.load_owner_id(os.environ)
+    notify.warn_owner(owner_id)
     return create_app(s["token"], s["origins"], mode=s["mode"],
-                      public_url=s["public_url"], webhook_secret=s["secret"])
+                      public_url=s["public_url"], webhook_secret=s["secret"],
+                      maintenance={"config": config, "db_path": db_path, "owner_id": owner_id})
 
 
 if __name__ == "__main__":
