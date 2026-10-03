@@ -174,11 +174,13 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   display: grid;
   /* одна колонка ровно по ширине экрана: без minmax(0, 1fr) длинная лента истории растягивала бы её шире окна */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(300px, 1fr) auto;
   gap: var(--space-2);
   width: 100%;
   padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--space-2);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .top, .strip, .table, .bets {
@@ -195,6 +197,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .balance {
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   min-width: 0;
   padding: 2px var(--space-3);
@@ -212,6 +215,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .balance strong {
   min-width: 40px;
+  overflow-wrap: break-word;
   font-family: var(--font-display);
   font-variant-numeric: lining-nums tabular-nums;
   font-size: 28px;
@@ -224,9 +228,12 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .game-switch {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-2);
   min-width: 44px;
+  overflow: hidden;
+  white-space: nowrap;
   height: 44px;
   padding: 0 var(--space-3);
   font-size: 13px;
@@ -239,10 +246,16 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 
 .game-switch:active:not(:disabled) { background: var(--white-soft); }
-.game-switch svg { width: 20px; height: 20px; }
+.game-switch svg { flex: none; width: 20px; height: 20px; }
+#game-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .game-switch .chevron { width: 16px; height: 16px; color: var(--text-muted); }
 
-/* лента истории: результат последнего раунда и горизонтальная прокрутка прошлых */
+/* длинные числа не выталкивают соседей: чем длиннее запись, тем мельче шрифт */
+.balance strong[data-len="m"], #profile-balance[data-len="m"] { font-size: 22px; }
+.balance strong[data-len="s"], #profile-balance[data-len="s"] { font-size: 18px; }
+.balance strong[data-len="xs"], #profile-balance[data-len="xs"] { font-size: 15px; }
+
+/* лента истории: результат последнего раунда; старые числа справа обрезаются с затуханием */
 .strip {
   display: flex;
   align-items: center;
@@ -288,12 +301,11 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   margin: 0;
   padding: 0 0 0 var(--space-2);
   list-style: none;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   border-left: 1px solid var(--border);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
-
-.history-list::-webkit-scrollbar { display: none; }
 
 .history-list li {
   display: flex;
@@ -428,7 +440,9 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 /* ---------- панель ставки (внизу, над навигацией) ---------- */
 
 .bets {
-  position: relative;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: grid;
   gap: var(--space-2);
   padding: var(--space-2);
@@ -803,6 +817,7 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 
 .stat {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
@@ -816,7 +831,7 @@ input[type="number"]:focus { border-color: var(--border-strong); }
   font-weight: 600;
 }
 
-#profile-balance { font-size: 28px; }
+#profile-balance { min-width: 0; font-size: 28px; overflow-wrap: anywhere; }
 
 /* кольцо до следующего начисления: белое на тусклой дорожке, таймер внутри */
 .ring-wrap {
@@ -1135,6 +1150,11 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 
 @keyframes shimmer {
   to { transform: translateX(100%); }
+}
+
+@media (max-width: 340px) {
+  .action { padding: 0 var(--space-2); }
+  .action svg { display: none; }
 }
 
 /* меньше движения: без анимаций и переходов (само вращение колеса считает скрипт) */
