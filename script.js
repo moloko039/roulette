@@ -207,12 +207,21 @@ function flash(net) {
 const stakedTotal = () => bets.reduce((sum, b) => sum + b.amount, 0);
 const availableBalance = () => srv.balance - stakedTotal();
 
+// Размер шрифта по длине записи: длинные числа (до 16 цифр) не должны выталкивать соседей за край экрана
+function fitNumberFont(el, length) {
+  el.dataset.len = length <= 9 ? 'l' : length <= 13 ? 'm' : length <= 17 ? 's' : 'xs';
+}
+
+// число баланса с обычными пробелами: очень длинное можно перенести по группам цифр, а не посреди группы
+const spacedNumber = (n) => formatNumber(n).replace(/[\u00a0\u202f]/g, ' ');
+
 function renderBalance() {
   stopBalanceAnimation(); // промежуточные кадры накрутки не должны перебивать актуальное значение
   const loading = !srv.loaded && !srv.error;
   balanceEl.classList.toggle('skeleton', loading);
-  if (srv.loaded) balanceEl.textContent = formatNumber(availableBalance());
+  if (srv.loaded) balanceEl.textContent = spacedNumber(availableBalance());
   else balanceEl.textContent = srv.error ? '—' : 'Загрузка…';
+  fitNumberFont(balanceEl, balanceEl.textContent.length);
 }
 
 // Накрутка баланса после раунда: только отображение, значение уже серверное и итоговое
@@ -226,12 +235,13 @@ function animateBalance(from, to) {
   stopBalanceAnimation();
   const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (calm || from === null || from === to) return;
+  fitNumberFont(balanceEl, Math.max(spacedNumber(from).length, spacedNumber(to).length));
   const t0 = performance.now();
   const DURATION = 700;
   const frame = (now) => {
     const p = Math.min((now - t0) / DURATION, 1);
     const e = 1 - Math.pow(1 - p, 3);
-    balanceEl.textContent = formatNumber(Math.round(from + (to - from) * e));
+    balanceEl.textContent = spacedNumber(Math.round(from + (to - from) * e));
     balanceAnimFrame = p < 1 ? requestAnimationFrame(frame) : 0;
   };
   balanceAnimFrame = requestAnimationFrame(frame);
@@ -734,6 +744,7 @@ function renderProfile() {
     profileEls.retry.hidden = !srv.error.retry;
   } else if (srv.loaded) {
     profileEls.balance.textContent = formatNumber(srv.balance); // серверный, без вычета ставок на столе
+    fitNumberFont(profileEls.balance, profileEls.balance.textContent.length);
     profileEls.rate.textContent = formatNumber(srv.rate);
     profileEls.skel.hidden = true;
     profileEls.data.hidden = false;
