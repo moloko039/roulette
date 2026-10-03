@@ -20,9 +20,47 @@ def check(name, got, expected):
     assert got == expected, f"{name}: получили {got}, ожидали {expected}"
 
 
+class FakeBot:
+    """Запоминает send_message (ответы в группе уходят через него, а не через reply_text)."""
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_message(self, **kwargs):
+        self.sent.append(kwargs)
+
+
+class Ctx:
+    def __init__(self):
+        self.bot = FakeBot()
+
+
 def run(handler, update):
-    asyncio.run(handler(update, None))
+    ctx = Ctx()
+    asyncio.run(handler(update, ctx))
+    update.sent = ctx.bot.sent
     return update
+
+
+def answers(update):
+    """Сколько ответов бот отправил в любом виде."""
+    return len(update.replies) + len(update.sent)
+
+
+@contextlib.contextmanager
+def mode(value):
+    old = os.environ.get("PLAY_MODE")
+    try:
+        if value is None:
+            os.environ.pop("PLAY_MODE", None)
+        else:
+            os.environ["PLAY_MODE"] = value
+        yield
+    finally:
+        if old is None:
+            os.environ.pop("PLAY_MODE", None)
+        else:
+            os.environ["PLAY_MODE"] = old
 
 
 @contextlib.contextmanager
@@ -92,13 +130,68 @@ try:
         check("/play private как /start", (u.replies[0]["text"].startswith("Нажми кнопку"), button(u).web_app.url), (True, WEBAPP))
 
         for kind in ("group", "supergroup"):
-            u = run(bot.play, FakeUpdate(kind, user_id=5, chat_id=-100))
-            check("/play " + kind + " текст", u.replies[0]["text"], "Играть: " + LINK)
-            b = button(u)
-            check("кнопка url", (b.text, b.url, b.web_app), ("Играть", LINK, None))
-            reset()
+            # режим card (по умолчанию): только эмодзи и карточка, без кнопки, ссылки и цитаты
+            for m in (None, "card", "CARD"):
+                with mode(m):
+                    u = run(bot.play, FakeUpdate(kind, user_id=5, chat_id=-100))
+                    check("card: reply_text не используется", u.replies, [])
+                    m1 = u.sent[0]
+                    check("card: чат и текст", (m1["chat_id"], m1["text"]), (-100, "🎰"))
+                    assert LINK not in m1["text"] and "Играть" not in m1["text"], "в тексте ссылка или слово"
+                    check("card: предпросмотр", m1["link_preview_options"].url, LINK)
+                    assert not m1["link_preview_options"].is_disabled, "предпросмотр отключён"
+                    for absent in ("reply_markup", "reply_parameters", "reply_to_message_id", "parse_mode", "message_thread_id"):
+                        assert absent not in m1, "в card есть " + absent
+                    reset()
         u = run(bot.start, FakeUpdate("group", chat_id=-101))
-        check("/start в группе как /play", (u.replies[0]["text"], button(u).url), ("Играть: " + LINK, LINK))
+        check("/start в группе как /play", (u.replies, u.sent[0]["text"], u.sent[0]["link_preview_options"].url), ([], "🎰", LINK))
+        reset()
+
+        # режим link: ссылка внутри эмодзи, parse_mode HTML, карточку строит Telegram
+        with mode("link"):
+            u = run(bot.play, FakeUpdate("supergroup", chat_id=-102))
+            m1 = u.sent[0]
+            check("link", (m1["text"], m1["parse_mode"]), ('<a href="%s">🎰</a>' % LINK, "HTML"))
+            for absent in ("reply_markup", "reply_parameters", "link_preview_options"):
+                assert absent not in m1
+            reset()
+            with env(GAME_LINK="https://t.me/bot/app?startapp=a&b=\"c\""):
+                u = run(bot.play, FakeUpdate("group", chat_id=-103))
+                check("link: значение экранируется", u.sent[0]["text"],
+                      '<a href="https://t.me/bot/app?startapp=a&amp;b=&quot;c&quot;">🎰</a>')
+                reset()
+
+        # режим button: карточка и кнопка с url (не web_app)
+        with mode("button"):
+            u = run(bot.play, FakeUpdate("group", chat_id=-104))
+            m1 = u.sent[0]
+            check("button", (m1["text"], m1["link_preview_options"].url), ("🎰", LINK))
+            b = m1["reply_markup"].inline_keyboard[0][0]
+            check("кнопка", (b.text, b.url, b.web_app), ("Играть", LINK, None))
+            assert "reply_parameters" not in m1
+            reset()
+
+        # неизвестный PLAY_MODE даёт card
+        for weird in ("fancy", "cards", "  ", "1"):
+            with mode(weird):
+                check("play_mode %r" % weird, bot.play_mode(), "card")
+                u = run(bot.play, FakeUpdate("group", chat_id=-105))
+                m1 = u.sent[0]
+                check("неизвестный режим как card", (m1["text"], m1["link_preview_options"].url, "reply_markup" in m1), ("🎰", LINK, False))
+                reset()
+
+        # тема форума: message_thread_id сохраняется, вне темы его нет
+        u = FakeUpdate("supergroup", chat_id=-106)
+        u.effective_message.is_topic_message = True
+        u.effective_message.message_thread_id = 777
+        run(bot.play, u)
+        check("тема форума", u.sent[0]["message_thread_id"], 777)
+        reset()
+        u = FakeUpdate("supergroup", chat_id=-107)
+        u.effective_message.is_topic_message = False
+        u.effective_message.message_thread_id = 888  # ответ в обычной группе: не тема
+        run(bot.play, u)
+        assert "message_thread_id" not in u.sent[0], "тема подставлена вне форума"
         reset()
 
         # без parse_mode во всех ответах
@@ -107,18 +200,20 @@ try:
                 u = run(h, FakeUpdate(kind, chat_id=-7 if kind == "group" else None))
                 for r in u.replies:
                     assert "parse_mode" not in r, f"parse_mode в {h.__name__}"
+                for r in u.sent:
+                    assert "parse_mode" not in r, f"parse_mode в {h.__name__} (режим card)"
                 reset()
 
         # ---------- ограничение 20 секунд на чат ----------
         with Clock(1000.0) as clk:
             reset()
-            check("1-й вызов", len(run(bot.play, FakeUpdate("group", chat_id=-1)).replies), 1)
+            check("1-й вызов", answers(run(bot.play, FakeUpdate("group", chat_id=-1))), 1)
             clk.t = 1010
-            check("2-й вызов через 10с молча", len(run(bot.play, FakeUpdate("group", chat_id=-1)).replies), 0)
-            check("другой чат отвечает", len(run(bot.play, FakeUpdate("group", chat_id=-2)).replies), 1)
-            check("/balance делит лимит с /play", len(run(bot.balance, FakeUpdate("group", chat_id=-1)).replies), 0)
+            check("2-й вызов через 10с молча", answers(run(bot.play, FakeUpdate("group", chat_id=-1))), 0)
+            check("другой чат отвечает", answers(run(bot.play, FakeUpdate("group", chat_id=-2))), 1)
+            check("/balance делит лимит с /play", answers(run(bot.balance, FakeUpdate("group", chat_id=-1))), 0)
             clk.t = 1021
-            check("через 21с отвечает", len(run(bot.play, FakeUpdate("group", chat_id=-1)).replies), 1)
+            check("через 21с отвечает", answers(run(bot.play, FakeUpdate("group", chat_id=-1))), 1)
             # очистка словаря
             reset()
             clk.t = 2000
@@ -143,7 +238,7 @@ try:
         for h in (bot.start, bot.play, bot.balance, bot.help_command, bot.privacy, bot.developer_info,
                   bot.mydata, bot.deletemydata):
             u = run(h, FakeUpdate("channel", chat_id=-777))
-            check("channel молчит: " + h.__name__, (u.replies, u.effective_message.documents), ([], []))
+            check("channel молчит: " + h.__name__, (u.replies, u.sent, u.effective_message.documents), ([], [], []))
 
         # ---------- /help ----------
         t = run(bot.help_command, FakeUpdate("private")).replies[0]["text"]
@@ -179,10 +274,10 @@ try:
                 check("неверный GAME_LINK %r" % bad, run(bot.play, FakeUpdate("group", chat_id=-11)).replies[0]["text"], UN)
         with env(PRIVACY_URL="http://example.test/x"):
             check("PRIVACY_URL не https", run(bot.privacy, FakeUpdate("private")).replies[0]["text"], UN)
-        with env(GAME_LINK=LINK):
+        with env(GAME_LINK="  " + LINK + "  "):
             reset()
-            check("с пробелами по краям",
-                  run(bot.play, FakeUpdate("group", chat_id=-12)).replies[0]["text"], "Играть: " + LINK)
+            u = run(bot.play, FakeUpdate("group", chat_id=-12))
+            check("с пробелами по краям", (u.sent[0]["link_preview_options"].url, u.replies), (LINK, []))
     with mock.patch.object(bot, "WEBAPP_URL", None), env(**FULL):
         check("/start без WEBAPP_URL", run(bot.start, FakeUpdate("private")).replies[0]["text"], UN)
     reset()
@@ -218,6 +313,18 @@ try:
         text = [r for r in cap.records if r.levelno == logging.WARNING][0].getMessage()
         assert "PRIVACY_URL" in text and "DEVELOPER_CONTACT" in text and "GAME_LINK" not in text.split(":")[1].split(".")[0]
         assert "плохо" not in text, "значение переменной попало в лог"
+        # неизвестный PLAY_MODE: одно предупреждение (без значения), известные значения молчат
+        for good in (None, "card", "link", "button", "Link"):
+            cap.records.clear()
+            with env(**FULL), mode(good):
+                bot.warn_missing_config()
+            check("PLAY_MODE %r без предупреждений" % good, [r for r in cap.records if r.levelno >= logging.WARNING], [])
+        cap.records.clear()
+        with env(**FULL), mode("fancy"):
+            bot.warn_missing_config()
+        warns = [r.getMessage() for r in cap.records if r.levelno == logging.WARNING]
+        check("неизвестный PLAY_MODE: одно предупреждение", len(warns), 1)
+        assert "PLAY_MODE" in warns[0] and "fancy" not in warns[0]
     finally:
         logging.getLogger().removeHandler(cap)
         logging.getLogger().setLevel(old_level)
