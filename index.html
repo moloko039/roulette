@@ -41,7 +41,17 @@
   </main>
 
   <section class="screen stub" data-screen="rating" hidden>Скоро</section>
-  <section class="screen stub" data-screen="profile" hidden>Скоро</section>
+  <section class="screen profile" data-screen="profile" hidden>
+    <h2>Профиль</h2>
+    <div class="profile-card" id="profile-data" hidden>
+      <div>Баланс на сервере: <strong id="profile-balance"></strong></div>
+      <div>Доход: <strong id="profile-rate"></strong> в час</div>
+      <div>Следующее начисление через <strong id="profile-timer"></strong></div>
+    </div>
+    <p class="profile-msg" id="profile-msg" aria-live="polite"></p>
+    <small class="profile-code" id="profile-code"></small>
+    <button type="button" class="action profile-retry" id="profile-retry" hidden>Повторить</button>
+  </section>
 
   <!-- колесо показывается поверх экрана только во время вращения, закрывает и панель -->
   <div class="wheel-layer" id="wheel-layer" aria-hidden="true">
