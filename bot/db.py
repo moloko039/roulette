@@ -6,9 +6,21 @@ from economy import START_BALANCE, BASE_RATE, accrue
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "players.db")
 
+# SQLite рассчитана на ОДИН экземпляр сервиса: файл базы лежит на одном диске
+# (на Railway это том), и два экземпляра не смогут безопасно писать в него.
+# Число реплик должно быть 1.
+
+
+def _resolve_path(db_path):
+    """Путь к файлу: аргумент, затем переменная DB_PATH, затем файл рядом с кодом."""
+    path = db_path or os.environ.get("DB_PATH") or DB_PATH
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)  # папки для файла может не быть (например, свежий том)
+    return path
+
 
 def _connect(db_path):
-    conn = sqlite3.connect(db_path or DB_PATH)
+    conn = sqlite3.connect(_resolve_path(db_path))
     conn.row_factory = sqlite3.Row
     # транзакциями управляем вручную (BEGIN IMMEDIATE), а не автоматически
     conn.isolation_level = None

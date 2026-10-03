@@ -33,14 +33,26 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+def build_application(token, use_updater=True):
+    """Создаёт приложение бота и регистрирует обработчики, но не запускает его.
+
+    use_updater=False нужен для webhook внутри чужого веб-сервера: обновления
+    приходят снаружи и кладутся в update_queue, собственный Updater не нужен.
+    """
+    builder = Application.builder().token(token)
+    if not use_updater:
+        builder = builder.updater(None)
+    app = builder.build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("balance", balance))
+    return app
+
+
 def main():
     if not TOKEN or not WEBAPP_URL:
         raise SystemExit("Не заданы BOT_TOKEN или WEBAPP_URL в файле .env")
     init_db()
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("balance", balance))
-    app.run_polling()
+    build_application(TOKEN).run_polling()
 
 
 if __name__ == "__main__":
