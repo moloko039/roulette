@@ -15,6 +15,10 @@ import notify
 from api import create_app
 from stubs import StubApplication
 
+# тест не зависит от окружения и bot/.env: на время теста эти переменные очищаются, в конце возвращаются
+_ENV_KEYS = ("PUBLIC_URL", "BACKUP_DIR", "OWNER_CHAT_ID", "DB_PATH")
+_saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
+
 T = 1_760_000_000
 HOUR, DAY = 3600, 86400
 OWNER = 777000111
@@ -67,6 +71,20 @@ def fresh(enabled=True):
 
 def run(n, events, now):
     asyncio.run(n.run(events, now))
+
+
+def reminder_text(public_url):
+    """Текст напоминания при заданном PUBLIC_URL (None: переменной нет)."""
+    path, cfg, bot, n = fresh()
+    backup.create_snapshot(path, cfg["dir"], now=T)
+    with mock.patch.dict(os.environ):  # прежние значения возвращаются после блока
+        os.environ.pop("PUBLIC_URL", None)
+        os.environ.pop("BACKUP_DIR", None)
+        if public_url is not None:
+            os.environ["PUBLIC_URL"] = public_url
+        run(n, [], T + HOUR)
+    check("напоминание отправлено", len(bot.sent), 1)
+    return bot.sent[0]["text"], cfg
 
 
 try:
@@ -140,10 +158,28 @@ try:
         check("первое напоминание", len(bot.sent), 1)
         size_kb = (os.path.getsize(os.path.join(cfg["dir"], "latest.db")) + 1023) // 1024
         want = ("Напоминание о резервной копии. Последняя копия на сервере: 2025-10-09 08:53 UTC, %d КБ, "
-                "игроков: 2. Скачайте её: railway volume files download /backups/latest.db ./latest.db, "
-                "затем python3 verify_backup.py ./latest.db и удалите на компьютере копии старше 30 дней."
-                % size_kb)
+                "игроков: 2. Скачайте её командами:\n"
+                "scp <домен сервиса>@ssh.railway.com:%s/latest.db ~/roulette-backups/latest-$(date +%%F).db\n"
+                "python3 bot/verify_backup.py ~/roulette-backups/latest-$(date +%%F).db\n"
+                "и удалите на компьютере копии старше 30 дней." % (size_kb, cfg["dir"]))
         check("текст напоминания", bot.sent[0]["text"], want)
+
+        # ---- напоминание: способ скачивания (scp, хост из PUBLIC_URL) ----
+        text, cfg2 = reminder_text("https://depnaya-demo.example.org/")
+        assert "scp depnaya-demo.example.org@ssh.railway.com:%s/latest.db " % cfg2["dir"] in text, text
+        assert "~/roulette-backups/latest-$(date +%F).db" in text
+        assert "python3 bot/verify_backup.py ~/roulette-backups/latest-$(date +%F).db" in text
+        assert "railway volume files" not in text and "https://" not in text, text
+        assert "<домен сервиса>" not in text
+        text, _ = reminder_text("https://host.example.org:8443/some/path?x=1")
+        assert "scp host.example.org@ssh.railway.com:" in text, text
+        for bad in (None, "", "not a url !!", "https://", "https://a b.example/"):
+            text, _ = reminder_text(bad)
+            assert "scp <домен сервиса>@ssh.railway.com:" in text, (bad, text)
+            assert "railway volume files" not in text
+        for secret in (str(SECRET_ID), SECRET_NAME, str(SECRET_BALANCE), "TEST-TOKEN"):
+            assert secret not in text, secret
+        check("public_host без схемы", notify.public_host({"PUBLIC_URL": "host.example.org"}), "host.example.org")
         # перезапуск: заново init_db на той же базе и новый Notifier
         db.init_db(path)
         n = notify.Notifier(OWNER, lambda: bot, path, cfg)
@@ -331,5 +367,9 @@ try:
 finally:
     root.removeHandler(cap)
     root.setLevel(old_level)
+    for _k, _v in _saved_env.items():
+        os.environ.pop(_k, None)
+        if _v is not None:
+            os.environ[_k] = _v
 
 print("Все проверки прошли")
