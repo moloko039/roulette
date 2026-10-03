@@ -21,19 +21,18 @@ const ctx = canvas.getContext('2d');
 const spinBtn = document.getElementById('spin');
 const numberEl = document.getElementById('result-number');
 
-const START_BALANCE = 1000;
-const PAYOUT = { red: 1, black: 1, even: 1, odd: 1, dozen: 2, column: 2, number: 35 }; // выплата «N к 1»
+const BET_TYPES = ['number', 'red', 'black', 'even', 'odd', 'dozen', 'column'];
 const DOZEN_NAME = { 1: '1–12', 2: '13–24', 3: '25–36' };
-// ряды стола: 1 — верхний (3, 6, 9…), 2 — средний (2, 5, 8…), 3 — нижний (1, 4, 7…)
-const rowOf = (n) => 3 - ((n - 1) % 3);
 
 const balanceEl = document.getElementById('balance');
 const amountEl = document.getElementById('amount');
 const tableEl = document.getElementById('table');
-const messageEl = document.getElementById('message');
-const loanOverlay = document.getElementById('loan');
-const loanBtn = document.getElementById('loan-btn');
-const LOAN_AMOUNT = 1000;
+const messageLineEl = document.getElementById('message-line');
+const messageTextEl = document.getElementById('message-text');
+const messageCodeEl = document.getElementById('message-code');
+const statusLineEl = document.getElementById('status-line');
+const statusTextEl = document.getElementById('status-text');
+const statusCodeEl = document.getElementById('status-code');
 const betsPanel = document.getElementById('bets');
 
 let wheelAngle = 0;  // поворот колеса, градусы (по часовой от верха)
@@ -47,7 +46,6 @@ const layerResultEl = document.getElementById('layer-result');
 const RESULT_HOLD_MS = 1500; // сколько колесо остаётся на экране после остановки
 const BALL_TRACK = 0.955;  // радиус, по которому шарик катится по ободу
 const BALL_POCKET = 0.885; // радиус, на котором он лежит в ячейке
-let balance = START_BALANCE;
 let bets = []; // { type, value, amount }
 let lastBets = []; // ставки предыдущего раунда — для кнопки «Повторить»
 
@@ -58,11 +56,23 @@ const balanceBox = document.querySelector('.balance');
 let spinHistory = []; // последние выпавшие числа, новое — первым
 
 const STORAGE_KEY = 'depnaya-state';
+// v2: значения колонок в lastBets — в нумерации сервера. Старые данные (без v) не берём.
+// Баланс в localStorage не хранится: он только серверный. Старое поле balance игнорируется.
+const STORAGE_VERSION = 2;
 
-// Сохраняем состояние после раунда: баланс, выпавшие числа и ставки последнего раунда
+// Ставка в формате сервера: целые числа, value строго null у простых ставок
+function isValidBet(b) {
+  if (!b || typeof b !== 'object' || !BET_TYPES.includes(b.type)) return false;
+  if (!Number.isSafeInteger(b.amount) || b.amount < 1) return false;
+  if (b.type === 'number') return Number.isInteger(b.value) && b.value >= 0 && b.value <= 36;
+  if (b.type === 'dozen' || b.type === 'column') return Number.isInteger(b.value) && b.value >= 1 && b.value <= 3;
+  return b.value === null;
+}
+
+// Сохраняем после раунда: выпавшие числа и ставки последнего раунда
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ balance, spinHistory, lastBets }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: STORAGE_VERSION, spinHistory, lastBets }));
   } catch (e) {
     // localStorage может быть недоступен — игра просто работает без сохранения
   }
@@ -72,14 +82,11 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return;
-    if (Number.isInteger(saved.balance) && saved.balance >= 0) balance = saved.balance;
     if (Array.isArray(saved.spinHistory)) {
       spinHistory = saved.spinHistory.filter((n) => WHEEL_ORDER.includes(n)).slice(0, HISTORY_SIZE);
     }
-    if (Array.isArray(saved.lastBets)) {
-      lastBets = saved.lastBets.filter(
-        (b) => b && b.type in PAYOUT && Number.isInteger(b.amount) && b.amount > 0
-      );
+    if (saved.v === STORAGE_VERSION && Array.isArray(saved.lastBets)) {
+      lastBets = saved.lastBets.filter(isValidBet);
     }
   } catch (e) {
     // повреждённые данные игнорируем и начинаем с начального состояния
@@ -183,12 +190,21 @@ function flash(net) {
   [appEl, balanceBox].forEach((el) => el.classList.add(kind));
 }
 
+// На экране доступный баланс: серверный минус разложенные ставки (вычисляется, не хранится)
+const stakedTotal = () => bets.reduce((sum, b) => sum + b.amount, 0);
+const availableBalance = () => srv.balance - stakedTotal();
+
 function renderBalance() {
-  balanceEl.textContent = balance;
+  if (srv.loaded) balanceEl.textContent = availableBalance();
+  else balanceEl.textContent = srv.error ? '—' : 'Загрузка…';
 }
 
+// Колонка в нумерации СЕРВЕРА по числам, которые она покрывает: 1 — 1, 4, 7…34;
+// 2 — 2, 5…35; 3 — 3, 6…36. Определяем по первому числу колонки, а не по ряду стола.
+const serverColumnOf = (n) => ((n - 1) % 3) + 1;
+
 // Строим вертикальный стол: 0 сверху, слева дюжины, три колонки чисел 1–36,
-// под ними место под ставки на колонки, внизу внешние ставки.
+// под ними ставки на колонки (2 к 1), внизу внешние ставки.
 function buildTable() {
   const addCell = (parent, cls, label, type, value = null, place = {}) => {
     const btn = document.createElement('button');
@@ -205,7 +221,7 @@ function buildTable() {
   };
 
   // Сетка: колонка 1 — дюжины, колонки 2–4 — числа (в ряду r: 3r-2, 3r-1, 3r).
-  // Ряд 1: «0», ряды 2–13: числа, ряд 14: колонки (пока без ставок), ряд 15: внешние ставки
+  // Ряд 1: «0», ряды 2–13: числа, ряд 14: колонки, ряд 15: внешние ставки
   addCell(tableEl, 'green', '0', 'number', 0, { row: '1', col: '1 / -1' });
   for (let n = 1; n <= 36; n++) {
     addCell(tableEl, getColor(n), String(n), 'number', n, {
@@ -219,13 +235,9 @@ function buildTable() {
       col: '1'
     });
   }
-  for (let i = 0; i < 3; i++) {
-    const slot = document.createElement('div');
-    slot.className = 'slot';
-    slot.textContent = '2 к 1';
-    slot.style.gridRow = '14';
-    slot.style.gridColumn = String(2 + i);
-    tableEl.appendChild(slot);
+  // ячейка под столбцом, где первое число i + 1 (1, 2 или 3)
+  for (let i = 1; i <= 3; i++) {
+    addCell(tableEl, 'column', '2 к 1', 'column', serverColumnOf(i), { row: '14', col: String(1 + i) });
   }
   const outsideRow = document.createElement('div');
   outsideRow.className = 'outside-row';
@@ -255,96 +267,102 @@ function renderChips() {
 
 function renderBets() {
   renderChips();
+  renderBalance();
+  renderStatus();
+  updateControls();
 }
 
-function setMessage(text, kind = '') {
-  messageEl.textContent = text;
-  messageEl.className = 'message ' + kind;
+// Сообщение раунда (выигрыш, ошибка) и мелкий код ошибки под ним
+function setMessage(text, kind = '', code = '') {
+  messageLineEl.hidden = !text;
+  messageLineEl.className = kind;
+  messageTextEl.textContent = text;
+  messageCodeEl.textContent = code ? 'код: ' + code : '';
 }
 
-// Блокирует/разблокирует все кнопки и поля ставок
-function setBettingEnabled(enabled) {
-  document.querySelectorAll('#bets button, #bets input, #table button').forEach((el) => {
-    el.disabled = !enabled;
-  });
-  spinBtn.disabled = !enabled;
+const mmss = (sec) => {
+  const left = Math.max(0, Math.ceil(sec));
+  return String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+};
+
+// Постоянное состояние под сообщением: ошибка загрузки баланса или «фишки закончились»
+function renderStatus() {
+  let text = '';
+  let code = '';
+  if (!srv.loaded && srv.error) {
+    text = srv.error.text;
+    code = srv.error.code;
+  } else if (srv.loaded && game.phase === 'idle' && availableBalance() === 0) {
+    text = 'Фишки закончились. Следующее начисление через ' + mmss((srv.deadline - performance.now()) / 1000);
+  }
+  statusLineEl.hidden = !text;
+  statusTextEl.textContent = text;
+  statusCodeEl.textContent = code ? 'код: ' + code : '';
 }
 
-// Ставка списывается с баланса сразу; одинаковые ставки складываются
+// Состояние раунда: idle → sending (ждём ответ) → animating → idle; pending — связи не было,
+// раунд мог быть засчитан, ждём «Повторить» с тем же request_id
+const game = { phase: 'idle', round: null };
+const gameBusy = () => game.phase !== 'idle';
+
+// Блокирует/разблокирует ставки, кнопку «Крутить» и нижнюю панель
+function updateControls() {
+  const ready = !!(tg && tg.initData) && srv.loaded;
+  const canBet = ready && !gameBusy();
+  const canAdd = canBet && availableBalance() > 0;
+  const loadRetry = !srv.loaded && srv.error && srv.error.retry;
+  document.querySelectorAll('#table button').forEach((el) => { el.disabled = !canAdd; });
+  document.querySelectorAll('#bets .chip, #bets input, #repeat-bets, #clear-bets').forEach((el) => { el.disabled = !canBet; });
+  const retry = game.phase === 'pending' || loadRetry;
+  spinBtn.textContent = retry ? 'Повторить' : 'Крутить';
+  spinBtn.classList.toggle('retry', retry);
+  spinBtn.disabled = retry ? game.phase === 'sending' : !canBet;
+  // пока идёт запрос, анимация или раунд не подтверждён, уйти с экрана нельзя
+  navEl.querySelectorAll('.tab').forEach((el) => { el.disabled = gameBusy(); });
+}
+
+// Ставки пока только на столе: сервер о них не знает. Лимита на размер ставки нет,
+// проверка «не больше доступного» — удобство, настоящую делает сервер
 function placeBet(type, value = null) {
+  if (gameBusy() || !srv.loaded) return;
   const amount = Number(amountEl.value);
-  if (!Number.isInteger(amount) || amount < 1) {
+  if (!Number.isSafeInteger(amount) || amount < 1) {
     setMessage('Введите целую сумму ставки от 1', 'lose');
     return;
   }
-  if (amount > balance) {
+  if (amount > availableBalance()) {
     setMessage('Недостаточно фишек', 'lose');
     return;
   }
-  if (type === 'number' && (!Number.isInteger(value) || value < 0 || value > 36)) {
-    setMessage('Число должно быть от 0 до 36', 'lose');
-    return;
-  }
-  balance -= amount;
   const existing = bets.find((b) => b.type === type && b.value === value);
   if (existing) existing.amount += amount;
   else bets.push({ type, value, amount });
   setMessage('');
-  renderBalance();
   renderBets();
 }
 
 // Повторяет ставки прошлого раунда (текущие ставки заменяются)
 function repeatBets() {
+  if (gameBusy() || !srv.loaded) return;
   if (lastBets.length === 0) {
     setMessage('Нет прошлой ставки для повтора', 'lose');
     return;
   }
-  const current = bets.reduce((sum, b) => sum + b.amount, 0);
   const needed = lastBets.reduce((sum, b) => sum + b.amount, 0);
-  if (needed > balance + current) {
+  if (needed > srv.balance) {
     setMessage('Недостаточно фишек для повтора ставки', 'lose');
     return;
   }
-  balance += current - needed;
   bets = lastBets.map((b) => ({ ...b }));
   setMessage('');
-  renderBalance();
   renderBets();
 }
 
 function clearBets() {
-  balance += bets.reduce((sum, b) => sum + b.amount, 0);
+  if (gameBusy()) return;
   bets = [];
   setMessage('');
-  renderBalance();
   renderBets();
-}
-
-// Выигрывает ли ставка при выпавшем числе n (у нуля нет цвета и чётности)
-function isWinning(b, n) {
-  switch (b.type) {
-    case 'red':    return getColor(n) === 'red';
-    case 'black':  return getColor(n) === 'black';
-    case 'even':   return n !== 0 && n % 2 === 0;
-    case 'odd':    return n % 2 === 1;
-    case 'dozen':  return n !== 0 && Math.ceil(n / 12) === b.value;
-    case 'column': return n !== 0 && rowOf(n) === b.value;
-    case 'number': return n === b.value;
-  }
-}
-
-// Возвращает чистый результат раунда (выигрыш минус все ставки)
-function settleBets(n) {
-  let returned = 0;
-  let staked = 0;
-  bets.forEach((b) => {
-    staked += b.amount;
-    if (isWinning(b, n)) returned += b.amount * (PAYOUT[b.type] + 1); // ставка + выигрыш
-  });
-  balance += returned;
-  bets = [];
-  return returned - staked;
 }
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
@@ -414,64 +432,158 @@ function animateSpin(index, onDone) {
   requestAnimationFrame(frame);
 }
 
+// ---------- ставка через сервер ----------
+// Сервер сам выбирает число и считает выигрыш. Клиент шлёт только request_id и ставки.
+const ROUND_ATTEMPTS = 3;               // попыток отправки одного раунда
+const ROUND_PAUSES_MS = [2000, 4000];   // паузы перед 2-й и 3-й попытками
+const REQUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function makeRequestId() {
+  let id = null;
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      id = window.crypto.randomUUID();
+    } else if (window.crypto && window.crypto.getRandomValues) {
+      id = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {
+    id = null;
+  }
+  return id && REQUEST_ID_RE.test(id) ? id : null;
+}
+
+const isInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
+
+// Один POST. Возвращает { kind: 'ok', data } | { kind: 'fatal', text, code, refresh } | { kind: 'retry', code }
+async function postRound(round) {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/roulette/spin', {
+      method: 'POST',
+      headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ request_id: round.id, bets: round.bets }),
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401' };
+    }
+    if (res.status === 400) return { kind: 'fatal', text: 'Ошибка ставок', code: '400' };
+    if (res.status === 409) {
+      let detail = '';
+      try { detail = (await res.json()).detail; } catch (e) { detail = ''; }
+      if (detail === 'insufficient_funds') return { kind: 'fatal', text: 'Недостаточно фишек', code: '409', refresh: true };
+      if (detail === 'balance_limit') return { kind: 'fatal', text: 'Достигнут максимальный баланс', code: '409' };
+      return { kind: 'retry', code: '409' };
+    }
+    if (!res.ok) return { kind: 'retry', code: String(res.status) };
+    const d = await res.json();
+    const valid = d && isInt(d.number) && d.number >= 0 && d.number <= 36
+      && isInt(d.stake_total) && d.stake_total >= 1 && isInt(d.payout_total) && d.payout_total >= 0
+      && d.net === d.payout_total - d.stake_total && isInt(d.balance) && d.balance >= 0;
+    return valid ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+  } catch (e) {
+    return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Отправляет раунд (до 3 попыток с ТЕМ ЖЕ request_id: повтор безопасен, сервер не спишет дважды)
+async function submitRound() {
+  const round = game.round;
+  game.phase = 'sending';
+  setMessage('Крутим…');
+  updateControls();
+  let last = { code: 'сеть' };
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await postRound(round);
+    if (r.kind === 'ok') {
+      playRound(round, r.data);
+      return;
+    }
+    if (r.kind === 'fatal') {
+      // ставки разблокируем, чтобы игрок мог их исправить; request_id выбрасываем
+      game.phase = 'idle';
+      game.round = null;
+      setMessage(r.text, 'lose', r.code);
+      renderBets();
+      if (r.refresh) loadServer('after');
+      return;
+    }
+    last = r;
+  }
+  game.phase = 'pending';
+  setMessage('Нет связи. Раунд мог быть засчитан. Нажмите «Повторить»', 'lose', last.code);
+  updateControls();
+}
+
 function spin() {
+  if (game.phase === 'pending') {
+    submitRound(); // тот же request_id и те же ставки
+    return;
+  }
+  if (!srv.loaded && srv.error && srv.error.retry) {
+    loadServer('manual');
+    return;
+  }
+  // защита от двойного нажатия: пока идёт запрос или анимация, игнорируем
+  if (gameBusy() || !srv.loaded) return;
   if (bets.length === 0) {
     setMessage('Сначала сделайте ставку', 'lose');
     return;
   }
-  lastBets = bets.map((b) => ({ ...b }));
-  setBettingEnabled(false);
-  setMessage('');
+  const id = makeRequestId();
+  if (!id) {
+    setMessage('Ошибка', 'lose', 'request_id');
+    return;
+  }
+  game.round = { id, bets: bets.map((b) => ({ type: b.type, value: b.value, amount: b.amount })) };
+  submitRound();
+}
 
-  // 1. Выбираем случайный индекс сектора (а значит и число)
-  const index = Math.floor(Math.random() * WHEEL_ORDER.length);
-  const winner = WHEEL_ORDER[index];
-
-  // 2. Крутим колесо и пускаем шарик; он упадёт именно в ячейку выбранного числа
+// Анимация к числу из ответа сервера; баланс на экране не меняется до её конца
+function playRound(round, data) {
+  game.phase = 'animating';
+  updateControls();
   layerResultEl.className = 'layer-result';
   layerResultEl.textContent = '';
   wheelLayer.classList.add('active');
-  animateSpin(index, () => {
-    layerResultEl.textContent = winner;
-    layerResultEl.className = 'layer-result ' + getColor(winner);
-    showResult(winner);
+  animateSpin(WHEEL_ORDER.indexOf(data.number), () => {
+    layerResultEl.textContent = data.number;
+    layerResultEl.className = 'layer-result ' + getColor(data.number);
+    showResult(round, data);
     setTimeout(() => wheelLayer.classList.remove('active'), RESULT_HOLD_MS);
   });
 }
 
-function showResult(n) {
-  const color = getColor(n);
+function showResult(round, data) {
+  const n = data.number;
   numberEl.textContent = n;
-  numberEl.className = 'result-number ' + color;
+  numberEl.className = 'result-number ' + getColor(n);
 
   spinHistory.unshift(n);
   spinHistory.length = Math.min(spinHistory.length, HISTORY_SIZE);
   renderHistory();
 
-  const net = settleBets(n);
-  renderBalance();
-  renderBets();
+  // только теперь серверный баланс подставляется на экран
+  srv.balance = data.balance;
+  srv.loaded = true;
+  bets = [];
+  lastBets = round.bets.map((b) => ({ ...b }));
+  game.phase = 'idle';
+  game.round = null;
   saveState();
-  flash(net);
-  if (net > 0) setMessage(`Вы выиграли ${net} фишек!`, 'win');
-  else if (net < 0) setMessage(`Вы проиграли ${-net} фишек`, 'lose');
+  flash(data.net);
+  if (data.net > 0) setMessage(`Вы выиграли ${data.net} фишек!`, 'win');
+  else if (data.net < 0) setMessage(`Вы проиграли ${-data.net} фишек`, 'lose');
   else setMessage('Ничья: ставки вернулись', '');
-
-  if (balance === 0) {
-    // фишки закончились — фон размывается, остаётся только кнопка микрозайма
-    loanOverlay.hidden = false;
-  } else {
-    setBettingEnabled(true);
-  }
-}
-
-function takeLoan() {
-  balance += LOAN_AMOUNT;
-  loanOverlay.hidden = true;
-  setBettingEnabled(true);
-  setMessage('');
-  renderBalance();
-  saveState();
+  renderAll();
+  loadServer('after'); // обновит таймер (не чаще, чем раз в 5 секунд)
 }
 
 // Telegram Mini App: вне Telegram объекта нет, и игра работает как обычная страница
@@ -486,15 +598,21 @@ if (tg) {
   }
 }
 
-// ---------- вкладка «Профиль»: серверный баланс (этап 1, только чтение) ----------
-// Рулетка пока играет на ЛОКАЛЬНОМ балансе (balance выше). На этапе 2 ставки
-// перейдут на сервер, и серверный баланс станет единственным.
-// Серверный баланс хранится только в памяти страницы и в localStorage не пишется.
+// ---------- серверное состояние: общее для экрана игры и вкладки «Профиль» ----------
+// Баланс только серверный и хранится в памяти страницы, в localStorage он не пишется.
 const REQUEST_TIMEOUT_MS = 10000; // таймаут запроса
-const REFRESH_MIN_MS = 10000;     // обновление при открытии вкладки и возврате в приложение
-const REQUEST_GAP_MS = 5000;      // любые два запроса не чаще, чем раз в 5 секунд
+const REFRESH_MIN_MS = 10000;     // обновление при открытии экрана и возврате в приложение
+const REQUEST_GAP_MS = 5000;      // любые два запроса /api/me не чаще, чем раз в 5 секунд
 const ERROR_RETRY_MS = 30000;     // после ошибки автоповтор не чаще, чем раз в 30 секунд
 const ZERO_DELAY_MS = 1000;       // пауза после нуля таймера перед новым запросом
+
+const srv = {
+  loaded: false,   // получен ли хотя бы один ответ
+  balance: 0,
+  rate: 0,
+  deadline: 0,     // performance.now(), когда таймер дойдёт до нуля
+  error: null      // { text, code, retry } последней неудачной загрузки
+};
 
 const profileEls = {
   data: document.getElementById('profile-data'),
@@ -506,82 +624,96 @@ const profileEls = {
   retry: document.getElementById('profile-retry')
 };
 
-let profileActive = false;    // открыта ли вкладка «Профиль»
-let profileInFlight = false;
-let profileLastRequestAt = -Infinity; // performance.now() последнего запроса
-let profileLastFailed = false;
-let profileHasData = false;
-let profileDeadline = 0;      // performance.now(), когда таймер дойдёт до нуля
-let profileFetchTimer = null; // отложенный запрос (ноль таймера или автоповтор после ошибки)
-let profileTick = null;
+let started = false;            // игра полностью собрана
+let srvInFlight = false;
+let srvLastRequestAt = -Infinity; // performance.now() последнего запроса
+let srvLastFailed = false;
+let srvFetchTimer = null;       // отложенный запрос (ноль таймера или автоповтор после ошибки)
 
-function showProfileMessage(text, code, canRetry) {
-  profileEls.msg.textContent = text;
-  profileEls.code.textContent = code ? 'код: ' + code : '';
-  profileEls.retry.hidden = !canRetry;
-}
+// данные нужны, только пока открыт экран рулетки или «Профиль»
+const srvWanted = () => activeTab === 'profile' || (activeTab === 'play' && currentGame === 'roulette');
 
-function showProfileData(d) {
-  profileEls.balance.textContent = d.balance;
-  profileEls.rate.textContent = d.rate;
-  profileEls.data.hidden = false;
-  showProfileMessage('', '', false);
-  profileHasData = true;
-  renderProfileTimer();
+function renderProfile() {
+  if (srv.error) {
+    profileEls.data.hidden = true;
+    profileEls.msg.textContent = srv.error.text;
+    profileEls.code.textContent = 'код: ' + srv.error.code;
+    profileEls.retry.hidden = !srv.error.retry;
+  } else if (srv.loaded) {
+    profileEls.balance.textContent = srv.balance; // серверный, без вычета ставок на столе
+    profileEls.rate.textContent = srv.rate;
+    profileEls.data.hidden = false;
+    profileEls.msg.textContent = '';
+    profileEls.code.textContent = '';
+    profileEls.retry.hidden = true;
+    renderProfileTimer();
+  } else {
+    profileEls.data.hidden = true;
+    profileEls.msg.textContent = 'Загрузка…';
+    profileEls.code.textContent = '';
+    profileEls.retry.hidden = true;
+  }
 }
 
 function renderProfileTimer() {
-  const left = Math.max(0, Math.ceil((profileDeadline - performance.now()) / 1000));
-  const mm = String(Math.floor(left / 60)).padStart(2, '0');
-  const ss = String(left % 60).padStart(2, '0');
-  profileEls.timer.textContent = mm + ':' + ss;
+  profileEls.timer.textContent = mmss((srv.deadline - performance.now()) / 1000);
 }
 
-function clearProfileTimers() {
-  clearTimeout(profileFetchTimer);
-  profileFetchTimer = null;
-  clearInterval(profileTick);
-  profileTick = null;
+function renderAll() {
+  renderProfile();
+  renderBets();
 }
+
+// Раз в секунду обновляем таймеры (по монотонным часам, а не по часам устройства)
+setInterval(() => {
+  if (!started) return;
+  if (srv.loaded && !srv.error) renderProfileTimer();
+  renderStatus();
+}, 1000);
 
 // Запланировать запрос не раньше, чем через delay мс, и не чаще REQUEST_GAP_MS
-function scheduleProfileFetch(delay) {
-  clearTimeout(profileFetchTimer);
-  const gapLeft = REQUEST_GAP_MS - (performance.now() - profileLastRequestAt);
-  profileFetchTimer = setTimeout(() => loadProfile('timer'), Math.max(delay, gapLeft, 0));
+function scheduleServerFetch(delay) {
+  clearTimeout(srvFetchTimer);
+  const gapLeft = REQUEST_GAP_MS - (performance.now() - srvLastRequestAt);
+  // +20 мс запаса: таймер браузера может сработать чуть раньше расчётного времени
+  srvFetchTimer = setTimeout(() => loadServer('timer'), Math.max(delay, gapLeft > 0 ? gapLeft + 20 : 0));
 }
 
-function failProfile(text, code, auto) {
-  profileLastFailed = true;
-  profileHasData = false;
-  profileEls.data.hidden = true;
-  showProfileMessage(text, code, auto !== 'none');
-  if (auto === 'retry' && profileActive) scheduleProfileFetch(ERROR_RETRY_MS);
+function failServer(text, code, retry) {
+  srvLastFailed = true;
+  srv.error = { text, code, retry };
+  renderAll();
+  if (retry) scheduleServerFetch(ERROR_RETRY_MS);
 }
 
-// reason: 'open' | 'visible' (с ограничением по частоте) | 'timer' | 'manual'
-async function loadProfile(reason) {
-  if (!profileActive || profileInFlight) return;
-  const now = performance.now();
-  const sinceLast = now - profileLastRequestAt;
-  if (sinceLast < REQUEST_GAP_MS) {
-    if (reason === 'manual') scheduleProfileFetch(0); // нажатие не теряем: запрос уйдёт, когда пройдут 5 секунд
+// Единственная функция запроса /api/me. reason: 'open' | 'visible' (с ограничением по частоте)
+// | 'timer' | 'manual' | 'after' (ручной запрос и запрос после раунда не теряются: откладываются)
+async function loadServer(reason) {
+  if (srvInFlight || !srvWanted()) return;
+  if (gameBusy()) {
+    // во время запроса раунда и анимации баланс на экране менять нельзя
+    scheduleServerFetch(1000);
     return;
   }
-  if ((reason === 'open' || reason === 'visible') && sinceLast < (profileLastFailed ? ERROR_RETRY_MS : REFRESH_MIN_MS)) return;
+  const now = performance.now();
+  const sinceLast = now - srvLastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason !== 'open' && reason !== 'visible') scheduleServerFetch(0);
+    return;
+  }
+  if ((reason === 'open' || reason === 'visible') && sinceLast < (srvLastFailed ? ERROR_RETRY_MS : REFRESH_MIN_MS)) return;
 
   // вне Telegram запрос не отправляем
   const initData = tg && tg.initData;
   if (!initData) {
-    failProfile('Откройте игру через бота в Telegram', 'нет Telegram', 'none');
-    profileEls.retry.hidden = true;
+    failServer('Откройте игру через бота в Telegram', 'нет Telegram', false);
     return;
   }
 
-  clearTimeout(profileFetchTimer);
-  profileInFlight = true;
-  profileLastRequestAt = now;
-  if (!profileHasData) showProfileMessage('Загрузка…', '', false);
+  clearTimeout(srvFetchTimer);
+  srvInFlight = true;
+  srvLastRequestAt = now;
+  if (!srv.loaded && !srv.error) renderAll();
 
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
@@ -594,64 +726,46 @@ async function loadProfile(reason) {
     });
     if (res.status === 401) {
       // initData живёт ограниченное время, повторять запрос бессмысленно
-      failProfile('Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', '401', 'none');
+      failServer('Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', '401', false);
       return;
     }
     if (!res.ok) {
-      failProfile('Нет связи с сервером', String(res.status), 'retry');
+      failServer('Нет связи с сервером', String(res.status), true);
       return;
     }
     const d = await res.json();
     const ok = (v, max) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
     if (!d || !ok(d.balance, 1e12) || !ok(d.rate, 1e9) || !ok(d.seconds_to_next, 86400)) {
-      failProfile('Нет связи с сервером', 'ответ', 'retry');
+      failServer('Нет связи с сервером', 'ответ', true);
       return;
     }
-    profileLastFailed = false;
-    // таймер считаем по монотонным часам, а не по часам устройства
-    profileDeadline = performance.now() + d.seconds_to_next * 1000;
-    showProfileData(d);
-    scheduleProfileFetch(d.seconds_to_next * 1000 + ZERO_DELAY_MS);
+    if (gameBusy()) {
+      // пока шёл запрос, начался раунд: этот ответ уже мог устареть
+      scheduleServerFetch(1000);
+      return;
+    }
+    srvLastFailed = false;
+    srv.error = null;
+    srv.loaded = true;
+    srv.balance = d.balance;
+    srv.rate = d.rate;
+    srv.deadline = performance.now() + d.seconds_to_next * 1000;
+    renderAll();
+    scheduleServerFetch(d.seconds_to_next * 1000 + ZERO_DELAY_MS);
   } catch (e) {
     // fetch не различает сбой сети и запрет CORS, поэтому код с вопросом
     const aborted = e && e.name === 'AbortError';
-    failProfile('Нет связи с сервером', aborted ? 'таймаут' : 'сеть или CORS?', 'retry');
+    failServer('Нет связи с сервером', aborted ? 'таймаут' : 'сеть или CORS?', true);
   } finally {
     clearTimeout(timeout);
-    profileInFlight = false;
+    srvInFlight = false;
   }
 }
 
-function openProfile() {
-  profileActive = true;
-  clearInterval(profileTick);
-  profileTick = setInterval(() => { if (profileHasData) renderProfileTimer(); }, 1000);
-  loadProfile('open');
-}
-
-function closeProfile() {
-  profileActive = false;
-  clearProfileTimers();
-}
-
-profileEls.retry.addEventListener('click', () => loadProfile('manual'));
+profileEls.retry.addEventListener('click', () => loadServer('manual'));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') loadProfile('visible');
+  if (document.visibilityState === 'visible') loadServer('visible');
 });
-
-// Кошелёк для всех игр: общий баланс и его сохранение в localStorage.
-// Рулетка работает с той же переменной balance напрямую, её логика не менялась.
-const wallet = {
-  listeners: [],                       // функции, которые вызываются при изменении баланса
-  get: () => balance,
-  set(value) {
-    balance = value;
-    renderBalance();
-    saveState();
-    this.listeners.forEach((fn) => fn(balance));
-  },
-  add(delta) { this.set(balance + delta); }
-};
 
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
@@ -691,7 +805,7 @@ function showTab(id) {
   const screen = id === 'play' ? currentGame : id;
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
-  if (screen === 'profile') { if (!profileActive) openProfile(); } else if (profileActive) closeProfile();
+  if (started && (screen === 'profile' || screen === 'roulette')) loadServer('open');
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
@@ -723,7 +837,7 @@ function toggleGameMenu() {
     closeGameMenu();
     return;
   }
-  if (wheelLayer.classList.contains('active')) return;
+  if (wheelLayer.classList.contains('active') || gameBusy()) return;
   gameMenu.classList.add('open');
   navEl.querySelector('.tab.main').setAttribute('aria-expanded', 'true');
 }
@@ -769,15 +883,8 @@ ballRadius = BALL_POCKET;
 renderSpin();
 window.addEventListener('resize', renderSpin);
 buildTable();
-renderBalance();
-renderBets();
 renderHistory();
-if (balance === 0) {
-  loanOverlay.hidden = false;
-  setBettingEnabled(false);
-}
 spinBtn.addEventListener('click', spin);
-loanBtn.addEventListener('click', takeLoan);
 document.getElementById('clear-bets').addEventListener('click', clearBets);
 document.getElementById('repeat-bets').addEventListener('click', repeatBets);
 betsPanel.querySelectorAll('.chip').forEach((btn) => {
@@ -785,3 +892,8 @@ betsPanel.querySelectorAll('.chip').forEach((btn) => {
     amountEl.value = btn.dataset.amount;
   });
 });
+
+// всё собрано: показываем состояние и загружаем баланс с сервера
+started = true;
+renderAll();
+loadServer('open');

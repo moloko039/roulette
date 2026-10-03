@@ -72,9 +72,9 @@ try:
     r = client.get("/api/me", headers={**auth(1), "Origin": "https://evil.example"})
     check("CORS чужой origin", r.headers.get("access-control-allow-origin"), None)
     r = client.options("/api/me", headers={
-        "Origin": ORIGIN, "Access-Control-Request-Method": "POST",
+        "Origin": ORIGIN, "Access-Control-Request-Method": "DELETE",
         "Access-Control-Request-Headers": "Authorization"})
-    check("CORS POST запрещён", r.status_code, 400)
+    check("CORS DELETE запрещён", r.status_code, 400)
     r = client.options("/api/me", headers={
         "Origin": ORIGIN, "Access-Control-Request-Method": "GET",
         "Access-Control-Request-Headers": "Authorization"})

@@ -11,7 +11,7 @@
   <div class="shell">
   <main class="app screen" data-screen="roulette">
     <header class="top">
-      <div class="balance">Баланс: <strong id="balance">1000</strong></div>
+      <div class="balance">Баланс: <strong id="balance">Загрузка…</strong></div>
       <div class="result" id="result" aria-live="polite">
         <span class="result-label">Выпало</span>
         <span class="result-number" id="result-number">—</span>
@@ -22,7 +22,10 @@
 
     <div class="table" id="table" aria-label="Стол"></div>
 
-    <div class="message" id="message" aria-live="polite"></div>
+    <div class="message" aria-live="polite">
+      <div id="message-line" hidden><span id="message-text"></span> <small id="message-code"></small></div>
+      <div id="status-line" hidden><span id="status-text"></span> <small id="status-code"></small></div>
+    </div>
 
     <section class="bets" id="bets">
       <div class="row">
@@ -69,11 +72,6 @@
 
   <!-- кнопки строятся в script.js из массива TABS -->
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
-  </div>
-
-  <!-- поверх размытого фона, когда фишки закончились -->
-  <div class="loan" id="loan" hidden>
-    <button id="loan-btn" type="button">Взять микрозайм</button>
   </div>
   <script src="script.js"></script>
 </body>

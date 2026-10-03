@@ -1,4 +1,5 @@
 import hmac
+import json
 import logging
 import os
 import re
@@ -10,15 +11,19 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from telegram import Update
 
 from auth import InvalidInitData, validate_init_data
-from db import get_player, init_db
+from db import get_player, init_db, spin_roulette
 from economy import HOUR
+from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
+                      validate_request_id)
 
 HOST = "127.0.0.1"  # локально только так; на Railway адрес и порт задаёт команда запуска
 PORT = 8000
 
+MAX_BODY_BYTES = 64 * 1024  # 47 ставок занимают около 3 КБ
 WEBHOOK_PATH = "/telegram/webhook"
 SECRET_HEADER = "x-telegram-bot-api-secret-token"
 SECRET_RE = re.compile(r"^[A-Za-z0-9_-]{1,256}$")  # допустимые символы secret_token у Telegram
@@ -108,8 +113,8 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
-        allow_methods=["GET"],
-        allow_headers=["Authorization"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     @app.get("/health")
@@ -133,6 +138,38 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "rate": player["rate"],
             "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
         }
+
+    @app.post("/api/roulette/spin")
+    async def roulette_spin(request: Request):
+        # подпись проверяется так же, как в /api/me; id игрока только из проверенных данных
+        try:
+            scheme, _, init_data = (request.headers.get("authorization") or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            user_id = validate_init_data(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+
+        # любая ошибка формы тела: 400 с одним и тем же текстом (без стандартных 422)
+        try:
+            raw = await request.body()
+            if len(raw) > MAX_BODY_BYTES:
+                raise InvalidBets()
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != {"request_id", "bets"}:
+                raise InvalidBets()
+            request_id = validate_request_id(data["request_id"])
+            bets = validate_bets(data["bets"])
+        except Exception:
+            return JSONResponse({"detail": "invalid_bets"}, status_code=400)
+
+        try:
+            # база блокирующая, поэтому не в потоке обработки событий
+            return await run_in_threadpool(spin_roulette, user_id, request_id, bets, None, db_path)
+        except InsufficientFunds:
+            return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+        except BalanceLimit:
+            return JSONResponse({"detail": "balance_limit"}, status_code=409)
 
     @app.post(WEBHOOK_PATH)
     async def telegram_webhook(request: Request):
