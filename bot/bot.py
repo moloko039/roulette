@@ -54,17 +54,51 @@ class RateLimiter:
         self.interval = interval
         self.last = {}
 
-    def allow(self, key):
+    def can(self, key):
         now = _clock()
         for k in [k for k, t in self.last.items() if now - t >= self.interval]:
             del self.last[k]
-        if key in self.last or len(self.last) >= LIMITER_MAX_KEYS:
+        return key not in self.last and len(self.last) < LIMITER_MAX_KEYS
+
+    def record(self, key):
+        self.last[key] = _clock()
+
+    def allow(self, key):
+        if not self.can(key):
             return False
-        self.last[key] = now
+        self.record(key)
         return True
 
 
+class WindowLimiter:
+    """Не больше max_count раз за window секунд на ключ (скользящее окно). Пустые ключи
+    удаляются, словарь не растёт."""
+
+    def __init__(self, max_count, window):
+        self.max_count = max_count
+        self.window = window
+        self.times = {}
+
+    def can(self, key):
+        now = _clock()
+        for k in list(self.times):
+            fresh = [t for t in self.times[k] if now - t < self.window]
+            if fresh:
+                self.times[k] = fresh
+            else:
+                del self.times[k]
+        return len(self.times.get(key, ())) < self.max_count and len(self.times) < LIMITER_MAX_KEYS
+
+    def record(self, key):
+        self.times.setdefault(key, []).append(_clock())
+
+
+BALANCE_PAIR_INTERVAL = 20   # /balance в группе: раз в 20 секунд на пару (чат, игрок)
+BALANCE_CHAT_PER_MINUTE = 10  # и не больше 10 ответов в минуту на чат
+
 group_limiter = RateLimiter(GROUP_INTERVAL)
+balance_pair_limiter = RateLimiter(BALANCE_PAIR_INTERVAL)
+balance_chat_limiter = WindowLimiter(BALANCE_CHAT_PER_MINUTE, 60)
 mydata_limiter = RateLimiter(MYDATA_INTERVAL)
 delete_limiter = RateLimiter(DELETE_INTERVAL)
 
@@ -134,6 +168,23 @@ async def _reply(update, text, **kwargs):
     await update.effective_message.reply_text(text, **kwargs)
 
 
+def _thread_kwargs(message):
+    """Из темы форума отвечаем в ту же тему."""
+    if getattr(message, "is_topic_message", False) and getattr(message, "message_thread_id", None):
+        return {"message_thread_id": message.message_thread_id}
+    return {}
+
+
+async def _group_send(update, context, text):
+    """Ответ в группе без цитаты команды (send_message): не чаще одного на чат раз в 20 секунд,
+    лишние вызовы игнорируются молча."""
+    if not group_limiter.allow(update.effective_chat.id):
+        return
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, **_thread_kwargs(update.effective_message)
+    )
+
+
 async def _group_reply(update, text, **kwargs):
     """Ответ в группе: не чаще одного на чат раз в 20 секунд, лишние вызовы игнорируются молча."""
     if group_limiter.allow(update.effective_chat.id):
@@ -162,9 +213,7 @@ async def _open_game_group(update, context):
     mode = play_mode()
     message = update.effective_message
     kwargs = {"chat_id": update.effective_chat.id, "text": "🎰"}
-    # из темы форума отвечаем в ту же тему
-    if getattr(message, "is_topic_message", False) and getattr(message, "message_thread_id", None):
-        kwargs["message_thread_id"] = message.message_thread_id
+    kwargs.update(_thread_kwargs(message))
     if mode == "link":
         # карточку строит Telegram из ссылки в тексте
         kwargs["text"] = '<a href="%s">🎰</a>' % html.escape(link)
@@ -193,22 +242,46 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- /balance ----------
 
-async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    kind = _chat_type(update)
-    if kind in GROUP_TYPES:
-        await _group_reply(update, "Баланс смотрите в игре (вкладка «Профиль») или в личной переписке с ботом")
-        return
-    if kind != "private":
-        return
+def _balance_text(user_id):
     now = _wall()
-    player = get_player(update.effective_user.id, now=now)
+    player = get_player(user_id, now=now)  # нового игрока создаёт, как в личном /balance
     # до следующего начисления: от last_accrual ровно час, минуты округляем вверх
     minutes = math.ceil((player["last_accrual"] + HOUR - now) / 60)
-    await _reply(
-        update,
+    return (
         f"Баланс: {player['balance']} фишек\n"
         f"До следующего начисления: {minutes} мин"
     )
+
+
+def _balance_allowed_in_group(update):
+    """Не отвечаем и ничего не создаём, если сообщение от имени чата (анонимный администратор,
+    канал), пользователя нет или это бот. Затем лимиты: пара (чат, игрок) раз в 20 секунд
+    и не больше 10 ответов в минуту на чат."""
+    message = update.effective_message
+    user = update.effective_user
+    if getattr(message, "sender_chat", None) is not None:
+        return False
+    if user is None or getattr(user, "is_bot", False):
+        return False
+    chat_id = update.effective_chat.id
+    pair = (chat_id, user.id)
+    if not (balance_pair_limiter.can(pair) and balance_chat_limiter.can(chat_id)):
+        return False
+    balance_pair_limiter.record(pair)
+    balance_chat_limiter.record(chat_id)
+    return True
+
+
+async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kind = _chat_type(update)
+    if kind in GROUP_TYPES:
+        if _balance_allowed_in_group(update):
+            # единственная групповая команда с цитатой: ответ идёт reply_text, без имени игрока
+            await _reply(update, _balance_text(update.effective_user.id))
+        return
+    if kind != "private":
+        return
+    await _reply(update, _balance_text(update.effective_user.id))
 
 
 # ---------- /help, /privacy, /developer_info ----------
@@ -230,29 +303,54 @@ GROUP_HELP = (
 )
 
 
+def _bot_username(context):
+    try:
+        return context.bot.username or None
+    except Exception:
+        return None  # имя бота ещё не известно
+
+
+def _group_help_text(name):
+    return (
+        f"🎰 /play@{name} — открыть игру\n"
+        f"💰 /balance@{name} — ваш баланс\n"
+        f"ℹ️ /help@{name} — список команд\n"
+        f"🔒 /privacy@{name} — политика конфиденциальности\n"
+        f"👤 /developer_info@{name} — о разработчике\n"
+        "Копия и удаление данных — в личной переписке с ботом."
+    )
+
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kind = _chat_type(update)
     if kind == "private":
         await _reply(update, PRIVATE_HELP)
     elif kind in GROUP_TYPES:
-        await _reply(update, GROUP_HELP)
+        name = _bot_username(context)
+        await _group_send(update, context, _group_help_text(name) if name else GROUP_HELP)
 
 
 async def privacy(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if _chat_type(update) not in CHAT_TYPES:
-        return
+    kind = _chat_type(update)
     url = privacy_url()
-    await _reply(update, url if url else UNAVAILABLE)
+    if kind == "private":
+        await _reply(update, url if url else UNAVAILABLE)
+    elif kind in GROUP_TYPES:
+        await _group_send(update, context, url if url else UNAVAILABLE)
 
 
 async def developer_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if _chat_type(update) not in CHAT_TYPES:
+    kind = _chat_type(update)
+    if kind not in CHAT_TYPES:
         return
     contact, url = developer_contact(), privacy_url()
-    if contact is None or url is None:
-        await _reply(update, UNAVAILABLE)
-        return
-    await _reply(update, f"Независимый разработчик. Контакт: {contact}. Политика конфиденциальности: {url}")
+    text = UNAVAILABLE
+    if contact is not None and url is not None:
+        text = f"Независимый разработчик. Контакт: {contact}. Политика конфиденциальности: {url}"
+    if kind == "private":
+        await _reply(update, text)
+    else:
+        await _group_send(update, context, text)
 
 
 # ---------- права на данные: /mydata, /deletemydata ----------
@@ -359,7 +457,10 @@ PRIVATE_COMMANDS = [
 ]
 GROUP_COMMANDS = [
     BotCommand("play", "Открыть игру"),
+    BotCommand("balance", "Мой баланс"),
     BotCommand("help", "Список команд"),
+    BotCommand("privacy", "Политика конфиденциальности"),
+    BotCommand("developer_info", "О разработчике"),
 ]
 
 
