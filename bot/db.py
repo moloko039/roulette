@@ -1,5 +1,6 @@
 import json
 import os
+import unicodedata
 import secrets
 import sqlite3
 import time
@@ -56,6 +57,19 @@ def init_db(db_path=None):
                 bets_json    TEXT    NOT NULL,
                 created_at   INTEGER NOT NULL,
                 PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
+        # участники бесед для рейтинга: chat_instance — глобальный id чата из подписанных данных
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_members (
+                chat_instance TEXT    NOT NULL,
+                telegram_id   INTEGER NOT NULL,
+                first_name    TEXT    NOT NULL,
+                first_seen    INTEGER NOT NULL,
+                last_seen     INTEGER NOT NULL,
+                PRIMARY KEY (chat_instance, telegram_id)
             )
             """
         )
@@ -201,3 +215,120 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
         conn.close()
 
     return _round_result(number, stake_total, payout_total, new_balance, False)
+
+
+# ---------- рейтинг беседы ----------
+NAME_MAX = 32
+DEFAULT_NAME = "Игрок"
+TOUCH_INTERVAL = 60       # запись участника обновляется не чаще раза в 60 секунд
+TOP_SIZE = 10
+# Ограничение для больших чатов: в рейтинге учитываются не больше 1000 участников одной
+# беседы, самые недавно активные (по last_seen). Остальные в рейтинг не попадают, и
+# me.total считается по этим же участникам, поэтому ранг и total всегда согласованы.
+MAX_CHAT_MEMBERS = 1000
+
+# управляющие направления текста (могут перевернуть соседний текст на экране)
+_BIDI = set("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+
+
+def clean_name(name):
+    """Убирает управляющие символы, обрезает пробелы по краям и длину до 32 символов."""
+    if not isinstance(name, str):
+        return DEFAULT_NAME
+    kept = "".join(ch for ch in name if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in _BIDI)
+    kept = kept.strip()[:NAME_MAX].strip()
+    return kept or DEFAULT_NAME
+
+
+def _touch_member(conn, chat_instance, telegram_id, first_name, now):
+    """Запись или обновление участника внутри открытой транзакции. True, если база изменена."""
+    name = clean_name(first_name)
+    row = conn.execute(
+        "SELECT last_seen FROM chat_members WHERE chat_instance = ? AND telegram_id = ?",
+        (chat_instance, telegram_id),
+    ).fetchone()
+    if row is None:
+        conn.execute(
+            "INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (chat_instance, telegram_id, name, now, now),
+        )
+        return True
+    if now - row["last_seen"] < TOUCH_INTERVAL:
+        return False
+    conn.execute(
+        "UPDATE chat_members SET first_name = ?, last_seen = ? WHERE chat_instance = ? AND telegram_id = ?",
+        (name, now, chat_instance, telegram_id),
+    )
+    return True
+
+
+def touch_chat_member(chat_instance, telegram_id, first_name, now=None, db_path=None):
+    """Записывает или обновляет участника беседы (не чаще раза в 60 секунд). Возвращает True, если записал."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            changed = _touch_member(conn, chat_instance, telegram_id, first_name, now)
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+    return changed
+
+
+def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
+    """Рейтинг беседы: до 10 лучших и позиция вызвавшего.
+
+    Вызвавший записывается как участник (как в touch_chat_member). Баланс для показа =
+    хранимый + то, что начислилось бы по accrue() на время now; в базе из-за этого
+    расчёта ничего не меняется. Сортировка: баланс по убыванию, затем first_seen, затем
+    telegram_id. Игроки без записи в players пропускаются.
+    """
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # вызвавший должен быть в players, чтобы попасть в список без вызова /api/me;
+            # начисление ему при этом не применяется (строка создаётся только для новых)
+            conn.execute(
+                "INSERT OR IGNORE INTO players "
+                "(telegram_id, balance, rate, last_accrual, created_at) VALUES (?, ?, ?, ?, ?)",
+                (telegram_id, START_BALANCE, BASE_RATE, now, now),
+            )
+            _touch_member(conn, chat_instance, telegram_id, first_name, now)
+            rows = conn.execute(
+                "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual "
+                "FROM (SELECT telegram_id, first_name, first_seen FROM chat_members "
+                "      WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
+                "JOIN players p ON p.telegram_id = m.telegram_id",
+                (chat_instance, MAX_CHAT_MEMBERS),
+            ).fetchall()
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+    entries = []
+    for r in rows:
+        earned, _ = accrue(r["last_accrual"], now, r["rate"])
+        entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"]))
+    entries.sort(key=lambda e: (e[0], e[1], e[2]))
+
+    top = [
+        {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id}
+        for i, e in enumerate(entries[:TOP_SIZE])
+    ]
+    me = None
+    for i, e in enumerate(entries):
+        if e[2] == telegram_id:
+            me = {"rank": i + 1, "balance": -e[0], "total": len(entries)}
+    return {"scope": "chat", "top": top, "me": me}
