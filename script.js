@@ -1,3 +1,6 @@
+// Адрес сервера с балансом. Менять только здесь.
+const API_URL = 'https://roulette-production-4b93.up.railway.app';
+
 // Порядок чисел на колесе европейской рулетки (по часовой стрелке)
 const WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
@@ -483,6 +486,159 @@ if (tg) {
   }
 }
 
+// ---------- вкладка «Профиль»: серверный баланс (этап 1, только чтение) ----------
+// Рулетка пока играет на ЛОКАЛЬНОМ балансе (balance выше). На этапе 2 ставки
+// перейдут на сервер, и серверный баланс станет единственным.
+// Серверный баланс хранится только в памяти страницы и в localStorage не пишется.
+const REQUEST_TIMEOUT_MS = 10000; // таймаут запроса
+const REFRESH_MIN_MS = 10000;     // обновление при открытии вкладки и возврате в приложение
+const REQUEST_GAP_MS = 5000;      // любые два запроса не чаще, чем раз в 5 секунд
+const ERROR_RETRY_MS = 30000;     // после ошибки автоповтор не чаще, чем раз в 30 секунд
+const ZERO_DELAY_MS = 1000;       // пауза после нуля таймера перед новым запросом
+
+const profileEls = {
+  data: document.getElementById('profile-data'),
+  balance: document.getElementById('profile-balance'),
+  rate: document.getElementById('profile-rate'),
+  timer: document.getElementById('profile-timer'),
+  msg: document.getElementById('profile-msg'),
+  code: document.getElementById('profile-code'),
+  retry: document.getElementById('profile-retry')
+};
+
+let profileActive = false;    // открыта ли вкладка «Профиль»
+let profileInFlight = false;
+let profileLastRequestAt = -Infinity; // performance.now() последнего запроса
+let profileLastFailed = false;
+let profileHasData = false;
+let profileDeadline = 0;      // performance.now(), когда таймер дойдёт до нуля
+let profileFetchTimer = null; // отложенный запрос (ноль таймера или автоповтор после ошибки)
+let profileTick = null;
+
+function showProfileMessage(text, code, canRetry) {
+  profileEls.msg.textContent = text;
+  profileEls.code.textContent = code ? 'код: ' + code : '';
+  profileEls.retry.hidden = !canRetry;
+}
+
+function showProfileData(d) {
+  profileEls.balance.textContent = d.balance;
+  profileEls.rate.textContent = d.rate;
+  profileEls.data.hidden = false;
+  showProfileMessage('', '', false);
+  profileHasData = true;
+  renderProfileTimer();
+}
+
+function renderProfileTimer() {
+  const left = Math.max(0, Math.ceil((profileDeadline - performance.now()) / 1000));
+  const mm = String(Math.floor(left / 60)).padStart(2, '0');
+  const ss = String(left % 60).padStart(2, '0');
+  profileEls.timer.textContent = mm + ':' + ss;
+}
+
+function clearProfileTimers() {
+  clearTimeout(profileFetchTimer);
+  profileFetchTimer = null;
+  clearInterval(profileTick);
+  profileTick = null;
+}
+
+// Запланировать запрос не раньше, чем через delay мс, и не чаще REQUEST_GAP_MS
+function scheduleProfileFetch(delay) {
+  clearTimeout(profileFetchTimer);
+  const gapLeft = REQUEST_GAP_MS - (performance.now() - profileLastRequestAt);
+  profileFetchTimer = setTimeout(() => loadProfile('timer'), Math.max(delay, gapLeft, 0));
+}
+
+function failProfile(text, code, auto) {
+  profileLastFailed = true;
+  profileHasData = false;
+  profileEls.data.hidden = true;
+  showProfileMessage(text, code, auto !== 'none');
+  if (auto === 'retry' && profileActive) scheduleProfileFetch(ERROR_RETRY_MS);
+}
+
+// reason: 'open' | 'visible' (с ограничением по частоте) | 'timer' | 'manual'
+async function loadProfile(reason) {
+  if (!profileActive || profileInFlight) return;
+  const now = performance.now();
+  const sinceLast = now - profileLastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') scheduleProfileFetch(0); // нажатие не теряем: запрос уйдёт, когда пройдут 5 секунд
+    return;
+  }
+  if ((reason === 'open' || reason === 'visible') && sinceLast < (profileLastFailed ? ERROR_RETRY_MS : REFRESH_MIN_MS)) return;
+
+  // вне Telegram запрос не отправляем
+  const initData = tg && tg.initData;
+  if (!initData) {
+    failProfile('Откройте игру через бота в Telegram', 'нет Telegram', 'none');
+    profileEls.retry.hidden = true;
+    return;
+  }
+
+  clearTimeout(profileFetchTimer);
+  profileInFlight = true;
+  profileLastRequestAt = now;
+  if (!profileHasData) showProfileMessage('Загрузка…', '', false);
+
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/me', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      // initData живёт ограниченное время, повторять запрос бессмысленно
+      failProfile('Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', '401', 'none');
+      return;
+    }
+    if (!res.ok) {
+      failProfile('Нет связи с сервером', String(res.status), 'retry');
+      return;
+    }
+    const d = await res.json();
+    const ok = (v, max) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
+    if (!d || !ok(d.balance, 1e12) || !ok(d.rate, 1e9) || !ok(d.seconds_to_next, 86400)) {
+      failProfile('Нет связи с сервером', 'ответ', 'retry');
+      return;
+    }
+    profileLastFailed = false;
+    // таймер считаем по монотонным часам, а не по часам устройства
+    profileDeadline = performance.now() + d.seconds_to_next * 1000;
+    showProfileData(d);
+    scheduleProfileFetch(d.seconds_to_next * 1000 + ZERO_DELAY_MS);
+  } catch (e) {
+    // fetch не различает сбой сети и запрет CORS, поэтому код с вопросом
+    const aborted = e && e.name === 'AbortError';
+    failProfile('Нет связи с сервером', aborted ? 'таймаут' : 'сеть или CORS?', 'retry');
+  } finally {
+    clearTimeout(timeout);
+    profileInFlight = false;
+  }
+}
+
+function openProfile() {
+  profileActive = true;
+  clearInterval(profileTick);
+  profileTick = setInterval(() => { if (profileHasData) renderProfileTimer(); }, 1000);
+  loadProfile('open');
+}
+
+function closeProfile() {
+  profileActive = false;
+  clearProfileTimers();
+}
+
+profileEls.retry.addEventListener('click', () => loadProfile('manual'));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadProfile('visible');
+});
+
 // Кошелёк для всех игр: общий баланс и его сохранение в localStorage.
 // Рулетка работает с той же переменной balance напрямую, её логика не менялась.
 const wallet = {
@@ -535,6 +691,7 @@ function showTab(id) {
   const screen = id === 'play' ? currentGame : id;
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
+  if (screen === 'profile') { if (!profileActive) openProfile(); } else if (profileActive) closeProfile();
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
