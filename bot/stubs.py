@@ -14,6 +14,8 @@ class StubBot:
         self.fail_with = fail_with
         self.sent = []           # send_message: список словарей аргументов
         self.fail_send = None    # исключение, которое бросит send_message
+        self.documents = []      # send_document: список словарей аргументов
+        self.fail_document = None  # исключение, которое бросит send_document
 
     async def set_my_commands(self, commands, scope=None, **kwargs):
         if getattr(self, "fail_commands", None):
@@ -25,6 +27,11 @@ class StubBot:
         if self.fail_send:
             raise self.fail_send
         self.sent.append(kwargs)
+
+    async def send_document(self, **kwargs):
+        if self.fail_document:
+            raise self.fail_document
+        self.documents.append(kwargs)
 
     async def set_webhook(self, **kwargs):
         if self.fail_with:
@@ -49,6 +56,7 @@ class StubApplication:
     def __init__(self, fail_with=None):
         self.bot = StubBot(fail_with)
         self.update_queue = RecordingQueue()
+        self.bot_data = {}
         self.updater = StubUpdater()
         self.events = []
 

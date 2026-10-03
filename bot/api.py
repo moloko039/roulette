@@ -17,6 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from telegram import Update
 
 import backup
+import backup_send
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 from db import chat_top, get_player, init_db, spin_roulette, touch_chat_member
@@ -81,6 +82,8 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application, main
             from bot import build_application  # импорт здесь: режиму «только API» бот не нужен
             bot_app = build_application(bot_token, use_updater=(mode == "polling"))
 
+        if hasattr(bot_app, "bot_data"):  # для команды /backupnow (только владелец)
+            bot_app.bot_data["backup_sender"] = getattr(app.state, "backup_sender", None)
         await bot_app.initialize()
         await bot_app.start()
         try:
@@ -119,13 +122,21 @@ def make_lifespan(mode, bot_token, public_url, webhook_secret, application, main
     async def lifespan(app):
         # фоновая задача (резервные копии и очистка) работает во всех режимах; в тестах выключена
         task = None
+        app.state.backup_sender = None
         if maintenance is not None:
             notifier = None
+            sender = None
+            send_config = maintenance.get("send_config")
+            if send_config is not None and send_config["enabled"]:
+                sender = backup_send.EncryptedSender(maintenance["owner_id"], lambda: app.state.notify_bot,
+                                                     maintenance["db_path"], maintenance["config"], send_config)
+                app.state.backup_sender = sender
             if maintenance.get("owner_id") is not None:
                 notifier = notify.Notifier(maintenance["owner_id"], lambda: app.state.notify_bot,
-                                           maintenance["db_path"], maintenance["config"])
+                                           maintenance["db_path"], maintenance["config"],
+                                           encrypted_send=sender is not None)
             task = asyncio.create_task(backup.maintenance_loop(
-                maintenance["config"], maintenance["db_path"], notifier=notifier,
+                maintenance["config"], maintenance["db_path"], notifier=notifier, sender=sender,
                 **maintenance.get("loop_args", {})))
         try:
             async with bot_lifespan(app):
@@ -294,9 +305,12 @@ def create_app_from_env():
     backup.warn_config(config)
     owner_id = notify.load_owner_id(os.environ)
     notify.warn_owner(owner_id)
+    send_config = backup_send.load_config(os.environ, owner_id)
+    backup_send.warn_config(send_config)
     return create_app(s["token"], s["origins"], mode=s["mode"],
                       public_url=s["public_url"], webhook_secret=s["secret"],
-                      maintenance={"config": config, "db_path": db_path, "owner_id": owner_id})
+                      maintenance={"config": config, "db_path": db_path, "owner_id": owner_id,
+                                       "send_config": send_config})
 
 
 if __name__ == "__main__":

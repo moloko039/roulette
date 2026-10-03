@@ -22,12 +22,13 @@ HOST_PLACEHOLDER = "<домен сервиса>"
 HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
 
 # время последней отправки каждого вида хранится в service_meta (unix, целое)
-PERIODS = {"snapshot_failed": DAY, "stale": DAY, "space": DAY, "reminder": REMINDER_SECONDS}
+PERIODS = {"snapshot_failed": DAY, "send_failed": DAY, "send_too_big": DAY, "stale": DAY, "space": DAY,
+           "reminder": REMINDER_SECONDS}
 META_KEYS = {kind: "notify_last_" + kind for kind in PERIODS}
 SENT_LOG_KEY = "notify_sent_log"    # времена отправок за последние сутки (для потолка)
 SINCE_KEY = "notify_monitor_since"  # с какого момента следим за копиями (чтобы не тревожить на свежем томе)
 
-ORDER = ("snapshot_failed", "stale", "space", "reminder")  # при нехватке потолка важнее тревоги
+ORDER = ("snapshot_failed", "send_failed", "send_too_big", "stale", "space", "reminder")  # при нехватке потолка важнее тревоги
 
 
 def load_owner_id(env=None):
@@ -70,7 +71,8 @@ def _stamp(ts):
 class Notifier:
     """Уведомления владельцу о резервных копиях. Только агрегированные данные: даты, размеры, числа."""
 
-    def __init__(self, owner_id, get_bot, db_path, config):
+    def __init__(self, owner_id, get_bot, db_path, config, encrypted_send=False):
+        self.encrypted_send = encrypted_send  # при включённой отправке зашифрованных копий напоминания нет
         self.owner_id = owner_id
         self.get_bot = get_bot      # вызываемое: бот или None (режим только API / бот ещё не запущен)
         self.db_path = db_path
@@ -105,6 +107,15 @@ class Notifier:
         if "snapshot_failed" in events and self._due("snapshot_failed", now):
             found["snapshot_failed"] = ("Тревога: резервная копия базы не создана. Подробности в логах "
                                         "сервиса. Последняя успешная копия: %s." % last_text)
+        if "send_failed" in events or "send_too_big" in events:
+            sent = _int_or_none(db.get_meta("backup_sent_at", self.db_path))
+            sent_text = _stamp(sent) if sent is not None else "нет"
+            if "send_failed" in events and self._due("send_failed", now):
+                found["send_failed"] = ("Тревога: зашифрованная копия не отправлена в Telegram. Подробности в "
+                                        "логах сервиса. Последняя успешная отправка: %s." % sent_text)
+            if "send_too_big" in events and self._due("send_too_big", now):
+                found["send_too_big"] = ("Тревога: копия базы больше лимита BACKUP_SEND_MAX_MB и в Telegram не "
+                                         "отправлена. Последняя успешная отправка: %s." % sent_text)
         if enabled:
             since = _int_or_none(db.get_meta(SINCE_KEY, self.db_path))
             if since is None or since > now:
@@ -119,7 +130,7 @@ class Notifier:
             if usage is not None:
                 found["space"] = ("Мало места на томе: свободно %d МБ из %d МБ (%d%%)."
                                   % (usage.free // 2**20, usage.total // 2**20, usage.free * 100 // usage.total))
-        if enabled and name is not None and self._due("reminder", now):
+        if enabled and not self.encrypted_send and name is not None and self._due("reminder", now):
             path = os.path.join(self.config["dir"], name)
             try:
                 players = backup.inspect_database(path).get("players", 0)

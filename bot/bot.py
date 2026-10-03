@@ -17,6 +17,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Cont
 import antiabuse
 from db import delete_player_data, get_player, get_player_export, init_db
 from economy import HOUR
+from notify import load_owner_id
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
@@ -102,6 +103,8 @@ balance_pair_limiter = RateLimiter(BALANCE_PAIR_INTERVAL)
 balance_chat_limiter = WindowLimiter(BALANCE_CHAT_PER_MINUTE, 60)
 mydata_limiter = RateLimiter(MYDATA_INTERVAL)
 delete_limiter = RateLimiter(DELETE_INTERVAL)
+BACKUPNOW_INTERVAL = 600     # /backupnow: раз в 10 минут
+backupnow_limiter = RateLimiter(BACKUPNOW_INTERVAL)
 
 
 # ---------- настройки из окружения (необязательные) ----------
@@ -390,6 +393,32 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_document(document=io.BytesIO(data), filename="mydata.json")
 
 
+async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): отправить зашифрованную копию вне расписания.
+    Все остальные (и любой чат, кроме личного) не получают ответа, в лог про них ничего не пишется."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    sender = context.application.bot_data.get("backup_sender")
+    if sender is None or not sender.enabled:
+        await _reply(update, "Отключено: нужны BACKUP_PUBLIC_KEY и OWNER_CHAT_ID")
+        return
+    if not backupnow_limiter.allow(owner_id):
+        await _reply(update, "Слишком часто, повторите через 10 минут")
+        return
+    await _reply(update, "Отправляю")
+    result = await sender.send_now(context.bot, _wall())
+    if result == "busy":
+        await _reply(update, "Отправка уже идёт")
+    elif result == "too_big":
+        await _reply(update, "Не отправлено: копия больше лимита BACKUP_SEND_MAX_MB")
+    elif result != "ok":
+        await _reply(update, "Не удалось отправить, подробности в логах сервиса")
+
+
 DELETE_WARNING = (
     "Будут удалены ваш баланс, история раундов и участие в рейтингах. Это нельзя отменить. "
     "Данные на вашем устройстве (последние числа и ставки) останутся, их можно убрать очисткой "
@@ -513,7 +542,7 @@ def build_application(token, use_updater=True):
     for name, handler in (("start", start), ("play", play), ("balance", balance),
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
-                          ("deletemydata", deletemydata)):
+                          ("deletemydata", deletemydata), ("backupnow", backupnow)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
     app.add_error_handler(on_error)
