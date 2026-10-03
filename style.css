@@ -403,17 +403,8 @@ button {
 
 .cell.outside { font-size: 0.8rem; }
 
-/* зарезервированное место под ставки на колонки (выплата 2 к 1) */
-.slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px dashed var(--accent-dark);
-  border-radius: 4px;
-}
+/* ставки на колонки (выплата 2 к 1) */
+.cell.column { font-size: 0.75rem; }
 
 /* фишка, лежащая на клетке */
 .stack {
@@ -444,13 +435,18 @@ button {
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.message.win  { color: #7dff9b; }
-.message.lose { color: #ff8a80; }
+.message small {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+#status-line { color: rgba(255, 255, 255, 0.8); }
+
+.message .win  { color: #7dff9b; }
+.message .lose { color: #ff8a80; }
 
 .bets {
   display: grid;
@@ -509,7 +505,7 @@ input[type="number"] {
 
 /* ---------- главные кнопки ---------- */
 
-#spin, #loan-btn {
+#spin {
   font: 700 1.1rem Georgia, serif;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -528,9 +524,9 @@ input[type="number"] {
   padding: 0;
 }
 
-#loan-btn { padding: 12px 32px; }
+#spin.retry { font-size: 0.9rem; letter-spacing: 0; }
 
-#spin:active:not(:disabled), #loan-btn:active {
+#spin:active:not(:disabled) {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #444, 0 0 12px var(--glow);
 }
@@ -642,16 +638,3 @@ button:disabled {
 }
 
 [hidden] { display: none !important; }
-
-/* экран микрозайма: размытый фон и кнопка по центру */
-.loan {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(2, 5, 10, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
