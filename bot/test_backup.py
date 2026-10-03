@@ -227,6 +227,44 @@ try:
     asyncio.run(backup.maintenance_loop(on, main_db, first_delay=0, once=True, clock=lambda: T + 5))
     check("включено: копия сделана", len(backup.list_backups(b9)), 1)
 
+    # ================= первая копия после старта сервиса (настройки по умолчанию) =================
+    b10 = os.path.join(tmp, "b10", "backups")
+    dflt = backup.load_config({}, os.path.join(tmp, "b10", "players.db"))
+    dflt = dict(dflt, dir=b10)
+    cap.lines.clear()
+
+    async def first_start():
+        task = asyncio.create_task(backup.maintenance_loop(dflt, main_db, first_delay=0.05, tick=3600))
+        for _ in range(100):
+            await asyncio.sleep(0.05)
+            if backup.list_backups(b10):
+                break
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(first_start())
+    check("после старта есть файл копии", len(backup.list_backups(b10)), 1)
+    assert any("Резервная копия создана" in l and "результат=ok" in l for l in cap.lines), cap.lines
+    assert any("Фоновая задача запущена" in l for l in cap.lines), cap.lines
+    # пропуск (свежая копия есть, как после перезапуска сервиса) оставляет строку с причиной
+    cap.lines.clear()
+    backup.run_maintenance_once(dflt, main_db, int(time.time()) + 3600, None)
+    skip = [l for l in cap.lines if "пропущена" in l]
+    check("одна строка о пропуске", len(skip), 1)
+    assert "свежая уже есть" in skip[0] and "players-" in skip[0], skip
+    cap.lines.clear()
+    backup.run_maintenance_once(dict(dflt, enabled=False), main_db, T, None)
+    skip = [l for l in cap.lines if "пропущена" in l]
+    check("отключена: одна строка", len(skip), 1)
+    assert "BACKUP_ENABLED" in skip[0], skip
+    cap.lines.clear()
+    backup.run_maintenance_once(dflt, main_db, int(time.time()) + 3600, 1)  # не первый проход: тишина
+    check("не первый проход: без строки", [l for l in cap.lines if "пропущена" in l], [])
+
+
     # ошибка внутри цикла: логируется только тип, цикл продолжает работу
     calls = []
 
