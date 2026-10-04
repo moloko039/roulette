@@ -12,7 +12,9 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from telegram import (BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats,
                       InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update, WebAppInfo)
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter
+from telegram.ext import (Application, CallbackQueryHandler, ChatMemberHandler, CommandHandler, ContextTypes,
+                          MessageHandler, filters)
 
 import antiabuse
 import backup
@@ -477,8 +479,11 @@ async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(args) == 2 and args[0] == "confirm":
         await _grant_confirm(update, context, args[1])
         return
+    silent = len(args) == 3 and args[2] == "silent"
+    if silent:
+        args = args[:2]
     if len(args) != 2 or not re.fullmatch(r"\d{1,7}", args[0]):
-        await _reply(update, "Формат: /grantall <сумма> <id>, например /grantall 10000 oct4")
+        await _reply(update, "Формат: /grantall <сумма> <id> [silent], например /grantall 10000 oct4 (silent: без объявления в беседах)")
         return
     amount, grant_id = int(args[0]), args[1]
     try:
@@ -493,9 +498,12 @@ async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if count == 0:
         await _reply(update, "Некому начислять: в базе нет игроков с местом под потолок баланса")
         return
-    pending["grant_pending"] = {"id": grant_id, "amount": amount, "at": _wall()}
-    await _reply(update, "Получат фишки: игроков %d, всего будет выдано %d. Подтвердите командой "
-                 "/grantall confirm %s в течение 5 минут" % (count, total, grant_id))
+    pending["grant_pending"] = {"id": grant_id, "amount": amount, "at": _wall(), "silent": silent}
+    chats = len(await asyncio.to_thread(db_module.chat_ids))
+    note = "объявление не отправляется (silent)" if silent else "объявление уйдёт в групп: %d" % chats
+    await _reply(update, "Получат фишки: игроков %d, всего будет выдано %d; %s. Копия базы создаётся автоматически перед "
+                 "начислением (можно сделать /backupnow заранее). Подтвердите командой "
+                 "/grantall confirm %s в течение 5 минут" % (count, total, note, grant_id))
 
 
 async def _grant_confirm(update, context, grant_id):
@@ -524,6 +532,99 @@ async def _grant_confirm(update, context, grant_id):
         await _reply(update, "Не удалось выполнить начисление, ничего не изменено (подробности в логах сервиса)")
         return
     await _reply(update, "Начисление выполнено: получили игроков %d, выдано всего %d" % (players, given))
+    if pending.get("silent") or players == 0:
+        return
+    # объявление только после коммита и в фоне; ссылку на задачу держим, чтобы её не убрала сборка мусора
+    task = asyncio.ensure_future(_announce_grant(context.bot, update.effective_chat.id, pending["amount"]))
+    store["grant_announce_task"] = task
+
+
+ANNOUNCE_PAUSE = 0.1   # пауза между сообщениями в разные группы (лимит Telegram около 20 в секунду)
+
+
+def _grant_announcement(amount):
+    return "🎁 Всем игрокам Necasino начислено %s фишек! Заходите играть" % "{:,}".format(amount).replace(",", " ")
+
+
+async def _send_announcement(bot, chat_id, text, markup):
+    """Одна отправка; RetryAfter: ждём и повторяем один раз. True, если доставлено."""
+    for attempt in (1, 2):
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+            return True
+        except RetryAfter as exc:
+            if attempt == 2:
+                return False
+            await asyncio.sleep(min(float(getattr(exc, "retry_after", 1) or 1), 30))
+        except ChatMigrated:
+            await asyncio.to_thread(db_module.chat_forget, chat_id)   # новый id появится при ближайшем событии из группы
+            return False
+        except (Forbidden, BadRequest):
+            await asyncio.to_thread(db_module.chat_forget, chat_id)   # бота убрали из группы или группы нет
+            return False
+        except Exception:
+            return False
+    return False
+
+
+async def _announce_grant(bot, owner_chat_id, amount):
+    """Фоновая задача: одно объявление в каждую известную группу, ошибки не прерывают остальные и не откатывают начисление.
+    Владельцу в конце итог. В лог только числа."""
+    sent = failed = 0
+    try:
+        chats = await asyncio.to_thread(db_module.chat_ids)
+        link = game_link()
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("Играть", url=link)]]) if link else None
+        text = _grant_announcement(amount)
+        for i, chat_id in enumerate(chats):
+            if i:
+                await asyncio.sleep(ANNOUNCE_PAUSE)
+            if await _send_announcement(bot, chat_id, text, markup):
+                sent += 1
+            else:
+                failed += 1
+        logger.info("Объявление о начислении: отправлено=%d, не доставлено=%d", sent, failed)
+        if not chats:
+            summary = "Объявление не отправлено: бот не знает ни одной группы"
+        else:
+            summary = "Объявление: групп %d, отправлено %d, не доставлено %d" % (len(chats), sent, failed)
+        await bot.send_message(chat_id=owner_chat_id, text=summary)
+    except Exception as exc:
+        logger.error("Объявление о начислении прервано: %s", type(exc).__name__)
+
+
+# ---------- группы, где состоит бот ----------
+_noted_chats = {}            # chat_id -> время последней записи (не пишем в базу чаще раза в 6 часов)
+NOTE_EVERY = 6 * 3600
+
+
+async def note_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Любая команда из группы: запоминаем числовой chat_id (без названия и участников)."""
+    chat = update.effective_chat
+    if chat is None or chat.type not in GROUP_TYPES:
+        return
+    now = _wall()
+    if now - _noted_chats.get(chat.id, 0) < NOTE_EVERY:
+        return
+    try:
+        await asyncio.to_thread(db_module.chat_register, chat.id, now)
+        _noted_chats[chat.id] = now
+    except Exception as exc:
+        logger.error("Не удалось запомнить группу: %s", type(exc).__name__)
+
+
+async def my_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Бота добавили в группу или убрали из неё: запись добавляется или удаляется."""
+    event = update.my_chat_member
+    if event is None or event.chat is None or event.chat.type not in GROUP_TYPES:
+        return
+    status = event.new_chat_member.status
+    if status in ("member", "administrator"):
+        await asyncio.to_thread(db_module.chat_register, event.chat.id, _wall())
+        _noted_chats[event.chat.id] = _wall()
+    elif status in ("left", "kicked"):
+        await asyncio.to_thread(db_module.chat_forget, event.chat.id)
+        _noted_chats.pop(event.chat.id, None)
 
 
 DELETE_WARNING = (
@@ -655,6 +756,9 @@ def build_application(token, use_updater=True):
                           ("grantall", grantall), ("give", give)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
+    app.add_handler(ChatMemberHandler(guarded(my_chat_member), ChatMemberHandler.MY_CHAT_MEMBER))
+    # в группе -1: срабатывает до остальных и не мешает им (block=False)
+    app.add_handler(MessageHandler(filters.COMMAND & filters.ChatType.GROUPS, guarded(note_group), block=False), group=-1)
     app.add_error_handler(on_error)
     warn_missing_config()
     return app

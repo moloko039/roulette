@@ -500,7 +500,7 @@ try:
     # ---------- сборка приложения и обработка ошибок ----------
     asyncio.set_event_loop(asyncio.new_event_loop())  # Python 3.9: Queue() внутри Application ищет цикл
     real = bot.build_application("123456:TEST-TOKEN-not-real", use_updater=False)
-    check("обработчики", len(real.handlers[0]), 12)  # 8 команд, скрытые /backupnow, /grantall и /give, кнопки удаления
+    check("обработчики", len(real.handlers[0]), 13)  # 8 команд, скрытые /backupnow, /grantall и /give, кнопки удаления, my_chat_member
     assert bot.on_error in real.error_handlers, "нет обработчика ошибок"
 
     cap = Capture()
