@@ -1160,6 +1160,29 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .farm-cards { display: grid; gap: var(--space-3); min-width: 0; }
 
+.farm-income[hidden] { display: none; }
+.farm-income-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.farm-income-row strong { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: 16px; font-weight: 600; }
+.farm-income-note { margin: 0; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* «+N» у баланса при приходе минутного начисления: поверх экрана, вёрстку не двигает, без звука */
+.accrual-pop {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  animation: accrual-pop 1.4s ease-out forwards;
+}
+@keyframes accrual-pop { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) {
+  .accrual-pop { animation: accrual-fade 1.4s linear forwards; }
+  @keyframes accrual-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+}
+
 .farm-card-head {
   display: flex;
   flex-wrap: wrap;

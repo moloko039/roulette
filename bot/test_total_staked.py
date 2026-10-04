@@ -17,6 +17,8 @@ from roulette import MAX_SAFE_INT, BalanceLimit, InsufficientFunds
 from stubs import FakeUpdate
 from tg_testutil import make_init_data
 
+FUT_ACCRUAL = __import__("time").time().__int__() + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOKEN = "123456:TEST-TOKEN-not-real"
@@ -95,8 +97,8 @@ try:
     conn.execute("CREATE TABLE roulette_rounds (telegram_id INTEGER NOT NULL, request_id TEXT NOT NULL, "
                  "number INTEGER NOT NULL, stake_total INTEGER NOT NULL, payout_total INTEGER NOT NULL, "
                  "bets_json TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (telegram_id, request_id))")
-    conn.execute("INSERT INTO players VALUES (1, 777, 100, 1000, 1000), (2, 1500, 100, 2000, 2000), "
-                 "(3, 5, 100, 3000, 3000)")
+    conn.execute("INSERT INTO players VALUES (1, 777, 100, %d, 1000), (2, 1500, 100, %d, 2000), "
+                 "(3, 5, 100, %d, 3000)" % (FUT_ACCRUAL, FUT_ACCRUAL, FUT_ACCRUAL))
     conn.execute("INSERT INTO roulette_rounds VALUES (1, 'a', 17, 10, 360, '[]', 1500), "
                  "(1, 'b', 3, 20, 0, '[]', 1600), (3, 'c', 1, ?, 0, '[]', 1700), (3, 'd', 2, ?, 0, '[]', 1800)",
                  (MAX_SAFE_INT, MAX_SAFE_INT))
@@ -106,7 +108,7 @@ try:
     cols = {r[1]: (r[2], r[3], r[4]) for r in sql(old, "PRAGMA table_info(players)")}
     check("столбец добавлен", cols["total_staked"], ("INTEGER", 1, "0"))
     check("игроки целы", sql(old, "SELECT telegram_id, balance, rate, last_accrual, created_at FROM players ORDER BY 1"),
-          [(1, 777, 100, 1000, 1000), (2, 1500, 100, 2000, 2000), (3, 5, 100, 3000, 3000)])
+          [(1, 777, 100, FUT_ACCRUAL, 1000), (2, 1500, 100, FUT_ACCRUAL, 2000), (3, 5, 100, FUT_ACCRUAL, 3000)])
     check("начальные значения по раундам", sql(old, "SELECT telegram_id, total_staked FROM players ORDER BY 1"),
           [(1, 30), (2, 0), (3, MAX_SAFE_INT)])
     check("раунды целы", sql(old, "SELECT COUNT(*) FROM roulette_rounds")[0][0], 4)

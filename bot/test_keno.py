@@ -279,7 +279,7 @@ try:
     path = new_db()
     add_player(path, 1, balance=0, last_accrual=NOW - 3 * 3600)
     r = db.play_keno(1, rid(27), 300, [1], now=NOW, db_path=path, rng=FixedRng(DRAW))
-    check("начислено 3 часа и списана ставка", (r["balance"], sql(path, "SELECT last_accrual FROM players")[0][0]), (0, NOW))
+    check("начислено 3 часа и списана ставка", (r["balance"], sql(path, "SELECT last_accrual FROM players")[0][0]), (0, NOW // 60 * 60))   # метка на границе минуты
     # новый игрок регистрируется (стартовые 1000)
     path = new_db()
     r = db.play_keno(77, rid(28), 100, [22], now=NOW, db_path=path, rng=FixedRng(DRAW))

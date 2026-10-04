@@ -147,8 +147,11 @@ try:
 
     # потраченное с учётом начисления: в базе 1000, но прошло 5 часов (+500)
     balance(client, 6)  # регистрация
-    sql(path, "UPDATE players SET last_accrual = ? WHERE telegram_id = 6", (int(time.time()) - 5 * 3600 - 10,))
-    r = spin(client, 6, "request-eeee-0001", [bet("red", None, 1500)], fixed=0)
+    # часы сервера фиксируются на середине минуты: ровно 5 часов = 300 тиков, граница минуты посреди теста невозможна
+    fixed_now = int(time.time()) // 60 * 60 + 30
+    sql(path, "UPDATE players SET last_accrual = ? WHERE telegram_id = 6", (fixed_now // 60 * 60 - 5 * 3600,))
+    with mock.patch("time.time", return_value=float(fixed_now)):
+        r = spin(client, 6, "request-eeee-0001", [bet("red", None, 1500)], fixed=0)
     check("начисленное потрачено", (r.status_code, r.json()["stake_total"], r.json()["balance"]), (200, 1500, 0))
     r = spin(client, 6, "request-eeee-0002", [bet("red", None, 1)], fixed=0)
     check("больше нечего ставить", (r.status_code, r.json()), (409, {"detail": "insufficient_funds"}))

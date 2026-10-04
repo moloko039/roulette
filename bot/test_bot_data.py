@@ -123,7 +123,7 @@ try:
 
     # ================= db: выгрузка и удаление =================
     ex = get_player_export(ME, db_path=path)
-    check("player", sorted(ex["player"]), ["balance", "created_at", "income_level", "last_accrual", "rate", "storage_level", "telegram_id", "total_staked", "xp"])
+    check("player", sorted(ex["player"]), ["accrual_acc", "balance", "created_at", "income_level", "last_accrual", "rate", "storage_level", "telegram_id", "total_staked", "xp"])
     check("player.id", (ex["player"]["telegram_id"], ex["player"]["balance"]), (ME, 7654321))
     check("раундов", len(ex["rounds"]), 2)
     check("раунд", sorted(ex["rounds"][0]), ["bets", "number", "payout_total", "stake_total", "time"])

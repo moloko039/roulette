@@ -1,10 +1,15 @@
 import os
 import sqlite3
 import tempfile
+import time
 
 from db import get_player, init_db, spin_roulette
 from roulette import (MAX_BETS, MAX_SAFE_INT, BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict,
+
                       bet_payout, is_win, max_payout, settle, validate_bets, validate_request_id)
+
+
+FUT_ACCRUAL = int(time.time()) + 10 * 86400   # старая база в тесте миграции: метка в будущем, начисления нет
 
 
 def check(name, got, expected):
@@ -213,7 +218,7 @@ try:
     conn = sqlite3.connect(path)
     conn.execute("CREATE TABLE players (telegram_id INTEGER PRIMARY KEY, balance INTEGER NOT NULL, "
                  "rate INTEGER NOT NULL, last_accrual INTEGER NOT NULL, created_at INTEGER NOT NULL)")
-    conn.execute("INSERT INTO players VALUES (42, 777, 100, 1000, 1000)")
+    conn.execute("INSERT INTO players VALUES (42, 777, 100, %d, 1000)" % FUT_ACCRUAL)
     conn.commit()
     conn.close()
 
@@ -224,7 +229,7 @@ try:
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     check("таблицы", {"players", "roulette_rounds"} <= tables, True)
     check("игрок на месте", conn.execute("SELECT balance, rate, last_accrual, created_at FROM players WHERE telegram_id = 42").fetchone(),
-          (777, 100, 1000, 1000))
+          (777, 100, FUT_ACCRUAL, 1000))
     conn.close()
     check("игрок читается", get_player(42, now=1000, db_path=path)["balance"], 777)
 finally:

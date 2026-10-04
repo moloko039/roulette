@@ -164,7 +164,7 @@ try:
         t = threading.Thread(target=hold_lock)
         t.start()
         ready.wait()
-        db.get_player(SECRET_ID, now=int(time.time()), db_path=path)   # ждёт блокировку записи
+        db.get_player(SECRET_ID, now=int(time.time()) + 3600, db_path=path)   # есть минутные тики: берёт блокировку записи и ждёт её
         t.join()
     finally:
         db.request_timing.reset(token)

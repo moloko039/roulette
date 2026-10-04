@@ -3,10 +3,17 @@
   "no_active_game": {
     "balance": 1000,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 0,
       "total": 0
@@ -27,10 +34,17 @@
   "active_mines": {
     "balance": 900,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 0,
       "total": 0
@@ -51,10 +65,17 @@
   "active_blackjack": {
     "balance": 900,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 0,
       "total": 0
@@ -75,10 +96,17 @@
   "active_crash": {
     "balance": 900,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 0,
       "total": 0
@@ -99,10 +127,17 @@
   "incoming_transfer": {
     "balance": 1000,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 2,
       "total": 285
@@ -123,10 +158,17 @@
   "owner": {
     "balance": 1000,
     "rate": 100,
-    "seconds_to_next": 1800,
+    "seconds_to_next": 30,
     "level": 1,
     "income_level": 0,
     "storage_level": 0,
+    "farm": {
+      "income_per_hour": 100,
+      "per_minute_estimate": "1.7",
+      "next_tick_in_s": 30,
+      "hours_cap": 30,
+      "accrued_now": 0
+    },
     "incoming_unseen": {
       "count": 0,
       "total": 0

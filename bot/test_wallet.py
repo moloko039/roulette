@@ -186,7 +186,8 @@ try:
     check("total_staked = сумма ставок", one(path, "SELECT total_staked FROM players")[0][0], stakes)
 
     # ================= прямые изменения balance в коде =================
-    # игровые списания и выплаты только через wallet; допускается начисление по часам (вместе с last_accrual) в db.py
+    # игровые списания и выплаты только через wallet; допускается только разовая миграция начисления (вместе с last_accrual) в db.py:
+    # обычное поминутное начисление идёт через wallet.credit
     found = []
     for src in sorted(glob.glob(os.path.join(HERE, "*.py"))):
         name = os.path.basename(src)
@@ -199,7 +200,7 @@ try:
         ok = name == "wallet.py" or (name == "db.py" and "last_accrual" in line)
         assert ok, "прямое изменение баланса вне wallet: %s:%d" % (name, number)
     check("wallet меняет баланс", sorted({n for n, _, _ in found}), ["db.py", "wallet.py"])
-    check("начисление по часам в db.py (get_player, spin, buy_upgrade, мины)", len([1 for n, _, _ in found if n == "db.py"]), 4)
+    check("прямая правка баланса в db.py: только миграция начисления", len([1 for n, _, _ in found if n == "db.py"]), 1)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

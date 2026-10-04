@@ -327,7 +327,7 @@ try:
     path = new_db()
     add_player(path, 1, balance=0, last_accrual=NOW - 3 * 3600)
     r = start(path, 1, 1, 300, 5000)
-    check("начислено 3 часа, списана ставка", (r["balance"], sql(path, "SELECT last_accrual FROM players")[0][0]), (0, NOW))
+    check("начислено 3 часа, списана ставка", (r["balance"], sql(path, "SELECT last_accrual FROM players")[0][0]), (0, NOW // 60 * 60))   # метка на границе минуты
     path = new_db()
     check("новый игрок: 1000 - 100", start(path, 77, 1, 100, 5000)["balance"], 900)
 

@@ -205,7 +205,7 @@ try:
                  "last_accrual INTEGER NOT NULL, created_at INTEGER NOT NULL, total_staked INTEGER NOT NULL DEFAULT 0, "
                  "income_level INTEGER NOT NULL DEFAULT 0, storage_level INTEGER NOT NULL DEFAULT 0)")
     conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked) VALUES "
-                 "(1, 777, 100, 1000, 1000, 5500), (2, 5, 100, 2000, 2000, 0)")
+                 "(1, 777, 100, %d, 1000, 5500), (2, 5, 100, %d, 2000, 0)" % (int(time.time()) + 10 * 86400, int(time.time()) + 10 * 86400))   # метка в будущем: миграция начисления ничего не платит
     conn.commit()
     conn.close()
     db.init_db(old)

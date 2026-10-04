@@ -10,6 +10,7 @@ import time
 
 import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
+import economy
 from economy import START_BALANCE, BASE_RATE, accrue
 import blackjack
 import crash
@@ -189,6 +190,7 @@ def init_db(db_path=None):
                 balance      INTEGER NOT NULL,
                 rate         INTEGER NOT NULL,
                 last_accrual INTEGER NOT NULL,
+                accrual_acc  INTEGER NOT NULL DEFAULT 0,
                 created_at   INTEGER NOT NULL,
                 total_staked INTEGER NOT NULL DEFAULT 0,
                 xp           INTEGER NOT NULL DEFAULT 0,
@@ -485,6 +487,7 @@ def init_db(db_path=None):
         _migrate_xp(conn)
         _migrate_farm_levels(conn)
         _migrate_transfers_seen(conn)
+        _migrate_minute_accrual(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",
@@ -584,10 +587,59 @@ def _migrate_transfers_seen(conn):
         raise
 
 
-def _accrue_player(row, now):
-    """Начисление по часам для строки игрока: единственное место, где вызывается economy.accrue.
-    Ставка берётся из players.rate, потолок часов из уровня хранилища игрока."""
-    return accrue(row["last_accrual"], now, row["rate"], max_hours=farm.storage_hours(row["storage_level"]))
+def _migrate_minute_accrual(conn, now=None):
+    """Переход на поминутное начисление (идемпотентно, ОДНОЙ транзакцией BEGIN IMMEDIATE вместе с добавлением столбца).
+
+    Признак «перенос выполнен» это сам столбец players.accrual_acc: он добавляется и игроки переносятся в одной транзакции,
+    при сбое откатывается всё. Новая база уже создаётся со столбцом (игроков нет, переносить нечего), повторный запуск ничего
+    не делает. Каждому игроку один раз: целые часы по СТАРЫМ правилам (economy.accrue с его потолком; лишнее после потолка
+    сгорает, как и раньше), затем неполный остаток часа в минутах по новым (accrue_minutes): метка становится границей минуты
+    «сейчас», остаток acc сохраняет долю фишки. Итог равен старой логике, потерь и лишнего нет (до одной фишки от округления;
+    секунды меньше минуты в остатке не считаются). Метка в будущем ничего не даёт."""
+    if now is None:
+        now = int(time.time())
+    if "accrual_acc" in {r["name"] for r in conn.execute("PRAGMA table_info(players)")}:
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if "accrual_acc" not in {r["name"] for r in conn.execute("PRAGMA table_info(players)")}:   # повторная проверка внутри
+            conn.execute("ALTER TABLE players ADD COLUMN accrual_acc INTEGER NOT NULL DEFAULT 0")
+            for row in conn.execute("SELECT telegram_id, balance, rate, last_accrual, storage_level FROM players").fetchall():
+                cap = farm.storage_hours(row["storage_level"])
+                earned, last = accrue(row["last_accrual"], now, row["rate"], max_hours=cap)   # прежние правила: целые часы
+                credit, new_last, new_acc = economy.accrue_minutes(last, 0, now, row["rate"], cap)   # неполный час по минутам
+                if new_last <= now:
+                    new_last = new_last // economy.TICK * economy.TICK   # метка на границе минуты (не больше одного тика один раз)
+                paid = max(0, min(earned + credit, MAX_SAFE_INT - row["balance"]))
+                conn.execute("UPDATE players SET balance = balance + ?, last_accrual = ?, accrual_acc = ? WHERE telegram_id = ?",
+                             (paid, new_last, new_acc, row["telegram_id"]))
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def _accrue_conn(conn, telegram_id, now):
+    """Подтягивает начисление игрока за все полностью прошедшие минуты ВНУТРИ открытой транзакции: зачисление через wallet
+    (не выше MAX_SAFE_INT, остаток при упоре не копится), метка и остаток пишутся там же. Если тиков нет, ничего не пишет.
+    Возвращает, сколько фишек зачислено. Игрока нет: 0."""
+    row = conn.execute(
+        "SELECT rate, last_accrual, accrual_acc, storage_level FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+    if row is None:
+        return 0
+    credit, new_last, new_acc = economy.accrue_minutes(
+        row["last_accrual"], row["accrual_acc"], now, row["rate"], farm.storage_hours(row["storage_level"]))
+    if credit == 0 and new_last == row["last_accrual"] and new_acc == row["accrual_acc"]:
+        return 0
+    paid = _credit_capped(conn, telegram_id, credit) if credit > 0 else 0
+    conn.execute("UPDATE players SET last_accrual = ?, accrual_acc = ? WHERE telegram_id = ?", (new_last, new_acc, telegram_id))
+    return paid
+
+
+def _pending_accrual(row, now):
+    """Сколько было бы начислено сейчас (только расчёт, без записи): для рейтинга беседы."""
+    return economy.accrue_minutes(row["last_accrual"], row["accrual_acc"], now, row["rate"],
+                                  farm.storage_hours(row["storage_level"]))[0]
 
 
 def get_meta(key, db_path=None):
@@ -635,50 +687,44 @@ def _register_player(conn, telegram_id, now):
         "INSERT OR IGNORE INTO players "
         "(telegram_id, balance, rate, last_accrual, created_at) "
         "VALUES (?, ?, ?, ?, ?)",
-        (telegram_id, balance, BASE_RATE, now, now),
+        (telegram_id, balance, BASE_RATE, now // economy.TICK * economy.TICK, now),   # метка на границе минуты
     )
 
 
 def get_player(telegram_id, now=None, db_path=None):
-    """Находит игрока (или регистрирует), начисляет фишки, возвращает словарь."""
+    """Находит игрока (или регистрирует), подтягивает поминутное начисление, возвращает словарь (accrued: зачислено этим вызовом).
+
+    Быстрый путь: если игрок есть и полностью прошедших минут нет, только чтение, без BEGIN IMMEDIATE и без записи (GET /api/me
+    не превращается в запись для всех). Иначе транзакция BEGIN IMMEDIATE: два одновременных запроса одного игрока выполняются
+    по очереди, второй видит уже обновлённую метку и ничего не начисляет."""
     if now is None:
         now = int(time.time())
-
+    cols = "balance, rate, last_accrual, accrual_acc, total_staked, xp, income_level, storage_level"
+    accrued = 0
     conn = _connect(db_path)
     try:
-        # IMMEDIATE сразу берёт блокировку на запись: два одновременных запроса
-        # одного игрока выполняются по очереди, а не читают одно и то же старое значение
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            # новый игрок получает стартовый баланс (или 0 в период защиты); существующего не трогаем
-            _register_player(conn, telegram_id, now)
-            row = conn.execute(
-                "SELECT balance, rate, last_accrual, total_staked, xp, income_level, storage_level "
-                "FROM players WHERE telegram_id = ?",
-                (telegram_id,),
-            ).fetchone()
-
-            # начисление по часам: единственная правка баланса вне wallet (это не игровое списание или выплата)
-            earned, new_last = _accrue_player(row, now)
-            balance = row["balance"] + earned
-
-            if earned or new_last != row["last_accrual"]:
-                conn.execute(
-                    "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
-                    (balance, new_last, telegram_id),
-                )
-            conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
+        row = conn.execute("SELECT %s FROM players WHERE telegram_id = ?" % cols, (telegram_id,)).fetchone()
+        due = row is None or economy.accrue_minutes(row["last_accrual"], row["accrual_acc"], now, row["rate"],
+                                                    farm.storage_hours(row["storage_level"])) != (0, row["last_accrual"], row["accrual_acc"])
+        if due:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                _register_player(conn, telegram_id, now)   # новый игрок получает стартовый баланс (или 0 в период защиты)
+                accrued = _accrue_conn(conn, telegram_id, now)
+                row = conn.execute("SELECT %s FROM players WHERE telegram_id = ?" % cols, (telegram_id,)).fetchone()
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
     finally:
         conn.close()
 
     return {
         "telegram_id": telegram_id,
-        "balance": balance,
+        "balance": row["balance"],
         "rate": row["rate"],
-        "last_accrual": new_last,
+        "last_accrual": row["last_accrual"],
+        "accrued": accrued,
         "total_staked": row["total_staked"],
         "xp": row["xp"],
         "income_level": row["income_level"],
@@ -738,15 +784,7 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             # (б) игрок и начисление: потратить можно и только что начисленное.
             # Начисление по часам записывается сразу (при ошибке ниже транзакция откатится целиком)
             _register_player(conn, telegram_id, now)
-            row = conn.execute(
-                "SELECT balance, rate, last_accrual, storage_level FROM players WHERE telegram_id = ?",
-                (telegram_id,),
-            ).fetchone()
-            earned, new_last = _accrue_player(row, now)
-            conn.execute(
-                "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
-                (row["balance"] + earned, new_last, telegram_id),
-            )
+            _accrue_conn(conn, telegram_id, now)
 
             # (в) списание ставки через кошелёк (InsufficientFunds, если фишек не хватает) и проверка,
             # не упрётся ли баланс в предел точных чисел JavaScript при самой большой выплате
@@ -2017,16 +2055,12 @@ def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
 
             # (б) начисление по СТАРОЙ ставке и СТАРОМУ потолку: новые значения на прошлое не действуют
             _register_player(conn, telegram_id, now)
+            _accrue_conn(conn, telegram_id, now)   # по старой ставке и старому потолку: дальше минуты считаются уже по новым
             row = conn.execute(
                 "SELECT balance, rate, last_accrual, xp, income_level, storage_level "
                 "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
-            earned, new_last = _accrue_player(row, now)
-            conn.execute(
-                "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
-                (row["balance"] + earned, new_last, telegram_id),
-            )
 
             # (в) проверки по порядку
             level = row["income_level"] if kind == "income" else row["storage_level"]
@@ -2075,15 +2109,8 @@ def farm_status(telegram_id, now=None, db_path=None):
 # (она возвращается при завершении), в рейтинге беседы это так же.
 
 def _accrue_write(conn, telegram_id, now):
-    """Начисление по часам как в spin_roulette: пишет баланс и last_accrual (единая _accrue_player)."""
-    row = conn.execute(
-        "SELECT balance, rate, last_accrual, storage_level FROM players WHERE telegram_id = ?", (telegram_id,)
-    ).fetchone()
-    earned, new_last = _accrue_player(row, now)
-    conn.execute(
-        "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?",
-        (row["balance"] + earned, new_last, telegram_id),
-    )
+    """Подтягивает поминутное начисление внутри открытой транзакции (единая _accrue_conn); без тиков ничего не пишет."""
+    return _accrue_conn(conn, telegram_id, now)
 
 
 def _credit_capped(conn, telegram_id, amount):
@@ -2442,7 +2469,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
             _register_player(conn, telegram_id, now)
             _touch_member(conn, chat_instance, telegram_id, first_name, now)
             rows = conn.execute(
-                "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual, "
+                "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual, p.accrual_acc, "
                 "       p.total_staked, p.storage_level, p.xp "
                 "FROM (SELECT telegram_id, first_name, first_seen FROM chat_members "
                 "      WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
@@ -2458,7 +2485,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
 
     entries = []
     for r in rows:
-        earned, _ = _accrue_player(r, now)
+        earned = _pending_accrual(r, now)
         entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"],
                         r["total_staked"], r["xp"]))
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
@@ -2493,7 +2520,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         conn.execute("BEGIN")  # один снимок для всех запросов
         try:
             player = conn.execute(
-                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level "
+                "SELECT telegram_id, balance, rate, last_accrual, accrual_acc, created_at, total_staked, xp, income_level, storage_level "
                 "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
