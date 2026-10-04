@@ -11,6 +11,7 @@ import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
 import blackjack
+import crash
 import farm
 import keno
 import mines
@@ -290,6 +291,46 @@ def init_db(db_path=None):
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS blackjack_actions (
+                telegram_id   INTEGER NOT NULL,
+                request_id    TEXT    NOT NULL,
+                action        TEXT    NOT NULL,
+                params        TEXT    NOT NULL,
+                response_json TEXT    NOT NULL,
+                created_at    INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
+        # краш: точка краха (crash_x100) хранится только здесь и никогда не уходит клиенту, пока раунд идёт
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crash_games (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id   INTEGER NOT NULL,
+                bet           INTEGER NOT NULL,
+                mode          TEXT    NOT NULL,
+                target_x100   INTEGER,
+                crash_x100    INTEGER NOT NULL,
+                started_at_ms INTEGER NOT NULL,
+                status        TEXT    NOT NULL,
+                result        TEXT,
+                mult_x100     INTEGER,
+                payout        INTEGER,
+                auto          INTEGER NOT NULL DEFAULT 0,
+                created_at    INTEGER NOT NULL,
+                finished_at   INTEGER
+            )
+            """
+        )
+        # не больше одного активного раунда на игрока
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_crash_active ON crash_games(telegram_id) WHERE status = 'active'"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_crash_history ON crash_games(telegram_id, finished_at)")
+        # действия: ключ (игрок, request_id) даёт идемпотентность повторов
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crash_actions (
                 telegram_id   INTEGER NOT NULL,
                 request_id    TEXT    NOT NULL,
                 action        TEXT    NOT NULL,
@@ -916,6 +957,247 @@ def blackjack_state(telegram_id, now=None, db_path=None):
         conn.close()
 
 
+# ---------- краш ----------
+
+def _now_ms():
+    return int(time.time() * 1000)
+
+
+def _crash_active(conn, telegram_id):
+    return conn.execute(
+        "SELECT * FROM crash_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
+    ).fetchone()
+
+
+def _crash_view(row, now_ms, balance, level, xp_total, replayed=False):
+    """Ответ API (одна форма). Пока раунд идёт, точки краха в ответе нет; elapsed_ms по эффективному времени."""
+    active = row["status"] == "active"
+    return {
+        "status": row["status"],
+        "mode": row["mode"],
+        "bet": row["bet"],
+        "target": crash.text(row["target_x100"]) if row["target_x100"] is not None else None,
+        "elapsed_ms": crash.effective_ms(now_ms, row["started_at_ms"]) if active else None,
+        "doubling_ms": crash.DOUBLING_MS,
+        "cap": crash.text(crash.CAP_X100),
+        "crash_multiplier": None if active else crash.text(row["crash_x100"]),
+        "result": row["result"],
+        "multiplier": None if active else crash.text(row["mult_x100"]),
+        "payout": row["payout"],
+        "balance": balance,
+        "level": level,
+        "xp": xp_total,
+        "auto": bool(row["auto"]),
+        "replayed": replayed,
+    }
+
+
+def _crash_none_view(balance, level, xp_total):
+    return {"status": "none", "mode": None, "bet": None, "target": None, "elapsed_ms": None, "doubling_ms": crash.DOUBLING_MS,
+            "cap": crash.text(crash.CAP_X100), "crash_multiplier": None, "result": None, "multiplier": None, "payout": None,
+            "balance": balance, "level": level, "xp": xp_total, "auto": False, "replayed": False}
+
+
+def _crash_response(conn, telegram_id, game_id, now_ms, replayed=False):
+    row = conn.execute("SELECT * FROM crash_games WHERE id = ?", (game_id,)).fetchone()
+    pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+    return _crash_view(row, now_ms, pl["balance"], profile_level(pl["xp"]), pl["xp"], replayed)
+
+
+def _crash_finish(conn, telegram_id, row, result, mult_x100, now, auto):
+    """Единственное место окончания раунда: выплата через wallet, XP, отметка времени. Раунд закрывается один раз
+    (условие status = 'active'), значит выплата и опыт тоже один раз."""
+    paid = crash.payout(row["bet"], mult_x100) if result == "win" else 0
+    changed = conn.execute(
+        "UPDATE crash_games SET status = 'finished', result = ?, mult_x100 = ?, payout = ?, auto = ?, finished_at = ? "
+        "WHERE id = ? AND status = 'active'", (result, mult_x100, paid, 1 if auto else 0, now, row["id"])).rowcount
+    if changed == 0:
+        return
+    if paid > 0:
+        _credit_capped(conn, telegram_id, paid)
+    _add_xp(conn, telegram_id, xp.crash_xp(row["bet"], crash.xp_multiplier(row["mode"], result, mult_x100, row["target_x100"])))
+
+
+def _crash_settle_in(conn, telegram_id, now_ms):
+    """Закрывает активный ручной раунд, если он разбился по времени, достиг предела или брошен. Возвращает True, если закрыла."""
+    row = _crash_active(conn, telegram_id)
+    if row is None:
+        return False
+    verdict = crash.settle(row["crash_x100"], row["started_at_ms"], now_ms)
+    if verdict is None:
+        return False
+    _crash_finish(conn, telegram_id, row, verdict[0], verdict[1], now_ms // 1000, True)
+    return True
+
+
+def settle_expired_crash(telegram_id, now_ms=None, db_path=None):
+    """Закрывает раунд игрока отдельной транзакцией (идемпотентно). Без изменений только читает. True, если закрыла."""
+    if now_ms is None:
+        now_ms = _now_ms()
+    conn = _connect(db_path)
+    try:
+        row = _crash_active(conn, telegram_id)
+        if row is None or crash.settle(row["crash_x100"], row["started_at_ms"], now_ms) is None:
+            return False
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            closed = _crash_settle_in(conn, telegram_id, now_ms)
+            conn.execute("COMMIT")
+            return closed
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+CRASH_CLOSE_BATCH = 200
+
+
+def close_expired_crash(now_ms=None, db_path=None, batch=CRASH_CLOSE_BATCH):
+    """Фоновое закрытие брошенных раундов всех игроков (не больше batch за проход). Возвращает число."""
+    if now_ms is None:
+        now_ms = _now_ms()
+    conn = _connect(db_path)
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'crash_games'").fetchone() is None:
+            return 0
+        owners = [r["telegram_id"] for r in conn.execute(
+            "SELECT telegram_id FROM crash_games WHERE status = 'active' AND started_at_ms <= ? LIMIT ?",
+            (now_ms - crash.ABANDON_MS, batch))]
+    finally:
+        conn.close()
+    closed = sum(1 for owner in owners if settle_expired_crash(owner, now_ms=now_ms, db_path=db_path))
+    if closed:
+        logger.info("Закрыто брошенных раундов краша: %d", closed)  # только количество
+    return closed
+
+
+def _run_crash_action(telegram_id, request_id, action, params, body, now_ms, db_path, presettle=True):
+    """Общий порядок действия: закрытие просроченного раунда (кроме cashout: он закрывает сам), повтор по request_id,
+    начисление по часам, тело действия, запись ответа. Один request_id с другими параметрами: RequestConflict."""
+    if now_ms is None:
+        now_ms = _now_ms()
+    now = now_ms // 1000
+    if presettle:
+        settle_expired_crash(telegram_id, now_ms=now_ms, db_path=db_path)
+    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute(
+                "SELECT action, params, response_json FROM crash_actions WHERE telegram_id = ? AND request_id = ?",
+                (telegram_id, request_id),
+            ).fetchone()
+            if old is not None:
+                if old["action"] != action or old["params"] != params_json:
+                    raise crash.RequestConflict()
+                response = json.loads(old["response_json"])
+                response["replayed"] = True
+                conn.execute("COMMIT")
+                return response
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            response = body(conn, now_ms, now)
+            response["replayed"] = False
+            conn.execute(
+                "INSERT INTO crash_actions (telegram_id, request_id, action, params, response_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now),
+            )
+            conn.execute("COMMIT")
+            return response
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def crash_start(telegram_id, request_id, bet, target_x100=None, now_ms=None, db_path=None, rng=None):
+    """Новый раунд: нет активного, ставка списывается через wallet и идёт в total_staked, точка краха выбирается и прячется.
+    Режим авто (задан target_x100): раунд решается сразу. Ручной: раунд активен, множитель растёт по времени сервера."""
+    if type(bet) is not int or not 1 <= bet <= crash.CRASH_MAX_BET:
+        raise ValueError("bet out of range")
+    if target_x100 is not None and (type(target_x100) is not int
+                                    or not crash.MIN_TARGET_X100 <= target_x100 <= crash.CAP_X100):
+        raise ValueError("target out of range")
+
+    def body(conn, now_ms_, now):
+        if _crash_active(conn, telegram_id) is not None:
+            raise crash.ActiveGameExists()
+        wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
+        conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
+                     (bet, MAX_SAFE_INT, telegram_id))
+        crash_x100 = crash.new_crash(rng)
+        mode = "manual" if target_x100 is None else "auto"
+        cur = conn.execute(
+            "INSERT INTO crash_games (telegram_id, bet, mode, target_x100, crash_x100, started_at_ms, status, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'active', ?)",
+            (telegram_id, bet, mode, target_x100, crash_x100, now_ms_, now))
+        game_id = cur.lastrowid
+        if mode == "auto":
+            result, mult = crash.decide_auto(target_x100, crash_x100)
+            _crash_finish(conn, telegram_id, conn.execute("SELECT * FROM crash_games WHERE id = ?", (game_id,)).fetchone(),
+                          result, mult, now, False)
+        return _crash_response(conn, telegram_id, game_id, now_ms_)
+
+    return _run_crash_action(telegram_id, request_id, "start", {"bet": bet, "target_x100": target_x100}, body, now_ms, db_path)
+
+
+def crash_cashout(telegram_id, request_id, now_ms=None, db_path=None):
+    """Вывод на текущем множителе. Если раунд к этому моменту уже разбился (или достиг предела), отвечает итогом раунда.
+    TooEarly (множитель меньше 1.01): раунд остаётся активным."""
+    def body(conn, now_ms_, now):
+        row = _crash_active(conn, telegram_id)
+        if row is None:
+            raise crash.NoActiveGame()
+        if _crash_settle_in(conn, telegram_id, now_ms_):
+            return _crash_response(conn, telegram_id, row["id"], now_ms_)
+        c = crash.cashout_multiplier(row["started_at_ms"], now_ms_)   # TooEarly: ничего не меняется (откат)
+        _crash_finish(conn, telegram_id, row, "win", c, now, False)
+        return _crash_response(conn, telegram_id, row["id"], now_ms_)
+
+    return _run_crash_action(telegram_id, request_id, "cashout", {}, body, now_ms, db_path, presettle=False)
+
+
+def crash_state(telegram_id, now_ms=None, db_path=None):
+    """Активный раунд, иначе последний завершённый, иначе status none. Во время полёта только читает (без начисления)."""
+    if now_ms is None:
+        now_ms = _now_ms()
+    settle_expired_crash(telegram_id, now_ms=now_ms, db_path=db_path)
+    conn = _connect(db_path)
+    try:
+        row = _crash_active(conn, telegram_id)
+        if row is not None:
+            pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            return _crash_view(row, now_ms, pl["balance"], profile_level(pl["xp"]), pl["xp"])
+    finally:
+        conn.close()
+    now = now_ms // 1000
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)   # баланс с начислением, как /api/me
+            row = conn.execute(
+                "SELECT * FROM crash_games WHERE telegram_id = ? ORDER BY (status = 'active') DESC, id DESC LIMIT 1",
+                (telegram_id,)).fetchone()
+            pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            level = profile_level(pl["xp"])
+            result = _crash_none_view(pl["balance"], level, pl["xp"]) if row is None else _crash_view(
+                row, now_ms, pl["balance"], level, pl["xp"])
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
 # ---------- ферма: улучшения дохода и хранилища ----------
 
 def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
@@ -1454,6 +1736,14 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             bj_active = conn.execute(
                 "SELECT 1 FROM blackjack_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
             ).fetchone() is not None
+            crash_games = conn.execute(
+                "SELECT created_at, bet, mode, target_x100, crash_x100, result, payout, finished_at FROM crash_games "
+                "WHERE telegram_id = ? AND status = 'finished' ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
+            crash_active = conn.execute(
+                "SELECT 1 FROM crash_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
+            ).fetchone() is not None
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -1463,7 +1753,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -1487,6 +1777,13 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             for g in bj_games
         ],
         "blackjack_active": bj_active,
+        # точка краха активного раунда в выгрузку не входит: она раскрыла бы исход
+        "crash_games": [
+            {"created_at": g["created_at"], "bet": g["bet"], "mode": g["mode"], "target_x100": g["target_x100"],
+             "crash_x100": g["crash_x100"], "result": g["result"], "payout": g["payout"], "finished_at": g["finished_at"]}
+            for g in crash_games
+        ],
+        "crash_active": crash_active,
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
@@ -1534,6 +1831,9 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["blackjack_games"] = conn.execute(
                 "DELETE FROM blackjack_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённая вместе со ставкой
             conn.execute("DELETE FROM blackjack_actions WHERE telegram_id = ?", (telegram_id,))
+            counts["crash_games"] = conn.execute(
+                "DELETE FROM crash_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённый вместе со ставкой
+            conn.execute("DELETE FROM crash_actions WHERE telegram_id = ?", (telegram_id,))
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             if counts["players"] > 0:
@@ -1571,7 +1871,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "chat_members": 0,
+               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -1627,6 +1927,17 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM blackjack_actions WHERE rowid IN "
                 "(SELECT rowid FROM blackjack_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "crash_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
+            deleted["crash_games"] = batches(
+                "DELETE FROM crash_games WHERE id IN "
+                "(SELECT id FROM crash_games WHERE status != 'active' AND finished_at IS NOT NULL "
+                "AND finished_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
+        if "crash_actions" in present:
+            deleted["crash_actions"] = batches(
+                "DELETE FROM crash_actions WHERE rowid IN "
+                "(SELECT rowid FROM crash_actions WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "
@@ -1639,8 +1950,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
                 deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"],
-                deleted["blackjack_games"] + deleted["blackjack_actions"])
+                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"])
     return deleted
