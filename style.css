@@ -1756,3 +1756,49 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .cr-bets, .cr-actions { margin-top: auto; }
 .cr-cash { width: 100%; height: 52px; font-size: 18px; }
 
+/* ---------- титульный экран (лобби): название, баланс, уровень, карточки игр ---------- */
+.lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-3) var(--space-3);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.lobby > * { width: 100%; max-width: 420px; min-width: 0; flex: none; }
+.lobby-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.22);
+}
+.lobby-stats { display: flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.lobby-stats .balance { flex: 0 1 auto; }
+.lobby-level { flex: none; }
+.lobby-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lobby.booting > * { visibility: hidden; }   /* до первого ответа сервера */
+.lobby-card {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 4px;
+  min-height: 96px;
+  padding: var(--space-3);
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out;
+}
+.lobby-card:active { background: var(--white-soft); border-color: var(--border-strong); transform: scale(0.98); }
+.lobby-card:last-child { grid-column: 1 / -1; }   /* пятая карточка на всю ширину */
+.lobby-card svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lobby-card .lobby-name { font-family: var(--font-display); font-size: 18px; font-weight: 600; line-height: 1.15; }
+.lobby-card .lobby-desc { font-size: 12px; line-height: 1.3; color: var(--text-muted); overflow-wrap: anywhere; }
+

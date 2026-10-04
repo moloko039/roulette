@@ -28,7 +28,7 @@ import crash
 import farm
 import keno
 import mines
-from db import (crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+from db import (active_game_of, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
@@ -268,6 +268,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "level": profile_level(player["xp"]),   # уровень профиля по опыту
             "income_level": player["income_level"],
             "storage_level": player["storage_level"],
+            "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | null
         }
 
     @app.get("/api/chat/top")
