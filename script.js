@@ -560,6 +560,19 @@ const retryAfterMs = (res) => {
   return Math.min(10, Math.max(1, Number.isFinite(sec) ? sec : 1)) * 1000;
 };
 
+// Что повторять. POST повторяется (с тем же request_id) только при сетевой ошибке, таймауте, 429 (это делает
+// postJson) и ответе 5xx. Остальные 4xx и любой ответ 2xx не повторяются: после 2xx сервер уже выполнил действие,
+// а если наш код не смог разобрать или показать ответ, это наша ошибка, а не сбой сети.
+const isServerError = (res) => res.status >= 500;
+
+async function readJsonBody(res) {
+  try {
+    return { ok: true, data: await res.json() };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
 async function postJson(path, payload) {
   for (;;) {
     const ctrl = new AbortController();
@@ -604,14 +617,20 @@ async function postRound(round) {
       try { detail = (await res.json()).detail; } catch (e) { detail = ''; }
       if (detail === 'insufficient_funds') return { kind: 'fatal', text: 'Недостаточно фишек', code: '409', refresh: true };
       if (detail === 'balance_limit') return { kind: 'fatal', text: 'Достигнут максимальный баланс', code: '409' };
-      return { kind: 'retry', code: '409' };
+      return { kind: 'fatal', text: 'Не удалось выполнить ставку', code: '409' };
     }
-    if (!res.ok) return { kind: 'retry', code: String(res.status) };
-    const d = await res.json();
+    if (!res.ok) {
+      return isServerError(res) ? { kind: 'retry', code: String(res.status) }
+        : { kind: 'fatal', text: 'Не удалось выполнить ставку', code: String(res.status) };
+    }
+    const body = await readJsonBody(res);
+    const d = body.ok ? body.data : null;
     const valid = d && isInt(d.number) && d.number >= 0 && d.number <= 36
       && isInt(d.stake_total) && d.stake_total >= 1 && isInt(d.payout_total) && d.payout_total >= 0
       && d.net === d.payout_total - d.stake_total && isInt(d.balance) && d.balance >= 0;
-    return valid ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+    // ответ 2xx не повторяем: раунд уже обработан сервером, баланс узнаём отдельным запросом
+    return valid ? { kind: 'ok', data: d }
+      : { kind: 'fatal', text: 'Ответ сервера не распознан. Баланс обновлён', code: 'ответ', refresh: true };
   } catch (e) {
     return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
   }
@@ -1408,13 +1427,19 @@ async function postFarmBuy(id, kind) {
         return { kind: 'fatal', text: 'Нужен уровень профиля' + need, refresh: true };
       }
       if (body.detail === 'insufficient_funds') return { kind: 'fatal', text: 'Не хватает фишек', refresh: true };
-      return { kind: 'retry', code: '409' };
+      return { kind: 'fatal', text: 'Не удалось купить улучшение', refresh: true };
     }
-    if (!res.ok) return { kind: 'retry', code: String(res.status) };
-    const d = await res.json();
+    if (!res.ok) {
+      return isServerError(res) ? { kind: 'retry', code: String(res.status) }
+        : { kind: 'fatal', text: 'Не удалось купить улучшение', refresh: true };
+    }
+    const parsed = await readJsonBody(res);
+    const d = parsed.ok ? parsed.data : null;
     const valid = d && typeof d.kind === 'string' && isCount(d.level_after) && isCount(d.cost)
       && isCount(d.balance) && typeof d.replayed === 'boolean';
-    return valid ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+    // ответ 2xx не повторяем: покупка уже обработана, состояние берём новым GET /api/farm
+    return valid ? { kind: 'ok', data: d }
+      : { kind: 'fatal', text: 'Ответ сервера не распознан. Данные обновлены', refresh: true };
   } catch (e) {
     return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
   }
@@ -1515,6 +1540,7 @@ const mn = {
   last: null,
   balance: null,
   busy: false,          // идёт действие: поле и кнопки заблокированы
+  pending: null,        // клетка, открываемая сейчас (для подсказки на поле)
   hit: null,            // клетка, на которой сработала мина (только в этой сессии)
   showLast: true,       // показывать блок прошлой игры под формой
   settings: { bet: 10, mines: 3 },
@@ -1596,6 +1622,7 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
       cls += ' mine' + (muted ? ' muted' : '') + (i === hit ? ' hit' : '');
       html = MINES_MINE_SVG;
     }
+    if (mn.busy && i === mn.pending && !open.has(i) && !bombs.has(i)) cls += ' opening';
     btn.className = cls;
     btn.innerHTML = html; // постоянная разметка значков, данных сервера в ней нет
     btn.disabled = !interactive || mn.busy || open.has(i) || bombs.has(i);
@@ -1799,18 +1826,22 @@ async function postMinesOnce(path, payload, validate) {
       try { body = await res.json(); } catch (e) { body = {}; }
       return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
     }
-    if (!res.ok) return { kind: 'retry', code: String(res.status) };
-    const d = await res.json();
-    return validate(d) ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+    if (!res.ok) {
+      return isServerError(res) ? { kind: 'retry', code: String(res.status) }
+        : { kind: 'fatal', text: 'Не удалось выполнить действие' };
+    }
+    const body = await readJsonBody(res);
+    // ответ 2xx не повторяем: действие уже выполнено сервером; непонятный ответ = повод запросить состояние
+    return body.ok && validate(body.data) ? { kind: 'ok', data: body.data } : { kind: 'invalid' };
   } catch (e) {
     return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
   }
 }
 
 const validMinesStart = (d) => !!d && validMinesGame(d.game) && isCount(d.balance);
+// при result "safe" ключа last в ответе сервера нет (он есть только у закрытой игры), при "mine" и "cleared" game равен null
 const validMinesReveal = (d) => !!d && ['safe', 'mine', 'cleared'].includes(d.result) && isCount(d.balance)
-  && (d.game === null || validMinesGame(d.game)) && (d.last === null || validMinesLast(d.last))
-  && (d.result === 'safe' ? d.game !== null : d.last !== null);
+  && (d.result === 'safe' ? validMinesGame(d.game) : validMinesLast(d.last) && (d.game === null || d.game === undefined));
 const validMinesCashout = (d) => !!d && validMinesLast(d.last) && isCount(d.balance);
 
 // Действие пользователя: блокировка, до 3 попыток с одним request_id, разбор ответа.
@@ -1818,11 +1849,13 @@ const validMinesCashout = (d) => !!d && validMinesLast(d.last) && isCount(d.bala
 async function minesAct(path, body, validate, onOk) {
   if (mn.busy) return;
   if (!(tg && tg.initData)) {
+    mn.pending = null;
     setMinesNotice('Откройте игру через бота в Telegram');
     return;
   }
   const id = makeRequestId();
   if (!id) {
+    mn.pending = null;
     setMinesNotice('Ошибка');
     return;
   }
@@ -1835,17 +1868,25 @@ async function minesAct(path, body, validate, onOk) {
     const r = await postMinesOnce(path, { request_id: id, ...body }, validate);
     if (r.kind !== 'retry') result = r;
   }
+  let note = 'Состояние обновлено';
   if (result && result.kind === 'ok') {
     mn.balance = result.data.balance;
-    onOk(result.data);
-    mn.busy = false;
-    renderMines();
-    return;
+    try {
+      onOk(result.data);
+      mn.busy = false;
+      mn.pending = null;
+      renderMines();
+      return;
+    } catch (e) {
+      // ошибка нашего кода после успешного ответа: POST не повторяем, один раз берём состояние с сервера
+      note = 'Не удалось показать результат. Состояние обновлено';
+    }
   }
   // дальше состояние известно только серверу
   let reload = true;
-  let note = 'Состояние обновлено';
-  if (result && result.kind === 'fatal') {
+  if (result && result.kind === 'invalid') {
+    note = 'Ответ сервера не распознан. Состояние обновлено';
+  } else if (result && result.kind === 'fatal') {
     note = result.text;
     reload = false;
   } else if (result && result.kind === 'conflict' && result.detail === 'insufficient_funds') {
@@ -1864,6 +1905,7 @@ async function minesAct(path, body, validate, onOk) {
     setMinesNotice(note);
   }
   mn.busy = false;
+  mn.pending = null;
   renderMines();
   loadServer('after');
 }
@@ -1891,6 +1933,7 @@ function minesStart() {
 
 function minesReveal(cell) {
   if (mn.view !== 'play' || mn.busy) return;
+  mn.pending = cell; // нажатая клетка показывает «открывается», пока идёт запрос
   minesAct('/api/mines/reveal', { cell }, validMinesReveal, (d) => {
     if (d.result === 'safe') {
       mn.game = d.game;
