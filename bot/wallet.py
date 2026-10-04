@@ -2,7 +2,8 @@
 
 Функции работают ВНУТРИ уже открытой транзакции: соединение передаётся аргументом, транзакцию они
 не открывают, не закрывают и не откатывают (это делает вызывающий код, например spin_roulette).
-Начисление по часам (economy.accrue) сюда не относится и остаётся в db.py.
+Минутное начисление дохода (db._accrue_conn) зачисляет через wallet.credit; единственная прямая правка баланса вне wallet это
+разовая миграция db._migrate_minute_accrual.
 """
 from roulette import MAX_SAFE_INT, BalanceLimit, InsufficientFunds as _InsufficientFunds
 

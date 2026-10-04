@@ -30,8 +30,8 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Фишки только виртуальные: нельзя покупать (в том числе за Telegram Stars), выводить, обменивать
   на подарки или ценности. За Stars допустима только косметика, не влияющая на фишки.
 - Единственный источник баланса и результата ставки: сервер (клиент баланс не хранит).
-- Баланс меняется только через wallet; уровень профиля по опыту players.xp (levels.py); лимит частоты общий
-  для всех игр (ratelimit.py).
+- Баланс меняется только через wallet (исключение: разовая миграция db._migrate_minute_accrual); уровень профиля по
+  опыту players.xp (levels.py); лимит частоты общий для всех игр (ratelimit.py).
 - Уровень профиля по опыту (xp.py): ставка * вероятность потерять всю ставку раунда; безрисковые комбинации
   опыта не дают.
 - Ферма: доход до 20 уровней (x1,35 за уровень, цена 1000*1,8^n), хранилище до 8 (+6 ч, цена 1000*2^n),
@@ -62,24 +62,21 @@ Telegram Mini App: рулетка на виртуальных фишках.
   потолок офлайна 30 ч + хранилище, без фонового задания. Микрозайма нет.
 - Лимита ставки нет, кроме баланса и технического потолка MAX_SAFE_INT (bot/roulette.py).
 - Рейтинг по беседам (chat_instance из подписанного initData) по балансу, с total_staked игрока и chat_staked беседы; в личке не показывается.
-- Копии для вывода с сервера шифруются публичным ключом; приватного ключа на сервере нет; отправка без
-  шифрования запрещена.
+- Копии для вывода шифруются публичным ключом; приватного ключа на сервере нет; отправка без шифрования запрещена.
 - SQLite: режим WAL включается флагом SQLITE_JOURNAL_MODE=wal только при исправленной версии SQLite;
   копии без -wal.
-- Платформенные резервные копии Railway недоступны (только Pro): копии делает программа
-  (bot/backup.py), владелец скачивает их на компьютер.
-- Сроки хранения (раунды, участники бесед, копии, защита от повторной регистрации): см. журнал
-  и bot/DEPLOY.md.
+- Платформенные копии Railway недоступны (только Pro): копии делает bot/backup.py, владелец скачивает их.
+- Сроки хранения (раунды, участники бесед, копии, защита от повторной регистрации): журнал и bot/DEPLOY.md.
 
 ## Где что лежит
 - Клиент в корне: index.html, style.css, script.js, privacy.html; шрифты локально в fonts/ (лицензия OFL).
-- Сервер в bot/: api.py (эндпоинты, фоновая задача), auth.py (проверка initData), db.py (SQLite),
-  economy.py (начисления), roulette.py (правила и ставки), farm.py, mines.py, keno.py, blackjack.py, crash.py, bot.py (команды бота),
-  antiabuse.py, backup.py, notify.py, verify_backup.py.
+- Сервер в bot/: api.py (маршруты), bot.py (команды бота), db.py (вся SQLite; общие функции в секции «ЯДРО»), wallet.py, economy.py,
+  farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
+  blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
 - Тесты: bot/test_*.py (общие заглушки: bot/stubs.py, bot/tg_testutil.py).
-- GitHub Actions (.github/workflows/tests.yml): тесты на Python 3.9 и 3.12 и scripts/check_repo.py
-  (запрещённые файлы и токены в индексе git; локально `python scripts/check_repo.py`).
-- Деплой и переменные окружения: bot/DEPLOY.md. Журнал: docs/JOURNAL.md.
+- GitHub Actions (.github/workflows/tests.yml): тесты на Python 3.9 и 3.12 и scripts/check_repo.py (запрещённые файлы и токены
+  в индексе git; локально `python scripts/check_repo.py`).
+- Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. Журнал: docs/JOURNAL.md.
 
 ## Тесты
 Из папки bot: `.venv/bin/python run_tests.py` (запускает все test_*.py, код выхода 1 при сбое).
