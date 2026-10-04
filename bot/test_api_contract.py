@@ -77,9 +77,10 @@ GAME = {"bet": int, "mines": int, "revealed": [int], "safe_left": int, "multipli
 LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells": [int], "payout": int,
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
-      "active_game": OPT(str)}
+      "active_game": OPT(str), "incoming_unseen": {"count": int, "total": int},
+      "transfer_limits": {"min": int, "max": int, "daily_left": int, "fee_percent": int, "min_level": int, "cooldown_seconds": int}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
-TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int}
+TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int, "member_ref": OPT(str)}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
 CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}
@@ -381,8 +382,7 @@ try:
     for name, example in me_examples.items():
         if name.startswith("_"):
             continue
-        spec = {k: (OPT(str) if k == "active_game" else type(v)) for k, v in example.items()}
-        assert spec == ME, (name, "пример /api/me не совпадает с контрактом")
+        assert not shape_errors(ME, example), (name, "пример /api/me не совпадает с контрактом", shape_errors(ME, example))
         assert example["active_game"] in (None, "mines", "blackjack", "crash")
     for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, None)):
         r = ca.get("/api/me", headers=auth(uid))

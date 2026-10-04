@@ -1,0 +1,40 @@
+{
+  "_comment": "Примеры ответов GET /api/chat/members (значения-заглушки). Серверный тест test_chat_members.py сверяет с ними форму настоящих ответов; мок клиента строится из этого же файла.",
+  "page": {
+    "items": [
+      {
+        "name": "Борис",
+        "member_ref": "0123456789abcdef0123456789abcdef"
+      },
+      {
+        "name": "Вера",
+        "member_ref": "fedcba9876543210fedcba9876543210"
+      }
+    ],
+    "next_offset": 30
+  },
+  "last_page": {
+    "items": [
+      {
+        "name": "Глеб",
+        "member_ref": "00112233445566778899aabbccddeeff"
+      }
+    ],
+    "next_offset": null
+  },
+  "empty": {
+    "items": [],
+    "next_offset": null
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "no_chat": {
+      "detail": "no_chat"
+    },
+    "not_in_chat": {
+      "detail": "not_in_chat"
+    }
+  }
+}

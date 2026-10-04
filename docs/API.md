@@ -34,6 +34,8 @@
 | income_level | int | всегда |
 | storage_level | int | всегда |
 | active_game | str\|null | всегда: `"mines"`, `"blackjack"`, `"crash"` (незавершённая игра игрока; если активных несколько, та, где действие было позже) или null |
+| incoming_unseen | `{count int, total int}` | всегда: непросмотренные входящие переводы (число и сумма, которую получатель получил) |
+| transfer_limits | `{min int, max int, daily_left int, fee_percent int, min_level int, cooldown_seconds int}` | всегда: лимиты переводов для клиента; у владельца `fee_percent` 0 |
 
 Побочные эффекты: закрывает просроченные игры (мины, блэкджек, краш) игрока, начисляет фишки по часам. `active_game` считается после закрытия просроченных игр.
 
@@ -63,7 +65,7 @@
 | me | объект | всегда |
 | chat_staked | int | всегда |
 
-Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int` (все всегда).
+Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int`, `member_ref str|null` (все всегда; `member_ref` непрозрачная метка участника для перевода, у самого себя null).
 `me`: `rank int`, `balance int`, `total int` (число участников рейтинга), `staked int`, `level int` (все всегда).
 
 ## GET /api/farm
@@ -234,4 +236,30 @@
 
 ### GET /api/crash/state
 Группа read. 200: общая форма: активный раунд, иначе последний завершённый, иначе `status: "none"`.
+
+## Переводы между участниками беседы
+Фишки виртуальные: перевод это подарок между участниками игры. Работает только если приложение открыто из беседы, получатель
+выбирается по `member_ref` из рейтинга беседы (идентификаторы Telegram в API не показываются: `member_ref` это HMAC от беседы и игрока секретом сервера).
+Константы в `bot/transfers.py`, клиент берёт лимиты из `transfer_limits` в `/api/me`. Примеры ответов: `docs/examples/transfers.json`.
+Правила: сумма 100..50000, не больше 100000 за скользящие 24 часа, пауза 10 секунд между переводами, отправитель не ниже уровня 3 и старше 24 часов,
+комиссия 5 % (минимум 1; идёт на игровой аккаунт разработчика, владелец-отправитель комиссию не платит). Перевод не влияет на опыт, уровень и `total_staked`.
+
+### POST /api/transfers/send
+Группа write. Тело: `{"request_id": str, "member_ref": str (32 hex), "amount": int (100..50000)}`. 200 (все ключи всегда):
+`amount int`, `fee int`, `received int` (сколько получит получатель), `balance int` (баланс отправителя после), `level int`, `daily_left int`, `replayed bool`.
+Повтор с тем же `request_id` и параметрами возвращает сохранённый перевод (`replayed: true`, `balance` текущий).
+Ошибки: 400 `{"detail": "invalid_request"}`; 409 `{"detail": "<код>"}`: `no_chat`, `self_transfer`, `not_in_chat`, `level_too_low`, `account_too_new`,
+`cooldown` (в теле ещё `seconds int`: сколько ждать), `daily_limit`, `insufficient_funds`, `recipient_limit`, `request_conflict`.
+
+### GET /api/transfers
+Группа read. 200: `{"items": [{"direction": "out"|"in", "name": str, "amount": int, "fee": int, "time": int}]}`: до 20 последних переводов
+(отправленных и полученных), новые первыми; `name` имя второй стороны как в рейтинге. Помечает входящие просмотренными (`incoming_unseen` в `/api/me` обнуляется).
+
+### GET /api/chat/members
+Группа read. Список участников беседы для выбора получателя перевода (из рейтинга можно выбрать только топ-10, здесь все).
+Запрос: `?q=<часть имени>&offset=<n>`. `q` ищет по имени без учёта регистра по вхождению (до 32 символов, управляющие символы отбрасываются), пустой `q` это все;
+`offset` целое 0..100000 (по умолчанию 0). 200: `{"items": [{"name": str, "member_ref": str}], "next_offset": int|null}`: не больше 30 участников на страницу,
+по последней активности (новые первыми); себя в списке нет; ни балансов, ни уровней, ни идентификаторов Telegram. `next_offset` null, если страниц больше нет.
+Ошибки: 400 `{"detail": "invalid_request"}` (плохой `offset`); 409 `{"detail": "no_chat"}` (приложение открыто вне беседы) или `{"detail": "not_in_chat"}`
+(запрашивающего нет среди участников этой беседы). Примеры: `docs/examples/chat_members.json`.
 
