@@ -189,18 +189,22 @@ try:
     # игровые списания и выплаты только через wallet; допускается только разовая миграция начисления (вместе с last_accrual) в db.py:
     # обычное поминутное начисление идёт через wallet.credit
     found = []
-    for src in sorted(glob.glob(os.path.join(HERE, "*.py"))):
-        name = os.path.basename(src)
+    # код базы разложен по слоям core/, features/, games/ (фасад db.py): сканируются они тоже
+    sources = glob.glob(os.path.join(HERE, "*.py"))
+    for layer in ("core", "features", "games"):
+        sources += glob.glob(os.path.join(HERE, layer, "*.py"))
+    for src in sorted(sources):
+        name = os.path.relpath(src, HERE)
         if name.startswith("test_") or name in ("stubs.py", "tg_testutil.py"):
             continue
         for number, line in enumerate(open(src, encoding="utf-8"), 1):
             if re.search(r"SET\s+balance|balance\s*=\s*balance", line):
                 found.append((name, number, line.strip()))
     for name, number, line in found:
-        ok = name == "wallet.py" or (name == "db.py" and "last_accrual" in line)
+        ok = name == "wallet.py" or (name == os.path.join("core", "migrations.py") and "last_accrual" in line)
         assert ok, "прямое изменение баланса вне wallet: %s:%d" % (name, number)
-    check("wallet меняет баланс", sorted({n for n, _, _ in found}), ["db.py", "wallet.py"])
-    check("прямая правка баланса в db.py: только миграция начисления", len([1 for n, _, _ in found if n == "db.py"]), 1)
+    check("wallet меняет баланс", sorted({n for n, _, _ in found}), [os.path.join("core", "migrations.py"), "wallet.py"])
+    check("прямая правка баланса вне wallet: только миграция начисления", len([1 for n, _, _ in found if n == os.path.join("core", "migrations.py")]), 1)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
