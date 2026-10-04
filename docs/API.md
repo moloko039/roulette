@@ -155,3 +155,42 @@
 ### GET /api/keno/paytable
 Группа read. 200: `{"paytable": {"<k>": {"<h>": "X.YY"}}}`: ключи строками, `k` число выбранных (1..10), `h` число совпадений;
 только платные пары, остальные пары дают выплату 0.
+
+## Блэкджек
+6 колод, перетасовка перед каждой раздачей, действия `hit`, `stand`, `double`, без сплита, страховки и сдачи. Дилер берёт до 17 и стоит на любых 17.
+Блэкджек платит 3:2 (`bet + bet*3//2`). Колода и скрытая карта дилера в ответах никогда не присутствуют. Раздача закрывается автоматически
+(stand) через 24 часа без действий. Примеры ответов (по ним тест проверяет форму, из них строится мок клиента): `docs/examples/blackjack.json`.
+
+**Общая форма ответа** (start, action и state; все ключи всегда):
+
+| Поле | Тип | Значение |
+|---|---|---|
+| status | str | `"active"`, `"finished"`, `"none"` (state без игры) |
+| bet | int\|null | ставка при старте (null при `none`) |
+| wager | int\|null | общая ставка с удвоением (null при `none`) |
+| player | `{cards [str], total int, soft bool}`\|null | `soft`: туз считается за 11 |
+| dealer | `{cards [str\|null], total int}`\|null | пока игра идёт, вторая карта `null`, `total` по открытой карте |
+| actions | [str] | допустимые действия; `double` только на двух картах и если хватает баланса; у завершённой пусто |
+| result | str\|null | `win`, `push`, `lose`, `bust`, `dealer_bust`, `blackjack`; null пока игра идёт |
+| payout | int\|null | выплата; null пока игра идёт |
+| balance | int | всегда |
+| level | int | уровень профиля |
+| xp | int | весь накопленный опыт |
+| auto | bool | раздача закрыта автоматически (24 часа без действий) |
+| replayed | bool | повтор того же `request_id` (в `state` всегда false) |
+
+Карта: строка «ранг + масть», ранг `A 2..10 J Q K`, масть `S H D C` (например `"AS"`, `"10H"`).
+Выплаты: `win`, `dealer_bust` = 2 * wager; `push` = wager; `blackjack` = bet + bet*3//2; `lose`, `bust` = 0.
+Ошибки POST: 400 `{"detail": "invalid_request"}`; 409 `{"detail": "<код>"}`: `active_game_exists`, `insufficient_funds`, `no_active_game`,
+`invalid_action` (double не на первых двух картах), `request_conflict` (тот же `request_id` с другими параметрами). Повтор с тем же
+`request_id` и теми же параметрами возвращает сохранённый ответ с `replayed: true`.
+
+### POST /api/blackjack/start
+Группа write. Тело: `{"request_id": str, "bet": int (1..1000000000)}`. 200: общая форма. Блэкджек решается сразу (`status: "finished"`).
+
+### POST /api/blackjack/action
+Группа write. Тело: `{"request_id": str, "action": "hit"|"stand"|"double"}`. 200: общая форма.
+
+### GET /api/blackjack/state
+Группа read. 200: общая форма: активная раздача, иначе последняя завершённая, иначе `status: "none"`.
+

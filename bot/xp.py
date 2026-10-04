@@ -8,6 +8,7 @@
 from math import comb
 
 from roulette import settle
+from blackjack import xp_for
 from keno import TOTAL_DRAWS, lose_combinations
 
 ROULETTE_OUTCOMES = 37   # исходы 0..36
@@ -30,6 +31,11 @@ def keno_xp(bet, picked):
     if type(bet) is not int or bet < 0:
         raise ValueError("bet must be a non-negative integer")
     return bet * lose_combinations(picked) // TOTAL_DRAWS
+
+
+def blackjack_xp(wager):
+    """Опыт раздачи блэкджека: wager * 12 // 25 (формула в blackjack.xp_for, здесь единая точка для db)."""
+    return xp_for(wager)
 
 
 def mines_xp(bet, mines, opened, lost):

@@ -1017,7 +1017,7 @@ let srvFetchTimer = null;       // отложенный запрос (ноль �
 
 // данные нужны, только пока открыт экран рулетки или «Профиль»
 const srvWanted = () => activeTab === 'profile' || activeTab === 'farm'
-  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno'));
+  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack'));
 
 function renderProfile() {
   renderProfileIdentity();
@@ -2662,13 +2662,487 @@ kenoEls.play.addEventListener('click', kenoPlay);
 kenoEls.switchBtn.addEventListener('click', toggleGameMenu);
 renderKeno();
 
+// ---------- игра «Блэкджек» ----------
+// Состояние раздачи только с сервера: колоды и скрытой карты дилера клиент не знает (в ответе у неё null).
+// Каждое действие получает новый request_id; повторы (сеть, таймаут, 429, 5xx) идут с тем же (postJson, postMinesOnce).
+// Баланс в шапке обновляется только после анимации раздачи. Ставка живёт в памяти.
+const BJ_BET_MAX = 1000000000;
+const BJ_DEAL_MS = 220;        // пауза между раздаваемыми картами
+const BJ_DEALER_MS = 400;      // дилер открывает карту и добирает по одной
+const BJ_CARD_RE = /^(A|10|[2-9]|J|Q|K)[SHDC]$/;
+const BJ_RESULTS = ['win', 'push', 'lose', 'bust', 'dealer_bust', 'blackjack'];
+const BJ_ACTIONS = ['hit', 'stand', 'double'];
+const BJ_SUIT_SVG = {
+  S: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3.2 4.2 8 6.7 8 11.2a4.4 4.4 0 0 1-7.1 3.4c.2 2.3 1 3.8 2.3 5.4H8.8c1.3-1.6 2.1-3.1 2.3-5.4A4.4 4.4 0 0 1 4 13.2C4 8.7 8.8 6.2 12 2z"/></svg>',
+  H: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5S3.5 16 3.5 9.8a4.6 4.6 0 0 1 8.5-2.4 4.6 4.6 0 0 1 8.5 2.4C20.5 16 12 21.5 12 21.5z"/></svg>',
+  D: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 10-7 10-7-10z"/></svg>',
+  C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
+};
+
+const bjEls = {
+  balance: document.getElementById('bj-balance'),
+  switchBtn: document.getElementById('bj-switch'),
+  notice: document.getElementById('bj-notice'),
+  skel: document.getElementById('bj-skel'),
+  msg: document.getElementById('bj-msg'),
+  code: document.getElementById('bj-code'),
+  retry: document.getElementById('bj-retry'),
+  table: document.getElementById('bj-table'),
+  dealerCards: document.getElementById('bj-dealer-cards'),
+  playerCards: document.getElementById('bj-player-cards'),
+  dealerTotal: document.getElementById('bj-dealer-total'),
+  playerTotal: document.getElementById('bj-player-total'),
+  banner: document.getElementById('bj-banner'),
+  bannerTitle: document.getElementById('bj-banner-title'),
+  bannerDetail: document.getElementById('bj-banner-detail'),
+  bets: document.getElementById('bj-bets'),
+  bet: document.getElementById('bj-bet'),
+  maxBtn: document.getElementById('bj-max'),
+  deal: document.getElementById('bj-deal'),
+  actions: document.getElementById('bj-actions'),
+  stake: document.getElementById('bj-stake'),
+  hit: document.getElementById('bj-hit'),
+  stand: document.getElementById('bj-stand'),
+  double: document.getElementById('bj-double')
+};
+
+const bj = {
+  view: 'loading',      // 'loading' | 'start' | 'play' | 'result'
+  loaded: false,
+  error: false,
+  game: null,           // последний ответ сервера (активная или завершённая раздача)
+  balance: null,
+  busy: false,          // идёт действие или анимация: кнопки заблокированы
+  animating: false,     // карты раздаются: очки не показываются
+  shown: { player: [], dealer: [] },   // карты, уже показанные на столе (dealer: null = закрытая карта)
+  seen: new Set(),      // завершённые раздачи, о которых игрок уже знает (в этой сессии)
+  inFlight: false,
+  lastRequestAt: -Infinity,
+  timer: null
+};
+
+const bjBetLimit = () => Math.max(1, Math.min(BJ_BET_MAX, bj.balance === null ? BJ_BET_MAX : bj.balance));
+
+function setBjNotice(text) {
+  bjEls.notice.textContent = text;
+}
+
+function setBjMessage(text, code, retry) {
+  bjEls.msg.textContent = text;
+  bjEls.code.textContent = code ? 'код: ' + code : '';
+  bjEls.retry.hidden = !retry;
+}
+
+// ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
+const validBjCards = (cards, hiddenOk) => Array.isArray(cards) && cards.every((c) => (c === null ? hiddenOk : (typeof c === 'string' && BJ_CARD_RE.test(c))));
+const validBjHand = (h, hiddenOk) => !!h && validBjCards(h.cards, hiddenOk) && h.cards.length >= 2 && isCount(h.total);
+
+function validBjState(d, allowNone) {
+  if (!d || !isCount(d.balance) || !Array.isArray(d.actions) || !d.actions.every((a) => BJ_ACTIONS.includes(a))) return false;
+  if (d.status === 'none') return !!allowNone && d.player === null && d.dealer === null;
+  if (d.status !== 'active' && d.status !== 'finished') return false;
+  const active = d.status === 'active';
+  if (!isCount(d.bet) || d.bet < 1 || !isCount(d.wager) || d.wager < d.bet) return false;
+  if (!validBjHand(d.player, false) || typeof d.player.soft !== 'boolean' || !validBjHand(d.dealer, active)) return false;
+  if (active) {
+    // у активной раздачи вторая карта дилера закрыта, итога и выплаты ещё нет
+    return d.dealer.cards.length === 2 && d.dealer.cards[1] === null && d.dealer.cards[0] !== null
+      && d.result === null && d.payout === null;
+  }
+  return d.dealer.cards.every((c) => c !== null) && BJ_RESULTS.includes(d.result) && isCount(d.payout);
+}
+const validBjAction = (d) => validBjState(d, false);
+
+// ---------- рисование ----------
+function bjCardEl(card, isNew) {
+  const el = document.createElement('div');
+  if (card === null) {
+    el.className = 'bj-card back';
+    el.setAttribute('aria-label', 'Закрытая карта');
+  } else {
+    const rank = card.slice(0, -1);
+    const suit = card.slice(-1);
+    el.className = 'bj-card' + (suit === 'H' || suit === 'D' ? ' red' : '');
+    el.innerHTML = '<span class="rank"></span>' + BJ_SUIT_SVG[suit];
+    el.firstChild.textContent = rank;
+    el.setAttribute('aria-label', rank + ' ' + { S: 'пик', H: 'червей', D: 'бубен', C: 'треф' }[suit]);
+  }
+  if (isNew) el.classList.add('new');
+  return el;
+}
+
+// Карты внахлёст: если ряд не помещается, соседние карты наезжают друг на друга (до 8 и больше без прокрутки)
+function bjFillCards(box, cards, newFrom) {
+  box.textContent = '';
+  const width = box.clientWidth || 280;
+  const cardW = 46;
+  const n = cards.length;
+  const gap = 4;
+  const free = n > 1 ? Math.min(gap, (width - 4 - cardW * n) / (n - 1)) : 0;
+  cards.forEach((card, i) => {
+    const el = bjCardEl(card, i >= newFrom);
+    if (i > 0) el.style.marginLeft = Math.floor(free) + 'px';
+    box.appendChild(el);
+  });
+}
+
+let bjDrawn = { player: 0, dealer: 0 };   // сколько карт уже было нарисовано (новые получают анимацию)
+
+function bjTotalText(hand, finished) {
+  if (hand.cards.filter((c) => c !== null).length === 2 && hand.total === 21 && finished) return { text: 'Блэкджек!', cls: 'blackjack' };
+  if (hand.total > 21) return { text: 'Перебор ' + hand.total, cls: 'bust' };
+  return { text: (hand.soft ? 'Мягкие ' : '') + hand.total, cls: '' };
+}
+
+function renderBjTable() {
+  const show = bj.view === 'play' || bj.view === 'result' || bj.busy;
+  bjEls.table.hidden = !show;
+  if (!show) return;
+  bjFillCards(bjEls.playerCards, bj.shown.player, bjDrawn.player);
+  bjFillCards(bjEls.dealerCards, bj.shown.dealer, bjDrawn.dealer);
+  bjDrawn = { player: bj.shown.player.length, dealer: bj.shown.dealer.length };
+  const g = bj.game;
+  const settled = !bj.animating && g !== null;
+  for (const [el, hand, who] of [[bjEls.playerTotal, g && g.player, 'p'], [bjEls.dealerTotal, g && g.dealer, 'd']]) {
+    el.className = 'bj-total';
+    if (!settled || !hand) { el.textContent = ''; continue; }
+    const t = bjTotalText(who === 'p' ? hand : { cards: hand.cards, total: hand.total, soft: false }, g.status === 'finished');
+    el.textContent = t.text;
+    if (t.cls) el.classList.add(t.cls);
+  }
+}
+
+// число одним текстом: короткая запись, полное значение в подсказке
+function setBjLine(el, shortText, fullText) {
+  el.textContent = shortText;
+  el.title = fullText;
+}
+
+function renderBjBanner() {
+  const g = bj.game;
+  const done = bj.view === 'result' && !bj.animating && g !== null && g.status === 'finished';
+  bjEls.banner.hidden = !(done || bj.view === 'start');
+  bjEls.banner.classList.remove('win', 'lose');
+  bjEls.bannerDetail.textContent = '';
+  bjEls.bannerDetail.title = '';
+  if (!done) {
+    bjEls.bannerTitle.textContent = bj.view === 'start' ? 'Сделайте ставку' : '';
+    bjEls.bannerTitle.title = '';
+    return;
+  }
+  const profit = g.payout - g.wager;
+  const money = (sign, n) => ({ short: sign + formatCompact(n), full: sign + formatNumber(n) });
+  let title = '';
+  let detail = '';
+  if (g.result === 'blackjack') { const m = money('+', profit); title = 'Блэкджек! ' + m.short; detail = m.full; bjEls.banner.classList.add('win'); }
+  else if (g.result === 'win' || g.result === 'dealer_bust') {
+    const m = money('+', profit); title = 'Победа ' + m.short; detail = g.result === 'dealer_bust' ? 'Перебор у дилера' : m.full; bjEls.banner.classList.add('win');
+  } else if (g.result === 'push') { title = 'Ничья'; detail = 'Ставка возвращена'; }
+  else if (g.result === 'bust') { const m = money('−', g.wager); title = 'Перебор ' + m.short; detail = m.full; bjEls.banner.classList.add('lose'); }
+  else { const m = money('−', g.wager); title = 'Проигрыш ' + m.short; detail = m.full; bjEls.banner.classList.add('lose'); }
+  bjEls.bannerTitle.textContent = title;
+  bjEls.bannerDetail.textContent = detail;
+  bjEls.bannerTitle.title = detail;
+}
+
+// Фишки ставки по серверному балансу блэкджека (те же номиналы, что в других играх)
+let bjChipValues = [];
+function renderBjChips() {
+  const values = chipSet(bj.balance === null ? 0 : bj.balance);
+  if (values.join() === bjChipValues.join()) return;
+  const wasChip = bjChipValues.includes(Number(bjEls.bet.value));
+  bjChipValues = values;
+  bjEls.bets.querySelectorAll('[data-jbet]').forEach((btn, i) => {
+    btn.dataset.jbet = String(values[i]);
+    setChipText(btn, values[i]);
+  });
+  if (wasChip && !values.includes(Number(bjEls.bet.value))) bjEls.bet.value = String(nearestChip(values, Number(bjEls.bet.value)));
+}
+
+function syncBjChips() {
+  const v = Number(bjEls.bet.value);
+  bjEls.bets.querySelectorAll('[data-jbet]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.jbet) === v)));
+}
+
+function renderBj() {
+  const loading = bj.view === 'loading';
+  bjEls.skel.hidden = !(loading && !bj.error);
+  if (bj.balance !== null) {
+    bjEls.balance.classList.remove('skeleton');
+    bjEls.balance.textContent = spacedNumber(bj.balance);
+    fitNumberFont(bjEls.balance, bjEls.balance.textContent.length);
+  }
+  bjEls.switchBtn.disabled = bj.busy;
+  renderBjChips();
+  syncBjChips();
+  const playing = bj.view === 'play' && bj.game !== null;
+  bjEls.bets.hidden = !(bj.view === 'start' || bj.view === 'result');
+  bjEls.actions.hidden = !(playing || (bj.busy && bj.view === 'play'));
+  renderBjTable();
+  renderBjBanner();
+  if (playing) {
+    setBjLine(bjEls.stake, 'Ставка ' + formatCompact(bj.game.wager), 'Ставка ' + formatNumber(bj.game.wager));
+    const allowed = bj.game.actions;
+    bjEls.hit.hidden = !allowed.includes('hit');
+    bjEls.stand.hidden = !allowed.includes('stand');
+    bjEls.double.hidden = !allowed.includes('double');
+    [bjEls.hit, bjEls.stand, bjEls.double].forEach((b) => { b.disabled = bj.busy; });
+  }
+  bjEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = bj.busy || bj.balance === null; });
+  bjEls.deal.textContent = bj.view === 'result' ? 'Новая раздача' : 'Раздать';
+  refreshBetPanels();
+}
+
+// ---------- запросы ----------
+async function fetchBjState() {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/blackjack/state', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + tg.initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
+    }
+    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
+    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
+    const d = await res.json();
+    if (!validBjState(d, true)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
+    return d;
+  } catch (e) {
+    if (e && typeof e.text === 'string') throw e;
+    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+const bjKey = (g) => g.status + ':' + g.player.cards.join('') + ':' + g.dealer.cards.join('') + ':' + g.payout;
+
+// Применяет состояние с сервера без анимации: активная раздача восстанавливается, завершённая остаётся на столе
+function applyBjState(d, announce) {
+  bj.loaded = true;
+  bj.error = false;
+  bj.balance = d.balance;
+  setBjMessage('', '', false);
+  if (d.status === 'none') {
+    bj.game = null;
+    bj.view = 'start';
+    bj.shown = { player: [], dealer: [] };
+  } else {
+    bj.game = d;
+    bj.view = d.status === 'active' ? 'play' : 'result';
+    bj.shown = { player: d.player.cards.slice(), dealer: d.dealer.cards.slice() };
+    bjDrawn = { player: bj.shown.player.length, dealer: bj.shown.dealer.length };
+    if (announce && d.status === 'finished' && d.auto === true && !bj.seen.has(bjKey(d))) {
+      setBjNotice('Раздача закрылась автоматически: вы остановились, дилер доиграл');
+    }
+    if (d.status === 'finished') bj.seen.add(bjKey(d));
+  }
+  renderBj();
+}
+
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
+async function loadBj(reason) {
+  if (bj.inFlight || bj.busy || activeTab !== 'play' || currentGame !== 'blackjack') return;
+  const now = performance.now();
+  const sinceLast = now - bj.lastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') {
+      clearTimeout(bj.timer);
+      bj.timer = setTimeout(() => loadBj('manual'), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
+  if (!(tg && tg.initData)) {
+    bj.view = 'loading';
+    bj.error = true;
+    setBjMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    renderBj();
+    return;
+  }
+  clearTimeout(bj.timer);
+  bj.inFlight = true;
+  bj.lastRequestAt = now;
+  if (!bj.loaded) {
+    bj.error = false;
+    setBjMessage('', '', false);
+    renderBj();
+  }
+  try {
+    applyBjState(await fetchBjState(), true);
+  } catch (e) {
+    if (bj.loaded) {
+      setBjNotice(e.text);
+    } else {
+      bj.error = true;
+      setBjMessage(e.text, e.code, e.retry);
+      renderBj();
+    }
+  } finally {
+    bj.inFlight = false;
+  }
+}
+
+// ---------- анимация ----------
+// Карты раздаются по одной, дилер открывает вторую карту и добирает по одной. Очки показываются после анимации.
+async function animateBj(prev, d, kind) {
+  const target = { player: d.player.cards, dealer: d.dealer.cards };
+  if (reducedMotion()) {
+    bj.shown = { player: target.player.slice(), dealer: target.dealer.slice() };
+    return;
+  }
+  bj.animating = true;
+  const step = async (ms) => { renderBjTable(); await sleep(ms); };
+  if (kind === 'start') {
+    bj.shown = { player: [], dealer: [] };
+    bjDrawn = { player: 0, dealer: 0 };
+    const order = [['player', 0], ['dealer', 0], ['player', 1], ['dealer', 1]];
+    for (const [who, i] of order) {
+      bj.shown[who].push(who === 'dealer' && i === 1 ? null : target[who][i]);
+      await step(BJ_DEAL_MS);
+    }
+  } else {
+    for (let i = prev.player.length; i < target.player.length; i++) {   // hit и double: одна новая карта игроку
+      bj.shown.player.push(target.player[i]);
+      await step(BJ_DEAL_MS);
+    }
+  }
+  if (d.status === 'finished') {
+    await sleep(BJ_DEALER_MS - BJ_DEAL_MS > 0 ? BJ_DEALER_MS - BJ_DEAL_MS : 0);
+    bj.shown.dealer[1] = target.dealer[1];            // дилер открывает вторую карту
+    bjDrawn.dealer = 1;                                 // открытая карта перерисуется новой
+    await step(BJ_DEALER_MS);
+    for (let i = bj.shown.dealer.length; i < target.dealer.length; i++) {   // и добирает по одной
+      bj.shown.dealer.push(target.dealer[i]);
+      await step(BJ_DEALER_MS);
+    }
+  }
+  bj.animating = false;
+}
+
+// Действие пользователя: блокировка, до 3 попыток с одним request_id, разбор ответа.
+// Если результата нет, ничего не угадываем: запрашиваем реальное состояние
+async function bjAct(path, body, kind) {
+  if (bj.busy) return;
+  if (!(tg && tg.initData)) {
+    setBjNotice('Откройте игру через бота в Telegram');
+    return;
+  }
+  const id = makeRequestId();
+  if (!id) {
+    setBjNotice('Ошибка');
+    return;
+  }
+  const prev = bj.game ? { player: bj.game.player.cards.slice(), dealer: bj.game.dealer.cards.slice() } : { player: [], dealer: [] };
+  bj.busy = true;
+  setBjNotice('');
+  renderBj();
+  let result = null;
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await postMinesOnce(path, { request_id: id, ...body }, validBjAction);
+    if (r.kind !== 'retry') result = r;
+  }
+  let note = 'Состояние обновлено';
+  let reload = true;
+  if (result && result.kind === 'ok') {
+    const d = result.data;
+    try {
+      bj.game = d;
+      bj.view = d.status === 'active' ? 'play' : 'result';
+      await animateBj(prev, d, kind);
+      bj.animating = false;
+      bj.shown = { player: d.player.cards.slice(), dealer: d.dealer.cards.slice() };
+      bj.balance = d.balance;                 // баланс в шапке меняется только после анимации
+      if (d.status === 'finished') bj.seen.add(bjKey(d));
+      bj.busy = false;
+      renderBj();
+      haptic(d.status === 'active' ? 'light' : (d.payout > d.wager ? 'success' : (d.payout === d.wager ? 'light' : 'error')));
+      loadServer('after');
+      return;
+    } catch (e) {
+      bj.animating = false;
+      note = 'Не удалось показать результат. Состояние обновлено';
+    }
+  } else if (result && result.kind === 'invalid') {
+    note = 'Ответ сервера не распознан. Состояние обновлено';
+  } else if (result && result.kind === 'fatal') {
+    note = result.text;
+    reload = false;
+  } else if (result && result.kind === 'conflict') {
+    if (result.detail === 'insufficient_funds') note = 'Не хватает фишек';
+    else if (result.detail === 'active_game_exists') note = 'У вас уже есть начатая раздача';
+    else if (result.detail === 'no_active_game') note = 'Раздача уже закрыта';
+    else if (result.detail === 'invalid_action') note = 'Это действие сейчас недоступно';
+  }
+  if (reload) {
+    try {
+      bj.animating = false;
+      applyBjState(await fetchBjState(), false);
+      setBjNotice(note);
+    } catch (e) {
+      setBjNotice('Нет связи. Состояние раздачи неизвестно, обновите экран');
+    }
+  } else {
+    setBjNotice(note);
+  }
+  bj.animating = false;
+  bj.busy = false;
+  renderBj();
+  loadServer('after');
+}
+
+function bjDeal() {
+  const bet = Number(bjEls.bet.value);
+  if (!Number.isSafeInteger(bet) || bet < 1 || bet > BJ_BET_MAX) {
+    setBjNotice('Введите целую ставку от 1 до ' + formatNumber(BJ_BET_MAX));
+    return;
+  }
+  if (bj.balance !== null && bet > bj.balance) {
+    setBjNotice('Не хватает фишек');
+    return;
+  }
+  bj.animating = true;   // прошлый итог и очки на время запроса не показываются
+  bjAct('/api/blackjack/start', { bet }, 'start');
+}
+
+setupBetPanel({
+  input: bjEls.bet,
+  maxBtn: bjEls.maxBtn,
+  halfBtn: document.getElementById('bj-half'),
+  doubleBtn: document.getElementById('bj-double-bet'),
+  getLimit: bjBetLimit
+});
+bjEls.bet.addEventListener('input', syncBjChips);
+bjEls.bets.querySelectorAll('[data-jbet]').forEach((b) => b.addEventListener('click', () => {
+  bjEls.bet.value = b.dataset.jbet;
+  syncBjChips();
+  refreshBetPanels();
+  haptic('light');
+}));
+bjEls.deal.addEventListener('click', bjDeal);
+bjEls.hit.addEventListener('click', () => bjAct('/api/blackjack/action', { action: 'hit' }, 'hit'));
+bjEls.stand.addEventListener('click', () => bjAct('/api/blackjack/action', { action: 'stand' }, 'stand'));
+bjEls.double.addEventListener('click', () => bjAct('/api/blackjack/action', { action: 'double' }, 'double'));
+bjEls.retry.addEventListener('click', () => loadBj('manual'));
+bjEls.switchBtn.addEventListener('click', toggleGameMenu);
+window.addEventListener('resize', () => { if (bj.view !== 'loading') renderBjTable(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadBj('visible');
+});
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
   { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
   { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: false, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
   { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
   { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
 ];
@@ -2707,6 +3181,7 @@ function showTab(id) {
   if (started && screen === 'rating') loadRating('open');
   if (started && screen === 'farm') loadFarm('open');
   if (started && screen === 'mines') loadMines('open');
+  if (started && screen === 'blackjack') loadBj('open');
   if (started && screen === 'keno') {
     loadServer('open');
     loadKenoPay();

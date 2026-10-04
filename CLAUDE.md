@@ -44,6 +44,8 @@ Telegram Mini App: рулетка на виртуальных фишках.
   конца игры.
 - Кено: поле 1-40, выбор 1-10 чисел, сервер тянет 10; таблица множителей и опыт в bot/keno.py и xp.py (возврат
   около 97,2 %); примеры ответов docs/examples/keno.json, по ним тест и мок клиента.
+- Блэкджек: 6 колод (тасуются перед каждой раздачей), hit/stand/double, 3:2, дилер стоит на любых 17; колода и скрытая
+  карта только на сервере (в ответах, логах, /mydata нет); 24 часа без действий: автоматический stand; опыт 0,48 wager.
 - Старт 1000 фишек, 100 в час, только целые часы, потолок накопления 30 часов. Микрозайма нет.
 - Лимита ставки нет, кроме баланса и технического потолка MAX_SAFE_INT (bot/roulette.py).
 - Рейтинг по беседам строится по chat_instance из подписанного initData.
@@ -63,7 +65,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 ## Где что лежит
 - Клиент в корне: index.html, style.css, script.js, privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: api.py (эндпоинты, фоновая задача), auth.py (проверка initData), db.py (SQLite),
-  economy.py (начисления), roulette.py (правила и ставки), farm.py, mines.py, keno.py, bot.py (команды бота),
+  economy.py (начисления), roulette.py (правила и ставки), farm.py, mines.py, keno.py, blackjack.py, bot.py (команды бота),
   antiabuse.py, backup.py, notify.py, verify_backup.py.
 - Тесты: bot/test_*.py (общие заглушки: bot/stubs.py, bot/tg_testutil.py).
 - GitHub Actions (.github/workflows/tests.yml): тесты на Python 3.9 и 3.12 и scripts/check_repo.py
