@@ -36,6 +36,9 @@ def forbidden_path_reason(path):
         if folder in FORBIDDEN_DIRS:
             return "запрещённая папка %s" % folder
     name = parts[-1]
+    # e2e: скриншоты, логи и вывод харнесса в репозиторий не попадают (e2e/out/ и картинки, логи, дампы рядом с кодом)
+    if parts[0] == "e2e" and len(parts) > 1 and (parts[1] == "out" or name.lower().endswith((".png", ".jpg", ".log", ".json.tmp"))):
+        return "вывод e2e (скриншоты, логи) в репозиторий не коммитится"
     if name.lower() in ENV_EXAMPLES:
         return None
     lowered = name.lower()
