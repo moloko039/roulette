@@ -15,6 +15,8 @@ from telegram import (BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeA
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 import antiabuse
+import backup
+import db as db_module
 from db import delete_player_data, get_player, get_player_export, init_db
 from economy import HOUR
 from notify import load_owner_id
@@ -426,6 +428,74 @@ async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Не удалось отправить, подробности в логах сервиса")
 
 
+GRANT_TTL = 300   # подтверждение начисления действует 5 минут
+
+
+async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): разовое начисление фишек всем игрокам.
+    /grantall <сумма> <id> показывает, сколько игроков и фишек, /grantall confirm <id> выполняет (в течение 5 минут;
+    сначала копия базы, потом одна транзакция). Все остальные (и любой чат, кроме личного) не получают ответа,
+    в лог про них ничего не пишется."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    args = list(context.args or [])
+    pending = context.application.bot_data
+    if len(args) == 2 and args[0] == "confirm":
+        await _grant_confirm(update, context, args[1])
+        return
+    if len(args) != 2 or not re.fullmatch(r"\d{1,7}", args[0]):
+        await _reply(update, "Формат: /grantall <сумма> <id>, например /grantall 10000 oct4")
+        return
+    amount, grant_id = int(args[0]), args[1]
+    try:
+        db_module.validate_grant(amount, grant_id)
+        count, total = await asyncio.to_thread(db_module.grant_preview, amount, grant_id)
+    except ValueError:
+        await _reply(update, "Сумма: целое от 1 до 1000000; id: латиница, цифры и дефис, до 32 символов")
+        return
+    except db_module.GrantExists:
+        await _reply(update, "Начисление с таким id уже было, ничего не изменено")
+        return
+    if count == 0:
+        await _reply(update, "Некому начислять: в базе нет игроков с местом под потолок баланса")
+        return
+    pending["grant_pending"] = {"id": grant_id, "amount": amount, "at": _wall()}
+    await _reply(update, "Получат фишки: игроков %d, всего будет выдано %d. Подтвердите командой "
+                 "/grantall confirm %s в течение 5 минут" % (count, total, grant_id))
+
+
+async def _grant_confirm(update, context, grant_id):
+    store = context.application.bot_data
+    pending = store.pop("grant_pending", None)   # подтверждение одноразовое
+    if pending is None or _wall() - pending["at"] > GRANT_TTL:
+        await _reply(update, "Нет начисления, ожидающего подтверждения, или время вышло. Отправьте /grantall <сумма> <id> снова")
+        return
+    if pending["id"] != grant_id:
+        await _reply(update, "Неверный id: подтверждение сброшено, отправьте /grantall <сумма> <id> снова")
+        return
+    db_path = db_module._resolve_path(None)
+    config = backup.load_config(None, db_path)
+    # сначала копия базы (существующая функция: согласованный снимок с проверкой), без неё начисления нет
+    snapshot = await asyncio.to_thread(backup.create_snapshot, db_path, config["dir"], _wall(), config["keep"])
+    if snapshot is None:
+        await _reply(update, "Резервная копия не создана, начисление не выполнено")
+        return
+    try:
+        players, given = await asyncio.to_thread(db_module.grant_all, pending["amount"], pending["id"], _wall())
+    except db_module.GrantExists:
+        await _reply(update, "Начисление с таким id уже было, ничего не изменено")
+        return
+    except Exception as exc:
+        logger.error("Начисление не выполнено: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выполнить начисление, ничего не изменено (подробности в логах сервиса)")
+        return
+    await _reply(update, "Начисление выполнено: получили игроков %d, выдано всего %d" % (players, given))
+
+
 DELETE_WARNING = (
     "Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, история игр в мины, история раундов кено, история раздач блэкджека, история раундов краша, незавершённая игра в мины (вместе со ставкой), незавершённая раздача блэкджека (вместе со ставкой), незавершённый раунд краша (вместе со ставкой), а также участие в рейтингах. Это нельзя отменить. "
     "Данные на вашем устройстве (последние числа и ставки) останутся, их можно убрать очисткой "
@@ -551,7 +621,8 @@ def build_application(token, use_updater=True):
     for name, handler in (("start", start), ("play", play), ("balance", balance),
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
-                          ("deletemydata", deletemydata), ("backupnow", backupnow)):
+                          ("deletemydata", deletemydata), ("backupnow", backupnow),
+                          ("grantall", grantall)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
     app.add_error_handler(on_error)
