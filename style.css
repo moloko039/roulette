@@ -779,6 +779,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 
 .tile[aria-current="true"] { border-color: var(--accent); }
+.game-menu.open .tile[data-soon="true"] { opacity: 0.55; }
 .tile:active { background: var(--surface-3); }
 
 /* ---------- заглушки игр, профиль, рейтинг ---------- */
@@ -1797,8 +1798,27 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out;
 }
 .lobby-card:active { background: var(--white-soft); border-color: var(--border-strong); transform: scale(0.98); }
-.lobby-card:last-child { grid-column: 1 / -1; }   /* пятая карточка на всю ширину */
+.lobby-card[data-soon="true"] { opacity: 0.55; }   /* игра-заглушка: приглушена, нажатие показывает «Скоро» */
 .lobby-card svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .lobby-card .lobby-name { font-family: var(--font-display); font-size: 18px; font-weight: 600; line-height: 1.15; }
 .lobby-card .lobby-desc { font-size: 12px; line-height: 1.3; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* короткое сообщение «Скоро» над нижней панелью */
+.soon-toast {
+  position: absolute;
+  bottom: calc(var(--nav-h) + var(--inset-bottom) + 20px);
+  left: 50%;
+  z-index: 5;
+  padding: var(--space-2) var(--space-4);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+.soon-toast.show { opacity: 1; transform: translate(-50%, 0); }
 

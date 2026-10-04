@@ -3758,7 +3758,6 @@ const lobbyEls = {
   level: document.getElementById('lobby-level'),
   grid: document.getElementById('lobby-grid')
 };
-const LOBBY_ORDER = ['roulette', 'mines', 'keno', 'blackjack', 'crash'];
 
 function renderLobby() {
   if (srv.loaded) {
@@ -3776,20 +3775,23 @@ function renderLobby() {
 lobbyRender = renderLobby;
 
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
-// Для ready: false экран-заглушка «Скоро» создаётся автоматически.
+// Порядок записей = порядок карточек на титульном экране и пунктов меню (два столбца: слева направо, сверху вниз).
+// Для ready: false игра не открывается: нажатие показывает «Скоро».
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
-  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', desc: 'Классическая европейская рулетка', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
   { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', desc: 'Успей забрать до краха', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', desc: 'Классическая европейская рулетка', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
+  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' },
   { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', desc: 'Открывай клетки и забирай выигрыш', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
-  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
+  { id: 'hilo',      label: 'Хило',      hint: 'Выше или ниже?', desc: 'Выше или ниже? Скоро', ready: false, icon: '<rect x="3" y="4" width="8" height="12" rx="2"/><rect x="13" y="8" width="8" height="12" rx="2"/><path d="M7 7.5v5M5.2 9.3 7 7.5l1.8 1.8M17 11.5v5M15.2 14.7 17 16.5l1.8-1.8"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' }
 ];
-// Запуск всегда с титульного экрана (currentGame = 'lobby'); выбранная игра хранится только в памяти
+// Пока игра не выбрана (currentGame = 'lobby'), вкладка «Играть» показывает титульный экран. После выбора он не возвращается
+// до следующего запуска; выбранная игра хранится только в памяти.
 let currentGame = 'lobby';
 
 // Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур).
-// Центральная кнопка всегда показывает общий значок «игры» и открывает титульный экран.
+// Иконка центральной кнопки: нейтральная, пока игра не выбрана; после выбора подменяется иконкой открытой игры.
 const TABS = [
   { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
   { id: 'style',   label: 'Стиль',   icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15v4M17 17h4"/>' },
@@ -3833,12 +3835,6 @@ function showTab(id) {
   });
 }
 
-function openLobby() {
-  if (activeTab === 'play' && currentGame === 'lobby') return;
-  currentGame = 'lobby';
-  showTab('play');
-}
-
 TABS.forEach((tab) => {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -3846,8 +3842,8 @@ TABS.forEach((tab) => {
   btn.dataset.tab = tab.id;
   btn.innerHTML = `${iconSvg(tab.icon)}<span>${tab.label}</span>`;
   btn.addEventListener('click', () => {
-    // центральная кнопка: титульный экран (если он уже открыт, ничего не делает)
-    if (tab.id === 'play') openLobby();
+    // повторное нажатие на «Играть» открывает и закрывает меню игр (в том числе поверх титульного экрана)
+    if (tab.id === 'play' && activeTab === 'play') toggleGameMenu();
     else showTab(tab.id);
   });
   navEl.appendChild(btn);
@@ -3872,7 +3868,9 @@ function toggleGameMenu() {
 }
 
 function selectGame(id) {
+  if (!getGame(id).ready) { showSoon(); return; }
   currentGame = id;
+  navEl.querySelector('.tab.main svg').outerHTML = iconSvg(getGame(id).icon);
   // кнопка смены игры есть в шапке рулетки и в шапке мин; разметка иконки постоянная, из реестра
   document.querySelectorAll('.switch-icon').forEach((el) => { el.innerHTML = iconSvg(getGame(id).icon); });
   document.querySelectorAll('.switch-name').forEach((el) => { el.textContent = getGame(id).label; });
@@ -3882,7 +3880,16 @@ function selectGame(id) {
   showTab('play');
 }
 
-// Плитки меню и экраны-заглушки строятся из реестра GAMES
+// Короткое сообщение «Скоро» для игр-заглушек (игра не открывается)
+let soonTimer = null;
+function showSoon() {
+  const el = document.getElementById('soon-toast');
+  el.classList.add('show');
+  clearTimeout(soonTimer);
+  soonTimer = setTimeout(() => el.classList.remove('show'), 1600);
+}
+
+// Плитки меню и карточки титульного экрана строятся из реестра GAMES
 GAMES.forEach((game, i) => {
   const tile = document.createElement('button');
   tile.type = 'button';
@@ -3895,26 +3902,16 @@ GAMES.forEach((game, i) => {
   tile.addEventListener('click', () => selectGame(game.id));
   gameGrid.appendChild(tile);
 
-  if (!game.ready) {
-    const stub = document.createElement('section');
-    stub.className = 'screen stub';
-    stub.dataset.screen = game.id;
-    stub.hidden = true;
-    stub.innerHTML = `<h2>${game.label}</h2><span>Скоро</span>`;
-    shellEl.insertBefore(stub, wheelLayer);
-  }
-});
-LOBBY_ORDER.forEach((id) => {
-  const game = getGame(id);
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'lobby-card';
-  card.dataset.game = id;
+  card.dataset.game = game.id;
+  card.dataset.soon = String(!game.ready);
   card.setAttribute('role', 'menuitem');
   card.innerHTML = `${iconSvg(game.icon)}<span class="lobby-name"></span><span class="lobby-desc"></span>`;
   card.querySelector('.lobby-name').textContent = game.label;
   card.querySelector('.lobby-desc').textContent = game.desc || '';
-  card.addEventListener('click', () => selectGame(id));
+  card.addEventListener('click', () => selectGame(game.id));
   lobbyEls.grid.appendChild(card);
 });
 renderLobby();
