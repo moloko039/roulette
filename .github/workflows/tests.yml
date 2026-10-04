@@ -58,3 +58,27 @@ jobs:
           python-version: "3.12"
       - name: Поиск секретов и файлов базы в индексе git
         run: python scripts/check_repo.py
+
+  e2e:
+    name: e2e в Chrome (Python 3.12, не блокирует)
+    runs-on: ubuntu-24.04
+    # первый этап: результат e2e не делает общий результат красным; после стабилизации сделать обязательным (журнал)
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            bot/requirements.txt
+            e2e/requirements.txt
+      - name: Установка зависимостей сервера и e2e
+        run: pip install -r bot/requirements.txt -r e2e/requirements.txt
+      - name: Chrome из образа runner
+        run: google-chrome --version
+      - name: Запуск e2e
+        run: python e2e/run_e2e.py

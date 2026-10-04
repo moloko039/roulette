@@ -25,10 +25,10 @@ bad = [".env", "bot/.env", ".env.local", ".env.production", "players.db", "bot/d
        "k.key", "x.enc", "cert.pem", "id_rsa", "id_rsa.pub", "id_ed25519", "ssh/id_ed25519.pub",
        "my_private_key.json", "PRIVATE_KEY.txt", "bot/.venv/lib/x.py", ".venv/pyvenv.cfg",
        "backups/latest.db", "bot/backups/readme.txt", "PLAYERS.DB",
-       "players.db-wal", "bot/players.db-shm", "players.db-journal", "x.sqlite-wal", "x.sqlite3-shm", "a.SQLITE", ".env.staging", "bot/k.pem", "dump.enc"]
+       "e2e/out/shot.png", "e2e/shot.png", "e2e/server.log", "players.db-wal", "bot/players.db-shm", "players.db-journal", "x.sqlite-wal", "x.sqlite3-shm", "a.SQLITE", ".env.staging", "bot/k.pem", "dump.enc"]
 for path in bad:
     assert check_repo.forbidden_path_reason(path), "не запрещён: " + path
-good = ["bot/stubs.py", "docs/db.md", "wal.md", ".env.example", "bot/.env.example", ".env.sample", "bot/api.py", "index.html", "docs/JOURNAL.md",
+good = ["e2e/harness.py", "e2e/scenarios/hilo.py", "e2e/requirements.txt", "bot/stubs.py", "docs/db.md", "wal.md", ".env.example", "bot/.env.example", ".env.sample", "bot/api.py", "index.html", "docs/JOURNAL.md",
         "bot/test_db.py", "environment.md", "bot/backup.py", "bot/test_backup.py", "keyboard.py",
         "scripts/check_repo.py", ".github/workflows/tests.yml"]
 for path in good:

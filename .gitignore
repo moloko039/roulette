@@ -19,3 +19,8 @@ roulette-backup-private.key
 !.env.template
 !.env.dist
 *.pem
+# e2e: скриншоты, дампы и временные базы харнесса (обычно пишутся во временную папку вне репозитория)
+e2e/out/
+e2e/**/*.png
+e2e/**/*.log
+e2e/**/*.json.tmp
