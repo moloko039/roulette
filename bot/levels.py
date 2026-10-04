@@ -1,4 +1,4 @@
-"""Уровень профиля по общей сумме ставок (total_staked). Чистые функции, без базы.
+"""Уровень профиля по накопленному опыту (players.xp, правила опыта в xp.py). Чистые функции, без базы.
 
 Все значения СТАРТОВЫЕ: их можно менять, когда появятся реальные данные об игре. Считаем только целыми
 числами (без float), чтобы пороги не зависели от округления.
@@ -24,7 +24,7 @@ _THRESHOLDS = [threshold(level) for level in range(2, MAX_PROFILE_LEVEL + 1)]
 
 
 def profile_level(total_staked):
-    """Уровень 1 при total_staked < 1600, дальше растёт с порогами threshold(L); не выше MAX_PROFILE_LEVEL."""
+    """Уровень 1 при опыте (аргумент) меньше 1600, дальше растёт с порогами threshold(L); не выше MAX_PROFILE_LEVEL."""
     if type(total_staked) is not int or total_staked < 0:
         raise ValueError("total_staked must be a non-negative integer")
     return 1 + bisect_right(_THRESHOLDS, total_staked)

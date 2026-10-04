@@ -30,7 +30,7 @@
 | balance | int | всегда |
 | rate | int | всегда (фишек в час) |
 | seconds_to_next | int | всегда |
-| level | int | всегда (уровень профиля) |
+| level | int | всегда (уровень профиля, считается по накопленному опыту) |
 | income_level | int | всегда |
 | storage_level | int | всегда |
 
@@ -71,7 +71,7 @@
 | Поле | Тип |
 |---|---|
 | balance | int |
-| profile | `{level int, staked int, next_threshold int\|null}` (null на максимальном уровне) |
+| profile | `{level int, xp int, staked int, next_threshold int\|null}` (level и next_threshold считаются по xp, staked это общая сумма ставок, только информация; next_threshold null на максимальном уровне) |
 | slots | `{used int, total int}` |
 | income | `{level int, max int, rate int, next_rate int\|null, next_cost int\|null, can_buy bool, reason str\|null}` |
 | storage | `{level int, max int, hours int, next_hours int\|null, next_cost int\|null, can_buy bool, reason str\|null}` |

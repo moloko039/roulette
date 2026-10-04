@@ -83,7 +83,7 @@ CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}
 FARM = {
     "balance": int,
-    "profile": {"level": int, "staked": int, "next_threshold": OPT(int)},
+    "profile": {"level": int, "xp": int, "staked": int, "next_threshold": OPT(int)},
     "slots": {"used": int, "total": int},
     "income": dict(FARM_PART, rate=int, next_rate=OPT(int)),
     "storage": dict(FARM_PART, hours=int, next_hours=OPT(int)),
@@ -126,8 +126,8 @@ def sql(path, query, params=()):
 
 
 def add_player(path, uid, balance=100_000, total=0):
-    sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, income_level, "
-              "storage_level) VALUES (?, ?, 100, ?, ?, ?, 0, 0)", (uid, balance, NOW + 10 * 86400, NOW, total))
+    sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, "
+              "income_level, storage_level) VALUES (?, ?, 100, ?, ?, ?, ?, 0, 0)", (uid, balance, NOW + 10 * 86400, NOW, total, total))
 
 
 def auth(uid, group=False, name="Игрок"):

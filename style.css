@@ -1063,6 +1063,62 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 .farm-progress, .farm-slots { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
 .farm-progress b { color: var(--text); font-weight: 600; }
 
+/* строка опыта и кнопка-подсказка (область нажатия 44 px, видимый кружок меньше) */
+.farm-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.farm-progress-row .farm-progress { flex: 1 1 auto; min-width: 0; }
+
+.farm-hint-btn {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -12px -10px -12px 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+}
+
+.farm-hint-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.farm-hint-btn[aria-expanded="true"] { color: var(--text); }
+.farm-hint-btn[aria-expanded="true"]::before { border-color: var(--text); }
+
+.farm-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.farm-staked { font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-staked:empty { display: none; }
+
 .farm-cards { display: grid; gap: var(--space-3); min-width: 0; }
 
 .farm-card-head {

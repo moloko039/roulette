@@ -13,6 +13,7 @@ from economy import START_BALANCE, BASE_RATE, accrue
 import farm
 import mines
 import wallet
+import xp
 from levels import profile_level
 from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
 
@@ -161,6 +162,7 @@ def init_db(db_path=None):
                 last_accrual INTEGER NOT NULL,
                 created_at   INTEGER NOT NULL,
                 total_staked INTEGER NOT NULL DEFAULT 0,
+                xp           INTEGER NOT NULL DEFAULT 0,
                 income_level INTEGER NOT NULL DEFAULT 0,
                 storage_level INTEGER NOT NULL DEFAULT 0
             )
@@ -267,6 +269,7 @@ def init_db(db_path=None):
             """
         )
         _migrate_total_staked(conn)
+        _migrate_xp(conn)
         _migrate_farm_levels(conn)
         # записи старше срока защиты не нужны
         conn.execute(
@@ -299,6 +302,27 @@ def _migrate_total_staked(conn):
                 "(SELECT SUM(r.stake_total) FROM roulette_rounds r WHERE r.telegram_id = players.telegram_id), 0), ?)",
                 (MAX_SAFE_INT,),
             )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def _migrate_xp(conn):
+    """Добавляет players.xp в старую базу (идемпотентно, одной транзакцией).
+
+    У существующих игроков xp = total_staked, чтобы уровни профиля не изменились; дальше опыт растёт по правилам
+    xp.py. Новые игроки (и после удаления данных) начинают с 0."""
+    def has_column():
+        return any(r["name"] == "xp" for r in conn.execute("PRAGMA table_info(players)"))
+
+    if has_column():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not has_column():  # повторная проверка внутри транзакции
+            conn.execute("ALTER TABLE players ADD COLUMN xp INTEGER NOT NULL DEFAULT 0")
+            conn.execute("UPDATE players SET xp = total_staked")
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -397,7 +421,7 @@ def get_player(telegram_id, now=None, db_path=None):
             # новый игрок получает стартовый баланс (или 0 в период защиты); существующего не трогаем
             _register_player(conn, telegram_id, now)
             row = conn.execute(
-                "SELECT balance, rate, last_accrual, total_staked, income_level, storage_level "
+                "SELECT balance, rate, last_accrual, total_staked, xp, income_level, storage_level "
                 "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
@@ -424,6 +448,7 @@ def get_player(telegram_id, now=None, db_path=None):
         "rate": row["rate"],
         "last_accrual": new_last,
         "total_staked": row["total_staked"],
+        "xp": row["xp"],
         "income_level": row["income_level"],
         "storage_level": row["storage_level"],
     }
@@ -506,6 +531,7 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
                 "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
                 (stake_total, MAX_SAFE_INT, telegram_id),
             )
+            _add_xp(conn, telegram_id, xp.roulette_xp(stake_total, bets))
             conn.execute(
                 "INSERT INTO roulette_rounds "
                 "(telegram_id, request_id, number, stake_total, payout_total, bets_json, created_at) "
@@ -557,7 +583,7 @@ def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
             # (б) начисление по СТАРОЙ ставке и СТАРОМУ потолку: новые значения на прошлое не действуют
             _register_player(conn, telegram_id, now)
             row = conn.execute(
-                "SELECT balance, rate, last_accrual, total_staked, income_level, storage_level "
+                "SELECT balance, rate, last_accrual, xp, income_level, storage_level "
                 "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()
@@ -573,7 +599,7 @@ def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
             if cost is None:
                 raise farm.MaxLevel()
             used = row["income_level"] + row["storage_level"]
-            if used >= profile_level(row["total_staked"]):
+            if used >= profile_level(row["xp"]):   # уровень профиля по опыту
                 raise farm.LevelLocked(used + 1)
 
             # (г) списание, повышение уровня, запись покупки
@@ -604,7 +630,8 @@ def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
 def farm_status(telegram_id, now=None, db_path=None):
     """Данные экрана фермы (GET /api/farm). Баланс с начислением, как в /api/me."""
     player = get_player(telegram_id, now=now, db_path=db_path)
-    return farm.status(player["balance"], player["total_staked"], player["income_level"], player["storage_level"])
+    return farm.status(player["balance"], player["xp"], player["total_staked"], player["income_level"],
+                       player["storage_level"])
 
 
 # ---------- мины ----------
@@ -670,11 +697,29 @@ def _last_view(row):
     }
 
 
+def _add_xp(conn, telegram_id, amount):
+    """Опыт игрока (в той же транзакции, что и результат), не выше MAX_SAFE_INT."""
+    if amount > 0:
+        conn.execute("UPDATE players SET xp = MIN(xp + ?, ?) WHERE telegram_id = ?", (amount, MAX_SAFE_INT, telegram_id))
+
+
 def _finish_game(conn, game_id, status, payout, now):
+    """Закрывает активную игру и начисляет опыт: единственное место для всех путей закрытия (мина, очистка поля,
+    cashout, автозакрытие). Игра закрывается один раз (условие status = 'active'), значит и опыт один раз.
+    Возврат ставки (refunded, auto_refunded) опыта не даёт."""
+    game = conn.execute(
+        "SELECT telegram_id, bet, mines_count, revealed_mask FROM mines_games WHERE id = ? AND status = 'active'",
+        (game_id,),
+    ).fetchone()
+    if game is None:
+        return
     conn.execute(
         "UPDATE mines_games SET status = ?, payout = ?, finished_at = ?, updated_at = ? WHERE id = ?",
         (status, payout, now, now, game_id),
     )
+    if status in ("lost", "cashed", "auto_cashed"):
+        _add_xp(conn, game["telegram_id"],
+                xp.mines_xp(game["bet"], game["mines_count"], mines.popcount(game["revealed_mask"]), status == "lost"))
 
 
 def _settle_expired_in(conn, telegram_id, now):
@@ -963,7 +1008,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
             _touch_member(conn, chat_instance, telegram_id, first_name, now)
             rows = conn.execute(
                 "SELECT m.telegram_id, m.first_name, m.first_seen, p.balance, p.rate, p.last_accrual, "
-                "       p.total_staked, p.storage_level "
+                "       p.total_staked, p.storage_level, p.xp "
                 "FROM (SELECT telegram_id, first_name, first_seen FROM chat_members "
                 "      WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
                 "JOIN players p ON p.telegram_id = m.telegram_id",
@@ -980,12 +1025,12 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     for r in rows:
         earned, _ = _accrue_player(r, now)
         entries.append((-(r["balance"] + earned), r["first_seen"], r["telegram_id"], r["first_name"],
-                        r["total_staked"]))
+                        r["total_staked"], r["xp"]))
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
     top = [
         {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4],
-         "level": profile_level(e[4])}
+         "level": profile_level(e[5])}   # уровень по опыту, поле staked остаётся информацией
         for i, e in enumerate(entries[:TOP_SIZE])
     ]
     me = None
@@ -993,7 +1038,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
         if e[2] == telegram_id:
             # total здесь число участников рейтинга (не сумма ставок); сумма ставок: staked и chat_staked
             me = {"rank": i + 1, "balance": -e[0], "total": len(entries), "staked": e[4],
-                  "level": profile_level(e[4])}
+                  "level": profile_level(e[5])}
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
     return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked}
@@ -1011,7 +1056,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         conn.execute("BEGIN")  # один снимок для всех запросов
         try:
             player = conn.execute(
-                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked, income_level, storage_level "
+                "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level "
                 "FROM players WHERE telegram_id = ?",
                 (telegram_id,),
             ).fetchone()

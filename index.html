@@ -81,7 +81,12 @@
           <span class="farm-balance">Баланс <b class="num" id="farm-balance"></b></span>
         </div>
         <div class="farm-bar" id="farm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="farm-bar-fill" id="farm-bar-fill"></div></div>
-        <div class="farm-progress" id="farm-progress"></div>
+        <div class="farm-progress-row">
+          <span class="farm-progress" id="farm-progress"></span>
+          <button type="button" class="farm-hint-btn" id="farm-hint-btn" aria-label="Что такое опыт" aria-expanded="false" aria-controls="farm-hint">?</button>
+        </div>
+        <p class="farm-hint" id="farm-hint" hidden></p>
+        <div class="farm-staked" id="farm-staked"></div>
         <div class="farm-slots" id="farm-slots"></div>
       </div>
       <div class="farm-cards" id="farm-cards"></div>
