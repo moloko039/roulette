@@ -358,14 +358,14 @@ try:
     conn.commit()
     conn.close()
     res = db.purge_old_data(now=NOW, db_path=pdb)
-    check("удалено", res, {"roulette_rounds": 1, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0, "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "chat_members": 1, "deletion_tombstones": 1})
+    check("удалено", res, {"roulette_rounds": 1, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0, "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "transfers": 0, "chat_members": 1, "deletion_tombstones": 1})
     check("раунды остались", sorted(r[0] for r in sql("SELECT request_id FROM roulette_rounds", path=pdb)), ["d3", "h36", "mid", "new"])
     check("участники остались", sorted(r[0] for r in sql("SELECT telegram_id FROM chat_members", path=pdb)), [1, 2, 3])
     check("tombstone", [r[0] for r in sql("SELECT key_hash FROM deletion_tombstones", path=pdb)], ["new-t"])
     check("players не тронута", sql("SELECT COUNT(*) FROM players", path=pdb)[0][0], 2)
     # нижние границы: 1 сутки -> 2, 3 дня -> 7
     res = db.purge_old_data(now=NOW, db_path=pdb, rounds_days=1, member_days=3)
-    check("границы", res, {"roulette_rounds": 2, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0, "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "chat_members": 2, "deletion_tombstones": 0})  # раунды mid и d3; участники старше 7 суток
+    check("границы", res, {"roulette_rounds": 2, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0, "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "transfers": 0, "chat_members": 2, "deletion_tombstones": 0})  # раунды mid и d3; участники старше 7 суток
     check("36 часов остаётся", "h36" in [r[0] for r in sql("SELECT request_id FROM roulette_rounds", path=pdb)], True)
     check("участник 5 суток остаётся", 2 in [r[0] for r in sql("SELECT telegram_id FROM chat_members", path=pdb)], True)
     # пачки

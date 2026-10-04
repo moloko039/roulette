@@ -14,8 +14,10 @@ from economy import START_BALANCE, BASE_RATE, accrue
 import blackjack
 import crash
 import farm
+import hmac as _hmac
 import keno
 import mines
+import transfers
 import wallet
 import xp
 from levels import profile_level
@@ -168,7 +170,8 @@ def init_db(db_path=None):
                 total_staked INTEGER NOT NULL DEFAULT 0,
                 xp           INTEGER NOT NULL DEFAULT 0,
                 income_level INTEGER NOT NULL DEFAULT 0,
-                storage_level INTEGER NOT NULL DEFAULT 0
+                storage_level INTEGER NOT NULL DEFAULT 0,
+                transfers_seen_at INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -376,6 +379,23 @@ def init_db(db_path=None):
             )
             """
         )
+        # переводы между участниками беседы: сумма, комиссия (получатель комиссии определяется конфигурацией, не хранится), время
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS transfers (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender     INTEGER NOT NULL,
+                recipient  INTEGER NOT NULL,
+                amount     INTEGER NOT NULL,
+                fee        INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                request_id TEXT    NOT NULL,
+                UNIQUE (sender, request_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_transfers_sender ON transfers(sender, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_transfers_recipient ON transfers(recipient, created_at)")
         # служебные отметки (время последних уведомлений владельцу); личных данных здесь нет
         conn.execute(
             """
@@ -388,6 +408,7 @@ def init_db(db_path=None):
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)
+        _migrate_transfers_seen(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",
@@ -463,6 +484,24 @@ def _migrate_farm_levels(conn):
             conn.execute("ALTER TABLE players ADD COLUMN income_level INTEGER NOT NULL DEFAULT 0")
         if "storage_level" not in present:
             conn.execute("ALTER TABLE players ADD COLUMN storage_level INTEGER NOT NULL DEFAULT 0")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def _migrate_transfers_seen(conn):
+    """Добавляет players.transfers_seen_at в старую базу (идемпотентно, одной транзакцией): время самого свежего входящего
+    перевода, о котором получатель уже знает."""
+    def has_column():
+        return any(r["name"] == "transfers_seen_at" for r in conn.execute("PRAGMA table_info(players)"))
+
+    if has_column():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not has_column():
+            conn.execute("ALTER TABLE players ADD COLUMN transfers_seen_at INTEGER NOT NULL DEFAULT 0")
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -781,6 +820,197 @@ def give_owner(telegram_id, amount, db_path=None):
         conn.close()
     logger.info("Начисление владельцу выполнено")   # без суммы, баланса и идентификаторов
     return part, balance
+
+
+# ---------- переводы между участниками беседы ----------
+_burned_fees = [0]   # сколько комиссий сгорело с запуска процесса (в лог только это число, без сумм и идентификаторов)
+
+
+def _resolve_member(conn, chat_instance, ref):
+    """Идентификатор участника беседы по метке (перебором участников этой беседы) или None."""
+    for r in conn.execute("SELECT telegram_id FROM chat_members WHERE chat_instance = ?", (chat_instance,)):
+        if _hmac.compare_digest(transfers.member_ref(chat_instance, r["telegram_id"]), ref):
+            return r["telegram_id"]
+    return None
+
+
+def _transfer_daily_left(conn, telegram_id, now):
+    used = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM transfers WHERE sender = ? AND created_at > ?",
+                        (telegram_id, now - transfers.DAY_SECONDS)).fetchone()[0]
+    return max(0, transfers.DAILY_SEND_CAP - used)
+
+
+def _transfer_response(conn, sender, amount, fee, now, replayed):
+    pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (sender,)).fetchone()
+    return {"amount": amount, "fee": fee, "received": amount - fee, "balance": pl["balance"], "level": profile_level(pl["xp"]),
+            "daily_left": _transfer_daily_left(conn, sender, now), "replayed": replayed}
+
+
+def transfer_send(sender, chat_instance, sender_name, member_ref, amount, request_id, owner_id=None, now=None, db_path=None):
+    """Перевод фишек участнику той же беседы в одной транзакции BEGIN IMMEDIATE: debit отправителя на amount, credit
+    получателя на amount - fee и credit комиссии владельцу (если он есть в базе и баланс не упрётся в потолок, иначе комиссия
+    сгорает). Отправитель-владелец комиссию не платит; получатель-владелец получает amount. total_staked, XP и уровень не
+    меняются ни у кого. Повтор с теми же параметрами и request_id возвращает сохранённый перевод (balance текущий).
+    Ошибки: transfers.TransferError (code: no_chat, self_transfer, not_in_chat, level_too_low, account_too_new, cooldown,
+    daily_limit, recipient_limit, request_conflict), wallet.InsufficientFunds."""
+    if not transfers.valid_amount(amount) or not transfers.valid_member_ref(member_ref):
+        raise ValueError("invalid transfer")
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute("SELECT recipient, amount, fee FROM transfers WHERE sender = ? AND request_id = ?",
+                               (sender, request_id)).fetchone()
+            if old is not None:
+                same = (chat_instance is not None and old["amount"] == amount
+                        and _resolve_member(conn, chat_instance, member_ref) == old["recipient"])
+                if not same:
+                    raise transfers.RequestConflict()
+                result = _transfer_response(conn, sender, old["amount"], old["fee"], now, True)
+                conn.execute("COMMIT")
+                return result
+            if chat_instance is None:
+                raise transfers.TransferError("no_chat")
+            _register_player(conn, sender, now)
+            _accrue_write(conn, sender, now)
+            _touch_member(conn, chat_instance, sender, sender_name, now)
+            recipient = _resolve_member(conn, chat_instance, member_ref)
+            if recipient == sender:
+                raise transfers.TransferError("self_transfer")
+            rec = None if recipient is None else conn.execute(
+                "SELECT balance FROM players WHERE telegram_id = ?", (recipient,)).fetchone()
+            if rec is None:   # нет в этой беседе или удалил данные
+                raise transfers.TransferError("not_in_chat")
+            me = conn.execute("SELECT created_at, xp FROM players WHERE telegram_id = ?", (sender,)).fetchone()
+            if profile_level(me["xp"]) < transfers.SENDER_MIN_LEVEL:
+                raise transfers.TransferError("level_too_low")
+            if now - me["created_at"] < transfers.SENDER_MIN_AGE_HOURS * 3600:
+                raise transfers.TransferError("account_too_new")
+            last = conn.execute("SELECT MAX(created_at) FROM transfers WHERE sender = ?", (sender,)).fetchone()[0]
+            if last is not None and now - last < transfers.COOLDOWN_SECONDS:
+                raise transfers.TransferError("cooldown", seconds=transfers.COOLDOWN_SECONDS - (now - last))
+            if amount > _transfer_daily_left(conn, sender, now):
+                raise transfers.TransferError("daily_limit")
+            fee = 0 if sender == owner_id else transfers.fee_for(amount)
+            to_recipient = amount if recipient == owner_id else amount - fee   # владелец-получатель получает всю сумму
+            if rec["balance"] + to_recipient > MAX_SAFE_INT:
+                raise transfers.TransferError("recipient_limit")
+            burned = False
+            wallet.debit(conn, sender, amount)   # InsufficientFunds: ничего не меняется (откат)
+            wallet.credit(conn, recipient, to_recipient)
+            if fee > 0 and recipient != owner_id:
+                owner_row = None if owner_id is None else conn.execute(
+                    "SELECT balance FROM players WHERE telegram_id = ?", (owner_id,)).fetchone()
+                if owner_row is not None and owner_row["balance"] + fee <= MAX_SAFE_INT:
+                    wallet.credit(conn, owner_id, fee)
+                else:
+                    burned = True   # владельца нет в базе, не задан или упёрся в потолок: комиссия сгорает
+            conn.execute("INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (?, ?, ?, ?, ?, ?)",
+                         (sender, recipient, amount, fee, now, request_id))
+            result = _transfer_response(conn, sender, amount, fee, now, False)
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+    logger.info("Перевод выполнен")
+    if burned:
+        _burned_fees[0] += 1
+        logger.info("Комиссия за перевод сгорела (владелец недоступен), всего с запуска: %d", _burned_fees[0])
+    return result
+
+
+def transfer_status(telegram_id, owner_id=None, now=None, db_path=None):
+    """Для GET /api/me: (transfer_limits, incoming_unseen). Два лёгких запроса по индексам."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        left = _transfer_daily_left(conn, telegram_id, now)
+        seen = conn.execute("SELECT transfers_seen_at FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+        row = conn.execute("SELECT COUNT(*), COALESCE(SUM(amount - fee), 0) FROM transfers WHERE recipient = ? AND created_at > ?",
+                           (telegram_id, seen[0] if seen is not None else 0)).fetchone()
+    finally:
+        conn.close()
+    limits = {"min": transfers.TRANSFER_MIN, "max": transfers.TRANSFER_MAX, "daily_left": left,
+              "fee_percent": 0 if telegram_id == owner_id else transfers.FEE_PERCENT,
+              "min_level": transfers.SENDER_MIN_LEVEL, "cooldown_seconds": transfers.COOLDOWN_SECONDS}
+    return limits, {"count": row[0], "total": row[1]}
+
+
+def _member_name(conn, telegram_id):
+    row = conn.execute("SELECT first_name FROM chat_members WHERE telegram_id = ? ORDER BY last_seen DESC LIMIT 1",
+                       (telegram_id,)).fetchone()
+    return row["first_name"] if row is not None else DEFAULT_NAME
+
+
+def transfer_history(telegram_id, limit=None, mark_seen=True, db_path=None):
+    """Последние переводы игрока (отправленные и полученные): направление, имя второй стороны (как в рейтинге), сумма,
+    комиссия, время. Входящие помечаются просмотренными (players.transfers_seen_at = время самого свежего входящего)."""
+    limit = transfers.HISTORY_LIMIT if limit is None else limit
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            rows = conn.execute(
+                "SELECT sender, recipient, amount, fee, created_at FROM transfers WHERE sender = ? OR recipient = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT ?", (telegram_id, telegram_id, limit)).fetchall()
+            items = []
+            for r in rows:
+                out = r["sender"] == telegram_id
+                items.append({"direction": "out" if out else "in", "name": _member_name(conn, r["recipient" if out else "sender"]),
+                              "amount": r["amount"], "fee": r["fee"], "time": r["created_at"]})
+            if mark_seen:
+                newest = conn.execute("SELECT MAX(created_at) FROM transfers WHERE recipient = ?", (telegram_id,)).fetchone()[0]
+                if newest is not None:
+                    conn.execute("UPDATE players SET transfers_seen_at = MAX(transfers_seen_at, ?) WHERE telegram_id = ?",
+                                 (newest, telegram_id))
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+    return items
+
+
+def _clean_query(q):
+    """Поисковый запрос списка участников: управляющие и двунаправленные символы отбрасываются, не больше 32 символов."""
+    kept = "".join(ch for ch in q if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in _BIDI)
+    return kept.strip()[:transfers.MEMBERS_QUERY_MAX].strip()
+
+
+def chat_members_page(telegram_id, chat_instance, q="", offset=0, db_path=None):
+    """Участники беседы для выбора получателя перевода: (items, next_offset).
+
+    Запрашивающий должен быть участником этой беседы (chat_instance None: no_chat, нет в chat_members: not_in_chat, как у
+    перевода). Порядок: по последней активности (last_seen) по убыванию. q ищет по имени без учёта регистра по вхождению (в Python:
+    SQLite lower() не знает кириллицу), пустой q = все. В ответе только name и member_ref (без балансов, уровней и
+    идентификаторов Telegram); самого игрока в списке нет. Не больше MEMBERS_PAGE за страницу.
+    Бросает transfers.TransferError или ValueError (плохой offset)."""
+    if type(offset) is not int or not 0 <= offset <= transfers.MEMBERS_OFFSET_MAX:
+        raise ValueError("offset")
+    if chat_instance is None:
+        raise transfers.TransferError("no_chat")
+    needle = _clean_query(q).casefold()
+    conn = _connect(db_path)
+    try:
+        if conn.execute("SELECT 1 FROM chat_members WHERE chat_instance = ? AND telegram_id = ?", (chat_instance, telegram_id)).fetchone() is None:
+            raise transfers.TransferError("not_in_chat")
+        rows = conn.execute(
+            "SELECT m.telegram_id, m.first_name FROM chat_members m JOIN players p ON p.telegram_id = m.telegram_id "
+            "WHERE m.chat_instance = ? AND m.telegram_id != ? ORDER BY m.last_seen DESC, m.telegram_id LIMIT ?",
+            (chat_instance, telegram_id, MAX_CHAT_MEMBERS)).fetchall()
+    finally:
+        conn.close()
+    found = [r for r in rows if not needle or needle in r["first_name"].casefold()]
+    page = found[offset:offset + transfers.MEMBERS_PAGE]
+    items = [{"name": r["first_name"], "member_ref": transfers.member_ref(chat_instance, r["telegram_id"])} for r in page]
+    next_offset = offset + transfers.MEMBERS_PAGE if len(found) > offset + transfers.MEMBERS_PAGE else None
+    return items, next_offset
 
 
 # ---------- незавершённая игра для /api/me ----------
@@ -1809,7 +2039,9 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
 
     top = [
         {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4],
-         "level": profile_level(e[5])}   # уровень по опыту, поле staked остаётся информацией
+         "level": profile_level(e[5]),   # уровень по опыту, поле staked остаётся информацией
+         # непрозрачная метка для перевода (HMAC беседы и игрока); у самого себя нет
+         "member_ref": None if e[2] == telegram_id else transfers.member_ref(chat_instance, e[2])}
         for i, e in enumerate(entries[:TOP_SIZE])
     ]
     me = None
@@ -1875,6 +2107,13 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             crash_active = conn.execute(
                 "SELECT 1 FROM crash_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
             ).fetchone() is not None
+            transfer_rows = conn.execute(
+                "SELECT sender, recipient, amount, fee, created_at FROM transfers WHERE sender = ? OR recipient = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT ?", (telegram_id, telegram_id, rounds_limit)).fetchall()
+            transfer_items = [
+                {"time": r["created_at"], "direction": "out" if r["sender"] == telegram_id else "in",
+                 "name": _member_name(conn, r["recipient"] if r["sender"] == telegram_id else r["sender"]),
+                 "amount": r["amount"], "fee": r["fee"]} for r in transfer_rows]
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -1884,7 +2123,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not transfer_items:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -1915,6 +2154,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             for g in crash_games
         ],
         "crash_active": crash_active,
+        # идентификаторы Telegram других игроков не включаются: только имя второй стороны как в рейтинге
+        "transfers": transfer_items,
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
@@ -1965,6 +2206,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["crash_games"] = conn.execute(
                 "DELETE FROM crash_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённый вместе со ставкой
             conn.execute("DELETE FROM crash_actions WHERE telegram_id = ?", (telegram_id,))
+            counts["transfers"] = conn.execute(
+                "DELETE FROM transfers WHERE sender = ? OR recipient = ?", (telegram_id, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             if counts["players"] > 0:
@@ -2002,7 +2245,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "chat_members": 0,
+               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "transfers": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -2069,6 +2312,10 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM crash_actions WHERE rowid IN "
                 "(SELECT rowid FROM crash_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "transfers" in present:  # тот же срок хранения, что у раундов
+            deleted["transfers"] = batches(
+                "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "
@@ -2081,8 +2328,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d переводы=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
                 deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"],
-                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"])
+                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"], deleted["transfers"])
     return deleted

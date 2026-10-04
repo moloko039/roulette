@@ -375,6 +375,14 @@
         <div class="ring-inner"><strong class="num" id="profile-timer"></strong><small>до начисления</small></div>
       </div>
     </div>
+    <div class="profile-card transfers-block" id="profile-transfers">
+      <h3 class="transfers-title">Переводы</h3>
+      <button type="button" class="action transfer-new" id="transfer-new">Новый перевод</button>
+      <p class="transfers-empty" id="transfer-new-note" hidden></p>
+      <ol class="transfers-list" id="transfers-list"></ol>
+      <p class="transfers-empty" id="transfers-empty" hidden>Переводов пока нет</p>
+      <p class="transfers-note">Фишки не имеют денежной стоимости. Переводы только подарок между участниками игры.</p>
+    </div>
     <div class="skeleton-card" id="profile-skel" hidden aria-hidden="true">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton tall"></div>
     </div>
@@ -403,6 +411,35 @@
   </div>
 
   <!-- кнопки строятся в script.js из массива TABS -->
+  <div class="transfer-sheet" id="picker-sheet" hidden>
+    <div class="transfer-dim" id="picker-dim"></div>
+    <section class="transfer-panel picker-panel" id="picker-panel" role="dialog" aria-label="Кому перевести">
+      <div class="transfer-head"><strong>Кому перевести</strong><button type="button" class="transfer-change" id="picker-close">Закрыть</button></div>
+      <input id="picker-search" class="bet-input picker-search" type="search" maxlength="32" autocomplete="off" autocorrect="off" enterkeyhint="search" placeholder="Поиск по имени" aria-label="Поиск по имени">
+      <ul class="picker-list" id="picker-list"></ul>
+      <p class="picker-msg" id="picker-msg" aria-live="polite"></p>
+      <button type="button" class="action picker-retry" id="picker-retry" hidden>Повторить</button>
+    </section>
+  </div>
+  <div class="transfer-sheet" id="transfer-sheet" hidden>
+    <div class="transfer-dim" id="transfer-dim"></div>
+    <section class="transfer-panel bets-dock" id="transfer-panel" role="dialog" aria-label="Перевод">
+      <div class="transfer-head"><strong>Перевод</strong><span class="transfer-to" id="transfer-to"></span><button type="button" class="transfer-change" id="transfer-change">Изменить</button></div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="transfer-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="transfer-amount" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="" aria-label="Сумма перевода">
+        <button type="button" class="action step-btn" id="transfer-double" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="transfer-max">Макс</button>
+      </div>
+      <div class="transfer-info" id="transfer-recv"></div>
+      <div class="transfer-info muted" id="transfer-limits"></div>
+      <p class="transfer-msg" id="transfer-msg" aria-live="polite"></p>
+      <div class="row transfer-actions">
+        <button type="button" class="action" id="transfer-cancel">Отмена</button>
+        <button type="button" class="keno-play" id="transfer-send">Отправить</button>
+      </div>
+    </section>
+  </div>
   <div class="soon-toast" id="soon-toast" role="status" aria-live="polite">Скоро</div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>

@@ -25,10 +25,11 @@ from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import db
 import blackjack
 import crash
+import transfers
 import farm
 import keno
 import mines
-from db import (active_game_of, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
@@ -256,6 +257,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
         settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша
         player = get_player(user_id, now=now, db_path=db_path)
+        limits, incoming = transfer_status(user_id, owner_id=notify.load_owner_id(), now=now, db_path=db_path)
         if _in_group(info):
             try:
                 touch_chat_member(info["chat_instance"], user_id, info["first_name"], now=now, db_path=db_path)
@@ -269,6 +271,8 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "income_level": player["income_level"],
             "storage_level": player["storage_level"],
             "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | null
+            "incoming_unseen": incoming,     # {count, total}: непросмотренные входящие переводы
+            "transfer_limits": limits,       # лимиты переводов для клиента (клиент констант не дублирует)
         }
 
     @app.get("/api/chat/top")
@@ -483,6 +487,75 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return crash_state(user_id, db_path=db_path)
+
+    # ---------- переводы между участниками беседы ----------
+    # Идентификаторы Telegram в ответах не показываются: участник задаётся непрозрачной меткой member_ref из рейтинга беседы
+
+    @app.post("/api/transfers/send")
+    async def transfers_send_endpoint(request: Request):
+        try:
+            scheme, _, init_data = (request.headers.get("authorization") or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            info = validate_init_data_full(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        limited = throttled(info["user_id"], "write")
+        if limited is not None:
+            return limited
+        try:
+            raw = await request.body()
+            if len(raw) > MAX_BODY_BYTES:
+                raise ValueError()
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != {"request_id", "member_ref", "amount"}:
+                raise ValueError()
+            request_id = validate_request_id(data["request_id"])
+            ref, amount = data["member_ref"], data["amount"]
+            if not transfers.valid_member_ref(ref) or not transfers.valid_amount(amount):
+                raise ValueError()
+        except Exception:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        chat = info["chat_instance"] if _in_group(info) else None
+        try:
+            return await run_in_threadpool(lambda: transfer_send(info["user_id"], chat, info["first_name"], ref, amount,
+                                                                   request_id, owner_id=notify.load_owner_id(), db_path=db_path))
+        except transfers.TransferError as exc:
+            return JSONResponse(dict({"detail": exc.code}, **exc.extra), status_code=409)
+        except InsufficientFunds:
+            return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+
+    @app.get("/api/chat/members")
+    def chat_members_endpoint(request: Request, authorization: str = Header(default=None)):
+        try:
+            scheme, _, init_data = (authorization or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            info = validate_init_data_full(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        limited = throttled(info["user_id"], "read")
+        if limited is not None:
+            return limited
+        raw_offset = request.query_params.get("offset", "0")
+        if not re.fullmatch(r"[0-9]{1,6}", raw_offset):
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        chat = info["chat_instance"] if _in_group(info) else None
+        try:
+            items, next_offset = chat_members_page(info["user_id"], chat, request.query_params.get("q", ""), int(raw_offset), db_path=db_path)
+        except ValueError:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        except transfers.TransferError as exc:
+            return JSONResponse({"detail": exc.code}, status_code=409)
+        # только name и member_ref: без балансов, уровней и идентификаторов Telegram; в лог ни имён, ни запросов
+        return {"items": items, "next_offset": next_offset}
+
+    @app.get("/api/transfers")
+    def transfers_list_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return {"items": transfer_history(user_id, db_path=db_path)}
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):

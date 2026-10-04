@@ -1806,6 +1806,8 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 /* короткое сообщение «Скоро» над нижней панелью */
 .soon-toast {
   position: absolute;
+  max-width: calc(100% - 24px);
+  text-align: center;
   bottom: calc(var(--nav-h) + var(--inset-bottom) + 20px);
   left: 50%;
   z-index: 5;
@@ -1821,4 +1823,72 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
 }
 .soon-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- переводы: нажатие на участника рейтинга, нижняя панель, раздел в профиле, тост ---------- */
+.rating-list li.tap { cursor: pointer; transition: background-color 0.15s ease-out; }
+.rating-list li.tap:active { background: var(--white-soft); }
+.rating-list li.tap .rating-name::after { content: ' →'; color: var(--text-muted); font-weight: 400; }
+
+.transfer-sheet { position: absolute; inset: 0; z-index: 7; }
+.transfer-sheet[hidden] { display: none; }
+.transfer-dim { position: absolute; inset: 0; background: rgba(5, 5, 6, 0.6); }
+.transfer-panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + var(--inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.transfer-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.transfer-head strong { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.transfer-to { min-width: 0; overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.transfer-info { font-size: 14px; overflow-wrap: anywhere; }
+.transfer-info.muted { font-size: 12px; color: var(--text-muted); }
+.transfer-msg { min-height: 18px; margin: 0; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.transfer-actions { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-2); }
+.transfer-actions .action, .transfer-actions .keno-play { width: 100%; height: 44px; }
+
+.transfers-block { max-width: 340px; }
+.transfers-title { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.transfers-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.transfers-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-2); font-size: 14px; }
+.transfers-list .t-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transfers-list .t-sum { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-weight: 600; }
+.transfers-list .t-sum.in { color: var(--green); }
+.transfers-list .t-sub { grid-column: 1 / -1; font-size: 12px; color: var(--text-muted); }
+.transfers-empty, .transfers-note { margin: 0; font-size: 12px; color: var(--text-muted); }
+.transfers-empty[hidden], .transfers-block[hidden] { display: none; }
+
+/* ---------- список «Кому перевести» ---------- */
+.transfer-change { flex: none; padding: 0 var(--space-2); font-size: 13px; color: var(--text-muted); background: none; border: none; text-decoration: underline; min-height: 32px; }
+.transfer-head .transfer-to { flex: 1; text-align: right; }
+.picker-panel { height: var(--picker-h, min(70%, 460px)); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+.bets-dock.picker-panel .bet-input, .picker-search { height: 44px; padding: 0 var(--space-3); font-size: 16px; text-align: left; font-family: var(--font-ui); font-weight: 400; }
+.picker-list { display: grid; align-content: start; gap: 4px; min-height: 0; margin: 0; padding: 0; overflow-y: auto; list-style: none; -webkit-overflow-scrolling: touch; }
+.picker-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.picker-list button:active { background: var(--white-soft); border-color: var(--border-strong); }
+.picker-list .avatar { flex: none; width: 32px; height: 32px; font-size: 14px; }
+.picker-list .p-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-msg { min-height: 18px; margin: 0; font-size: 13px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+.picker-retry[hidden] { display: none; }
+.transfer-new { width: 100%; }
+.transfer-new:disabled { opacity: 0.5; }
 

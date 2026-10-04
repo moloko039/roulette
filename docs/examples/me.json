@@ -1,7 +1,129 @@
 {
   "_comment": "Примеры ответов GET /api/me (значения-заглушки). test_api_contract.py сверяет с ними форму настоящего ответа; мок клиента строится из этого же файла.",
-  "no_active_game": {"balance": 1000, "rate": 100, "seconds_to_next": 1800, "level": 1, "income_level": 0, "storage_level": 0, "active_game": null},
-  "active_mines": {"balance": 900, "rate": 100, "seconds_to_next": 1800, "level": 1, "income_level": 0, "storage_level": 0, "active_game": "mines"},
-  "active_blackjack": {"balance": 900, "rate": 100, "seconds_to_next": 1800, "level": 1, "income_level": 0, "storage_level": 0, "active_game": "blackjack"},
-  "active_crash": {"balance": 900, "rate": 100, "seconds_to_next": 1800, "level": 1, "income_level": 0, "storage_level": 0, "active_game": "crash"}
+  "no_active_game": {
+    "balance": 1000,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 0,
+      "total": 0
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 5,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": null
+  },
+  "active_mines": {
+    "balance": 900,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 0,
+      "total": 0
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 5,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": "mines"
+  },
+  "active_blackjack": {
+    "balance": 900,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 0,
+      "total": 0
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 5,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": "blackjack"
+  },
+  "active_crash": {
+    "balance": 900,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 0,
+      "total": 0
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 5,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": "crash"
+  },
+  "incoming_transfer": {
+    "balance": 1000,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 2,
+      "total": 285
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 5,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": null
+  },
+  "owner": {
+    "balance": 1000,
+    "rate": 100,
+    "seconds_to_next": 1800,
+    "level": 1,
+    "income_level": 0,
+    "storage_level": 0,
+    "incoming_unseen": {
+      "count": 0,
+      "total": 0
+    },
+    "transfer_limits": {
+      "min": 100,
+      "max": 50000,
+      "daily_left": 100000,
+      "fee_percent": 0,
+      "min_level": 3,
+      "cooldown_seconds": 10
+    },
+    "active_game": null
+  }
 }
