@@ -22,6 +22,7 @@ import ratelimit
 from levels import profile_level
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
+import db
 import farm
 import mines
 from db import (buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
@@ -50,6 +51,51 @@ def configure_logging():
 
 
 configure_logging()
+
+# ---------- замеры времени запросов ----------
+http_logger = logging.getLogger("depnaya.http")
+SLOW_REQUEST_MS = 500
+UNLOGGED_PATHS = ("/health", "/telegram/webhook")
+KNOWN_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
+_perf = time.perf_counter   # отдельное имя, чтобы тесты подменяли часы
+
+
+class TimingMiddleware:
+    """Одна строка лога на запрос: метод, шаблон пути, код ответа, миллисекунды, для POST /api/* ещё db_ms.
+
+    В строке нет id игроков, имён, балансов, заголовков, параметров запроса, тел и request_id: путь берётся из
+    шаблона найденного маршрута (у ненайденных маршрутов пишется «(unmatched)»). /health и вебхук не логируются.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("path") in UNLOGGED_PATHS:
+            await self.app(scope, receive, send)
+            return
+        timing = {"begin": 0.0, "commit": 0.0}
+        token = db.request_timing.set(timing)
+        started = _perf()
+        status = {"code": 500}
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status["code"] = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            elapsed_ms = int((_perf() - started) * 1000)
+            db.request_timing.reset(token)
+            method = scope.get("method", "")
+            route = scope.get("route")
+            path = getattr(route, "path", None) or "(unmatched)"
+            line = "%s %s %d %dms" % (method if method in KNOWN_METHODS else "OTHER", path, status["code"], elapsed_ms)
+            if (method == "POST" and path.startswith("/api/")) or timing["begin"] or timing["commit"]:
+                line += " db_ms=begin:%d,commit:%d" % (int(timing["begin"] * 1000), int(timing["commit"] * 1000))
+            http_logger.log(logging.WARNING if elapsed_ms > SLOW_REQUEST_MS else logging.INFO, line)
 
 # ВАЖНО: SQLite рассчитана на один экземпляр сервиса (см. db.py), число реплик = 1.
 
@@ -172,6 +218,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type"],
     )
+    app.add_middleware(TimingMiddleware)  # последним: внешний слой, измеряет весь запрос
 
     @app.get("/health")
     def health():
