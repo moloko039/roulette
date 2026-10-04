@@ -1,0 +1,98 @@
+{
+  "_comment": "Примеры ответов краша (значения-заглушки). Серверный тест test_crash.py сверяет с ними форму настоящих ответов; мок клиента строится из этого же файла. Одна форма для start, cashout и state.",
+  "active_manual": {
+    "status": "active",
+    "mode": "manual",
+    "bet": 100,
+    "target": null,
+    "elapsed_ms": 2500,
+    "crash_multiplier": null,
+    "result": null,
+    "multiplier": null,
+    "payout": null,
+    "doubling_ms": 6000,
+    "cap": "1000.00",
+    "balance": 900,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_win_auto": {
+    "status": "finished",
+    "mode": "auto",
+    "bet": 100,
+    "target": "2.00",
+    "elapsed_ms": null,
+    "crash_multiplier": "3.41",
+    "result": "win",
+    "multiplier": "2.00",
+    "payout": 200,
+    "doubling_ms": 6000,
+    "cap": "1000.00",
+    "balance": 1100,
+    "level": 1,
+    "xp": 51,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_lose_manual": {
+    "status": "finished",
+    "mode": "manual",
+    "bet": 100,
+    "target": null,
+    "elapsed_ms": null,
+    "crash_multiplier": "1.37",
+    "result": "lose",
+    "multiplier": "0.00",
+    "payout": 0,
+    "doubling_ms": 6000,
+    "cap": "1000.00",
+    "balance": 900,
+    "level": 1,
+    "xp": 99,
+    "auto": true,
+    "replayed": false
+  },
+  "none": {
+    "status": "none",
+    "mode": null,
+    "bet": null,
+    "target": null,
+    "elapsed_ms": null,
+    "crash_multiplier": null,
+    "result": null,
+    "multiplier": null,
+    "payout": null,
+    "doubling_ms": 6000,
+    "cap": "1000.00",
+    "balance": 1000,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "active_game_exists": {
+      "detail": "active_game_exists"
+    },
+    "insufficient_funds": {
+      "detail": "insufficient_funds"
+    },
+    "no_active_game": {
+      "detail": "no_active_game"
+    },
+    "too_early": {
+      "detail": "too_early"
+    },
+    "request_conflict": {
+      "detail": "request_conflict"
+    },
+    "balance_limit": {
+      "detail": "balance_limit"
+    }
+  }
+}

@@ -1017,7 +1017,7 @@ let srvFetchTimer = null;       // отложенный запрос (ноль �
 
 // данные нужны, только пока открыт экран рулетки или «Профиль»
 const srvWanted = () => activeTab === 'profile' || activeTab === 'farm'
-  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack'));
+  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack' || currentGame === 'crash'));
 
 function renderProfile() {
   renderProfileIdentity();
@@ -3136,12 +3136,611 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadBj('visible');
 });
 
+// ---------- игра «Краш» ----------
+// Время и исход только на сервере. Клиент рисует рост множителя по elapsed_ms из ответа плюс локальное время с момента ответа
+// (только для показа), а во время полёта раз в 300 мс спрашивает состояние: крах и итог берутся из ответа сервера.
+// Режим «авто» решается сразу при старте: клиент проигрывает короткую анимацию до цели или до точки краха из ответа.
+// Баланс в шапке в авто-режиме обновляется после анимации. Ставка, цель и лента краха живут только в памяти.
+const CR_BET_MAX = 1000000000;
+const CR_TARGET_MIN = 101;
+const CR_TARGET_MAX = 100000;
+const CR_POLL_MS = 300;          // опрос состояния во время полёта
+const CR_AUTO_MAX_MS = 2000;     // авто-анимация не дольше
+const CR_HISTORY = 10;
+const CR_MULT_RE = /^\d+\.\d\d$/;
+
+const crEls = {
+  balance: document.getElementById('cr-balance'),
+  switchBtn: document.getElementById('cr-switch'),
+  notice: document.getElementById('cr-notice'),
+  skel: document.getElementById('cr-skel'),
+  msg: document.getElementById('cr-msg'),
+  code: document.getElementById('cr-code'),
+  retry: document.getElementById('cr-retry'),
+  chart: document.getElementById('cr-chart'),
+  curve: document.getElementById('cr-curve'),
+  mult: document.getElementById('cr-mult'),
+  label: document.getElementById('cr-label'),
+  history: document.getElementById('cr-history'),
+  banner: document.getElementById('cr-banner'),
+  bannerTitle: document.getElementById('cr-banner-title'),
+  bannerDetail: document.getElementById('cr-banner-detail'),
+  bets: document.getElementById('cr-bets'),
+  bet: document.getElementById('cr-bet'),
+  maxBtn: document.getElementById('cr-max'),
+  target: document.getElementById('cr-target'),
+  start: document.getElementById('cr-start'),
+  actions: document.getElementById('cr-actions'),
+  cash: document.getElementById('cr-cash')
+};
+
+const cr = {
+  view: 'loading',      // 'loading' | 'start' | 'play' | 'result'
+  loaded: false,
+  error: false,
+  game: null,           // последний ответ сервера
+  balance: null,
+  shownBalance: null,   // баланс в шапке на время авто-анимации
+  busy: false,          // идёт запрос: кнопки заблокированы
+  animating: false,     // идёт авто-анимация
+  base: { elapsed: 0, at: 0 },   // elapsed_ms из последнего ответа и момент его получения
+  history: [],          // последние множители краха (текст), только в памяти
+  seen: new Set(),
+  pressed: false,       // игрок нажал «Забрать» в этом раунде
+  live: false,          // итог пришёл, пока игрок смотрел полёт (иначе раунд закончился без него)
+  inFlight: false,
+  lastRequestAt: -Infinity,
+  timer: null,
+  raf: 0,
+  iv: 0,
+  pollTimer: 0,
+  polling: false
+};
+
+const crBetLimit = () => Math.max(1, Math.min(CR_BET_MAX, cr.balance === null ? CR_BET_MAX : cr.balance));
+const crText = (x100) => '×' + Math.floor(x100 / 100) + '.' + String(x100 % 100).padStart(2, '0');
+const crX100 = (text) => Math.round(parseFloat(text) * 100);
+
+function setCrNotice(text) { crEls.notice.textContent = text; }
+function setCrMessage(text, code, retry) {
+  crEls.msg.textContent = text;
+  crEls.code.textContent = code ? 'код: ' + code : '';
+  crEls.retry.hidden = !retry;
+}
+
+// Цель из поля: пусто = вручную (null); число 1.01..1000 с двумя знаками; иначе undefined (ошибка)
+function crParseTarget() {
+  const raw = crEls.target.value.trim().replace(',', '.');
+  if (raw === '') return null;
+  if (!/^\d{1,4}(\.\d{0,2})?$/.test(raw)) return undefined;
+  const x = Math.round(parseFloat(raw) * 100);
+  return x >= CR_TARGET_MIN && x <= CR_TARGET_MAX ? x : undefined;
+}
+
+// ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
+function validCrash(d, allowNone) {
+  if (!d || !isCount(d.balance) || !isInt(d.doubling_ms) || d.doubling_ms < 1 || typeof d.cap !== 'string') return false;
+  if (d.status === 'none') return !!allowNone && d.mode === null && d.bet === null;
+  if (d.status !== 'active' && d.status !== 'finished') return false;
+  if ((d.mode !== 'auto' && d.mode !== 'manual') || !isCount(d.bet) || d.bet < 1) return false;
+  if (d.mode === 'auto' ? !(typeof d.target === 'string' && CR_MULT_RE.test(d.target)) : d.target !== null) return false;
+  if (d.status === 'active') {
+    return d.mode === 'manual' && isCount(d.elapsed_ms) && d.crash_multiplier === null && d.result === null
+      && d.multiplier === null && d.payout === null;
+  }
+  return typeof d.crash_multiplier === 'string' && CR_MULT_RE.test(d.crash_multiplier) && (d.result === 'win' || d.result === 'lose')
+    && typeof d.multiplier === 'string' && CR_MULT_RE.test(d.multiplier) && isCount(d.payout);
+}
+const validCrashAction = (d) => validCrash(d, false);
+
+// ---------- график и множитель ----------
+const crElapsed = () => cr.base.elapsed + (performance.now() - cr.base.at);
+const crDoubling = () => (cr.game && cr.game.doubling_ms) || 6000;
+
+// m в сотых по времени (только для показа; сервер считает так же, но решает именно он)
+function crM100(elapsed) {
+  const x = Math.max(0, elapsed) / crDoubling();
+  return x >= 10 ? 100000 : Math.min(100000, Math.floor(100 * Math.pow(2, x)));
+}
+
+function crDrawCurve(elapsedMs) {
+  const dbl = crDoubling();
+  const m = Math.pow(2, Math.max(0, elapsedMs) / dbl);
+  const xmax = Math.max(8000, elapsedMs * 1.1);
+  const ymax = Math.max(2, m * 1.15);
+  const pts = [];
+  const N = 36;
+  for (let i = 0; i <= N; i++) {
+    const t = (elapsedMs * i) / N;
+    const x = (t / xmax) * 300;
+    const y = 149 - ((Math.pow(2, t / dbl) - 1) / (ymax - 1)) * 148;
+    pts.push((i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1));
+  }
+  crEls.curve.setAttribute('d', pts.join(''));
+}
+
+function crSetTone(tone) { crEls.chart.dataset.tone = tone; }
+
+function crShowMult(x100) {
+  crEls.mult.textContent = crText(x100);
+}
+
+// Отрисовка одного кадра: множитель, кривая и «Забрать N» (N = ставка × текущий множитель)
+function crDraw() {
+  if (cr.view !== 'play' || !cr.game) return;
+  const e = crElapsed();
+  const x100 = crM100(e);
+  crShowMult(x100);
+  crDrawCurve(e);
+  if (!cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(cr.game.bet * x100 / 100));
+}
+
+function crRaf() {
+  cr.raf = 0;
+  crDraw();
+  if (cr.view === 'play') cr.raf = requestAnimationFrame(crRaf);
+}
+
+function crStartLoop() {
+  crStopLoop();
+  crDraw();
+  if (reducedMotion()) cr.iv = setInterval(crDraw, 500);   // без плавной анимации: число реже
+  else cr.raf = requestAnimationFrame(crRaf);
+  crSchedulePoll();
+}
+
+function crStopLoop() {
+  if (cr.raf) cancelAnimationFrame(cr.raf);
+  if (cr.iv) clearInterval(cr.iv);
+  cr.raf = 0;
+  cr.iv = 0;
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = 0;
+}
+
+function crSchedulePoll() {
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = setTimeout(crPoll, CR_POLL_MS);
+}
+
+// Опрос состояния во время полёта: крах и итог берутся из ответа сервера
+async function crPoll() {
+  cr.pollTimer = 0;
+  if (cr.view !== 'play' || activeTab !== 'play' || currentGame !== 'crash') return;
+  if (cr.busy || cr.polling || document.visibilityState !== 'visible') { crSchedulePoll(); return; }
+  cr.polling = true;
+  try {
+    const d = await fetchCrashState();
+    if (cr.view === 'play' && !cr.busy) crApplyLive(d);
+  } catch (e) {
+    // сбой опроса не прерывает полёт: следующая попытка через интервал (429 тоже)
+  } finally {
+    cr.polling = false;
+  }
+  if (cr.view === 'play') crSchedulePoll();
+}
+
+// Живой ответ: активный раунд пересинхронизирует время, завершённый показывает итог (крах)
+function crApplyLive(d) {
+  cr.live = d.status !== 'active';
+  if (d.status === 'active') {
+    cr.game = d;
+    cr.balance = d.balance;
+    cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
+    renderCrashChrome();
+    return;
+  }
+  crFinishWith(d, false);
+}
+
+// ---------- итог ----------
+function crFinishWith(d, byCashout) {
+  crStopLoop();
+  cr.game = d;
+  cr.view = d.status === 'none' ? 'start' : 'result';
+  cr.animating = false;
+  cr.shownBalance = null;
+  cr.balance = d.balance;
+  if (d.status === 'finished') {
+    cr.seen.add(crKey(d));
+    crPushHistory(d.crash_multiplier);
+  }
+  renderCrash();
+  if (d.status === 'finished') haptic(d.result === 'win' ? 'success' : 'error');
+  loadServer('after');
+}
+
+const crKey = (g) => g.mode + ':' + g.bet + ':' + g.crash_multiplier + ':' + g.payout + ':' + g.multiplier;
+
+function crPushHistory(text) {
+  cr.history.unshift(text);
+  cr.history.length = Math.min(cr.history.length, CR_HISTORY);
+}
+
+function renderCrHistory() {
+  crEls.history.hidden = cr.history.length === 0;
+  crEls.history.textContent = '';
+  cr.history.forEach((t) => {
+    const li = document.createElement('li');
+    li.textContent = '×' + t;
+    if (parseFloat(t) >= 2) li.className = 'high';
+    crEls.history.appendChild(li);
+  });
+}
+
+function renderCrResult() {
+  const g = cr.game;
+  const done = cr.view === 'result' && !cr.animating && g && g.status === 'finished';
+  crEls.banner.hidden = !(done || cr.view === 'start');
+  crEls.banner.classList.remove('win', 'lose');
+  crEls.bannerDetail.textContent = '';
+  crEls.bannerDetail.title = '';
+  crEls.bannerTitle.title = '';
+  if (!done) {
+    crEls.bannerTitle.textContent = cr.view === 'start' ? 'Сделайте ставку' : '';
+    return;
+  }
+  const crashX = '×' + g.crash_multiplier;
+  if (g.result === 'win') {
+    const profit = g.payout - g.bet;
+    crEls.bannerTitle.textContent = 'Выигрыш +' + formatCompact(profit) + ' (×' + g.multiplier + ')';
+    crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(profit);
+    crEls.bannerDetail.textContent = 'Крах был бы ' + crashX;
+    crEls.banner.classList.add('win');
+  } else if (g.mode === 'manual' && (cr.pressed || (g.auto && !cr.live))) {
+    crEls.bannerTitle.textContent = 'Не успел';
+    crEls.bannerDetail.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(g.bet);
+    crEls.bannerDetail.title = 'Потеряно ' + formatNumber(g.bet);
+    crEls.banner.classList.add('lose');
+  } else {
+    crEls.bannerTitle.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(g.bet);
+    crEls.bannerTitle.title = 'Потеряно ' + formatNumber(g.bet);
+    crEls.banner.classList.add('lose');
+  }
+}
+
+// Фишки ставки по серверному балансу краша (те же номиналы, что в других играх)
+let crChipValues = [];
+function renderCrChips() {
+  const values = chipSet(cr.balance === null ? 0 : cr.balance);
+  if (values.join() === crChipValues.join()) return;
+  const wasChip = crChipValues.includes(Number(crEls.bet.value));
+  crChipValues = values;
+  crEls.bets.querySelectorAll('[data-cbet]').forEach((btn, i) => {
+    btn.dataset.cbet = String(values[i]);
+    setChipText(btn, values[i]);
+  });
+  if (wasChip && !values.includes(Number(crEls.bet.value))) crEls.bet.value = String(nearestChip(values, Number(crEls.bet.value)));
+}
+
+function syncCrChips() {
+  const v = Number(crEls.bet.value);
+  crEls.bets.querySelectorAll('[data-cbet]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.cbet) === v)));
+  const t = crParseTarget();
+  crEls.bets.querySelectorAll('[data-ctarget]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(typeof t === 'number' && t === Math.round(parseFloat(b.dataset.ctarget) * 100)));
+  });
+}
+
+// шапка и кнопки без перерисовки графика (вызывается и по ответам опроса)
+function renderCrashChrome() {
+  const bal = cr.animating && cr.shownBalance !== null ? cr.shownBalance : cr.balance;
+  if (bal !== null) {
+    crEls.balance.classList.remove('skeleton');
+    crEls.balance.textContent = spacedNumber(bal);
+    fitNumberFont(crEls.balance, crEls.balance.textContent.length);
+  }
+  crEls.switchBtn.disabled = cr.busy || cr.animating;
+  crEls.cash.disabled = cr.busy;
+  if (cr.busy && cr.view === 'play') crEls.cash.textContent = 'Фиксируем…';
+}
+
+function renderCrash() {
+  crStopIfNotPlaying();
+  const loading = cr.view === 'loading';
+  crEls.skel.hidden = !(loading && !cr.error);
+  const showChart = cr.view !== 'loading';
+  crEls.chart.hidden = !showChart;
+  renderCrHistory();
+  crEls.bets.hidden = !(cr.view === 'start' || cr.view === 'result');
+  crEls.actions.hidden = cr.view !== 'play';
+  renderCrashChrome();
+  renderCrChips();
+  syncCrChips();
+  renderCrResult();
+  const g = cr.game;
+  if (cr.view === 'start' && !cr.animating) {
+    crSetTone('idle');
+    crShowMult(100);
+    crEls.label.textContent = 'Ждём старта';
+    crEls.curve.setAttribute('d', 'M0 149');
+  } else if (cr.view === 'result' && g && !cr.animating) {
+    const win = g.result === 'win';
+    crSetTone(win ? 'win' : 'crash');
+    const x100 = win ? crX100(g.multiplier) : crX100(g.crash_multiplier);
+    crShowMult(x100);
+    crEls.label.textContent = win ? 'Выигрыш +' + formatCompact(g.payout - g.bet) : 'Крах ' + crText(crX100(g.crash_multiplier));
+    crDrawCurve(crDoubling() * Math.log2(Math.max(1, x100 / 100)));
+  } else if (cr.view === 'play' && g) {
+    crSetTone('idle');
+    crEls.label.textContent = g.target === null ? 'Нажмите «Забрать» до краха' : '';
+  }
+  crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = cr.busy || cr.animating || cr.balance === null; });
+  crEls.start.textContent = cr.view === 'result' ? 'Ещё раз' : 'Старт';
+  if (cr.view === 'play' && !cr.raf && !cr.iv) crStartLoop();
+  refreshBetPanels();
+}
+
+function crStopIfNotPlaying() {
+  if (cr.view !== 'play') crStopLoop();
+}
+
+// Применяет состояние с сервера без анимации: активный раунд восстанавливается, завершённый остаётся на экране
+function applyCrashState(d, announce) {
+  cr.loaded = true;
+  cr.error = false;
+  cr.balance = d.balance;
+  cr.shownBalance = null;
+  cr.animating = false;
+  setCrMessage('', '', false);
+  if (d.status === 'none') {
+    cr.game = null;
+    cr.view = 'start';
+  } else if (d.status === 'active') {
+    cr.game = d;
+    cr.view = 'play';
+    cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
+    cr.pressed = false;
+    cr.live = false;
+  } else {
+    cr.game = d;
+    cr.view = 'result';
+    cr.live = false;
+    if (announce && d.auto === true && !cr.seen.has(crKey(d))) {
+      setCrNotice('Раунд закончился без вас: ' + (d.result === 'win' ? 'выигрыш на ×' + d.multiplier : 'крах ×' + d.crash_multiplier));
+    }
+    cr.seen.add(crKey(d));
+    if (!cr.history.length) crPushHistory(d.crash_multiplier);
+  }
+  renderCrash();
+}
+
+// ---------- запросы ----------
+async function fetchCrashState() {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/crash/state', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + tg.initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
+    }
+    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
+    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
+    const d = await res.json();
+    if (!validCrash(d, true)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
+    return d;
+  } catch (e) {
+    if (e && typeof e.text === 'string') throw e;
+    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
+async function loadCrash(reason) {
+  if (cr.inFlight || cr.busy || cr.animating || activeTab !== 'play' || currentGame !== 'crash') return;
+  const now = performance.now();
+  const sinceLast = now - cr.lastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') {
+      clearTimeout(cr.timer);
+      cr.timer = setTimeout(() => loadCrash('manual'), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS && cr.view !== 'play') return;
+  if (!(tg && tg.initData)) {
+    cr.view = 'loading';
+    cr.error = true;
+    setCrMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    renderCrash();
+    return;
+  }
+  clearTimeout(cr.timer);
+  cr.inFlight = true;
+  cr.lastRequestAt = now;
+  if (!cr.loaded) {
+    cr.error = false;
+    setCrMessage('', '', false);
+    renderCrash();
+  }
+  try {
+    applyCrashState(await fetchCrashState(), true);
+  } catch (e) {
+    if (cr.loaded) {
+      setCrNotice(e.text);
+    } else {
+      cr.error = true;
+      setCrMessage(e.text, e.code, e.retry);
+      renderCrash();
+    }
+  } finally {
+    cr.inFlight = false;
+  }
+}
+
+// Авто-режим: быстрая анимация до цели (выигрыш) или до точки краха (проигрыш), потом итог и баланс
+async function crAnimateAuto(d) {
+  const win = d.result === 'win';
+  const endX100 = win ? crX100(d.multiplier) : crX100(d.crash_multiplier);
+  cr.animating = true;
+  cr.view = 'result';
+  cr.game = d;
+  cr.shownBalance = cr.balance;
+  renderCrash();
+  crSetTone('idle');
+  crEls.label.textContent = 'Цель ' + crText(crX100(d.target));
+  if (!reducedMotion()) {
+    const dur = Math.min(CR_AUTO_MAX_MS, Math.max(500, 400 * Math.log2(Math.max(2, endX100 / 100)) + 300));
+    const t0 = performance.now();
+    await new Promise((resolve) => {
+      const step = () => {
+        const f = Math.min(1, (performance.now() - t0) / dur);
+        const x100 = Math.floor(100 * Math.pow(endX100 / 100, f));
+        crShowMult(x100);
+        crDrawCurve(crDoubling() * Math.log2(Math.max(1, x100 / 100)));
+        if (f < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      step();
+    });
+  }
+  cr.animating = false;
+}
+
+async function crAct(path, body, onOk) {
+  if (cr.busy) return;
+  if (!(tg && tg.initData)) { setCrNotice('Откройте игру через бота в Telegram'); return; }
+  const id = makeRequestId();
+  if (!id) { setCrNotice('Ошибка'); return; }
+  cr.busy = true;
+  setCrNotice('');
+  renderCrashChrome();
+  crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = true; });
+  let result = null;
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await postMinesOnce(path, { request_id: id, ...body }, validCrashAction);
+    if (r.kind !== 'retry') result = r;
+  }
+  let note = 'Состояние обновлено';
+  let reload = true;
+  if (result && result.kind === 'ok') {
+    try {
+      await onOk(result.data);
+      cr.busy = false;
+      renderCrash();
+      return;
+    } catch (e) {
+      cr.animating = false;
+      note = 'Не удалось показать результат. Состояние обновлено';
+    }
+  } else if (result && result.kind === 'invalid') {
+    note = 'Ответ сервера не распознан. Состояние обновлено';
+  } else if (result && result.kind === 'fatal') {
+    note = result.text;
+    reload = false;
+  } else if (result && result.kind === 'conflict') {
+    if (result.detail === 'too_early') { note = 'Слишком рано: вывод возможен с ×1.01'; reload = false; }
+    else if (result.detail === 'insufficient_funds') note = 'Не хватает фишек';
+    else if (result.detail === 'active_game_exists') note = 'У вас уже есть начатый раунд';
+    else if (result.detail === 'no_active_game') note = 'Раунд уже закрыт';
+  }
+  cr.busy = false;
+  if (reload) {
+    try {
+      applyCrashState(await fetchCrashState(), false);
+      setCrNotice(note);
+    } catch (e) {
+      setCrNotice('Нет связи. Состояние раунда неизвестно, обновите экран');
+    }
+  } else {
+    setCrNotice(note);
+    renderCrash();
+  }
+  loadServer('after');
+}
+
+function crStart() {
+  const bet = Number(crEls.bet.value);
+  const target = crParseTarget();
+  if (!Number.isSafeInteger(bet) || bet < 1 || bet > CR_BET_MAX) { setCrNotice('Введите целую ставку от 1 до ' + formatNumber(CR_BET_MAX)); return; }
+  if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 1000 (или пусто для ручного режима)'); return; }
+  if (cr.balance !== null && bet > cr.balance) { setCrNotice('Не хватает фишек'); return; }
+  cr.pressed = false;
+  const body = target === null ? { bet } : { bet, target_x100: target };
+  crAct('/api/crash/start', body, async (d) => {
+    if (d.status === 'active') {
+      cr.game = d;
+      cr.view = 'play';
+      cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
+      cr.balance = d.balance;
+      renderCrash();
+      haptic('light');
+      return;
+    }
+    await crAnimateAuto(d);    // баланс в шапке остаётся прежним до конца анимации
+    crFinishWith(d, false);
+  });
+}
+
+function crCash() {
+  if (cr.view !== 'play' || cr.busy) return;
+  cr.pressed = true;
+  crAct('/api/crash/cashout', {}, async (d) => { crFinishWith(d, true); });
+}
+
+setupBetPanel({
+  input: crEls.bet,
+  maxBtn: crEls.maxBtn,
+  halfBtn: document.getElementById('cr-half'),
+  doubleBtn: document.getElementById('cr-double-bet'),
+  getLimit: crBetLimit
+});
+crEls.bet.addEventListener('input', syncCrChips);
+crEls.bets.querySelectorAll('[data-cbet]').forEach((b) => b.addEventListener('click', () => {
+  crEls.bet.value = b.dataset.cbet;
+  syncCrChips();
+  refreshBetPanels();
+  haptic('light');
+}));
+// поле цели: цифры и один разделитель, панель над клавиатурой как у ставки, «Готово» вместо «Макс» на время ввода
+crEls.target.addEventListener('input', () => {
+  let v = crEls.target.value.replace(',', '.').replace(/[^\d.]/g, '');
+  const dot = v.indexOf('.');
+  if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  crEls.target.value = v.slice(0, 7);
+  syncCrChips();
+});
+crEls.target.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); crEls.target.blur(); } });
+crEls.target.addEventListener('focus', () => {
+  crEls.maxBtn.dataset.mode = 'done';
+  crEls.maxBtn.textContent = 'Готово';
+  dockPanel(crEls.bets);
+});
+crEls.target.addEventListener('blur', () => {
+  crEls.maxBtn.dataset.mode = 'max';
+  crEls.maxBtn.textContent = 'Макс';
+  undockPanel(crEls.bets);
+  syncCrChips();
+});
+crEls.maxBtn.addEventListener('click', () => { if (document.activeElement === crEls.target) crEls.target.blur(); });
+crEls.bets.querySelectorAll('[data-ctarget]').forEach((b) => b.addEventListener('click', () => {
+  const same = crParseTarget() === Math.round(parseFloat(b.dataset.ctarget) * 100);
+  crEls.target.value = same ? '' : b.dataset.ctarget;   // повторное нажатие возвращает ручной режим
+  syncCrChips();
+  haptic('light');
+}));
+crEls.start.addEventListener('click', crStart);
+crEls.cash.addEventListener('click', crCash);
+crEls.retry.addEventListener('click', () => loadCrash('manual'));
+crEls.switchBtn.addEventListener('click', toggleGameMenu);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadCrash('visible');
+});
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
   { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
-  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
+  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
   { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
   { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
   { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
@@ -3182,6 +3781,7 @@ function showTab(id) {
   if (started && screen === 'farm') loadFarm('open');
   if (started && screen === 'mines') loadMines('open');
   if (started && screen === 'blackjack') loadBj('open');
+  if (started && screen === 'crash') loadCrash('open');
   if (started && screen === 'keno') {
     loadServer('open');
     loadKenoPay();

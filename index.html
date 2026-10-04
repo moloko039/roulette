@@ -284,6 +284,68 @@
       </div>
     </section>
   </section>
+  <section class="screen mines crash" data-screen="crash" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="cr-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="cr-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Краш</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice" id="cr-notice" aria-live="polite"></p>
+    <div class="skeleton-card" id="cr-skel" hidden aria-hidden="true">
+      <div class="skeleton tall"></div><div class="skeleton"></div>
+    </div>
+    <p class="profile-msg" id="cr-msg"></p>
+    <small class="profile-code" id="cr-code"></small>
+    <button type="button" class="action profile-retry" id="cr-retry" hidden>Повторить</button>
+    <div class="cr-chart" id="cr-chart" data-tone="idle" hidden>
+      <svg class="cr-svg" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
+        <path class="cr-axis" d="M0 149H300M1 0V150"/>
+        <path class="cr-curve" id="cr-curve" d="M0 149"/>
+      </svg>
+      <div class="cr-readout" aria-live="off">
+        <strong class="cr-mult" id="cr-mult">×1.00</strong>
+        <span class="cr-label" id="cr-label"></span>
+      </div>
+    </div>
+    <ol class="cr-history" id="cr-history" aria-label="Последние точки краха" hidden></ol>
+    <div class="bj-banner cr-banner" id="cr-banner" aria-live="polite" hidden>
+      <strong id="cr-banner-title"></strong>
+      <span id="cr-banner-detail"></span>
+    </div>
+    <section class="bets bets-dock cr-bets" id="cr-bets" hidden>
+      <div class="row bet-chips">
+        <button type="button" class="chip" data-cbet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-cbet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-cbet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-cbet="500" aria-pressed="false">500</button>
+      </div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="cr-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="cr-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="cr-double-bet" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="cr-max">Макс</button>
+      </div>
+      <div class="cr-target-row">
+        <input id="cr-target" class="bet-input cr-target" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="Авто ×" aria-label="Авто-вывод, множитель (пусто: вручную)">
+        <button type="button" class="chip" data-ctarget="1.5" aria-pressed="false">1.5×</button>
+        <button type="button" class="chip" data-ctarget="2" aria-pressed="false">2×</button>
+        <button type="button" class="chip" data-ctarget="5" aria-pressed="false">5×</button>
+        <button type="button" class="chip" data-ctarget="10" aria-pressed="false">10×</button>
+      </div>
+      <div class="row">
+        <button type="button" id="cr-start" class="keno-play">Старт</button>
+      </div>
+    </section>
+    <section class="bets cr-actions" id="cr-actions" hidden>
+      <button type="button" id="cr-cash" class="keno-play cr-cash">Забрать</button>
+    </section>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">

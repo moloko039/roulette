@@ -24,10 +24,11 @@ import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import db
 import blackjack
+import crash
 import farm
 import keno
 import mines
-from db import (blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+from db import (crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
@@ -253,6 +254,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         now = int(time.time())
         settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
+        settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша
         player = get_player(user_id, now=now, db_path=db_path)
         if _in_group(info):
             try:
@@ -350,7 +352,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             raise _unauthorized()
         return user_id, throttled(user_id, group)
 
-    async def _mines_post(request, keys, run):
+    async def _mines_post(request, keys, run, optional=frozenset()):
         """Общий разбор POST мин: подпись, лимит, тело с точным набором ключей, ошибки в одном формате."""
         user_id, limited = _mines_user(request.headers, "write")
         if limited is not None:
@@ -360,7 +362,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             if len(raw) > MAX_BODY_BYTES:
                 raise ValueError()
             data = json.loads(raw)
-            if type(data) is not dict or set(data) != keys:
+            if type(data) is not dict or not (keys <= set(data) <= keys | optional):
                 raise ValueError()
             request_id = validate_request_id(data["request_id"])
             call = run(user_id, request_id, data)   # проверки типов и диапазонов: ValueError -> 400
@@ -368,7 +370,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError) as exc:
+        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
@@ -453,6 +455,33 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return blackjack_state(user_id, db_path=db_path)
+
+    # ---------- краш ----------
+    # Точка краха активного раунда не попадает ни в один ответ; время считает только сервер
+
+    @app.post("/api/crash/start")
+    async def crash_start_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            bet, target = data["bet"], data.get("target_x100")
+            if type(bet) is not int or not 1 <= bet <= crash.CRASH_MAX_BET:
+                raise ValueError()
+            if target is not None and (type(target) is not int or not crash.MIN_TARGET_X100 <= target <= crash.CAP_X100):
+                raise ValueError()
+            return lambda: crash_start(user_id, request_id, bet, target, db_path=db_path)
+        return await _mines_post(request, {"request_id", "bet"}, prepare, optional=frozenset({"target_x100"}))
+
+    @app.post("/api/crash/cashout")
+    async def crash_cashout_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            return lambda: crash_cashout(user_id, request_id, db_path=db_path)
+        return await _mines_post(request, {"request_id"}, prepare)
+
+    @app.get("/api/crash/state")
+    def crash_state_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return crash_state(user_id, db_path=db_path)
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):

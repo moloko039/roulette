@@ -9,6 +9,7 @@ from math import comb
 
 from roulette import settle
 from blackjack import xp_for
+from crash import xp_for as crash_xp_for
 from keno import TOTAL_DRAWS, lose_combinations
 
 ROULETTE_OUTCOMES = 37   # исходы 0..36
@@ -36,6 +37,11 @@ def keno_xp(bet, picked):
 def blackjack_xp(wager):
     """Опыт раздачи блэкджека: wager * 12 // 25 (формула в blackjack.xp_for, здесь единая точка для db)."""
     return xp_for(wager)
+
+
+def crash_xp(bet, m_x100):
+    """Опыт раунда краша (формула в crash.xp_for, единая точка для db)."""
+    return crash_xp_for(bet, m_x100)
 
 
 def mines_xp(bet, mines, opened, lost):
