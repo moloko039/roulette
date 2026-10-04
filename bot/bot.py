@@ -3,7 +3,6 @@ import html
 import io
 import json
 import logging
-import math
 import os
 import re
 import time
@@ -20,7 +19,7 @@ import antiabuse
 import backup
 import db as db_module
 from db import delete_player_data, get_player, get_player_export, init_db
-from economy import HOUR
+from economy import next_tick_in
 from notify import load_owner_id
 
 load_dotenv()
@@ -255,11 +254,11 @@ async def play(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def _balance_text(user_id):
     now = _wall()
     player = get_player(user_id, now=now)  # нового игрока создаёт, как в личном /balance
-    # до следующего начисления: от last_accrual ровно час, минуты округляем вверх
-    minutes = math.ceil((player["last_accrual"] + HOUR - now) / 60)
+    # доход начисляется поминутно: до следующей минутной границы (1..60 с), как seconds_to_next в /api/me
+    seconds = next_tick_in(now)
     return (
         f"Баланс: {player['balance']} фишек\n"
-        f"До следующего начисления: {minutes} мин"
+        f"До следующего начисления: {seconds} сек."
     )
 
 

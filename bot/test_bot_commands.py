@@ -238,6 +238,19 @@ try:
         init_db()
         u = run(bot.balance, FakeUpdate("private", user_id=42))
         assert u.replies[0]["text"].startswith("Баланс: 1000 фишек\nДо следующего начисления: "), u.replies
+        # «до следующего начисления» это секунды до ближайшей минутной границы (1..60), как seconds_to_next в /api/me
+        T_MIN = 1_760_000_040    # граница минуты
+        for offset, seconds, uid in ((0, 60, 7001), (1, 59, 7002), (30, 30, 7003), (59, 1, 7004)):
+            with mock.patch.object(bot, "_wall", return_value=T_MIN + offset):
+                u = run(bot.balance, FakeUpdate("private", user_id=uid))
+            check("до следующего начисления, секунда %d минуты" % offset, u.replies[0]["text"],
+                  "Баланс: 1000 фишек\nДо следующего начисления: %d сек." % seconds)
+        for now in range(T_MIN, T_MIN + 61):
+            with mock.patch.object(bot, "_wall", return_value=now):
+                text = bot._balance_text(7001)
+            n = int(text.rsplit(": ", 1)[1].split(" ")[0])
+            assert 1 <= n <= 60 and n == bot.next_tick_in(now), (now, text)
+        assert "мин" not in bot._balance_text(7001).split("\n")[1]
         # в группе настоящий баланс, тем же текстом, что в личке; ответ с цитатой (reply_text)
         for kind in ("group", "supergroup"):
             u = run(bot.balance, FakeUpdate(kind, user_id=4200 + len(kind), chat_id=-9))
