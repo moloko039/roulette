@@ -23,11 +23,12 @@ from levels import profile_level
 import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import db
+import blackjack
 import farm
 import keno
 import mines
-from db import (buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
-                mines_start, play_keno, mines_state, settle_expired_mines, spin_roulette, touch_chat_member)
+from db import (blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+                mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
                       validate_request_id)
@@ -251,6 +252,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
 
         now = int(time.time())
         settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
+        settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
         player = get_player(user_id, now=now, db_path=db_path)
         if _in_group(info):
             try:
@@ -366,7 +368,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except (mines.MinesError, keno.KenoError) as exc:
+        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
@@ -423,6 +425,34 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return {"paytable": keno.paytable_text()}
+
+    # ---------- блэкджек ----------
+    # Колода и скрытая карта дилера активной раздачи не попадают ни в один ответ
+
+    @app.post("/api/blackjack/start")
+    async def blackjack_start_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            bet = data["bet"]
+            if type(bet) is not int or not 1 <= bet <= blackjack.BLACKJACK_MAX_BET:
+                raise ValueError()
+            return lambda: blackjack_start(user_id, request_id, bet, db_path=db_path)
+        return await _mines_post(request, {"request_id", "bet"}, prepare)
+
+    @app.post("/api/blackjack/action")
+    async def blackjack_action_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            action = data["action"]
+            if type(action) is not str or action not in blackjack.ACTIONS:
+                raise ValueError()
+            return lambda: blackjack_action(user_id, request_id, action, db_path=db_path)
+        return await _mines_post(request, {"request_id", "action"}, prepare)
+
+    @app.get("/api/blackjack/state")
+    def blackjack_state_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return blackjack_state(user_id, db_path=db_path)
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):

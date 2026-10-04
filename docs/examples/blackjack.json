@@ -1,0 +1,131 @@
+{
+  "_comment": "Примеры ответов блэкджека (значения-заглушки). Серверный тест test_blackjack.py сверяет с ними форму настоящих ответов; мок клиента строится из этого же файла. Одна форма для start, action и state.",
+  "active": {
+    "status": "active",
+    "bet": 100,
+    "wager": 100,
+    "player": {
+      "cards": [
+        "8S",
+        "3H"
+      ],
+      "total": 11,
+      "soft": false
+    },
+    "dealer": {
+      "cards": [
+        "6D",
+        null
+      ],
+      "total": 6
+    },
+    "actions": [
+      "hit",
+      "stand",
+      "double"
+    ],
+    "result": null,
+    "payout": null,
+    "balance": 900,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_win": {
+    "status": "finished",
+    "bet": 100,
+    "wager": 200,
+    "player": {
+      "cards": [
+        "8S",
+        "3H",
+        "KC"
+      ],
+      "total": 21,
+      "soft": false
+    },
+    "dealer": {
+      "cards": [
+        "6D",
+        "10C",
+        "9H"
+      ],
+      "total": 25
+    },
+    "actions": [],
+    "result": "dealer_bust",
+    "payout": 400,
+    "balance": 1200,
+    "level": 1,
+    "xp": 96,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_blackjack": {
+    "status": "finished",
+    "bet": 100,
+    "wager": 100,
+    "player": {
+      "cards": [
+        "AS",
+        "KD"
+      ],
+      "total": 21,
+      "soft": true
+    },
+    "dealer": {
+      "cards": [
+        "9C",
+        "7H"
+      ],
+      "total": 16
+    },
+    "actions": [],
+    "result": "blackjack",
+    "payout": 250,
+    "balance": 1150,
+    "level": 1,
+    "xp": 48,
+    "auto": false,
+    "replayed": false
+  },
+  "none": {
+    "status": "none",
+    "bet": null,
+    "wager": null,
+    "player": null,
+    "dealer": null,
+    "actions": [],
+    "result": null,
+    "payout": null,
+    "balance": 1000,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "active_game_exists": {
+      "detail": "active_game_exists"
+    },
+    "insufficient_funds": {
+      "detail": "insufficient_funds"
+    },
+    "no_active_game": {
+      "detail": "no_active_game"
+    },
+    "invalid_action": {
+      "detail": "invalid_action"
+    },
+    "request_conflict": {
+      "detail": "request_conflict"
+    },
+    "balance_limit": {
+      "detail": "balance_limit"
+    }
+  }
+}

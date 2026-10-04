@@ -253,6 +253,10 @@ def run_maintenance_once(config, db_path, now, last_purge, events=None):
         db.close_expired_mines(now=now, db_path=db_path)  # просроченные игры в мины закрываются раз в проход (час)
     except Exception as exc:
         logger.error("Закрытие просроченных игр в мины не выполнено: %s", type(exc).__name__)
+    try:
+        db.close_expired_blackjack(now=now, db_path=db_path)  # просроченные раздачи блэкджека закрываются раз в проход
+    except Exception as exc:
+        logger.error("Закрытие просроченных раздач блэкджека не выполнено: %s", type(exc).__name__)
     if last_purge is None or now - last_purge >= 86400:
         db.purge_old_data(now=now, db_path=db_path, rounds_days=config["rounds_days"],
                           member_days=config["member_days"])

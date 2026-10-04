@@ -225,6 +225,65 @@
       </div>
     </section>
   </section>
+  <section class="screen mines bj" data-screen="blackjack" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="bj-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="bj-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Блэкджек</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice" id="bj-notice" aria-live="polite"></p>
+    <div class="skeleton-card" id="bj-skel" hidden aria-hidden="true">
+      <div class="skeleton tall"></div><div class="skeleton"></div>
+    </div>
+    <p class="profile-msg" id="bj-msg"></p>
+    <small class="profile-code" id="bj-code"></small>
+    <button type="button" class="action profile-retry" id="bj-retry" hidden>Повторить</button>
+    <div class="bj-table" id="bj-table" hidden>
+      <div class="bj-hand">
+        <div class="bj-head"><span class="bj-who">Дилер</span><span class="bj-total" id="bj-dealer-total"></span></div>
+        <div class="bj-cards" id="bj-dealer-cards" aria-label="Карты дилера"></div>
+      </div>
+      <div class="bj-hand">
+        <div class="bj-head"><span class="bj-who">Вы</span><span class="bj-total" id="bj-player-total"></span></div>
+        <div class="bj-cards" id="bj-player-cards" aria-label="Ваши карты"></div>
+      </div>
+    </div>
+    <div class="bj-banner" id="bj-banner" aria-live="polite" hidden>
+      <strong id="bj-banner-title"></strong>
+      <span id="bj-banner-detail"></span>
+    </div>
+    <section class="bets bets-dock bj-bets" id="bj-bets" hidden>
+      <div class="row bet-chips">
+        <button type="button" class="chip" data-jbet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-jbet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-jbet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-jbet="500" aria-pressed="false">500</button>
+      </div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="bj-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="bj-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="bj-double-bet" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="bj-max">Макс</button>
+      </div>
+      <div class="row">
+        <button type="button" id="bj-deal" class="keno-play">Раздать</button>
+      </div>
+    </section>
+    <section class="bets bj-actions" id="bj-actions" hidden>
+      <div class="bj-stake" id="bj-stake"></div>
+      <div class="row bj-buttons">
+        <button type="button" class="action bj-act" id="bj-hit">Взять</button>
+        <button type="button" class="action bj-act" id="bj-stand">Стоп</button>
+        <button type="button" class="action bj-act" id="bj-double">Удвоить</button>
+      </div>
+    </section>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">
