@@ -431,6 +431,35 @@ async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 GRANT_TTL = 300   # подтверждение начисления действует 5 минут
 
 
+async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): /give <сумма> начисляет фишки ТОЛЬКО самому владельцу.
+    Все остальные (и любой чат, кроме личного) не получают ответа, в лог про них ничего не пишется."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    args = list(context.args or [])
+    if len(args) != 1 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= db_module.GIVE_MAX_AMOUNT:
+        await _reply(update, "Формат: /give <сумма>, целое от 1 до 100000000")
+        return
+    amount = int(args[0])
+    try:
+        given, balance_now = await asyncio.to_thread(db_module.give_owner, user.id, amount)   # начисляется только user.id
+    except db_module.PlayerMissing:
+        await _reply(update, "Вас ещё нет в базе: откройте игру один раз и повторите команду")
+        return
+    except Exception as exc:
+        logger.error("Начисление владельцу не выполнено: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выполнить начисление (подробности в логах сервиса)")
+        return
+    if given == amount:
+        await _reply(update, "Начислено %d. Баланс: %d" % (given, balance_now))
+    else:
+        await _reply(update, "Баланс у потолка: начислено %d из %d. Баланс: %d" % (given, amount, balance_now))
+
+
 async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Скрытая команда владельца (нет в меню и в /help): разовое начисление фишек всем игрокам.
     /grantall <сумма> <id> показывает, сколько игроков и фишек, /grantall confirm <id> выполняет (в течение 5 минут;
@@ -622,7 +651,7 @@ def build_application(token, use_updater=True):
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
                           ("deletemydata", deletemydata), ("backupnow", backupnow),
-                          ("grantall", grantall)):
+                          ("grantall", grantall), ("give", give)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
     app.add_error_handler(on_error)
