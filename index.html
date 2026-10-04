@@ -179,6 +179,52 @@
     </div>
     <div class="mines-last" id="mines-last" hidden></div>
   </section>
+  <section class="screen mines keno" data-screen="keno" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="keno-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="keno-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Кено</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice" id="keno-notice" aria-live="polite"></p>
+    <div class="keno-board" id="keno-board" role="group" aria-label="Числа от 1 до 40"></div>
+    <div class="keno-meta">
+      <span class="keno-count" id="keno-count">Выбрано 0 из 10</span>
+      <button type="button" class="action keno-small" id="keno-auto">Авто 10</button>
+      <button type="button" class="action keno-small" id="keno-clear">Очистить</button>
+    </div>
+    <div class="keno-result" id="keno-result" aria-live="polite">
+      <strong id="keno-result-title"></strong>
+      <span id="keno-result-detail"></span>
+    </div>
+    <div class="keno-pay">
+      <div class="mines-label" id="keno-pay-title">Совпало → множитель</div>
+      <ul class="keno-pay-list" id="keno-pay-list" aria-labelledby="keno-pay-title"></ul>
+      <small class="keno-pay-note" id="keno-pay-note"></small>
+    </div>
+    <section class="bets bets-dock keno-bets" id="keno-bets">
+      <div class="row bet-chips">
+        <button type="button" class="chip" data-kbet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-kbet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-kbet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-kbet="500" aria-pressed="false">500</button>
+      </div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="keno-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="keno-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="keno-double" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="keno-max">Макс</button>
+      </div>
+      <div class="row">
+        <button type="button" id="keno-play" class="keno-play">Играть</button>
+      </div>
+    </section>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">

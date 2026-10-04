@@ -8,6 +8,7 @@
 from math import comb
 
 from roulette import settle
+from keno import TOTAL_DRAWS, lose_combinations
 
 ROULETTE_OUTCOMES = 37   # исходы 0..36
 FIELD_CELLS = 25         # поле мин 5 на 5
@@ -21,6 +22,14 @@ def roulette_xp(stake_total, bets):
         raise ValueError("stake_total must be a non-negative integer")
     losing = sum(1 for n in range(ROULETTE_OUTCOMES) if settle(bets, n)[1] == 0)
     return stake_total * losing // ROULETTE_OUTCOMES
+
+
+def keno_xp(bet, picked):
+    """Опыт раунда кено: bet * (число розыгрышей из C(40, 10), где выплата равна нулю) // C(40, 10).
+    Зависит только от ставки и числа выбранных (вероятность проигрыша всей ставки при k числах)."""
+    if type(bet) is not int or bet < 0:
+        raise ValueError("bet must be a non-negative integer")
+    return bet * lose_combinations(picked) // TOTAL_DRAWS
 
 
 def mines_xp(bet, mines, opened, lost):

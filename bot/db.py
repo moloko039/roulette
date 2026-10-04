@@ -11,6 +11,7 @@ import antiabuse
 from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
 import farm
+import keno
 import mines
 import wallet
 import xp
@@ -183,6 +184,24 @@ def init_db(db_path=None):
             )
             """
         )
+        # раунды кено: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS keno_rounds (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                request_id  TEXT    NOT NULL,
+                bet         INTEGER NOT NULL,
+                picks_json  TEXT    NOT NULL,
+                draw_json   TEXT    NOT NULL,
+                hit_count   INTEGER NOT NULL,
+                payout      INTEGER NOT NULL,
+                created_at  INTEGER NOT NULL,
+                UNIQUE (telegram_id, request_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_keno_created ON keno_rounds(created_at)")
         # покупки улучшений фермы: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
         conn.execute(
             """
@@ -548,6 +567,87 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
         conn.close()
 
     return _round_result(number, stake_total, payout_total, new_balance, False)
+
+
+# ---------- кено ----------
+
+def _keno_result(bet, picks, draw, payout, balance, xp_total, replayed):
+    hits = keno.play(picks, draw)
+    return {
+        "bet": bet,
+        "picks": list(picks),
+        "draw": list(draw),
+        "hits": hits,
+        "hit_count": len(hits),
+        "multiplier": keno.multiplier_text(keno.multiplier_x100(len(picks), len(hits))),
+        "payout": payout,
+        "balance": balance,
+        "level": profile_level(xp_total),
+        "xp": xp_total,
+        "replayed": replayed,
+    }
+
+
+def play_keno(telegram_id, request_id, bet, picks, now=None, db_path=None, rng=None):
+    """Один раунд кено в одной транзакции BEGIN IMMEDIATE (по образцу spin_roulette).
+
+    bet и picks уже проверены (keno.validate_picks, 1 <= bet <= KENO_MAX_BET). rng: объект с sample (тесты).
+    Повтор с тем же request_id и теми же bet и picks возвращает сохранённый раунд (balance текущий),
+    с другими: keno.RequestConflict. Бросает InsufficientFunds или BalanceLimit; тогда в базе ничего не меняется.
+    """
+    if type(bet) is not int or not 1 <= bet <= keno.KENO_MAX_BET:
+        raise ValueError("bet out of range")
+    picks = keno.validate_picks(picks)
+    if now is None:
+        now = int(time.time())
+
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute(
+                "SELECT bet, picks_json, draw_json, payout FROM keno_rounds WHERE telegram_id = ? AND request_id = ?",
+                (telegram_id, request_id),
+            ).fetchone()
+            if old is not None:
+                if old["bet"] != bet or json.loads(old["picks_json"]) != picks:
+                    raise keno.RequestConflict()
+                cur = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+                result = _keno_result(bet, picks, json.loads(old["draw_json"]), old["payout"],
+                                      cur["balance"] if cur else 0, cur["xp"] if cur else 0, True)
+                conn.execute("COMMIT")
+                return result
+
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
+            if wallet.get_balance(conn, telegram_id) + bet * keno.MAX_MULT_X100 // 100 > MAX_SAFE_INT:
+                raise BalanceLimit()
+            draw = keno.draw_numbers(rng)
+            hits = keno.play(picks, draw)
+            payout = keno.payout(bet, len(picks), len(hits))
+            if payout > 0:
+                wallet.credit(conn, telegram_id, payout)
+            conn.execute(
+                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
+                (bet, MAX_SAFE_INT, telegram_id),
+            )
+            _add_xp(conn, telegram_id, xp.keno_xp(bet, len(picks)))
+            conn.execute(
+                "INSERT INTO keno_rounds (telegram_id, request_id, bet, picks_json, draw_json, hit_count, payout, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (telegram_id, request_id, bet, json.dumps(picks, separators=(",", ":")),
+                 json.dumps(draw, separators=(",", ":")), len(hits), payout, now),
+            )
+            cur = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            result = _keno_result(bet, picks, draw, payout, cur["balance"], cur["xp"], False)
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
 
 
 # ---------- ферма: улучшения дохода и хранилища ----------
@@ -1075,6 +1175,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
                 (telegram_id, rounds_limit),
             ).fetchall()
+            keno_rounds = conn.execute(
+                "SELECT created_at, bet, picks_json, draw_json, hit_count, payout FROM keno_rounds "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -1084,7 +1189,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -1099,6 +1204,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
              "opened": mines.popcount(g["revealed_mask"]), "status": g["status"], "payout": g["payout"],
              "finished_at": g["finished_at"]}
             for g in games
+        ],
+        "keno_rounds": [
+            {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
+             "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
+            for k in keno_rounds
         ],
         "farm_purchases": [
             {"time": p["created_at"], "kind": p["kind"], "level": p["level_after"], "cost": p["cost"]}
@@ -1139,6 +1249,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                     "DELETE FROM mines_games WHERE telegram_id = ?", (telegram_id,)).rowcount,
             }
             conn.execute("DELETE FROM mines_actions WHERE telegram_id = ?", (telegram_id,))
+            counts["keno_rounds"] = conn.execute(
+                "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",
@@ -1174,7 +1286,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "chat_members": 0, "deletion_tombstones": 0}
+               "keno_rounds": 0, "chat_members": 0, "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
 
@@ -1214,6 +1326,10 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM mines_actions WHERE rowid IN "
                 "(SELECT rowid FROM mines_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "keno_rounds" in present:  # тот же срок хранения, что у раундов рулетки
+            deleted["keno_rounds"] = batches(
+                "DELETE FROM keno_rounds WHERE id IN (SELECT id FROM keno_rounds WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "
@@ -1226,7 +1342,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
-                deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"])
+                deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"])
     return deleted
