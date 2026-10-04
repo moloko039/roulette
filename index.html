@@ -121,7 +121,7 @@
     <small class="profile-code" id="farm-code"></small>
     <button type="button" class="action profile-retry" id="farm-retry" hidden>Повторить</button>
   </section>
-  <section class="screen mines" data-screen="mines" hidden>
+  <section class="screen mines mines-screen" data-screen="mines" hidden>
     <header class="top">
       <div class="balance">
         <span class="balance-label">Баланс</span>
@@ -133,7 +133,10 @@
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
     </header>
-    <div class="mines-inplay" id="mines-inplay" hidden></div>
+    <div class="mines-meta" id="mines-meta" hidden>
+      <span class="mines-inplay" id="mines-inplay"></span>
+      <span class="mines-left" id="mines-left"></span>
+    </div>
     <p class="mines-notice" id="mines-notice" aria-live="polite"></p>
     <div class="skeleton-card" id="mines-skel" hidden aria-hidden="true">
       <div class="skeleton tall"></div><div class="skeleton"></div>
@@ -176,15 +179,20 @@
       <button type="button" class="mines-primary" id="mines-begin">Начать</button>
     </form>
 
+    <div class="mines-mults" id="mines-mults" aria-live="polite" hidden>
+      <strong class="mines-mult-now" id="mines-mult">×1.00</strong>
+      <svg class="mines-arrow" id="mines-arrow" viewBox="0 0 28 16" aria-hidden="true"><path d="M2 8h22M18 2l7 6-7 6"/></svg>
+      <span class="mines-mult-next" id="mines-next">
+        <strong id="mines-next-mult"></strong>
+        <small id="mines-next-pay"></small>
+      </span>
+    </div>
+
     <div class="mines-board" id="mines-board-wrap" hidden>
       <div class="mines-grid" id="mines-grid" role="group" aria-label="Поле 5 на 5"></div>
     </div>
 
     <div class="mines-panel" id="mines-panel" hidden>
-      <div class="mines-stat"><span class="stat-label">Множитель</span><strong class="num" id="mines-mult"></strong></div>
-      <div class="mines-stat"><span class="stat-label">Выигрыш сейчас</span><strong class="num" id="mines-now"></strong></div>
-      <div class="mines-line" id="mines-next"></div>
-      <div class="mines-line" id="mines-left"></div>
       <button type="button" class="mines-primary" id="mines-cash"></button>
       <small class="mines-expiry" id="mines-expiry"></small>
     </div>

@@ -85,6 +85,7 @@
   --font-display: 'Playfair Display', Georgia, serif;
 
   --nav-h: 56px;
+  --nav-lift: 16px;             /* насколько центральная кнопка навигации выступает вверх над панелью */
   /* вырезы и системные панели Telegram: нижний/верхний отступы */
   --inset-top: max(env(safe-area-inset-top, 0px), calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)));
   --inset-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
@@ -674,7 +675,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   align-self: start;
   width: 64px;
   height: 64px;
-  margin-top: -16px;
+  margin-top: calc(-1 * var(--nav-lift));
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border-strong);
@@ -1360,6 +1361,33 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .mines-result.win { border-color: var(--green); }
 .mines-result.lose { border-color: var(--red); }
 .mines-last { font-size: 12px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+
+/* ---------- мины: весь экран партии помещается без прокрутки ----------
+   Колонка: шапка, строка «В игре / осталось», крупные множители, поле (занимает всё свободное место, квадрат подгоняет скрипт
+   по ширине и высоте), кнопка «Забрать». Снизу отступ на выступающую центральную кнопку навигации (--nav-lift). */
+.mines-screen { gap: var(--space-2); padding-bottom: calc(var(--nav-lift) + var(--space-3)); }
+.mines-screen > .mines-board { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.mines-screen > .mines-board[hidden], .mines-mults[hidden], .mines-meta[hidden] { display: none; }
+.mines-screen .mines-grid { flex: none; gap: var(--mines-gap, 6px); grid-template-rows: repeat(5, minmax(0, 1fr)); }
+.mines-screen .mines-cell { aspect-ratio: auto; min-height: 0; }
+.mines-meta { display: flex; justify-content: space-between; gap: var(--space-2); font-size: 13px; color: var(--text-muted); }
+.mines-meta > span { min-width: 0; overflow-wrap: anywhere; }
+.mines-mults { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+.mines-mult-now { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: clamp(26px, 8.6vw, 38px); font-weight: 700; line-height: 1.05; }
+.mines-arrow { flex: none; width: 28px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.mines-arrow[hidden], .mines-mult-next[hidden] { display: none; }
+.mines-mult-next { display: grid; justify-items: center; line-height: 1.1; }
+.mines-mult-next strong { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: clamp(20px, 6.4vw, 28px); font-weight: 600; color: var(--text-muted); }
+.mines-mult-next small { max-width: 110px; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; text-align: center; }
+.mines-mult-now.pulse { animation: mines-pulse 0.35s ease-out; }
+@keyframes mines-pulse { 0% { transform: scale(1.14); } 100% { transform: none; } }
+.mines-screen > .mines-panel { padding: 0; gap: 4px; border: none; background: none; }
+@media (max-height: 660px) {
+  .mines-screen { gap: 6px; }
+  .mines-screen .mines-grid { --mines-gap: 4px; }
+  .mines-screen .mines-expiry { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mines-mult-now.pulse { animation: none; } }
 
 /* ---------- скелетоны вместо спиннеров ---------- */
 
