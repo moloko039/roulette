@@ -119,24 +119,24 @@ try:
     # ================= множитель по времени =================
     check("контрольные", [crash.m100(t) for t in (0, 6000, 12000)], [100, 200, 400])
     check("отрицательное время", crash.m100(-5), 100)
-    check("предел достигается", (crash.m100(59794), crash.m100(59795), crash.m100(10 ** 9)), (99991, 100000, 100000))
+    check("предел достигается за 6000*log2(250) = 47794,7 мс", (crash.m100(47794), crash.m100(47795), crash.m100(10 ** 9)), (24997, 25000, 25000))
     assert all(crash.m100(t) <= crash.m100(t + 1) for t in range(0, 70000, 7)), "множитель не убывает"
     assert max(crash.m100(t) for t in range(0, 80000, 13)) == crash.CAP_X100
     check("эффективное время", (crash.effective_ms(1000, 0), crash.effective_ms(100, 0), crash.effective_ms(0, 5000)), (850, 0, 0))
-    check("текст", [crash.text(v) for v in (0, 100, 101, 12345, 100000)], ["0.00", "1.00", "1.01", "123.45", "1000.00"])
-    check("константы", (crash.DOUBLING_MS, crash.CAP_X100, crash.MIN_TARGET_X100, crash.GRACE_MS, crash.M), (6000, 100000, 101, 150, 2 ** 53))
+    check("текст", [crash.text(v) for v in (0, 100, 101, 12345, 25000)], ["0.00", "1.00", "1.01", "123.45", "250.00"])
+    check("константы", (crash.DOUBLING_MS, crash.CAP_X100, crash.MIN_TARGET_X100, crash.GRACE_MS, crash.M), (6000, 25000, 101, 150, 2 ** 53))
 
     # ================= точка краха =================
     check("u=0 даёт 1.00", crash.crash_from_u(0), 100)
     check("u=M-1 ограничено", crash.crash_from_u(crash.M - 1), 10 ** 9)
     M = crash.M
-    for t in (101, 150, 200, 500, 1000, 5000, 100000):
+    for t in (101, 150, 200, 500, 1000, 5000, 25000):
         # вероятность crash_x100 >= t: число u, при которых 3600*M // (37*(M-u)) >= t, делённое на M
         n_u = 3600 * M // (37 * t)
         edge = M - n_u
         assert crash.crash_from_u(edge) >= t and crash.crash_from_u(edge - 1) < t, "граница u для t=%d" % t
     rtp_report = []
-    for t in (101, 150, 200, 500, 1000, 5000, 100000):
+    for t in (101, 150, 200, 500, 1000, 5000, 25000):
         p_win = Fraction(3600 * M // (37 * t), M)
         rtp = Fraction(t, 100) * p_win
         assert rtp <= Fraction(36, 37), "возврат выше 36/37 при t=%d" % t
@@ -166,12 +166,13 @@ try:
     check("авто: цель выше краха проигрывает", crash.decide_auto(201, 200), ("lose", 0))
     check("авто: ниже краха", crash.decide_auto(150, 200), ("win", 150))
     raises(ValueError, crash.decide_auto, 100, 500)
+    raises(ValueError, crash.decide_auto, 25001, 500)
     raises(ValueError, crash.decide_auto, 100001, 500)
-    check("выплата", (crash.payout(100, 150), crash.payout(7, 150), crash.payout(10 ** 9, 100000)), (150, 10, 10 ** 12))
+    check("выплата", (crash.payout(100, 150), crash.payout(7, 150), crash.payout(10 ** 9, 25000)), (150, 10, 25 * 10 ** 10))
     check("XP цели 200", crash.xp_for(10_000, 200), 10_000 * (7400 - 3600) // 7400)
     assert abs(crash.xp_for(10 ** 6, 200) / 10 ** 6 - 0.5135) < 0.0005
     assert abs(crash.xp_for(10 ** 6, 101) / 10 ** 6 - 0.03666) < 0.0005
-    assert abs(crash.xp_for(10 ** 6, crash.CAP_X100) / 10 ** 6 - 0.999) < 0.0005
+    assert abs(crash.xp_for(10 ** 6, crash.CAP_X100) / 10 ** 6 - 0.9961) < 0.0005
     check("XP не отрицателен", crash.xp_for(100, 1), 0)
     check("m для XP", (crash.xp_multiplier("auto", "win", 200, 200), crash.xp_multiplier("auto", "lose", 0, 350),
                        crash.xp_multiplier("manual", "win", 180, None), crash.xp_multiplier("manual", "lose", 0, None)),
@@ -181,12 +182,22 @@ try:
     check("не разбился", crash.settle(500, 0, crash.GRACE_MS + 6000), None)       # m=200 <= 500
     check("разбился", crash.settle(150, 0, crash.GRACE_MS + 6000), ("lose", 0))   # m=200 > 150
     check("ровно на краху ещё жив", crash.settle(200, 0, crash.GRACE_MS + 6000), None)
-    check("предел с crash >= CAP: выигрыш", crash.settle(crash.CAP_X100, 0, crash.GRACE_MS + 59795), ("win", crash.CAP_X100))
-    check("предел с crash < CAP: проигрыш", crash.settle(crash.CAP_X100 - 1, 0, crash.GRACE_MS + 59795), ("lose", 0))
+    check("предел с crash >= CAP: выигрыш", crash.settle(crash.CAP_X100, 0, crash.GRACE_MS + 47795), ("win", crash.CAP_X100))
+    check("предел с crash < CAP: проигрыш", crash.settle(crash.CAP_X100 - 1, 0, crash.GRACE_MS + 47795), ("lose", 0))
     check("брошенный выше предела", crash.settle(10 ** 9, 0, 80_000), ("win", crash.CAP_X100))
     check("брошенный ниже предела", crash.settle(5000, 0, 80_000), ("lose", 0))
     raises(crash.TooEarly, crash.cashout_multiplier, 0, crash.GRACE_MS + 50)
     check("вывод на 1.01", crash.cashout_multiplier(0, crash.GRACE_MS + 87), 101)
+
+    # раунды с точкой краха выше потолка обрабатываются как автоматический выигрыш ×250
+    high = [v for v in sample if v >= crash.CAP_X100]
+    assert len(high) > 500, len(high)
+    assert all(crash.settle(v, 0, crash.GRACE_MS + 47795) == ("win", crash.CAP_X100) for v in high[:5000])
+    assert all(crash.settle(v, 0, crash.GRACE_MS + 47794) is None for v in high[:5000]), "до потолка раунд идёт"
+    share_high = len(high) / len(sample)
+    assert abs(share_high - float(Fraction(3600 * M // (37 * crash.CAP_X100), M))) < 0.0005, share_high
+    print("доля раундов, дошедших до потолка ×250: %.5f (теория %.5f)" % (share_high, 36 / (37 * 250)))
+    check("XP потолка", crash.xp_for(10 ** 6, crash.CAP_X100), 10 ** 6 * (37 * 25000 - 3600) // (37 * 25000))
 
     # ================= база: ручной раунд =================
     path = new_db()
@@ -199,7 +210,7 @@ try:
         check("активный: форма", {k: r[k] for k in ("status", "mode", "bet", "target", "elapsed_ms", "crash_multiplier", "result", "multiplier", "payout", "balance", "auto", "replayed")},
               {"status": "active", "mode": "manual", "bet": 100, "target": None, "elapsed_ms": 0, "crash_multiplier": None, "result": None,
                "multiplier": None, "payout": None, "balance": 9_900, "auto": False, "replayed": False})
-        check("константы в ответе", (r["doubling_ms"], r["cap"]), (6000, "1000.00"))
+        check("константы в ответе", (r["doubling_ms"], r["cap"]), (6000, "250.00"))
         check("списание через wallet", calls, ["debit"])
         text = json.dumps(r)
         assert str(SECRET_CRASH) not in text and "1234.57" not in text, "точка краха в ответе активного раунда"
@@ -242,15 +253,15 @@ try:
     # предел
     add_player(path, 4, balance=10_000)
     start(path, 4, 1, 100, crash.CAP_X100)
-    c = cashout(path, 4, 2, at_eff(59795))
-    check("достиг предела при crash >= CAP: выигрыш ×1000", (c["result"], c["multiplier"], c["payout"], c["auto"]), ("win", "1000.00", 100_000, True))
+    c = cashout(path, 4, 2, at_eff(47795))
+    check("достиг предела при crash >= CAP: выигрыш ×250", (c["result"], c["multiplier"], c["payout"], c["auto"]), ("win", "250.00", 25_000, True))
     add_player(path, 5, balance=10_000)
     start(path, 5, 1, 100, crash.CAP_X100 - 1)
-    check("crash < CAP у предела: проигрыш", db.crash_state(5, now_ms=at_eff(59795), db_path=path)["result"], "lose")
+    check("crash < CAP у предела: проигрыш", db.crash_state(5, now_ms=at_eff(47795), db_path=path)["result"], "lose")
     # цель ровно на пределе: авто
     add_player(path, 6, balance=10_000)
     r = start(path, 6, 1, 100, crash.CAP_X100, target=crash.CAP_X100)
-    check("авто на ×1000 выигрывает при crash >= CAP", (r["result"], r["payout"]), ("win", 100_000))
+    check("авто на ×250 выигрывает при crash >= CAP", (r["result"], r["payout"]), ("win", 25_000))
 
     # ================= режим авто =================
     path = new_db()
@@ -304,7 +315,7 @@ try:
     check("ставка на весь баланс (300 -> 450)", (r["result"], r["balance"]), ("win", 450))
     for bad in (0, -1, 10 ** 9 + 1, 1.5, "5", True, None):
         raises(ValueError, db.crash_start, 1, rid(20), bad, None, now_ms=NOW_MS, db_path=path)
-    for bad in (100, 100001, 150.5, "200", True):
+    for bad in (100, 25001, 100001, 150.5, "200", True):
         raises(ValueError, db.crash_start, 1, rid(21), 10, bad, now_ms=NOW_MS, db_path=path)
     # сбой на выплате откатывает всё
     path = new_db()
@@ -325,13 +336,13 @@ try:
     for u in range(1, 7):
         add_player(path, u, balance=1000)
     start(path, 1, 1, 100, 5000)                       # брошен, crash < CAP: проигрыш
-    start(path, 2, 1, 100, 10 ** 9)                    # брошен, crash >= CAP: выигрыш ×1000
+    start(path, 2, 1, 100, 10 ** 9)                    # брошен, crash >= CAP: выигрыш ×250
     start(path, 3, 1, 100, 5000, at=NOW_MS + 60_000)   # свежий
     check("до срока ничего не закрывается", db.close_expired_crash(now_ms=NOW_MS + 5_000, db_path=path), 0)
     check("фоновая задача закрыла две брошенные", db.close_expired_crash(now_ms=NOW_MS + 71_000, db_path=path), 2)
     check("исходы брошенных", sorted(sql(path, "SELECT telegram_id, result, mult_x100, payout, auto FROM crash_games WHERE status = 'finished'")),
-          [(1, "lose", 0, 0, 1), (2, "win", 100000, 100_000, 1)])
-    check("балансы", (balance(path, 1), balance(path, 2)), (900, 900 + 100_000))
+          [(1, "lose", 0, 0, 1), (2, "win", 25000, 25_000, 1)])
+    check("балансы", (balance(path, 1), balance(path, 2)), (900, 900 + 25_000))
     check("XP брошенных (m=CAP)", (sql(path, "SELECT xp FROM players WHERE telegram_id = 1")[0][0], sql(path, "SELECT xp FROM players WHERE telegram_id = 2")[0][0]),
           (crash.xp_for(100, crash.CAP_X100),) * 2)
     check("свежий остался", sql(path, "SELECT status FROM crash_games WHERE telegram_id = 3")[0][0], "active")
@@ -357,7 +368,7 @@ try:
     uid = [100]
     problems = []
     for trial in range(400):
-        crash_x100 = rnd.choice([100, 101, 120, 150, 200, 333, 1000, 5000, 99999, 100000, 10 ** 8])
+        crash_x100 = rnd.choice([100, 101, 120, 150, 200, 333, 1000, 5000, 24999, 25000, 25001, 99999, 100000, 10 ** 8])
         t = rnd.choice([rnd.randint(0, 400), rnd.randint(0, 20_000), rnd.randint(0, 80_000)])
         eff = crash.effective_ms(NOW_MS + t, NOW_MS)
         c_now = crash.m100(eff)
@@ -445,7 +456,7 @@ try:
     same_shape("none", s.json(), examples["none"])
     good = {"request_id": rid(100), "bet": 100}
     for body in ({}, {"request_id": rid(100)}, dict(good, extra=1), dict(good, bet=0), dict(good, bet=10 ** 9 + 1), dict(good, bet=1.5), dict(good, bet="100"),
-                 dict(good, bet=True), dict(good, bet=None), dict(good, request_id="short"), dict(good, target_x100=100), dict(good, target_x100=100001),
+                 dict(good, bet=True), dict(good, bet=None), dict(good, request_id="short"), dict(good, target_x100=100), dict(good, target_x100=25001), dict(good, target_x100=100001),
                  dict(good, target_x100=150.5), dict(good, target_x100="200"), dict(good, target_x100=True), dict(good, target_x100=[200])):
         r = post("start", body)
         check("400 start %s" % json.dumps(body)[:60], (r.status_code, r.json()), (400, {"detail": "invalid_request"}))

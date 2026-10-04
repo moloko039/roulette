@@ -3143,7 +3143,7 @@ document.addEventListener('visibilitychange', () => {
 // Баланс в шапке в авто-режиме обновляется после анимации. Ставка, цель и лента краха живут только в памяти.
 const CR_BET_MAX = 1000000000;
 const CR_TARGET_MIN = 101;
-const CR_TARGET_MAX = 100000;
+const CR_TARGET_MAX = 25000;     // ×250.00, как CAP_X100 на сервере
 const CR_POLL_MS = 300;          // опрос состояния во время полёта
 const CR_AUTO_MAX_MS = 2000;     // авто-анимация не дольше
 const CR_HISTORY = 10;
@@ -3212,7 +3212,7 @@ function setCrMessage(text, code, retry) {
 function crParseTarget() {
   const raw = crEls.target.value.trim().replace(',', '.');
   if (raw === '') return null;
-  if (!/^\d{1,4}(\.\d{0,2})?$/.test(raw)) return undefined;
+  if (!/^\d{1,3}(\.\d{0,2})?$/.test(raw)) return undefined;
   const x = Math.round(parseFloat(raw) * 100);
   return x >= CR_TARGET_MIN && x <= CR_TARGET_MAX ? x : undefined;
 }
@@ -3236,11 +3236,12 @@ const validCrashAction = (d) => validCrash(d, false);
 // ---------- график и множитель ----------
 const crElapsed = () => cr.base.elapsed + (performance.now() - cr.base.at);
 const crDoubling = () => (cr.game && cr.game.doubling_ms) || 6000;
+const crCap = () => (cr.game && typeof cr.game.cap === 'string' ? crX100(cr.game.cap) : CR_TARGET_MAX);   // предел множителя из ответа сервера
 
 // m в сотых по времени (только для показа; сервер считает так же, но решает именно он)
 function crM100(elapsed) {
   const x = Math.max(0, elapsed) / crDoubling();
-  return x >= 10 ? 100000 : Math.min(100000, Math.floor(100 * Math.pow(2, x)));
+  return Math.min(crCap(), Math.floor(100 * Math.pow(2, x)));
 }
 
 function crDrawCurve(elapsedMs) {
@@ -3661,7 +3662,7 @@ function crStart() {
   const bet = Number(crEls.bet.value);
   const target = crParseTarget();
   if (!Number.isSafeInteger(bet) || bet < 1 || bet > CR_BET_MAX) { setCrNotice('Введите целую ставку от 1 до ' + formatNumber(CR_BET_MAX)); return; }
-  if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 1000 (или пусто для ручного режима)'); return; }
+  if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 250 (или пусто для ручного режима)'); return; }
   if (cr.balance !== null && bet > cr.balance) { setCrNotice('Не хватает фишек'); return; }
   cr.pressed = false;
   const body = target === null ? { bet } : { bet, target_x100: target };
