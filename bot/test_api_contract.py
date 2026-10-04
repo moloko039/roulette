@@ -78,7 +78,8 @@ LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells"
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
       "active_game": OPT(str), "incoming_unseen": {"count": int, "total": int},
-      "transfer_limits": {"min": int, "max": int, "daily_left": int, "fee_percent": int, "min_level": int, "cooldown_seconds": int}}
+      "transfer_limits": {"min": int, "max": int, "daily_left": int, "fee_percent": int, "min_level": int, "cooldown_seconds": int,
+                        "min_age_hours": int, "min_staked": int, "unlimited": bool}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
 TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int, "member_ref": OPT(str)}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}

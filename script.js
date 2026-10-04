@@ -993,7 +993,7 @@ const srv = {
   incomeLevel: null,
   storageLevel: null,
   level: null,        // уровень профиля из /api/me
-  transferLimits: null,   // лимиты переводов из /api/me: {min, max, daily_left, fee_percent, min_level, cooldown_seconds}
+  transferLimits: null,   // лимиты переводов из /api/me: {min, max, daily_left, fee_percent, min_level, cooldown_seconds, min_age_hours, min_staked, unlimited}
   incomingUnseen: null,   // непросмотренные входящие переводы: {count, total}
   noChat: false,          // приложение открыто вне беседы (по рейтингу или по ответу списка участников): переводы недоступны
   activeGame: null    // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | null
@@ -1188,7 +1188,8 @@ async function loadServer(reason) {
     srv.deadline = performance.now() + d.seconds_to_next * 1000;
     srv.level = isCount(d.level) ? d.level : null;
     const tl = d.transfer_limits;
-    srv.transferLimits = tl && ['min', 'max', 'daily_left', 'fee_percent', 'min_level', 'cooldown_seconds'].every((k) => isCount(tl[k])) ? tl : null;
+    srv.transferLimits = tl && ['min', 'max', 'daily_left', 'fee_percent', 'min_level', 'cooldown_seconds', 'min_age_hours', 'min_staked'].every((k) => isCount(tl[k]))
+      && typeof tl.unlimited === 'boolean' ? tl : null;
     const iu = d.incoming_unseen;
     srv.incomingUnseen = iu && isCount(iu.count) && isCount(iu.total) ? iu : null;
     srv.activeGame = ['mines', 'blackjack', 'crash'].includes(d.active_game) ? d.active_game : null;
@@ -3814,7 +3815,7 @@ const trFee = (amount) => {
 const trBetLimit = () => {
   const l = srv.transferLimits;
   if (!l) return 1;
-  return Math.max(1, Math.min(l.max, srv.loaded ? srv.balance : l.max, l.daily_left));
+  return Math.max(1, Math.min(l.max, srv.loaded ? srv.balance : l.max, l.unlimited ? l.max : l.daily_left));
 };
 
 // Ошибка ввода (текст) или пустая строка
@@ -3823,11 +3824,11 @@ function trInputError() {
   const a = trAmount();
   if (!l) return 'Переводы пока недоступны, попробуйте позже';
   if (srv.loaded && srv.balance < l.min) return 'Не хватает фишек';
-  if (l.daily_left < l.min) return 'Суточный лимит исчерпан: осталось ' + formatNumber(l.daily_left);
+  if (!l.unlimited && l.daily_left < l.min) return 'Суточный лимит исчерпан: осталось ' + formatNumber(l.daily_left);
   if (a < l.min) return 'Сумма от ' + formatNumber(l.min) + ' до ' + formatNumber(l.max);
   if (a > l.max) return 'Не больше ' + formatNumber(l.max) + ' за раз';
   if (srv.loaded && a > srv.balance) return 'Не хватает фишек';
-  if (a > l.daily_left) return 'Суточный лимит: осталось ' + formatNumber(l.daily_left);
+  if (!l.unlimited && a > l.daily_left) return 'Суточный лимит: осталось ' + formatNumber(l.daily_left);
   return '';
 }
 
@@ -3843,7 +3844,8 @@ function renderTransfer() {
     trEls.recv.textContent = l ? 'Получит: введите сумму' : '';
   }
   trEls.limits.textContent = l
-    ? 'Лимит на сегодня: осталось ' + formatNumber(l.daily_left) + '. Мин. уровень ' + l.min_level + '. Пауза ' + l.cooldown_seconds + ' с'
+    ? (l.unlimited ? 'Лимит на сегодня: без ограничений' : 'Лимит на сегодня: осталось ' + formatNumber(l.daily_left))
+      + '. Мин. уровень ' + l.min_level + '. Пауза ' + l.cooldown_seconds + ' с'
     : '';
   trEls.send.textContent = tr.busy ? 'Отправляем…' : (tr.confirm ? 'Подтвердить' : 'Отправить');
   trEls.send.disabled = tr.busy;
@@ -3884,7 +3886,9 @@ function trErrorText(detail, seconds) {
   return ({
     insufficient_funds: 'Не хватает фишек',
     level_too_low: 'Нужен уровень ' + (l ? l.min_level : 3) + ' или выше',
-    account_too_new: 'Аккаунт слишком новый: переводы откроются через сутки после начала игры',
+    account_too_new: 'Аккаунт слишком новый: переводы откроются через ' + (l ? l.min_age_hours : 1) + ' ч после начала игры',
+    not_enough_staked: 'Переводы откроются, когда вы поставите в играх не менее ' + formatNumber(l ? l.min_staked : 20000) + ' фишек',
+    recipient_daily_limit: 'Этот игрок уже получил максимум за сутки, попробуйте позже',
     cooldown: 'Подождите ' + (isCount(seconds) ? seconds : 10) + ' сек. перед следующим переводом',
     daily_limit: 'Суточный лимит переводов исчерпан',
     no_chat: 'Вне беседы переводы недоступны: откройте игру из группового чата',

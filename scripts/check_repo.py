@@ -19,7 +19,7 @@ ALLOWED_FAKE_TOKENS = ()
 # Явные примеры настроек без значений разрешены.
 ENV_EXAMPLES = (".env.example", ".env.sample", ".env.template", ".env.dist")
 FORBIDDEN_NAME_PATTERNS = (
-    ".env", ".env.*", "*.db", "*.sqlite", "*.sqlite3", "*.key", "*.enc", "*.pem",
+    ".env", ".env.*", "*.db", "*.db-wal", "*.db-shm", "*.db-journal", "*.sqlite*", "*.key", "*.enc", "*.pem",
     "id_rsa*", "id_ed25519*", "*private_key*",
 )
 FORBIDDEN_DIRS = (".venv", "backups")

@@ -14,10 +14,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": false
     },
     "active_game": null
   },
@@ -35,10 +38,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": false
     },
     "active_game": "mines"
   },
@@ -56,10 +62,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": false
     },
     "active_game": "blackjack"
   },
@@ -77,10 +86,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": false
     },
     "active_game": "crash"
   },
@@ -98,10 +110,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": false
     },
     "active_game": null
   },
@@ -119,10 +134,13 @@
     "transfer_limits": {
       "min": 100,
       "max": 50000,
-      "daily_left": 100000,
+      "daily_left": 9007199254740991,
       "fee_percent": 0,
       "min_level": 3,
-      "cooldown_seconds": 10
+      "cooldown_seconds": 10,
+      "min_age_hours": 1,
+      "min_staked": 20000,
+      "unlimited": true
     },
     "active_game": null
   }

@@ -9,3 +9,13 @@ CLAUDE.local.md
 *.enc
 *.key
 roulette-backup-private.key
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite*
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+!.env.dist
+*.pem

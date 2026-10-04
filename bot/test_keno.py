@@ -339,7 +339,7 @@ try:
     r = client.post("/api/keno/play", headers=dict(auth(SECRET_ID), **{"content-type": "application/json"}), content=b"not json")
     check("не JSON", (r.status_code, r.json()), (400, {"detail": "invalid_request"}))
     r = client.post("/api/keno/play", headers=auth(SECRET_ID), content=b"[" + b"1," * 40000 + b"1]")
-    check("слишком большое тело", r.status_code, 400)
+    check("слишком большое тело", r.status_code, 413)
     check("при 400 ничего не списано", (balance(path, SECRET_ID), sql(path, "SELECT COUNT(*) FROM keno_rounds")[0][0]), (SECRET_BALANCE, 0))
     # 200: выигрыш и проигрыш с подставленным розыгрышем
     with mock.patch.object(keno, "draw_numbers", return_value=DRAW):

@@ -6,7 +6,7 @@
     "received": 950,
     "balance": 4000,
     "level": 3,
-    "daily_left": 99000,
+    "daily_left": 499000,
     "replayed": false
   },
   "history": {
@@ -60,6 +60,12 @@
     },
     "request_conflict": {
       "detail": "request_conflict"
+    },
+    "not_enough_staked": {
+      "detail": "not_enough_staked"
+    },
+    "recipient_daily_limit": {
+      "detail": "recipient_daily_limit"
     }
   },
   "cooldown": {
