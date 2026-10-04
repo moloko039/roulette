@@ -1,24 +1,21 @@
 """Мины: игры, открытие клеток, кэшаут, автозакрытие брошенных (правила в mines.py)."""
 
-import json
-import time
-
 import mines
 import wallet
 import xp
-from roulette import MAX_SAFE_INT
 
-from core.db_conn import _connect, logger
-from core.kernel import _accrue_write, _add_xp, _credit_capped, _register_player
+from core.kernel import _add_xp, _credit_capped
+from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, now_or_clock, read_state, run_action,
+                                settle_expired)
+
+GAME = Game("mines", mines.RequestConflict)
 
 
 # Все изменения баланса идут через wallet. Раскладка мин активной игры не попадает ни в ответы, ни в лог,
 # ни в response_json, ни в выгрузку данных. Баланс игрока с активной игрой не включает ставку, лежащую в игре
 # (она возвращается при завершении), в рейтинге беседы это так же.
 def _active_game(conn, telegram_id):
-    return conn.execute(
-        "SELECT * FROM mines_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
-    ).fetchone()
+    return active_row(conn, GAME, telegram_id)
 
 
 def _game_view(row):
@@ -88,84 +85,29 @@ def _settle_expired_in(conn, telegram_id, now):
 
 def settle_expired_mines(telegram_id, now=None, db_path=None):
     """Закрывает просроченную игру игрока отдельной транзакцией (идемпотентно). True, если закрыла."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            closed = _settle_expired_in(conn, telegram_id, now)
-            conn.execute("COMMIT")
-            return closed
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+    now = now_or_clock(now)
+    return settle_expired(lambda conn: _settle_expired_in(conn, telegram_id, now), db_path)
 
 
-MINES_CLOSE_BATCH = 200
+MINES_CLOSE_BATCH = CLOSE_BATCH
 
 
 def close_expired_mines(now=None, db_path=None, batch=MINES_CLOSE_BATCH):
     """Фоновое закрытие просроченных активных игр всех игроков (не больше batch за проход). Возвращает число."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mines_games'").fetchone() is None:
-            return 0
-        owners = [r["telegram_id"] for r in conn.execute(
-            "SELECT telegram_id FROM mines_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
-            (now, mines.MINES_IDLE_SECONDS, batch),
-        )]
-    finally:
-        conn.close()
-    closed = sum(1 for owner in owners if settle_expired_mines(owner, now=now, db_path=db_path))
-    if closed:
-        logger.info("Закрыто просроченных игр в мины: %d", closed)  # только количество
-    return closed
+    now = now_or_clock(now)
+    return close_expired(
+        GAME, "SELECT telegram_id FROM mines_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
+        (now, mines.MINES_IDLE_SECONDS, batch), lambda owner: settle_expired_mines(owner, now=now, db_path=db_path), db_path,
+        "Закрыто просроченных игр в мины")
 
 
 def _run_mines_action(telegram_id, request_id, action, params, body, now, db_path):
-    """Общий порядок действия: закрытие просроченной игры, повтор по request_id, минутное начисление, тело
-    действия, запись ответа. Один request_id с другим действием или параметрами даёт RequestConflict."""
-    if now is None:
-        now = int(time.time())
-    settle_expired_mines(telegram_id, now=now, db_path=db_path)
-    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            old = conn.execute(
-                "SELECT action, params, response_json FROM mines_actions WHERE telegram_id = ? AND request_id = ?",
-                (telegram_id, request_id),
-            ).fetchone()
-            if old is not None:
-                if old["action"] != action or old["params"] != params_json:
-                    raise mines.RequestConflict()
-                response = json.loads(old["response_json"])
-                response["replayed"] = True
-                conn.execute("COMMIT")
-                return response
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)
-            response = body(conn, now)
-            response["balance"] = wallet.get_balance(conn, telegram_id)
-            response["replayed"] = False
-            conn.execute(
-                "INSERT INTO mines_actions (telegram_id, request_id, action, params, response_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now),
-            )
-            conn.execute("COMMIT")
-            return response
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+    """Общий порядок действия (round_common.run_action): закрытие просроченной игры, повтор по request_id, начисление, тело;
+    к ответу добавляется баланс (до поля replayed)."""
+    now = now_or_clock(now)
+    return run_action(GAME, telegram_id, request_id, action, params, lambda conn: body(conn, now), now, db_path,
+                      presettle=lambda: settle_expired_mines(telegram_id, now=now, db_path=db_path),
+                      finalize=lambda conn, response: response.update(balance=wallet.get_balance(conn, telegram_id)))
 
 
 def mines_start(telegram_id, request_id, bet, mines_count, now=None, db_path=None, rng=None):
@@ -203,10 +145,7 @@ def mines_reveal(telegram_id, request_id, cell, now=None, db_path=None):
         if game["revealed_mask"] & bit:
             raise mines.AlreadyRevealed()
         if not game["staked_counted"]:
-            conn.execute(
-                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                (game["bet"], MAX_SAFE_INT, telegram_id),
-            )
+            add_staked(conn, telegram_id, game["bet"])
             conn.execute("UPDATE mines_games SET staked_counted = 1 WHERE id = ?", (game["id"],))
         if game["mine_mask"] & bit:
             _finish_game(conn, game["id"], "lost", 0, now_)
@@ -245,29 +184,19 @@ def mines_cashout(telegram_id, request_id, now=None, db_path=None):
 
 def mines_state(telegram_id, now=None, db_path=None):
     """Активная игра или None, последняя завершённая или None, баланс (с начислением, как /api/me)."""
-    if now is None:
-        now = int(time.time())
+    now = now_or_clock(now)
     settle_expired_mines(telegram_id, now=now, db_path=db_path)
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)
-            active = _active_game(conn, telegram_id)
-            last = conn.execute(
-                "SELECT * FROM mines_games WHERE telegram_id = ? AND status != 'active' "
-                "ORDER BY finished_at DESC, id DESC LIMIT 1", (telegram_id,),
-            ).fetchone()
-            result = {
-                "game": _game_view(active) if active is not None else None,
-                "last": _last_view(last) if last is not None else None,
-                "balance": wallet.get_balance(conn, telegram_id),
-            }
-            conn.execute("COMMIT")
-            return result
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+
+    def read(conn):
+        active = _active_game(conn, telegram_id)
+        last = conn.execute(
+            "SELECT * FROM mines_games WHERE telegram_id = ? AND status != 'active' "
+            "ORDER BY finished_at DESC, id DESC LIMIT 1", (telegram_id,),
+        ).fetchone()
+        return {
+            "game": _game_view(active) if active is not None else None,
+            "last": _last_view(last) if last is not None else None,
+            "balance": wallet.get_balance(conn, telegram_id),
+        }
+
+    return read_state(telegram_id, now, db_path, read)

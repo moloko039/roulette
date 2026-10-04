@@ -1,22 +1,19 @@
 """Блэкджек: раздача, действия, автозакрытие брошенных (правила в blackjack.py)."""
 
 import json
-import time
 
 import blackjack
 import wallet
 import xp
-from levels import profile_level
-from roulette import MAX_SAFE_INT
 
-from core.db_conn import _connect, logger
-from core.kernel import _accrue_write, _add_xp, _credit_capped, _register_player
+from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, latest_row, now_or_clock, pay_and_xp,
+                                player_view, read_state, run_action, settle_expired)
+
+GAME = Game("blackjack", blackjack.RequestConflict)
 
 
 def _bj_active(conn, telegram_id):
-    return conn.execute(
-        "SELECT * FROM blackjack_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
-    ).fetchone()
+    return active_row(conn, GAME, telegram_id)
 
 
 def _bj_state(row):
@@ -46,15 +43,11 @@ def _bj_finish(conn, telegram_id, game_id, state, now, auto=False):
     (раздача уже не active, повторно её никто не закроет)."""
     _bj_save(conn, game_id, state, now)
     conn.execute("UPDATE blackjack_games SET finished_at = ?, auto = ? WHERE id = ?", (now, 1 if auto else 0, game_id))
-    if state["payout"] > 0:
-        _credit_capped(conn, telegram_id, state["payout"])
-    _add_xp(conn, telegram_id, xp.blackjack_xp(state["wager"]))
+    pay_and_xp(conn, telegram_id, state["payout"], xp.blackjack_xp(state["wager"]))
 
 
 def _bj_response(conn, telegram_id, row, replayed=False):
-    pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
-    return blackjack.view(_bj_state(row), pl["balance"], profile_level(pl["xp"]), pl["xp"],
-                          auto=bool(row["auto"]), replayed=replayed)
+    return blackjack.view(_bj_state(row), *player_view(conn, telegram_id), auto=bool(row["auto"]), replayed=replayed)
 
 
 def _bj_settle_expired_in(conn, telegram_id, now):
@@ -69,83 +62,27 @@ def _bj_settle_expired_in(conn, telegram_id, now):
 
 def settle_expired_blackjack(telegram_id, now=None, db_path=None):
     """Закрывает просроченную раздачу игрока отдельной транзакцией (идемпотентно). True, если закрыла."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            closed = _bj_settle_expired_in(conn, telegram_id, now)
-            conn.execute("COMMIT")
-            return closed
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+    now = now_or_clock(now)
+    return settle_expired(lambda conn: _bj_settle_expired_in(conn, telegram_id, now), db_path)
 
 
-BLACKJACK_CLOSE_BATCH = 200
+BLACKJACK_CLOSE_BATCH = CLOSE_BATCH
 
 
 def close_expired_blackjack(now=None, db_path=None, batch=BLACKJACK_CLOSE_BATCH):
     """Фоновое закрытие просроченных раздач всех игроков (не больше batch за проход). Возвращает число."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blackjack_games'").fetchone() is None:
-            return 0
-        owners = [r["telegram_id"] for r in conn.execute(
-            "SELECT telegram_id FROM blackjack_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
-            (now, blackjack.BLACKJACK_IDLE_SECONDS, batch),
-        )]
-    finally:
-        conn.close()
-    closed = sum(1 for owner in owners if settle_expired_blackjack(owner, now=now, db_path=db_path))
-    if closed:
-        logger.info("Закрыто просроченных раздач блэкджека: %d", closed)  # только количество
-    return closed
+    now = now_or_clock(now)
+    return close_expired(
+        GAME, "SELECT telegram_id FROM blackjack_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
+        (now, blackjack.BLACKJACK_IDLE_SECONDS, batch), lambda owner: settle_expired_blackjack(owner, now=now, db_path=db_path),
+        db_path, "Закрыто просроченных раздач блэкджека")
 
 
 def _run_blackjack_action(telegram_id, request_id, action, params, body, now, db_path):
-    """Общий порядок действия: закрытие просроченной раздачи, повтор по request_id, минутное начисление, тело
-    действия, запись ответа. Один request_id с другим действием или параметрами даёт RequestConflict."""
-    if now is None:
-        now = int(time.time())
-    settle_expired_blackjack(telegram_id, now=now, db_path=db_path)
-    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            old = conn.execute(
-                "SELECT action, params, response_json FROM blackjack_actions WHERE telegram_id = ? AND request_id = ?",
-                (telegram_id, request_id),
-            ).fetchone()
-            if old is not None:
-                if old["action"] != action or old["params"] != params_json:
-                    raise blackjack.RequestConflict()
-                response = json.loads(old["response_json"])
-                response["replayed"] = True
-                conn.execute("COMMIT")
-                return response
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)
-            response = body(conn, now)
-            response["replayed"] = False
-            conn.execute(
-                "INSERT INTO blackjack_actions (telegram_id, request_id, action, params, response_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now),
-            )
-            conn.execute("COMMIT")
-            return response
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+    """Общий порядок действия (round_common.run_action): закрытие просроченной раздачи, повтор по request_id, начисление, тело."""
+    now = now_or_clock(now)
+    return run_action(GAME, telegram_id, request_id, action, params, lambda conn: body(conn, now), now, db_path,
+                      presettle=lambda: settle_expired_blackjack(telegram_id, now=now, db_path=db_path))
 
 
 def blackjack_start(telegram_id, request_id, bet, now=None, db_path=None, rng=None):
@@ -158,8 +95,7 @@ def blackjack_start(telegram_id, request_id, bet, now=None, db_path=None, rng=No
         if _bj_active(conn, telegram_id) is not None:
             raise blackjack.ActiveGameExists()
         wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
-        conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                     (bet, MAX_SAFE_INT, telegram_id))
+        add_staked(conn, telegram_id, bet)
         state = blackjack.start(bet, blackjack.new_shoe(rng))
         cur = conn.execute(
             "INSERT INTO blackjack_games (telegram_id, bet, wager, deck_json, deck_pos, player_json, dealer_json, "
@@ -191,8 +127,7 @@ def blackjack_action(telegram_id, request_id, action, now=None, db_path=None):
             if not blackjack.can_double(state):
                 raise blackjack.InvalidAction()
             wallet.debit(conn, telegram_id, state["bet"])
-            conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                         (state["bet"], MAX_SAFE_INT, telegram_id))
+            add_staked(conn, telegram_id, state["bet"])
         blackjack.act(state, action)
         if state["status"] == "finished":
             _bj_finish(conn, telegram_id, row["id"], state, now_)
@@ -205,29 +140,14 @@ def blackjack_action(telegram_id, request_id, action, now=None, db_path=None):
 
 def blackjack_state(telegram_id, now=None, db_path=None):
     """Активная раздача, иначе последняя завершённая, иначе status none (только чтение, плюс закрытие просроченной)."""
-    if now is None:
-        now = int(time.time())
+    now = now_or_clock(now)
     settle_expired_blackjack(telegram_id, now=now, db_path=db_path)
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)   # баланс с начислением, как /api/me
-            row = conn.execute(
-                "SELECT * FROM blackjack_games WHERE telegram_id = ? ORDER BY (status = 'active') DESC, id DESC LIMIT 1",
-                (telegram_id,),
-            ).fetchone()
-            pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            level = profile_level(pl["xp"])
-            if row is None:
-                result = blackjack.none_view(pl["balance"], level, pl["xp"])
-            else:
-                result = blackjack.view(_bj_state(row), pl["balance"], level, pl["xp"], auto=bool(row["auto"]))
-            conn.execute("COMMIT")
-            return result
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+
+    def read(conn):   # баланс с начислением, как /api/me
+        row = latest_row(conn, GAME, telegram_id)
+        balance, level, xp_total = player_view(conn, telegram_id)
+        if row is None:
+            return blackjack.none_view(balance, level, xp_total)
+        return blackjack.view(_bj_state(row), balance, level, xp_total, auto=bool(row["auto"]))
+
+    return read_state(telegram_id, now, db_path, read)
