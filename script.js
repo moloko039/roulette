@@ -50,6 +50,109 @@ document.addEventListener('click', (e) => {
   el.textContent = el.textContent === el.dataset.full ? el.dataset.short : el.dataset.full;
 });
 
+// ---------- динамические фишки и ввод суммы ----------
+// Фишки считаются от серверного баланса: T = наибольшая степень 10, не больше баланса, но не меньше 100;
+// номиналы T/10, T/2, T, 5T (баланс 305: 10/50/100/500; 25 000: 1000/5000/10 000/50 000).
+const CHIP_BASE = 100;
+function chipSet(balance) {
+  const b = Number.isSafeInteger(balance) && balance > 0 ? balance : 0;
+  let t = CHIP_BASE;
+  while (t * 10 <= b) t *= 10;
+  return [t / 10, t / 2, t, 5 * t];
+}
+
+const CHIP_UNITS = [[1e15, 'Q'], [1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+function chipLabel(n) {
+  for (const [unit, name] of CHIP_UNITS) {
+    if (n >= unit) return String(n / unit) + name;   // номиналы вида 10^k и 5 * 10^k делятся нацело
+  }
+  return String(n);
+}
+
+function setChipText(btn, n) {
+  const label = chipLabel(n);
+  btn.textContent = label;
+  btn.dataset.len = String(label.length);
+  btn.title = formatNumber(n);
+  btn.setAttribute('aria-label', formatNumber(n));
+}
+
+const nearestChip = (values, v) => values.reduce((best, x) => (Math.abs(x - v) < Math.abs(best - v) ? x : best), values[0]);
+
+// Число из поля: пусто или нечисло = минимальная ставка 1; не больше безопасного целого
+function parseBet(input) {
+  const n = Number(input.value);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(Math.floor(n), Number.MAX_SAFE_INTEGER);
+}
+
+function setBetValue(input, n) {
+  input.value = String(n);
+  input.dispatchEvent(new Event('input', { bubbles: true })); // поле остаётся валидным: слушатели видят обычный ввод
+}
+
+const halfBet = (input) => setBetValue(input, Math.max(1, Math.floor(parseBet(input) / 2)));
+const doubleBet = (input, max) => setBetValue(input, Math.max(1, Math.min(parseBet(input) * 2, max)));
+
+// Поле суммы: только цифры (до 16), без ведущих нулей; Enter и «Готово» закрывают клавиатуру
+function setupBetInput(input, doneRow, doneBtn) {
+  input.setAttribute('inputmode', 'numeric');
+  input.setAttribute('enterkeyhint', 'done');
+  input.addEventListener('input', () => {
+    const clean = input.value.replace(/\D/g, '').slice(0, 16).replace(/^0+(?=\d)/, '');
+    if (clean !== input.value) input.value = clean;
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    }
+  });
+  input.addEventListener('focus', () => {
+    doneRow.hidden = false;
+    setTimeout(() => { if (document.activeElement === input) input.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300);
+  });
+  input.addEventListener('blur', () => { doneRow.hidden = true; });
+  doneBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // фокус остаётся, пока не сработает click
+  doneBtn.addEventListener('click', () => input.blur());
+}
+
+// Тап вне поля и прокрутка закрывают клавиатуру
+(() => {
+  const active = () => {
+    const a = document.activeElement;
+    return a && a.classList && a.classList.contains('bet-input') ? a : null;
+  };
+  document.addEventListener('pointerdown', (e) => {
+    const a = active();
+    if (!a || e.target === a || (e.target.closest && e.target.closest('.bet-done'))) return;
+    a.blur();
+  }, true);
+  let startY = null;
+  document.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true, capture: true });
+  document.addEventListener('touchmove', (e) => {
+    const a = active();
+    if (a && startY !== null && Math.abs(e.touches[0].clientY - startY) > 8) a.blur();
+  }, { passive: true, capture: true });
+  document.addEventListener('wheel', () => { const a = active(); if (a) a.blur(); }, { passive: true, capture: true });
+})();
+
+// Клавиатура: отступ снизу (visualViewport), чтобы панель ставок оставалась над ней
+function updateKeyboardInset() {
+  const vv = window.visualViewport;
+  const editing = !!(document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('bet-input'));
+  const inset = vv && editing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  document.documentElement.style.setProperty('--kb-inset', inset + 'px');
+  document.body.classList.toggle('kb-open', inset > 80);
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateKeyboardInset);
+  window.visualViewport.addEventListener('scroll', updateKeyboardInset);
+}
+document.addEventListener('focusin', updateKeyboardInset);
+document.addEventListener('focusout', () => setTimeout(updateKeyboardInset, 50));
+
+
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
 const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
 
@@ -248,6 +351,24 @@ function renderBalance() {
   if (srv.loaded) balanceEl.textContent = spacedNumber(availableBalance());
   else balanceEl.textContent = srv.error ? '—' : 'Загрузка…';
   fitNumberFont(balanceEl, balanceEl.textContent.length);
+  renderRouletteChips();
+}
+
+// Фишки рулетки по серверному балансу (srv.balance меняется только по ответу сервера, после остановки колеса)
+let rouletteChipValues = [];
+function renderRouletteChips() {
+  const values = chipSet(srv.loaded ? srv.balance : 0);
+  if (values.join() === rouletteChipValues.join()) return;
+  const prev = Number(amountEl.value);
+  const wasChip = rouletteChipValues.includes(prev);
+  rouletteChipValues = values;
+  betsPanel.querySelectorAll('.chip').forEach((btn, i) => {
+    btn.dataset.amount = String(values[i]);
+    setChipText(btn, values[i]);
+  });
+  // выбранная фишка исчезла из набора: берём ближайшую
+  if (wasChip && !values.includes(prev)) amountEl.value = String(nearestChip(values, prev));
+  syncChips();
 }
 
 // Накрутка баланса после раунда: только отображение, значение уже серверное и итоговое
@@ -396,7 +517,7 @@ function updateControls() {
   const canAdd = canBet && availableBalance() > 0;
   const loadRetry = !srv.loaded && srv.error && srv.error.retry;
   document.querySelectorAll('#table button').forEach((el) => { el.disabled = !canAdd; });
-  document.querySelectorAll('#bets .chip, #bets input, #repeat-bets, #clear-bets').forEach((el) => { el.disabled = !canBet; });
+  document.querySelectorAll('#bets .chip, #bets input, #bets .step-btn, #repeat-bets, #clear-bets').forEach((el) => { el.disabled = !canBet; });
   const retry = game.phase === 'pending' || loadRetry;
   spinBtn.textContent = retry ? 'Повторить' : 'Крутить';
   spinBtn.classList.toggle('retry', retry);
@@ -1717,6 +1838,20 @@ function renderMinesForm() {
   }
 }
 
+// Фишки ставки в минах по серверному балансу (те же номиналы, что в рулетке)
+let minesChipValues = [];
+function renderMinesChips() {
+  const values = chipSet(mn.balance === null ? 0 : mn.balance);
+  if (values.join() === minesChipValues.join()) return;
+  const wasChip = minesChipValues.includes(mn.settings.bet);
+  minesChipValues = values;
+  minesEls.form.querySelectorAll('[data-bet]').forEach((btn, i) => {
+    btn.dataset.bet = String(values[i]);
+    setChipText(btn, values[i]);
+  });
+  if (wasChip && !values.includes(mn.settings.bet)) mn.settings.bet = nearestChip(values, mn.settings.bet);
+}
+
 function renderMines() {
   const loading = mn.view === 'loading';
   minesEls.skel.hidden = !(loading && !mn.error);
@@ -1731,6 +1866,7 @@ function renderMines() {
     minesEls.balance.textContent = spacedNumber(mn.balance);
     fitNumberFont(minesEls.balance, minesEls.balance.textContent.length);
   }
+  renderMinesChips();
   const inGame = mn.game !== null && mn.view === 'play';
   minesEls.inplay.hidden = !inGame;
   if (inGame) setNumberLabel(minesEls.inplay, 'В игре: ', mn.game.bet);
@@ -2018,6 +2154,9 @@ minesEls.maxBtn.addEventListener('click', () => {
   mn.settings.bet = Math.max(1, cap);
   renderMinesForm();
 });
+setupBetInput(minesEls.bet, document.getElementById('mines-done-row'), document.getElementById('mines-done'));
+document.getElementById('mines-half').addEventListener('click', () => halfBet(minesEls.bet));
+document.getElementById('mines-double').addEventListener('click', () => doubleBet(minesEls.bet, MINES_BET_MAX));
 minesEls.bet.addEventListener('input', () => {
   const v = Number(minesEls.bet.value);
   if (Number.isSafeInteger(v) && v >= 1) {
@@ -2204,7 +2343,13 @@ betsPanel.querySelectorAll('.chip').forEach((btn) => {
     haptic('light');
   });
 });
+setupBetInput(amountEl, document.getElementById('amount-done-row'), document.getElementById('amount-done'));
 amountEl.addEventListener('input', syncChips);
+document.getElementById('amount-half').addEventListener('click', () => halfBet(amountEl));
+document.getElementById('amount-double').addEventListener('click', () => {
+  // максимум как у ставки на стол: не больше доступного баланса (пока баланс не загружен, предел безопасного целого)
+  doubleBet(amountEl, srv.loaded ? Math.max(1, availableBalance()) : Number.MAX_SAFE_INTEGER);
+});
 syncChips();
 
 // шрифты грузятся локально: после загрузки колесо перерисовывается (числа на секторах)

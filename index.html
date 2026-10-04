@@ -44,7 +44,14 @@
         <button type="button" class="chip" data-amount="50" aria-pressed="false">50</button>
         <button type="button" class="chip" data-amount="100" aria-pressed="false">100</button>
         <button type="button" class="chip" data-amount="500" aria-pressed="false">500</button>
-        <input id="amount" type="number" inputmode="numeric" min="1" step="1" value="10" aria-label="Сумма ставки">
+      </div>
+      <div class="row">
+        <button type="button" class="action step-btn" id="amount-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="amount" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="amount-double" aria-label="Увеличить вдвое">×2</button>
+      </div>
+      <div class="bet-done-row" id="amount-done-row" hidden>
+        <button type="button" class="action bet-done" id="amount-done">Готово</button>
       </div>
       <div class="row">
         <button type="button" class="action" id="repeat-bets"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Повтор</button>
@@ -129,7 +136,14 @@
         <button type="button" class="chip" data-bet="500" aria-pressed="false">500</button>
         <button type="button" class="action mines-max" id="mines-max">Макс</button>
       </div>
-      <input id="mines-bet" type="number" inputmode="numeric" min="1" max="1000000000" step="1" value="10" aria-label="Сумма ставки">
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="mines-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="mines-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="mines-double" aria-label="Увеличить вдвое">×2</button>
+      </div>
+      <div class="bet-done-row" id="mines-done-row" hidden>
+        <button type="button" class="action bet-done" id="mines-done">Готово</button>
+      </div>
       <div class="mines-label" id="mines-count-label">Число мин</div>
       <div class="mines-count-row">
         <button type="button" class="action mines-step" id="mines-minus" aria-label="Меньше мин">−</button>

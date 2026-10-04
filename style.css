@@ -177,7 +177,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   grid-template-rows: auto auto minmax(300px, 1fr) auto;
   gap: var(--space-2);
   width: 100%;
-  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--space-2);
+  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) calc(var(--space-2) + var(--kb-inset, 0px));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -441,7 +441,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .bets {
   position: sticky;
-  bottom: 0;
+  bottom: var(--kb-inset, 0px);   /* над клавиатурой, пока открыта */
   z-index: 1;
   display: grid;
   gap: var(--space-2);
@@ -502,7 +502,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   gap: var(--space-2);
 }
 
-input[type="number"] {
+.bet-input {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
@@ -517,14 +517,20 @@ input[type="number"] {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  -moz-appearance: textfield;
-  appearance: textfield;
 }
 
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bet-input:focus { border-color: var(--border-strong); }
 
-input[type="number"]:focus { border-color: var(--border-strong); }
+/* ÷2 и ×2 рядом с полем суммы */
+.step-btn { flex: none; width: 44px; padding: 0; font-size: 15px; }
+
+/* «Готово» видна, пока поле в фокусе (закрывает цифровую клавиатуру) */
+.bet-done-row { display: flex; justify-content: flex-end; }
+.bet-done { flex: none; min-width: 96px; }
+
+/* подписи фишек длиной 4 знака (например 500K) мельче, чтобы влезали в 44 px */
+.chip[data-len="4"] { font-size: 11px; }
+.chip[data-len="5"] { font-size: 10px; }
 
 /* фишки номиналов: тонкое кольцо, у каждого номинала своя яркость, выбранная с белой обводкой и свечением */
 .chip {
@@ -596,6 +602,9 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 #spin.retry { font-size: 14px; }
 #spin:active:not(:disabled) { transform: scale(0.98); }
 #spin:disabled { box-shadow: none; }
+
+/* пока открыта клавиатура, нижняя панель вкладок скрыта: она всё равно под клавиатурой */
+.kb-open .nav { display: none; }
 
 /* ---------- нижняя панель навигации ---------- */
 
@@ -1146,7 +1155,7 @@ input[type="number"]:focus { border-color: var(--border-strong); }
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) calc(var(--space-3) + var(--kb-inset, 0px));
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1186,6 +1195,7 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 .mines-label { font-size: 12px; color: var(--text-muted); }
 
 .mines-start .row { flex-wrap: wrap; }
+.mines-start .row.bet-row { flex-wrap: nowrap; }
 .mines-start .chip { flex: none; }
 .mines-max { flex: 1 1 auto; }
 
