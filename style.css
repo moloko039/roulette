@@ -1211,6 +1211,13 @@ input[type="number"]:focus { border-color: var(--border-strong); }
 .mines-cell.mine.muted { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); }
 .mines-cell.mine.hit { background: var(--red); color: var(--text); border-color: var(--text); box-shadow: 0 0 0 2px var(--red-soft); }
 .mines-board.locked .mines-cell:not(.safe):not(.mine) { opacity: 0.6; }
+/* клетка, которую открывают сейчас: лёгкое мерцание, пока идёт запрос */
+.mines-board.locked .mines-cell.opening { opacity: 1; border-color: var(--border-strong); animation: mines-opening 0.8s ease-in-out infinite; }
+
+@keyframes mines-opening {
+  0%, 100% { background: var(--surface-2); transform: scale(1); }
+  50%      { background: var(--surface-3); transform: scale(0.94); }
+}
 
 .mines-stat {
   display: flex;
