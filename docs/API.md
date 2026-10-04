@@ -1,0 +1,126 @@
+# Контракт API
+
+Форма ответов закреплена тестом `bot/test_api_contract.py` (настоящее приложение, точный набор ключей и типы).
+Меняя ответ, обновляйте вместе: сервер, этот файл, тест и клиент (`script.js`). Значения ниже заглушки,
+реальных данных нет.
+
+## Общее
+
+- Адрес: `API_URL` в `script.js`. Заголовок каждого запроса: `Authorization: tma <initData>` (подписанная строка Telegram).
+- Тело POST: JSON-объект с **точным** набором ключей (лишние или недостающие ключи дают 400).
+- `request_id`: строка из `A-Z a-z 0-9 -`, 8-64 символа. Новый на каждое действие пользователя, тот же на повторы действия.
+- Типы: `int` целое число (JSON number), `str` строка, `bool` true/false, `[int]` список, `T|null` значение или null.
+  «всегда» значит, что ключ есть в каждом успешном ответе; «только если ...» значит, что ключа может не быть.
+
+### Общие ошибки
+| Код | Тело | Когда |
+|---|---|---|
+| 401 | `{"detail": "Unauthorized"}` | нет или неверная подпись initData (одно и то же при любой причине) |
+| 429 | `{"error": "too_many_requests"}` + заголовок `Retry-After` (целые секунды, не меньше 1) | превышена частота; проверка идёт после проверки подписи. Группа «write»: все POST, «read»: все GET |
+| 400 | зависит от эндпоинта (ниже) | неверная форма тела |
+| 409 | `{"detail": "<код>"}` (у `level_locked` ещё `required_level`) | правило игры не позволяет действие |
+
+Клиент повторяет POST (тем же `request_id`) только при сетевой ошибке, таймауте, 429 и 5xx; ответы 2xx и остальные 4xx не повторяются.
+
+## GET /api/me
+Группа read. 200:
+
+| Поле | Тип | Наличие |
+|---|---|---|
+| balance | int | всегда |
+| rate | int | всегда (фишек в час) |
+| seconds_to_next | int | всегда |
+| level | int | всегда (уровень профиля) |
+| income_level | int | всегда |
+| storage_level | int | всегда |
+
+Побочные эффекты: закрывает просроченную игру в мины игрока, начисляет фишки по часам.
+
+## POST /api/roulette/spin
+Группа write. Тело: `{"request_id": str, "bets": [{"type": str, "value": int|null, "amount": int}]}`.
+200 (`replayed: true` при повторе того же `request_id`; тогда `balance` текущий):
+
+| Поле | Тип | Наличие |
+|---|---|---|
+| number | int | всегда (0..36) |
+| stake_total | int | всегда |
+| payout_total | int | всегда |
+| net | int | всегда (payout_total - stake_total) |
+| balance | int | всегда |
+| replayed | bool | всегда |
+
+Ошибки: 400 `{"detail": "invalid_bets"}`; 409 `{"detail": "insufficient_funds"}` или `{"detail": "balance_limit"}`.
+
+## GET /api/chat/top
+Группа read. Вне группового чата (личная переписка) 200 `{"scope": "none"}`: **других полей нет**.
+В беседе 200:
+
+| Поле | Тип | Наличие |
+|---|---|---|
+| scope | str | всегда (`"chat"`) |
+| top | [объект] | всегда, до 10 элементов |
+| me | объект | всегда |
+| chat_staked | int | всегда |
+
+Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int` (все всегда).
+`me`: `rank int`, `balance int`, `total int` (число участников рейтинга), `staked int`, `level int` (все всегда).
+
+## GET /api/farm
+Группа read. 200 (все ключи всегда):
+
+| Поле | Тип |
+|---|---|
+| balance | int |
+| profile | `{level int, staked int, next_threshold int\|null}` (null на максимальном уровне) |
+| slots | `{used int, total int}` |
+| income | `{level int, max int, rate int, next_rate int\|null, next_cost int\|null, can_buy bool, reason str\|null}` |
+| storage | `{level int, max int, hours int, next_hours int\|null, next_cost int\|null, can_buy bool, reason str\|null}` |
+
+`reason`: `null`, `"max_level"`, `"level_locked"` или `"insufficient_funds"` (первая причина в порядке проверок покупки).
+На максимальном уровне `next_*` равны null.
+
+## POST /api/farm/buy
+Группа write. Тело: `{"request_id": str, "kind": "income"|"storage"}`. 200:
+`kind str`, `level_after int`, `cost int`, `balance int`, `replayed bool` (все всегда).
+Ошибки: 400 `{"detail": "invalid_request"}`; 409: `{"detail": "max_level"}`, `{"detail": "level_locked", "required_level": int}`,
+`{"detail": "insufficient_funds"}`.
+
+## Мины
+Раскладка мин активной игры не отдаётся никогда. Игра закрывается автоматически через 24 часа без действий.
+
+**game** (активная игра), все ключи всегда: `bet int`, `mines int`, `revealed [int]`, `safe_left int`, `multiplier str`
+(например `"1.10"`, показывать как есть), `payout_now int`, `next_multiplier str|null`, `next_payout int|null`
+(null только если безопасных клеток не осталось, у активной игры такого не бывает), `expires_at int` (unix).
+
+**last** (завершённая игра), все ключи всегда: `status str` (`lost`, `cashed`, `auto_cashed`, `refunded`, `auto_refunded`),
+`bet int`, `mines int`, `revealed [int]`, `mine_cells [int]` (раскладка, есть только здесь), `payout int`, `finished_at int`.
+
+Ошибки всех POST мин: 400 `{"detail": "invalid_request"}` (неверные типы, диапазоны, ключи, `request_id`);
+409 `{"detail": "<код>"}`: `active_game_exists`, `insufficient_funds`, `no_active_game`, `already_revealed`,
+`request_conflict` (тот же `request_id` с другими параметрами или действием).
+Повтор с тем же `request_id` и теми же параметрами возвращает **сохранённый** ответ с `replayed: true`
+(`balance` в нём тот, что был при первом выполнении).
+
+### POST /api/mines/start
+Группа write. Тело: `{"request_id": str, "bet": int (1..1000000000), "mines": int (1..24)}`.
+200: `game` (объект game), `balance int`, `replayed bool` (все всегда).
+
+### POST /api/mines/reveal
+Группа write. Тело: `{"request_id": str, "cell": int (0..24)}`. 200, три варианта по `result`:
+
+| result | game | last | остальное |
+|---|---|---|---|
+| `"safe"` | объект game | **ключа нет** | `balance int`, `replayed bool` |
+| `"mine"` | `null` | объект last | `balance int`, `replayed bool` |
+| `"cleared"` (все безопасные клетки открыты, автовыплата) | `null` | объект last | `balance int`, `replayed bool` |
+
+`result` и `balance`, `replayed` есть всегда. **Ключа `last` нет при `result: "safe"`** (клиент не должен ждать `last: null`).
+
+### POST /api/mines/cashout
+Группа write. Тело: `{"request_id": str}`. 200: `last` (объект last), `balance int`, `replayed bool` (все всегда).
+При нуле открытых клеток возвращается ставка, `last.status` равен `"refunded"`.
+
+### GET /api/mines/state
+Группа read. 200: `game` (game или null), `last` (last или null), `balance int` (все три ключа всегда).
+`last` может быть заполнен и при активной игре (это предыдущая завершённая игра). Автоматически закрытая
+просроченная игра приходит в `last` со статусом `auto_cashed` или `auto_refunded`.
