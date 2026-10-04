@@ -70,7 +70,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 
 ## Где что лежит
 - Клиент в корне: index.html, style.css, script.js, privacy.html; шрифты локально в fonts/ (лицензия OFL).
-- Сервер в bot/: api.py (маршруты), bot.py (команды бота), db.py (вся SQLite; общие функции в секции «ЯДРО»), wallet.py, economy.py,
+- Сервер в bot/: api.py (маршруты), bot.py (команды бота), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
   blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
 - Тесты: bot/test_*.py (общие заглушки: bot/stubs.py, bot/tg_testutil.py).
