@@ -36,9 +36,9 @@
 
     <section class="bets bets-dock" id="bets">
       <div class="message" aria-live="polite">
+        <div id="status-line" hidden><span id="status-text"></span> <small id="status-code"></small></div>
         <div id="message-line" hidden><span id="message-text"></span> <small id="message-code"></small></div>
       </div>
-      <div id="status-line" hidden><span id="status-text"></span> <small id="status-code"></small></div>
       <div class="row bet-chips">
         <button type="button" class="chip" data-amount="10" aria-pressed="false">10</button>
         <button type="button" class="chip" data-amount="50" aria-pressed="false">50</button>
@@ -126,7 +126,7 @@
     <button type="button" class="action profile-retry" id="mines-retry" hidden>Повторить</button>
 
     <form class="mines-start" id="mines-start" hidden onsubmit="return false">
-      <div class="mines-bets bets-dock" id="mines-bets">
+      <section class="mines-card mines-bets bets-dock" id="mines-bets">
         <label class="mines-label" for="mines-bet">Ставка</label>
         <div class="row bet-chips">
           <button type="button" class="chip" data-bet="10" aria-pressed="false">10</button>
@@ -140,20 +140,22 @@
           <button type="button" class="action step-btn" id="mines-double" aria-label="Увеличить вдвое">×2</button>
           <button type="button" class="action bet-maxdone" id="mines-max">Макс</button>
         </div>
-      </div>
-      <div class="mines-label" id="mines-count-label">Число мин</div>
-      <div class="mines-count-row">
-        <button type="button" class="action mines-step" id="mines-minus" aria-label="Меньше мин">−</button>
-        <output class="mines-count" id="mines-count" for="mines-minus mines-plus" aria-labelledby="mines-count-label">3</output>
-        <button type="button" class="action mines-step" id="mines-plus" aria-label="Больше мин">+</button>
-      </div>
-      <div class="row mines-quick">
-        <button type="button" class="chip" data-mines="1" aria-pressed="false">1</button>
-        <button type="button" class="chip" data-mines="3" aria-pressed="false">3</button>
-        <button type="button" class="chip" data-mines="5" aria-pressed="false">5</button>
-        <button type="button" class="chip" data-mines="10" aria-pressed="false">10</button>
-        <button type="button" class="chip" data-mines="24" aria-pressed="false">24</button>
-      </div>
+      </section>
+      <section class="mines-card mines-count-card">
+        <div class="mines-label" id="mines-count-label">Мины</div>
+        <div class="mines-count-row">
+          <button type="button" class="action mines-step" id="mines-minus" aria-label="Меньше мин">−</button>
+          <output class="mines-count" id="mines-count" for="mines-minus mines-plus" aria-labelledby="mines-count-label">3</output>
+          <button type="button" class="action mines-step" id="mines-plus" aria-label="Больше мин">+</button>
+        </div>
+        <div class="row mines-quick">
+          <button type="button" class="chip" data-mines="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-mines="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-mines="5" aria-pressed="false">5</button>
+          <button type="button" class="chip" data-mines="10" aria-pressed="false">10</button>
+          <button type="button" class="chip" data-mines="24" aria-pressed="false">24</button>
+        </div>
+      </section>
       <button type="button" class="mines-primary" id="mines-begin">Начать</button>
     </form>
 
