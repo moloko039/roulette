@@ -34,6 +34,14 @@
 - Не проверено: команды Railway CLI (запасной способ скачивания), настройка Railway «Wait for CI».
 - Дизайн клиента владелец правит сам.
 
+## 2026-10-04: объявление в группах после /grantall
+Разведка: /grantall уже был (превью, confirm в течение 5 минут, снимок базы, одна транзакция, admin_grants). В базе только chat_instance из initData, настоящего chat_id не было нигде, по chat_instance сообщение отправить нельзя и вывести chat_id из него нельзя.
+Что сделано: таблица bot_chats (chat_id, seen_at), chat_id группы пишется при my_chat_member (добавили бота) и при любой команде из группы (не чаще раза в 6 часов на группу), удаляется при выходе бота и при Forbidden/BadRequest/ChatMigrated при отправке. Связи группа - начисленные игроки нет: объявление уходит во все известные группы. /grantall <сумма> <id> [silent] + confirm; объявление после коммита, в фоне (ensure_future), пауза 0,1 с между группами, RetryAfter: ждём и один повтор, ошибки не откатывают начисление. Текст без имён, ID и балансов, кнопка «Играть» (GAME_LINK). Владельцу итог: групп, отправлено, не доставлено.
+Файлы: bot/bot.py, bot/db.py, bot/test_grant_announce.py, privacy.html (раздел 2, 4, 5: chat_id группы, срок: пока бот в группе), CLAUDE.md.
+Решения: предупреждение про /backupnow заменено фактом, что копия создаётся автоматически (так было), в превью написано; повтор confirm и повтор id объявление не шлют (одноразовое подтверждение и admin_grants).
+Не проверено: настоящий Telegram (my_chat_member в живой группе, лимиты, RetryAfter); группы, где бот был до выхода этой версии, попадут в базу только после первой команды из группы.
+Политика обновлена: да (4 октября 2026 г.)
+
 ## 2026-10-04: усиление безопасности (аудит 2026-10-04)
 Что сделано: поиск получателя перевода вынесен из блокировки записи (набор тот же, что в списке «Кому перевести», индекс chat_members_recent); запуск uvicorn без access-лога и заголовка server; тело запроса не больше 64 КБ (ответ 413, чтение с обрывом); рулетка: тот же request_id с другими ставками даёт 409 request_conflict (сверка с bets_json); SQLite: timeout 10 с, один повтор BEGIN, при занятой базе 503 с Retry-After; заголовки nosniff, no-referrer, no-store для /api/*; .gitignore и check_repo закрывают -wal/-shm/-journal, .sqlite*, .env.*, *.pem; зависимости обновлены (на Python 3.9 новее выпусков нет), добавлен .github/dependabot.yml.
 Файлы: bot/{transfers,db,api,roulette}.py, bot/railway.toml, bot/requirements.txt, bot/test_{security,transfers,check_repo,roulette,xp,total_staked,spin_api,keno}.py, scripts/check_repo.py, .gitignore, .github/dependabot.yml, script.js, docs/API.md, docs/examples.

@@ -14,7 +14,7 @@ import bot
 import db
 import wallet
 from roulette import MAX_SAFE_INT
-from stubs import FakeUpdate
+from stubs import FakeUpdate, StubBot
 
 OWNER = 424242421
 STRANGER = 777000111
@@ -93,8 +93,14 @@ def balances(path):
 def say(args, uid=OWNER, chat="private", store=None):
     """Одна команда /grantall; возвращает тексты ответов бота."""
     update = FakeUpdate(chat, user_id=uid)
-    ctx = SimpleNamespace(args=args, application=SimpleNamespace(bot_data=store if store is not None else {}))
-    asyncio.run(bot.grantall(update, ctx))
+    data = store if store is not None else {}
+    ctx = SimpleNamespace(args=args, bot=StubBot(), application=SimpleNamespace(bot_data=data))
+
+    async def run():
+        await bot.grantall(update, ctx)
+        if data.get("grant_announce_task") is not None:   # фоновое объявление (объявления Telegram здесь заглушка)
+            await data["grant_announce_task"]
+    asyncio.run(run())
     return [r["text"] for r in update.replies]
 
 
