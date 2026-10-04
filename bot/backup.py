@@ -124,6 +124,12 @@ def _remove_quietly(path):
         pass
 
 
+def _remove_sidecars(path):
+    """Удаляет файлы -wal и -shm рядом с копией (все соединения с ней уже закрыты)."""
+    _remove_quietly(path + "-wal")
+    _remove_quietly(path + "-shm")
+
+
 def create_snapshot(db_path, backup_dir, now=None, keep=DEFAULT_KEEP):
     """Согласованная копия базы через Connection.backup(). Возвращает путь к копии или None."""
     if now is None:
@@ -152,11 +158,14 @@ def create_snapshot(db_path, backup_dir, now=None, keep=DEFAULT_KEEP):
                         raise TimeoutError()
 
                 src.backup(dst, pages=PAGES_PER_STEP, progress=progress, sleep=STEP_SLEEP)
+                # копия всегда обычный одиночный файл (без -wal и -shm), даже если основная база в режиме WAL
+                dst.execute("PRAGMA journal_mode=DELETE")
             finally:
                 dst.close()
         finally:
             src.close()
         counts = inspect_database(tmp)  # проверка копии до того, как она получит итоговое имя
+        _remove_sidecars(tmp)           # после перехода из WAL в DELETE может остаться пустой -shm
         os.chmod(tmp, 0o600)
         os.replace(tmp, final)
         tmp = None
@@ -178,6 +187,7 @@ def create_snapshot(db_path, backup_dir, now=None, keep=DEFAULT_KEEP):
         for leftover in (tmp, latest_tmp):
             if leftover:
                 _remove_quietly(leftover)
+                _remove_sidecars(leftover)
         logger.error("Резервная копия не создана: %s", type(exc).__name__)
         return None
 

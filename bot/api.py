@@ -496,6 +496,7 @@ def create_app_from_env():
     configure_logging()
     s = load_settings(os.environ)
     init_db()  # без таблицы первый же валидный запрос упал бы с ошибкой
+    db.log_sqlite_mode()
     db_path = _resolve_db_path()
     config = backup.load_config(os.environ, db_path)
     backup.warn_config(config)

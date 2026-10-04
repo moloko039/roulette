@@ -143,7 +143,12 @@ try:
     try:
         with mock.patch.object(backup, "MAX_COPY_SECONDS", 1), mock.patch.object(backup, "PAGES_PER_STEP", 50):
             started = time.monotonic()
-            check("постоянная запись: копия не сделана", backup.create_snapshot(big, os.path.join(tmp, "bbig2"), now=T + 5), None)
+            snap2 = backup.create_snapshot(big, os.path.join(tmp, "bbig2"), now=T + 5)
+            if sql("PRAGMA journal_mode", path=big)[0][0] == "wal":
+                # в режиме WAL запись не блокирует чтение, копирование может успеть: тогда копия должна быть целой
+                assert snap2 is None or backup.inspect_database(snap2)["roulette_rounds"] == 30000, "копия из WAL повреждена"
+            else:
+                check("постоянная запись: копия не сделана", snap2, None)
             assert time.monotonic() - started < 20, "копирование зависло"
     finally:
         stop2.set()
