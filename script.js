@@ -212,16 +212,59 @@ if (window.visualViewport) {
 window.addEventListener('resize', scheduleDock);
 window.addEventListener('scroll', scheduleDock, true);
 
-// Тап вне поля и прокрутка закрывают клавиатуру
+// Когда клавиатура уходит, видимая область и вёрстка перестраиваются (панель опускается из-под клавиатуры на место). Если
+// тап по кнопке успел снять фокус с поля, то клик касанием определяется уже по новой раскладке и попадает в другой элемент
+// (например, в затемнение окна, которое закрывает его). Поэтому: (1) кнопки панелей действуют сразу по нажатию, после
+// закрытия клавиатуры, а следующий за нажатием клик гасится (действие ровно один раз; Enter и клавиатурный клик идут как
+// обычно); (2) затемнение закрывает окно, только если нажатие и клик были именно на нём и вёрстка не менялась ~400 мс.
+let lastLayoutShiftAt = 0;        // последнее изменение видимой области или потеря фокуса поля
+const markLayoutShift = () => { lastLayoutShiftAt = performance.now(); };
+if (window.visualViewport) window.visualViewport.addEventListener('resize', markLayoutShift);
+window.addEventListener('resize', markLayoutShift);
+document.addEventListener('focusout', (e) => { if (e.target && e.target.tagName === 'INPUT') markLayoutShift(); }, true);
+let lastPointerDownTarget = null;
+document.addEventListener('pointerdown', (e) => { lastPointerDownTarget = e.target; }, true);
+
+const BACKDROP_QUIET_MS = 400;
+function closeOnBackdropTap(backdrop, close) {
+  backdrop.addEventListener('click', (e) => {
+    const startedHere = lastPointerDownTarget === backdrop;
+    lastPointerDownTarget = null;
+    if (e.target !== backdrop || !startedHere) return;                       // нажатие началось не на затемнении (или ушло с окна)
+    if (performance.now() - lastLayoutShiftAt < BACKDROP_QUIET_MS) return;   // клавиатура или вёрстка только что менялись
+    close();
+  });
+}
+
+// Тап вне поля и прокрутка закрывают клавиатуру; кнопка панели при открытой клавиатуре: сначала закрыть клавиатуру,
+// затем выполнить действие кнопки (один раз)
 (() => {
   const active = () => {
     const a = document.activeElement;
     return a && a.classList && a.classList.contains('bet-input') ? a : null;
   };
+  let swallow = 0;   // до этого момента следующий клик считается хвостом уже обработанного нажатия
   document.addEventListener('pointerdown', (e) => {
+    swallow = 0;
     const a = active();
-    if (!a || e.target === a || (e.target.closest && e.target.closest('.bet-maxdone'))) return;
+    if (!a || e.target === a || !e.target.closest || e.target.closest('.bet-maxdone')) return;
+    if (e.target.closest('.picker-list')) {   // строки списка: фокус остаётся (без него клавиатура не уходит и вёрстка не двигается), выбор по клику
+      e.preventDefault();                      // (прокрутка списка пальцем строку не выбирает)
+      return;
+    }
+    const btn = e.target.closest('button');
+    const immediate = btn && !btn.disabled && e.isPrimary !== false && (e.button || 0) === 0 && btn.closest('.bets-dock, .transfer-panel');
     a.blur();
+    if (immediate) {
+      btn.click();
+      swallow = performance.now() + 1000;
+    }
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (!swallow) return;
+    const live = performance.now() < swallow;
+    swallow = 0;
+    if (live) { e.stopImmediatePropagation(); e.preventDefault(); }
   }, true);
   let startY = null;
   document.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true, capture: true });
@@ -3996,7 +4039,7 @@ trEls.amount.addEventListener('input', () => { tr.confirm = false; setTrMsg('');
 }));
 trEls.send.addEventListener('click', trSendClick);
 trEls.cancel.addEventListener('click', closeTransfer);
-trEls.dim.addEventListener('click', closeTransfer);
+closeOnBackdropTap(trEls.dim, closeTransfer);
 
 
 // ---------- выбор получателя среди всех участников беседы ----------
@@ -4142,7 +4185,7 @@ pkEls.list.addEventListener('scroll', () => {
 });
 pkEls.retry.addEventListener('click', () => loadMembers(true));
 pkEls.close.addEventListener('click', closePicker);
-pkEls.dim.addEventListener('click', closePicker);
+closeOnBackdropTap(pkEls.dim, closePicker);
 pkEls.newBtn.addEventListener('click', () => openPicker('profile'));
 document.getElementById('transfer-change').addEventListener('click', () => { if (!tr.busy) openPicker('transfer'); });
 renderTransferEntry();
