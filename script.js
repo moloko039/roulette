@@ -1894,6 +1894,12 @@ const minesEls = {
   balance: document.getElementById('mines-balance'),
   switchBtn: document.getElementById('mines-switch'),
   inplay: document.getElementById('mines-inplay'),
+  meta: document.getElementById('mines-meta'),
+  mults: document.getElementById('mines-mults'),
+  arrow: document.getElementById('mines-arrow'),
+  nextMult: document.getElementById('mines-next-mult'),
+  nextPay: document.getElementById('mines-next-pay'),
+  nextBox: document.getElementById('mines-next'),
   notice: document.getElementById('mines-notice'),
   skel: document.getElementById('mines-skel'),
   msg: document.getElementById('mines-msg'),
@@ -1910,8 +1916,6 @@ const minesEls = {
   grid: document.getElementById('mines-grid'),
   panel: document.getElementById('mines-panel'),
   mult: document.getElementById('mines-mult'),
-  now: document.getElementById('mines-now'),
-  next: document.getElementById('mines-next'),
   left: document.getElementById('mines-left'),
   cash: document.getElementById('mines-cash'),
   expiry: document.getElementById('mines-expiry'),
@@ -2022,13 +2026,24 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
 function renderMinesPlay() {
   const g = mn.game;
   renderMinesBoard(g.revealed, [], false, null, true);
-  minesEls.mult.textContent = '×' + g.multiplier;       // множитель строкой с сервера как есть
-  setNumberLabel(minesEls.now, '', g.payout_now);
-  minesEls.next.textContent = '';
-  if (g.next_multiplier !== null && g.next_payout !== null) {
-    setNumberLabel(minesEls.next, `Следующая клетка: ×${g.next_multiplier} (`, g.next_payout, ')');
+  // множители строками с сервера как есть: текущий крупно, справа через стрелку множитель следующей безопасной клетки
+  const now = '×' + g.multiplier;
+  const changed = minesEls.mult.dataset.ready === '1' && minesEls.mult.textContent !== now;
+  minesEls.mult.textContent = now;
+  minesEls.mult.dataset.ready = '1';
+  const hasNext = g.next_multiplier !== null && g.next_payout !== null;
+  minesEls.arrow.toggleAttribute('hidden', !hasNext);
+  minesEls.nextBox.toggleAttribute('hidden', !hasNext);
+  if (hasNext) {
+    minesEls.nextMult.textContent = '×' + g.next_multiplier;
+    setNumberLabel(minesEls.nextPay, 'выплата ', g.next_payout);
   }
-  minesEls.left.textContent = 'Осталось безопасных клеток: ' + g.safe_left;
+  if (changed) {                       // короткий пульс при смене множителя (при prefers-reduced-motion анимации нет, см. CSS)
+    minesEls.mult.classList.remove('pulse');
+    void minesEls.mult.offsetWidth;
+    minesEls.mult.classList.add('pulse');
+  }
+  minesEls.left.textContent = 'Безопасных клеток: ' + g.safe_left;
   if (g.revealed.length === 0) {
     minesEls.cash.textContent = 'Вернуть ставку';
     minesEls.cash.title = '';
@@ -2103,6 +2118,7 @@ function renderMines() {
   minesEls.form.hidden = mn.view !== 'start';
   minesEls.boardWrap.hidden = !(mn.view === 'play' || mn.view === 'result');
   minesEls.panel.hidden = mn.view !== 'play';
+  minesEls.mults.hidden = mn.view !== 'play';
   minesEls.result.hidden = mn.view !== 'result';
   minesEls.last.hidden = true;
   minesEls.switchBtn.disabled = mn.busy;
@@ -2114,12 +2130,26 @@ function renderMines() {
   renderMinesChips();
   refreshBetPanels();
   const inGame = mn.game !== null && mn.view === 'play';
-  minesEls.inplay.hidden = !inGame;
+  minesEls.meta.hidden = !inGame;
   if (inGame) setNumberLabel(minesEls.inplay, 'В игре: ', mn.game.bet);
   if (mn.view === 'play') renderMinesPlay();
   else if (mn.view === 'result') renderMinesResult();
   else if (mn.view === 'start') renderMinesForm();
+  fitMinesBoard();
 }
+
+// Поле занимает всё свободное место между блоками экрана и остаётся квадратным: сторона = меньшее из ширины и высоты доступной области
+// (высота зависит от видимой области: шапка Telegram, нижняя навигация, динамическая высота экрана).
+function fitMinesBoard() {
+  const wrap = minesEls.boardWrap;
+  if (wrap.hidden) return;
+  const size = Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight));
+  const px = size > 0 ? size + 'px' : '';
+  minesEls.grid.style.width = px;
+  minesEls.grid.style.height = px;
+}
+if (window.ResizeObserver) new ResizeObserver(fitMinesBoard).observe(minesEls.boardWrap);
+window.addEventListener('resize', fitMinesBoard);
 
 // Применяет состояние с сервера: определяет, что показывать
 function applyMinesState(d, announce) {
