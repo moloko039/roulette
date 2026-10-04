@@ -64,7 +64,7 @@ try:
 
     # ---------- /api/me записывает участника только из групп ----------
     r = me(1, chat_type="group", first_name="Аня")
-    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "active_game", "incoming_unseen", "transfer_limits"})
+    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits"})
     me(2, chat_type="supergroup", first_name="Боря")
     me(3, chat_type="private")
     me(4, chat_type="sender")
@@ -92,7 +92,7 @@ try:
     # ошибка записи не ломает /api/me
     with mock.patch("api.touch_chat_member", side_effect=RuntimeError("boom")):
         r = me(1, chat_type="group")
-    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "active_game", "incoming_unseen", "transfer_limits"}))
+    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits"}))
 
     # ---------- /api/chat/top: нет беседы ----------
     for kw in [{"chat_type": "private"}, {"chat_type": "sender"}, {"chat_type": "channel"},
@@ -131,12 +131,14 @@ try:
     check("последний в top", body["top"][-1]["rank"], 10)
 
     # ---------- актуальный баланс с начислением, в базе не меняется ----------
-    now = int(time.time())
+    # часы сервера фиксируются на середине минуты: 3 часа = ровно 180 тиков, граница минуты посреди теста невозможна
+    now = int(time.time()) // 60 * 60 + 30
     for uid, bal, hours in [(301, 1000, 3), (302, 1250, 0)]:
         top(uid, chat_instance="chat-acc", first_name="A%d" % uid)
-        sql(path, "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?", (bal, now - hours * HOUR - 5, uid))
+        sql(path, "UPDATE players SET balance = ?, last_accrual = ? WHERE telegram_id = ?", (bal, now // 60 * 60 - hours * HOUR, uid))
     before = sql(path, "SELECT telegram_id, balance, last_accrual FROM players WHERE telegram_id IN (301, 302) ORDER BY 1")
-    body = top(302, chat_instance="chat-acc", first_name="A302").json()
+    with mock.patch("time.time", return_value=float(now)):
+        body = top(302, chat_instance="chat-acc", first_name="A302").json()
     check("в top баланс с начислением", [(e["name"], e["balance"]) for e in body["top"]], [("A301", 1300), ("A302", 1250)])
     check("players не изменилась", sql(path, "SELECT telegram_id, balance, last_accrual FROM players WHERE telegram_id IN (301, 302) ORDER BY 1"), before)
 
@@ -204,7 +206,7 @@ try:
     conn.execute("CREATE TABLE roulette_rounds (telegram_id INTEGER NOT NULL, request_id TEXT NOT NULL, "
                  "number INTEGER NOT NULL, stake_total INTEGER NOT NULL, payout_total INTEGER NOT NULL, "
                  "bets_json TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY (telegram_id, request_id))")
-    conn.execute("INSERT INTO players VALUES (1, 777, 100, 1000, 1000), (2, 1500, 100, 2000, 2000)")
+    conn.execute("INSERT INTO players VALUES (1, 777, 100, %d, 1000), (2, 1500, 100, %d, 2000)" % (int(time.time()) + 10 * 86400, int(time.time()) + 10 * 86400))   # метка в будущем: миграция начисления ничего не платит
     conn.execute("INSERT INTO roulette_rounds VALUES (1, 'old-request-1', 17, 10, 360, '[]', 1500)")
     conn.commit()
     conn.close()

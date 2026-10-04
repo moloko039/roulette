@@ -24,6 +24,8 @@ from roulette import MAX_SAFE_INT, InsufficientFunds
 from stubs import FakeUpdate
 from tg_testutil import make_init_data
 
+FUT_ACCRUAL = __import__("time").time().__int__() + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOKEN = "123456:TEST-TOKEN-not-real"
@@ -154,7 +156,7 @@ try:
     conn.execute("CREATE TABLE players (telegram_id INTEGER PRIMARY KEY, balance INTEGER NOT NULL, "
                  "rate INTEGER NOT NULL, last_accrual INTEGER NOT NULL, created_at INTEGER NOT NULL, "
                  "total_staked INTEGER NOT NULL DEFAULT 0)")
-    conn.execute("INSERT INTO players VALUES (1, 777, 100, 1000, 1000, 55), (2, 5, 100, 2000, 2000, 0)")
+    conn.execute("INSERT INTO players VALUES (1, 777, 100, %d, 1000, 55), (2, 5, 100, %d, 2000, 0)" % (FUT_ACCRUAL, FUT_ACCRUAL))
     conn.commit()
     conn.close()
     db.init_db(old)
@@ -162,7 +164,7 @@ try:
     check("income_level", cols["income_level"], ("INTEGER", 1, "0"))
     check("storage_level", cols["storage_level"], ("INTEGER", 1, "0"))
     check("данные целы", sql(old, "SELECT telegram_id, balance, rate, last_accrual, created_at, total_staked FROM players ORDER BY 1"),
-          [(1, 777, 100, 1000, 1000, 55), (2, 5, 100, 2000, 2000, 0)])
+          [(1, 777, 100, FUT_ACCRUAL, 1000, 55), (2, 5, 100, FUT_ACCRUAL, 2000, 0)])
     check("rate у существующих игроков 100", [r[0] for r in sql(old, "SELECT rate FROM players")], [100, 100])
     check("уровни 0", sql(old, "SELECT income_level, storage_level FROM players"), [(0, 0), (0, 0)])
     check("таблица покупок", [r[1] for r in sql(old, "PRAGMA table_info(farm_purchases)")],
@@ -283,23 +285,23 @@ try:
     add_player(path, 1, balance=2000, total=1600, last_accrual=NOW - 5 * HOUR)
     r = db.buy_upgrade(1, rid(1), "income", NOW, path)
     check("5 часов по старой ставке, затем списание: 2000 + 500 - 1000", r["balance"], 1500)
-    check("last_accrual сдвинут на целые часы", player(path, 1)[2], NOW)
+    check("метка на границе минуты", player(path, 1)[2], NOW // 60 * 60)
     p = db.get_player(1, now=NOW + 2 * HOUR, db_path=path)
     check("после покупки 2 часа по новой ставке", p["balance"], 1500 + 2 * 135)
-    # остаток минут сохраняется
+    # неполный час тоже начислен (поминутно): 5 ч 30 мин по старой ставке = 550
     path = new_db()
     add_player(path, 1, balance=2000, total=1600, last_accrual=NOW - 5 * HOUR - 1800)
     db.buy_upgrade(1, rid(1), "income", NOW, path)
-    check("остаток 30 минут сохранён", player(path, 1)[2], NOW - 1800)
-    check("баланс: 2000 + 500 - 1000", player(path, 1)[0], 1500)
-    p = db.get_player(1, now=NOW - 1800 + HOUR, db_path=path)
-    check("следующий час по новой ставке", p["balance"], 1500 + 135)
+    check("метка на границе минуты", player(path, 1)[2], NOW // 60 * 60)
+    check("баланс: 2000 + 550 - 1000", player(path, 1)[0], 1550)
+    p = db.get_player(1, now=NOW + HOUR, db_path=path)
+    check("следующий час по новой ставке", p["balance"], 1550 + 135)
     # потолок хранилища: накопленное сверх старого потолка не воскресает
     path = new_db()
     add_player(path, 1, balance=5000, total=1600, last_accrual=NOW - 40 * HOUR)
     r = db.buy_upgrade(1, rid(1), "storage", NOW, path)
     check("при покупке платим по старому потолку (30 ч): 5000 + 3000 - 1000", r["balance"], 7000)
-    check("лишние часы сгорели", player(path, 1)[2], NOW)
+    check("лишние часы сгорели, метка на текущей минуте", player(path, 1)[2], NOW // 60 * 60)
     p = db.get_player(1, now=NOW + HOUR, db_path=path)
     check("1 час после покупки", p["balance"], 7100)
     p = db.get_player(1, now=NOW + 100 * HOUR, db_path=path)

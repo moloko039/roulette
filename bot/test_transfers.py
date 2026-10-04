@@ -22,6 +22,8 @@ from roulette import MAX_SAFE_INT, InsufficientFunds
 from stubs import FakeUpdate
 from tg_testutil import make_init_data
 
+FUT_ACCRUAL = __import__("time").time().__int__() + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOKEN = "123456:TEST-TOKEN-not-real"
@@ -523,7 +525,7 @@ try:
     conn.execute("CREATE TABLE players (telegram_id INTEGER PRIMARY KEY, balance INTEGER NOT NULL, rate INTEGER NOT NULL, "
                  "last_accrual INTEGER NOT NULL, created_at INTEGER NOT NULL, total_staked INTEGER NOT NULL DEFAULT 0, "
                  "xp INTEGER NOT NULL DEFAULT 0, income_level INTEGER NOT NULL DEFAULT 0, storage_level INTEGER NOT NULL DEFAULT 0)")
-    conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (1, 500, 100, 0, 0)")
+    conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (1, 500, 100, %d, 0)" % FUT_ACCRUAL)
     conn.commit()
     conn.close()
     db.init_db(path)

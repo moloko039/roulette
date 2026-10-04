@@ -33,6 +33,7 @@ import keno
 import mines
 from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
+import economy
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets,
                       validate_request_id)
@@ -330,10 +331,17 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         return {
             "balance": player["balance"],
             "rate": player["rate"],
-            "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
+            "seconds_to_next": economy.next_tick_in(now),   # до следующей минутной границы начисления (раньше: до часа)
             "level": profile_level(player["xp"]),   # уровень профиля по опыту
             "income_level": player["income_level"],
             "storage_level": player["storage_level"],
+            "farm": {                         # поминутное начисление: ленивое, при этом запросе уже подтянуто
+                "income_per_hour": player["rate"],
+                "per_minute_estimate": economy.per_minute_estimate(player["rate"]),
+                "next_tick_in_s": economy.next_tick_in(now),
+                "hours_cap": farm.storage_hours(player["storage_level"]),
+                "accrued_now": player["accrued"],   # сколько фишек зачислил именно этот запрос
+            },
             "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | "hilo" | null
             "incoming_unseen": incoming,     # {count, total}: непросмотренные входящие переводы
             "transfer_limits": limits,       # лимиты переводов для клиента (клиент констант не дублирует)

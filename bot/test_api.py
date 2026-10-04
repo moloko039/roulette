@@ -32,7 +32,7 @@ try:
     check("статус", r.status_code, 200)
     body = r.json()
     check("новый игрок", (body["balance"], body["rate"]), (1000, 100))
-    assert 3590 <= body["seconds_to_next"] <= 3600, body
+    assert 1 <= body["seconds_to_next"] <= 60 and body["seconds_to_next"] == body["farm"]["next_tick_in_s"], body   # до следующей минуты
 
     # повторный запрос ничего лишнего не начисляет
     r = client.get("/api/me", headers=auth(1))

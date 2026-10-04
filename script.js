@@ -1039,6 +1039,7 @@ const srv = {
   transferLimits: null,   // лимиты переводов из /api/me: {min, max, daily_left, fee_percent, min_level, cooldown_seconds, min_age_hours, min_staked, unlimited}
   incomingUnseen: null,   // непросмотренные входящие переводы: {count, total}
   noChat: false,          // приложение открыто вне беседы (по рейтингу или по ответу списка участников): переводы недоступны
+  farm: null,         // блок фермы из /api/me: {income_per_hour, per_minute_estimate, next_tick_in_s, hours_cap, accrued_now}
   activeGame: null    // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | "hilo" | null
 };
 let lobbyStartDecided = false;   // при запуске выбор «титульный экран или активная игра» делается один раз
@@ -1111,8 +1112,8 @@ function renderProfileIdentity() {
   profileEls.name.parentElement.hidden = !name;
 }
 
-// Кольцо до следующего начисления: фишки приходят раз в час
-const ACCRUAL_PERIOD_S = 3600;
+// Кольцо до следующего начисления: фишки приходят каждую минуту (доход в час делится на минутные начисления)
+const ACCRUAL_PERIOD_S = 60;   // фишки приходят каждую минуту
 const RING_LENGTH = 2 * Math.PI * 52;
 let ringFraction = 0;
 
@@ -1133,6 +1134,7 @@ var lobbyRender = null; // eslint-disable-line no-var
 
 function renderAll() {
   renderProfile();
+  renderFarmIncome();
   renderBets();
   if (kenoRender) kenoRender();
   if (lobbyRender) lobbyRender();
@@ -1142,6 +1144,7 @@ function renderAll() {
 setInterval(() => {
   if (!started) return;
   if (srv.loaded && !srv.error) renderProfileTimer();
+  renderFarmIncome();
   renderStatus();
 }, 1000);
 
@@ -1163,9 +1166,19 @@ function failServer(text, code, retry) {
 
 // Единственная функция запроса /api/me. reason: 'open' | 'visible' (с ограничением по частоте)
 // | 'timer' | 'manual' | 'after' (ручной запрос и запрос после раунда не теряются: откладываются)
+// Балансы игр хранятся у каждой игры отдельно: подпись нужна, чтобы устаревший ответ /api/me не затёр свежие значения
+const balanceSignature = () => [srv.balance, mn.balance, bj.balance, cr.balance, hl.balance].join('|');
+// идёт запрос или анимация какой-либо игры: баланс на экране менять нельзя, данные ставятся в очередь (повтор через секунду)
+const anyRoundBusy = () => gameBusy() || kn.busy || mn.busy || bj.busy || cr.busy || cr.animating || hl.busy || hl.animating || bj.animating;
+let srvNeedsTick = false;        // вкладка была скрыта, когда пришло время минутного запроса: при возврате обновляем сразу
+
 async function loadServer(reason) {
   if (srvInFlight || !srvWanted()) return;
-  if (gameBusy() || kn.busy) {
+  if (reason === 'timer' && document.visibilityState !== 'visible') {
+    srvNeedsTick = true;    // скрытая вкладка не опрашивает сервер; при возврате в приложение обновим сразу
+    return;
+  }
+  if (anyRoundBusy()) {
     // во время запроса раунда и анимации баланс на экране менять нельзя
     scheduleServerFetch(1000);
     return;
@@ -1176,7 +1189,7 @@ async function loadServer(reason) {
     if (reason !== 'open' && reason !== 'visible') scheduleServerFetch(0);
     return;
   }
-  if ((reason === 'open' || reason === 'visible') && sinceLast < (srvLastFailed ? ERROR_RETRY_MS : REFRESH_MIN_MS)) return;
+  if ((reason === 'open' || reason === 'visible') && !srvNeedsTick && sinceLast < (srvLastFailed ? ERROR_RETRY_MS : REFRESH_MIN_MS)) return;
 
   // вне Telegram запрос не отправляем
   const initData = tg && tg.initData;
@@ -1187,7 +1200,9 @@ async function loadServer(reason) {
 
   clearTimeout(srvFetchTimer);
   srvInFlight = true;
+  srvNeedsTick = false;
   srvLastRequestAt = now;
+  const sigBefore = balanceSignature();
   if (!srv.loaded && !srv.error) renderAll();
 
   const ctrl = new AbortController();
@@ -1215,13 +1230,14 @@ async function loadServer(reason) {
       failServer('Нет связи с сервером', 'ответ', true);
       return;
     }
-    if (gameBusy() || kn.busy) {
-      // пока шёл запрос, начался раунд: этот ответ уже мог устареть
+    if (anyRoundBusy() || balanceSignature() !== sigBefore) {
+      // пока шёл запрос, начался или закончился раунд: этот ответ уже мог устареть
       scheduleServerFetch(1000);
       return;
     }
     srvLastFailed = false;
     srv.error = null;
+    const prevBalance = srv.loaded ? srv.balance : null;
     srv.loaded = true;
     srv.balance = d.balance;
     srv.rate = d.rate;
@@ -1236,7 +1252,16 @@ async function loadServer(reason) {
     const iu = d.incoming_unseen;
     srv.incomingUnseen = iu && isCount(iu.count) && isCount(iu.total) ? iu : null;
     srv.activeGame = ['mines', 'blackjack', 'crash', 'hilo'].includes(d.active_game) ? d.active_game : null;
+    const f = d.farm;
+    srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
+      && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
     renderAll();
+    // сумма для «+N»: по accrued_now этого запроса; при возврате в приложение другой запрос (например, экрана фермы) мог подтянуть
+    // начисление раньше, тогда берётся прирост баланса (не больше максимума накопления)
+    let gained = srv.farm ? srv.farm.accrued_now : 0;
+    if (gained === 0 && reason === 'visible' && srv.farm && prevBalance !== null && d.balance > prevBalance
+      && d.balance - prevBalance <= srv.farm.income_per_hour * srv.farm.hours_cap) gained = d.balance - prevBalance;
+    applyAccrualTick(gained);
     notifyIncoming();
     if (!lobbyStartDecided) {
       // запуск: если у игрока есть незавершённая игра, сразу открываем её экран (он сам восстановит раунд)
@@ -1493,6 +1518,11 @@ const farmEls = {
   code: document.getElementById('farm-code'),
   retry: document.getElementById('farm-retry'),
   note: document.getElementById('farm-note'),
+  income: document.getElementById('farm-income'),
+  incHour: document.getElementById('farm-inc-hour'),
+  incMin: document.getElementById('farm-inc-min'),
+  incTimer: document.getElementById('farm-inc-timer'),
+  incNote: document.getElementById('farm-inc-note'),
   level: document.getElementById('farm-level'),
   balance: document.getElementById('farm-balance'),
   bar: document.getElementById('farm-bar'),
@@ -1592,6 +1622,58 @@ function renderFarmCard(kind, o, slots) {
   let reason = o.reason ? FARM_REASONS[o.reason] || '' : '';
   if (o.reason === 'level_locked') reason += ' ' + (slots.used + 1);
   c.reason.textContent = reason;
+}
+
+// ---------- минутное начисление: экран фермы, балансы игр, «+N» ----------
+// Блок дохода на экране фермы: берётся из /api/me (srv.farm), таймер идёт по монотонным часам и обновляется раз в секунду
+function renderFarmIncome() {
+  const f = srv.farm;
+  const show = !!f && srv.loaded && farmHasData;
+  farmEls.income.hidden = !show;
+  if (!show) return;
+  farmEls.incHour.textContent = formatNumber(f.income_per_hour);
+  farmEls.incMin.textContent = f.per_minute_estimate;
+  farmEls.incTimer.textContent = mmss((srv.deadline - performance.now()) / 1000);
+  farmEls.incNote.textContent = 'Пока вас нет, доход копится до ' + f.hours_cap + ' ч, дальше не начисляется.';
+}
+
+// Балансы игр хранятся у каждой игры отдельно: после минутного начисления подтягиваем их к серверному (игры без запроса и анимации;
+// полёт краша и ход в процессе не трогаем: они обновятся сами по итогу)
+function syncGameBalances() {
+  [[mn, renderMines], [bj, renderBj], [cr, renderCrash], [hl, renderHl]].forEach(([g, render]) => {
+    if (g.balance === null || g.balance === srv.balance || g.busy || g.animating) return;
+    if (g === cr && cr.view === 'play') return;
+    g.balance = srv.balance;
+    render();
+  });
+}
+
+// «+N» над балансом: поверх экрана (вёрстку не двигает), без звука, не дольше 1,4 секунды
+function showAccrualPop(amount) {
+  if (document.visibilityState !== 'visible') return;
+  const host = ['.screen:not([hidden]) .balance strong', '.screen:not([hidden]) #profile-balance', '.screen:not([hidden]) #farm-balance']
+    .map((sel) => document.querySelector(sel)).find((el) => el && el.getBoundingClientRect().width > 0);
+  if (!host) return;
+  const rect = host.getBoundingClientRect();
+  const pop = document.createElement('span');
+  pop.className = 'accrual-pop';
+  pop.textContent = '+' + formatCompact(amount);
+  pop.title = '+' + formatNumber(amount);
+  pop.style.left = Math.round(rect.left) + 'px';
+  pop.style.top = Math.max(0, Math.round(rect.top) - 4) + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 1500);
+}
+
+function applyAccrualTick(accrued) {
+  syncGameBalances();
+  if (farmData && !farmEls.body.hidden) {
+    farmData.balance = srv.balance;
+    setNumber(farmEls.balance, srv.balance);
+    updateFarmButtons();
+  }
+  renderFarmIncome();
+  if (accrued > 0) showAccrualPop(accrued);
 }
 
 function renderFarm(d) {

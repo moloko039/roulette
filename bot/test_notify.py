@@ -15,6 +15,8 @@ import notify
 from api import create_app
 from stubs import StubApplication
 
+FUT_ACCRUAL = __import__("time").time().__int__() + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
+
 # тест не зависит от окружения и bot/.env: на время теста эти переменные очищаются, в конце возвращаются
 _ENV_KEYS = ("PUBLIC_URL", "BACKUP_DIR", "OWNER_CHAT_ID", "DB_PATH")
 _saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
@@ -340,7 +342,7 @@ try:
     path = os.path.join(tmp, "old.db")
     db.init_db(path)
     conn = sqlite3.connect(path)
-    conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, ?, 100, ?, ?)", (SECRET_ID, SECRET_BALANCE, T, T))
+    conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, ?, 100, ?, ?)", (SECRET_ID, SECRET_BALANCE, FUT_ACCRUAL, T))
     conn.execute("INSERT INTO roulette_rounds VALUES (?, 'r1', 17, 10, 0, '[]', ?)", (SECRET_ID, T))
     conn.execute("INSERT INTO chat_members VALUES ('room', ?, 'N', ?, ?)", (SECRET_ID, T, T))
     conn.execute("DROP TABLE service_meta")

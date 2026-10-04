@@ -77,6 +77,7 @@ GAME = {"bet": int, "mines": int, "revealed": [int], "safe_left": int, "multipli
 LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells": [int], "payout": int,
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
+      "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
       "active_game": OPT(str), "incoming_unseen": {"count": int, "total": int},
       "transfer_limits": {"min": int, "max": int, "daily_left": int, "fee_percent": int, "min_level": int, "cooldown_seconds": int,
                         "min_age_hours": int, "min_staked": int, "unlimited": bool}}

@@ -307,7 +307,7 @@ try:
     conn.execute("CREATE TABLE chat_members (chat_instance TEXT NOT NULL, telegram_id INTEGER NOT NULL, "
                  "first_name TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, "
                  "PRIMARY KEY (chat_instance, telegram_id))")
-    conn.execute("INSERT INTO players VALUES (1, 777, 100, 1000, 1000)")
+    conn.execute("INSERT INTO players VALUES (1, 777, 100, %d, 1000)" % (int(time.time()) + 10 * 86400))   # метка в будущем: начисления нет
     conn.execute("INSERT INTO roulette_rounds VALUES (1, 'old-request-1', 17, 10, 360, '[]', 1500)")
     conn.execute("INSERT INTO chat_members VALUES ('room', 1, 'Имя', 1, 2)")
     conn.commit()
