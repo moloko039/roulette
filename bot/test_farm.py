@@ -87,9 +87,10 @@ def sql(path, query, params=()):
 
 
 def add_player(path, uid, balance=100_000, rate=100, total=0, income=0, storage=0, last_accrual=NOW):
-    sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, "
-              "income_level, storage_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (uid, balance, rate, last_accrual, last_accrual, total, income, storage))
+    # уровень профиля считается по опыту: в этих тестах опыт игрока равен «total» (как у перенесённой базы)
+    sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, "
+              "income_level, storage_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (uid, balance, rate, last_accrual, last_accrual, total, total, income, storage))
 
 
 def player(path, uid):
@@ -196,7 +197,7 @@ try:
     add_player(path, 1, balance=10_000, total=1599)          # уровень 1: один слот
     db.buy_upgrade(1, rid(1), "storage", now=NOW, db_path=path)
     raises(farm.LevelLocked, db.buy_upgrade, 1, rid(2), "storage", NOW, path)
-    sql(path, "UPDATE players SET total_staked = 1600")      # уровень стал 2
+    sql(path, "UPDATE players SET total_staked = 1600, xp = 1600")      # уровень стал 2
     check("после роста уровня профиля покупка разрешена", db.buy_upgrade(1, rid(3), "storage", NOW, path)["level_after"], 2)
     check("цена второго уровня хранилища", sql(path, "SELECT cost FROM farm_purchases ORDER BY rowid")[-1][0], 2000)
 
@@ -358,7 +359,7 @@ try:
     f = client.get("/api/farm", headers=auth(SECRET_ID)).json()
     check("ключи верхнего уровня", sorted(f), ["balance", "income", "profile", "slots", "storage"])
     check("balance", f["balance"], SECRET_BALANCE)
-    check("profile", f["profile"], {"level": 1, "staked": 0, "next_threshold": 1600})
+    check("profile", f["profile"], {"level": 1, "xp": 0, "staked": 0, "next_threshold": 1600})
     check("slots", f["slots"], {"used": 0, "total": 1})
     check("income", f["income"], {"level": 0, "max": 20, "rate": 100, "next_rate": 135, "next_cost": 1000,
                                   "can_buy": True, "reason": None})
@@ -386,8 +387,8 @@ try:
     r = client.post("/api/farm/buy", headers=auth(SECRET_ID), content=b"not json")
     check("400 без json", (r.status_code, r.json()), (400, {"detail": "invalid_request"}))
     # max_level и insufficient_funds через API
-    sql(path, "UPDATE players SET income_level = 20, storage_level = 0, total_staked = ?, balance = 10 WHERE telegram_id = ?",
-        (levels.threshold(60), SECRET_ID))
+    sql(path, "UPDATE players SET income_level = 20, storage_level = 0, total_staked = ?, xp = ?, balance = 10 WHERE telegram_id = ?",
+        (levels.threshold(60), levels.threshold(60), SECRET_ID))
     r = buy(SECRET_ID, {"request_id": rid(4), "kind": "income"})
     check("max_level", (r.status_code, r.json()), (409, {"detail": "max_level"}))
     r = buy(SECRET_ID, {"request_id": rid(5), "kind": "storage"})
@@ -436,7 +437,7 @@ try:
     deleted = db.purge_old_data(now=NOW + 40 * 86400, db_path=path, rounds_days=30, batch=50)
     check("через срок удалены все (пачками)", sql(path, "SELECT COUNT(*) FROM farm_purchases")[0][0], 0)
     # возвращаем покупки для проверки удаления
-    sql(path, "UPDATE players SET total_staked = 20000 WHERE telegram_id IN (?, 802)", (SECRET_ID,))
+    sql(path, "UPDATE players SET total_staked = 20000, xp = 20000 WHERE telegram_id IN (?, 802)", (SECRET_ID,))
     db.buy_upgrade(SECRET_ID, rid(11), "storage", NOW, path)
     add_player(path, 802, balance=100_000, total=2000)
     db.buy_upgrade(802, rid(12), "income", NOW, path)

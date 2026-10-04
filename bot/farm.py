@@ -55,7 +55,7 @@ def storage_cost(level):
     return STORAGE_BASE_COST * 2 ** level
 
 
-def block_reason(kind, income_level, storage_level, total_staked, balance):
+def block_reason(kind, income_level, storage_level, xp, balance):
     """Почему покупку нельзя сделать: None | "max_level" | "level_locked" | "insufficient_funds".
     Причины в том порядке, в каком проверяет покупка."""
     if kind == "income":
@@ -66,23 +66,23 @@ def block_reason(kind, income_level, storage_level, total_staked, balance):
         raise ValueError("unknown kind")
     if cost is None:
         return "max_level"
-    if income_level + storage_level >= levels.profile_level(total_staked):
+    if income_level + storage_level >= levels.profile_level(xp):   # уровень профиля по опыту
         return "level_locked"
     if balance < cost:
         return "insufficient_funds"
     return None
 
 
-def status(balance, total_staked, income_level, storage_level):
+def status(balance, xp, staked, income_level, storage_level):
     """Данные экрана фермы (GET /api/farm)."""
-    level, staked, next_threshold = levels.level_progress(total_staked)
+    level, xp, next_threshold = levels.level_progress(xp)
     income_next = income_level < INCOME_MAX_LEVEL
     storage_next = storage_level < STORAGE_MAX_LEVEL
-    reason_income = block_reason("income", income_level, storage_level, total_staked, balance)
-    reason_storage = block_reason("storage", income_level, storage_level, total_staked, balance)
+    reason_income = block_reason("income", income_level, storage_level, xp, balance)
+    reason_storage = block_reason("storage", income_level, storage_level, xp, balance)
     return {
         "balance": balance,
-        "profile": {"level": level, "staked": staked, "next_threshold": next_threshold},
+        "profile": {"level": level, "xp": xp, "staked": staked, "next_threshold": next_threshold},
         "slots": {"used": income_level + storage_level, "total": level},
         "income": {
             "level": income_level,

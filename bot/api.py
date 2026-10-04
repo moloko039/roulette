@@ -260,7 +260,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "balance": player["balance"],
             "rate": player["rate"],
             "seconds_to_next": max(0, player["last_accrual"] + HOUR - now),
-            "level": profile_level(player["total_staked"]),
+            "level": profile_level(player["xp"]),   # уровень профиля по опыту
             "income_level": player["income_level"],
             "storage_level": player["storage_level"],
         }

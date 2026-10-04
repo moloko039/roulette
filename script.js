@@ -1214,6 +1214,9 @@ const farmEls = {
   bar: document.getElementById('farm-bar'),
   barFill: document.getElementById('farm-bar-fill'),
   progress: document.getElementById('farm-progress'),
+  hintBtn: document.getElementById('farm-hint-btn'),
+  hint: document.getElementById('farm-hint'),
+  staked: document.getElementById('farm-staked'),
   slots: document.getElementById('farm-slots'),
   cards: document.getElementById('farm-cards')
 };
@@ -1317,21 +1320,33 @@ function renderFarm(d) {
   farmEls.body.hidden = false;
   farmEls.level.textContent = 'Уровень ' + d.profile.level;
   setNumber(farmEls.balance, d.balance);
+  // уровень растёт от опыта (profile.xp); если сервер xp не прислал, показываем сумму ставок, как раньше
+  const hasXp = isCount(d.profile.xp);
+  const progressValue = hasXp ? d.profile.xp : d.profile.staked;
   farmEls.progress.textContent = '';
   if (d.profile.next_threshold === null) {
     farmEls.progress.textContent = 'Максимальный уровень';
     farmEls.barFill.style.width = '100%';
     farmEls.bar.setAttribute('aria-valuenow', '100');
   } else {
-    const staked = document.createElement('b');
+    const have = document.createElement('b');
     const next = document.createElement('b');
-    setNumber(staked, d.profile.staked);
+    setNumber(have, progressValue);
     setNumber(next, d.profile.next_threshold);
-    farmEls.progress.append('Поставлено ', staked, ' / ', next);
-    const pct = Math.min(100, Math.floor((d.profile.staked / d.profile.next_threshold) * 100));
+    farmEls.progress.append(hasXp ? 'Опыт ' : 'Поставлено ', have, ' / ', next);
+    const pct = Math.min(100, Math.floor((progressValue / d.profile.next_threshold) * 100));
     farmEls.barFill.style.width = pct + '%';
     farmEls.bar.setAttribute('aria-valuenow', String(pct));
   }
+  // подсказка про опыт нужна только когда показывается опыт; сумма ставок остаётся мелкой справкой
+  farmEls.hintBtn.hidden = !hasXp;
+  if (!hasXp) {
+    farmEls.hint.hidden = true;
+    farmEls.hintBtn.setAttribute('aria-expanded', 'false');
+  }
+  farmEls.staked.textContent = '';
+  farmEls.staked.classList.remove('num-tap');
+  if (hasXp) setNumberLabel(farmEls.staked, 'Поставлено всего: ', d.profile.staked);
   farmEls.slots.textContent = `Слоты улучшений: ${d.slots.used} / ${d.slots.total}`;
   renderFarmCard('income', d.income, d.slots);
   renderFarmCard('storage', d.storage, d.slots);
@@ -1483,6 +1498,15 @@ async function buyUpgrade(kind) {
     loadServer('after'); // баланс в шапке и таймер до начисления (/api/me)
   }
 }
+
+const FARM_XP_HINT = 'Опыт даётся за риск: чем выше шанс потерять всю ставку раунда, тем больше опыта. '
+  + 'Ставки на красное и чёрное одновременно почти не дают опыта.';
+farmEls.hintBtn.addEventListener('click', () => {
+  const open = farmEls.hint.hidden;
+  farmEls.hint.textContent = FARM_XP_HINT;
+  farmEls.hint.hidden = !open;
+  farmEls.hintBtn.setAttribute('aria-expanded', String(open));
+});
 
 farmEls.retry.addEventListener('click', () => loadFarm('manual'));
 document.addEventListener('visibilitychange', () => {
