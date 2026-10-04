@@ -19,6 +19,7 @@ from api import create_app
 from roulette import MAX_SAFE_INT
 from tg_testutil import make_init_data
 
+HERE_DIR = os.path.dirname(os.path.abspath(__file__))
 TOKEN = "123456:TEST-TOKEN-not-real"
 NOW = int(time.time())
 OPT = lambda t: (t, type(None))  # noqa: E731  значение этого типа или null
@@ -75,7 +76,8 @@ GAME = {"bet": int, "mines": int, "revealed": [int], "safe_left": int, "multipli
         "next_multiplier": OPT(str), "next_payout": OPT(int), "expires_at": int}
 LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells": [int], "payout": int,
         "finished_at": int}
-ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int}
+ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
+      "active_game": OPT(str)}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
 TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
@@ -358,6 +360,47 @@ try:
         contract("429 " + url, r.json(), {"error": str})
         assert r.json() == {"error": "too_many_requests"}
         assert r.headers["Retry-After"].isdigit() and int(r.headers["Retry-After"]) >= 1
+    # ---------- /api/me: active_game (незавершённая игра, чтобы клиент открыл её при запуске) ----------
+    import blackjack as _bj
+    import crash as _cr
+    from unittest import mock as _mock
+    pa, ca = new_app()
+    for uid in (5001, 5002, 5003, 5004, 5005):
+        add_player(pa, uid)
+    r = ca.get("/api/me", headers=auth(5001))
+    contract("GET /api/me без игры", r.json(), ME)
+    assert r.json()["active_game"] is None, r.json()
+    ca.post("/api/mines/start", headers=auth(5002), json={"request_id": rid(5002), "bet": 10, "mines": 3})
+    ca.post("/api/blackjack/start", headers=auth(5003), json={"request_id": rid(5003), "bet": 10})
+    with _mock.patch.object(_cr, "new_crash", return_value=5000):
+        ca.post("/api/crash/start", headers=auth(5004), json={"request_id": rid(5004), "bet": 10})
+    with _mock.patch.object(_cr, "new_crash", return_value=5000):
+        ca.post("/api/crash/start", headers=auth(5005), json={"request_id": rid(5005), "bet": 10, "target_x100": 200})   # авто решается сразу
+    import json as _json
+    me_examples = _json.load(open(os.path.join(os.path.dirname(HERE_DIR), "docs", "examples", "me.json"), encoding="utf-8"))
+    for name, example in me_examples.items():
+        if name.startswith("_"):
+            continue
+        spec = {k: (OPT(str) if k == "active_game" else type(v)) for k, v in example.items()}
+        assert spec == ME, (name, "пример /api/me не совпадает с контрактом")
+        assert example["active_game"] in (None, "mines", "blackjack", "crash")
+    for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, None)):
+        r = ca.get("/api/me", headers=auth(uid))
+        contract("GET /api/me %s" % expected, r.json(), ME)
+        assert r.json()["active_game"] == expected, (uid, r.json())
+    r3 = ca.get("/api/me", headers=auth(5003)).json()
+    state3 = ca.get("/api/blackjack/state", headers=auth(5003)).json()
+    assert r3["active_game"] == ("blackjack" if state3["status"] == "active" else None), (r3, state3["status"])   # блэкджек мог решиться сразу
+    # просроченная игра закрывается до ответа: active_game уже null
+    sql(pa, "UPDATE mines_games SET updated_at = ? WHERE status = 'active'", (NOW - 3 * 86400,))
+    assert ca.get("/api/me", headers=auth(5002)).json()["active_game"] is None
+    # несколько активных: берётся та, где действие позже
+    add_player(pa, 5006)
+    ca.post("/api/mines/start", headers=auth(5006), json={"request_id": rid(5006), "bet": 10, "mines": 3})
+    sql(pa, "UPDATE mines_games SET updated_at = ? WHERE telegram_id = 5006", (int(time.time()) - 100,))
+    with _mock.patch.object(_cr, "new_crash", return_value=5000):
+        ca.post("/api/crash/start", headers=auth(5006), json={"request_id": rid(5007), "bet": 10})
+    assert ca.get("/api/me", headers=auth(5006)).json()["active_game"] == "crash"
 finally:
     for _k, _v in _saved_env.items():
         os.environ.pop(_k, None)

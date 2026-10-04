@@ -11,7 +11,18 @@
 </head>
 <body>
   <div class="shell">
-  <main class="app screen" data-screen="roulette">
+  <section class="screen lobby booting" data-screen="lobby" hidden>
+    <h1 class="lobby-title">Necasino</h1>
+    <div class="lobby-stats">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="lobby-balance">Загрузка…</strong>
+      </div>
+      <span class="rating-lvl lobby-level" id="lobby-level" hidden></span>
+    </div>
+    <div class="lobby-grid" id="lobby-grid" role="menu" aria-label="Игры"></div>
+  </section>
+  <main class="app screen" data-screen="roulette" hidden>
     <header class="top">
       <div class="balance">
         <span class="balance-label">Баланс</span>

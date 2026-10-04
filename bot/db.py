@@ -748,6 +748,24 @@ def play_keno(telegram_id, request_id, bet, picks, now=None, db_path=None, rng=N
         conn.close()
 
 
+# ---------- незавершённая игра для /api/me ----------
+
+def active_game_of(telegram_id, db_path=None):
+    """Название незавершённой игры игрока ("mines", "blackjack", "crash") или None: один лёгкий запрос по трём
+    индексам. Если активных несколько, берётся та, где действие было позже. Просроченные игры уже закрыты вызывающим кодом."""
+    conn = _connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT game FROM ("
+            "SELECT 'mines' AS game, updated_at AS ts FROM mines_games WHERE telegram_id = ? AND status = 'active' "
+            "UNION ALL SELECT 'blackjack', updated_at FROM blackjack_games WHERE telegram_id = ? AND status = 'active' "
+            "UNION ALL SELECT 'crash', created_at FROM crash_games WHERE telegram_id = ? AND status = 'active') "
+            "ORDER BY ts DESC LIMIT 1", (telegram_id, telegram_id, telegram_id)).fetchone()
+        return row["game"] if row is not None else None
+    finally:
+        conn.close()
+
+
 # ---------- блэкджек ----------
 
 def _bj_active(conn, telegram_id):

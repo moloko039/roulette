@@ -433,6 +433,7 @@ function renderBalance() {
   fitNumberFont(balanceEl, balanceEl.textContent.length);
   renderRouletteChips();
   refreshBetPanels();
+  if (lobbyRender) lobbyRender();
 }
 
 // Фишки рулетки по серверному балансу (srv.balance меняется только по ответу сервера, после остановки колеса)
@@ -990,8 +991,11 @@ const srv = {
   deadline: 0,     // performance.now(), когда таймер дойдёт до нуля
   error: null,     // { text, code, retry } последней неудачной загрузки
   incomeLevel: null,
-  storageLevel: null
+  storageLevel: null,
+  level: null,        // уровень профиля из /api/me
+  activeGame: null    // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | null
 };
+let lobbyStartDecided = false;   // при запуске выбор «титульный экран или активная игра» делается один раз
 
 const profileEls = {
   data: document.getElementById('profile-data'),
@@ -1017,7 +1021,7 @@ let srvFetchTimer = null;       // отложенный запрос (ноль �
 
 // данные нужны, только пока открыт экран рулетки или «Профиль»
 const srvWanted = () => activeTab === 'profile' || activeTab === 'farm'
-  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack' || currentGame === 'crash'));
+  || (activeTab === 'play' && (currentGame === 'lobby' || currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack' || currentGame === 'crash'));
 
 function renderProfile() {
   renderProfileIdentity();
@@ -1077,13 +1081,15 @@ function renderProfileTimer() {
   ringFraction = fraction;
 }
 
-// renderKeno появляется ниже по файлу (до его объявления остаётся null)
+// renderKeno и renderLobby появляются ниже по файлу (до их объявления остаются null)
 var kenoRender = null; // eslint-disable-line no-var
+var lobbyRender = null; // eslint-disable-line no-var
 
 function renderAll() {
   renderProfile();
   renderBets();
   if (kenoRender) kenoRender();
+  if (lobbyRender) lobbyRender();
 }
 
 // Раз в секунду обновляем таймеры (по монотонным часам, а не по часам устройства)
@@ -1102,6 +1108,7 @@ function scheduleServerFetch(delay) {
 }
 
 function failServer(text, code, retry) {
+  lobbyStartDecided = true;   // нет ответа: остаёмся на титульном экране
   srvLastFailed = true;
   srv.error = { text, code, retry };
   renderAll();
@@ -1175,7 +1182,14 @@ async function loadServer(reason) {
     srv.incomeLevel = isCount(d.income_level) ? d.income_level : null;
     srv.storageLevel = isCount(d.storage_level) ? d.storage_level : null;
     srv.deadline = performance.now() + d.seconds_to_next * 1000;
+    srv.level = isCount(d.level) ? d.level : null;
+    srv.activeGame = ['mines', 'blackjack', 'crash'].includes(d.active_game) ? d.active_game : null;
     renderAll();
+    if (!lobbyStartDecided) {
+      // запуск: если у игрока есть незавершённая игра, сразу открываем её экран (он сам восстановит раунд)
+      lobbyStartDecided = true;
+      if (srv.activeGame && activeTab === 'play' && currentGame === 'lobby') selectGame(srv.activeGame);
+    }
     scheduleServerFetch(d.seconds_to_next * 1000 + ZERO_DELAY_MS);
   } catch (e) {
     // fetch не различает сбой сети и запрет CORS, поэтому код с вопросом
@@ -3736,25 +3750,50 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadCrash('visible');
 });
 
+// ---------- титульный экран ----------
+// Баланс и уровень берутся из общего серверного состояния (srv), новых запросов нет. Карточки игр строятся из реестра GAMES.
+const lobbyEls = {
+  root: document.querySelector('.screen.lobby'),
+  balance: document.getElementById('lobby-balance'),
+  level: document.getElementById('lobby-level'),
+  grid: document.getElementById('lobby-grid')
+};
+const LOBBY_ORDER = ['roulette', 'mines', 'keno', 'blackjack', 'crash'];
+
+function renderLobby() {
+  if (srv.loaded) {
+    lobbyEls.balance.classList.remove('skeleton');
+    lobbyEls.balance.textContent = spacedNumber(availableBalance());
+  } else {
+    lobbyEls.balance.textContent = srv.error ? '—' : 'Загрузка…';
+  }
+  fitNumberFont(lobbyEls.balance, lobbyEls.balance.textContent.length);
+  lobbyEls.level.hidden = srv.level === null || !srv.loaded;
+  if (srv.level !== null) lobbyEls.level.textContent = 'Ур. ' + srv.level;
+  // пока не пришёл первый ответ, содержимое скрыто: если есть незавершённая игра, титульный экран не мелькает
+  lobbyEls.root.classList.toggle('booting', !(srv.loaded || srv.error));
+}
+lobbyRender = renderLobby;
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
-  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
-  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
-  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
-  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
+  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', desc: 'Классическая европейская рулетка', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
+  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', desc: 'Успей забрать до краха', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', desc: 'Открывай клетки и забирай выигрыш', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
+  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
 ];
-const START_GAME = 'roulette';
-let currentGame = START_GAME;
+// Запуск всегда с титульного экрана (currentGame = 'lobby'); выбранная игра хранится только в памяти
+let currentGame = 'lobby';
 
 // Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур).
-// Иконка центральной кнопки подменяется иконкой открытой игры.
+// Центральная кнопка всегда показывает общий значок «игры» и открывает титульный экран.
 const TABS = [
   { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
   { id: 'style',   label: 'Стиль',   icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15v4M17 17h4"/>' },
-  { id: 'play',    label: 'Играть',  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>', main: true },
+  { id: 'play',    label: 'Играть',  icon: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>', main: true },
   { id: 'farm',    label: 'Ферма',   icon: '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>' },
   { id: 'profile', label: 'Профиль', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' }
 ];
@@ -3777,7 +3816,7 @@ function showTab(id) {
   const screen = id === 'play' ? currentGame : id;
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
-  if (started && (screen === 'profile' || screen === 'roulette')) loadServer('open');
+  if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');
   if (started && screen === 'rating') loadRating('open');
   if (started && screen === 'farm') loadFarm('open');
   if (started && screen === 'mines') loadMines('open');
@@ -3794,6 +3833,12 @@ function showTab(id) {
   });
 }
 
+function openLobby() {
+  if (activeTab === 'play' && currentGame === 'lobby') return;
+  currentGame = 'lobby';
+  showTab('play');
+}
+
 TABS.forEach((tab) => {
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -3801,8 +3846,8 @@ TABS.forEach((tab) => {
   btn.dataset.tab = tab.id;
   btn.innerHTML = `${iconSvg(tab.icon)}<span>${tab.label}</span>`;
   btn.addEventListener('click', () => {
-    // повторное нажатие на «Играть» открывает и закрывает меню игр
-    if (tab.id === 'play' && activeTab === 'play') toggleGameMenu();
+    // центральная кнопка: титульный экран (если он уже открыт, ничего не делает)
+    if (tab.id === 'play') openLobby();
     else showTab(tab.id);
   });
   navEl.appendChild(btn);
@@ -3828,7 +3873,6 @@ function toggleGameMenu() {
 
 function selectGame(id) {
   currentGame = id;
-  navEl.querySelector('.tab.main svg').outerHTML = iconSvg(getGame(id).icon);
   // кнопка смены игры есть в шапке рулетки и в шапке мин; разметка иконки постоянная, из реестра
   document.querySelectorAll('.switch-icon').forEach((el) => { el.innerHTML = iconSvg(getGame(id).icon); });
   document.querySelectorAll('.switch-name').forEach((el) => { el.textContent = getGame(id).label; });
@@ -3860,6 +3904,21 @@ GAMES.forEach((game, i) => {
     shellEl.insertBefore(stub, wheelLayer);
   }
 });
+LOBBY_ORDER.forEach((id) => {
+  const game = getGame(id);
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'lobby-card';
+  card.dataset.game = id;
+  card.setAttribute('role', 'menuitem');
+  card.innerHTML = `${iconSvg(game.icon)}<span class="lobby-name"></span><span class="lobby-desc"></span>`;
+  card.querySelector('.lobby-name').textContent = game.label;
+  card.querySelector('.lobby-desc').textContent = game.desc || '';
+  card.addEventListener('click', () => selectGame(id));
+  lobbyEls.grid.appendChild(card);
+});
+renderLobby();
+
 gameMenu.addEventListener('click', (e) => {
   if (e.target === gameMenu) closeGameMenu(); // нажатие по затемнению
 });
@@ -3890,7 +3949,7 @@ gameSwitchEl.addEventListener('click', toggleGameMenu);
   gamePanel.addEventListener('touchend', end);
   gamePanel.addEventListener('touchcancel', end);
 })();
-selectGame(START_GAME);
+showTab('play');   // титульный экран; если у игрока есть незавершённая игра, её откроет ответ /api/me
 
 loadState();
 drawWheel();
