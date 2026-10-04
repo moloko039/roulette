@@ -24,9 +24,10 @@ import notify
 from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import db
 import farm
+import keno
 import mines
 from db import (buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
-                mines_start, mines_state, settle_expired_mines, spin_roulette, touch_chat_member)
+                mines_start, play_keno, mines_state, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
                       validate_request_id)
@@ -365,10 +366,12 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except mines.MinesError as exc:
+        except (mines.MinesError, keno.KenoError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+        except BalanceLimit:
+            return JSONResponse({"detail": "balance_limit"}, status_code=409)
 
     @app.post("/api/mines/start")
     async def mines_start_endpoint(request: Request):
@@ -401,6 +404,25 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return mines_state(user_id, db_path=db_path)
+
+    # ---------- кено ----------
+
+    @app.post("/api/keno/play")
+    async def keno_play_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            bet = data["bet"]
+            if type(bet) is not int or not 1 <= bet <= keno.KENO_MAX_BET:
+                raise ValueError()
+            picks = keno.validate_picks(data["picks"])   # InvalidPicks (ValueError) -> 400
+            return lambda: play_keno(user_id, request_id, bet, picks, db_path=db_path)
+        return await _mines_post(request, {"request_id", "bet", "picks"}, prepare)
+
+    @app.get("/api/keno/paytable")
+    def keno_paytable_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return {"paytable": keno.paytable_text()}
 
     @app.post("/api/roulette/spin")
     async def roulette_spin(request: Request):
