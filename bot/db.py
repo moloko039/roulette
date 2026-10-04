@@ -575,7 +575,8 @@ def _settle_expired_in(conn, telegram_id, now):
         return False
     k = mines.popcount(game["revealed_mask"])
     if k == 0:
-        _finish_game(conn, game["id"], "refunded", _credit_capped(conn, telegram_id, game["bet"]), now)
+        # автоматический возврат отличается от ручного (cashout при k = 0 остаётся «refunded»)
+        _finish_game(conn, game["id"], "auto_refunded", _credit_capped(conn, telegram_id, game["bet"]), now)
     else:
         owed = mines.payout(game["bet"], game["mines_count"], k)
         _finish_game(conn, game["id"], "auto_cashed", _credit_capped(conn, telegram_id, owed), now)

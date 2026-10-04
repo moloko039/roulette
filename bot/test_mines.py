@@ -388,7 +388,7 @@ try:
     check("до 24 часов игра активна", (s["game"] is not None, s["last"], s["balance"]), (True, None, 800))
     s = db.mines_state(1, now=NOW + DAY, db_path=path)
     check("через 24 часа без открытых клеток: возврат", (s["game"], s["last"]["status"], s["last"]["payout"], s["balance"]),
-          (None, "refunded", 200, 1000))
+          (None, "auto_refunded", 200, 1000))
     check("идемпотентно", db.settle_expired_mines(1, now=NOW + 2 * DAY, db_path=path), False)
     path = new_db()
     add_player(path, 1, balance=1000, last_accrual=NOW + 10 * DAY)   # без начисления: часы в будущем
@@ -415,7 +415,7 @@ try:
     add_player(path, 1, balance=1000, last_accrual=NOW + 10 * DAY)
     db.mines_start(1, rid(1), 200, 3, now=NOW, db_path=path, rng=FixedRng([0, 1, 2]))
     raises(mines.NoActiveGame, db.mines_reveal, 1, rid(2), 5, NOW + DAY, path)
-    check("закрытие не откатилось", (game_row(path, 1)[0], balance(path, 1)), ("refunded", 1000))
+    check("закрытие не откатилось", (game_row(path, 1)[0], balance(path, 1)), ("auto_refunded", 1000))
     # фоновое закрытие пачками
     path = new_db()
     for uid in range(1, 7):
@@ -438,7 +438,7 @@ try:
     db.mines_start(1, rid(1), 100, 3, now=NOW, db_path=path)
     cfg = backup.load_config({"BACKUP_ENABLED": "0"}, path)
     backup.run_maintenance_once(cfg, path, NOW + DAY, None)
-    check("run_maintenance_once закрыл игру", (game_row(path, 1)[0], balance(path, 1)), ("refunded", 1000))
+    check("run_maintenance_once закрыл игру", (game_row(path, 1)[0], balance(path, 1)), ("auto_refunded", 1000))
     # потолок баланса при зачислении
     path = new_db()
     add_player(path, 1, balance=MAX_SAFE_INT - 5, last_accrual=NOW + 10 * DAY)
@@ -539,9 +539,11 @@ try:
     before = balance(path, SECRET_ID)
     me = client.get("/api/me", headers=auth(SECRET_ID))
     check("/api/me", me.status_code, 200)
-    check("/api/me закрыл просроченную игру", (game_row(path, SECRET_ID)[0], balance(path, SECRET_ID)), ("refunded", before + 500))
+    check("/api/me закрыл просроченную игру", (game_row(path, SECRET_ID)[0], balance(path, SECRET_ID)), ("auto_refunded", before + 500))
     check("ключи /api/me прежние", sorted(me.json()), ["balance", "income_level", "level", "rate", "seconds_to_next", "storage_level"])
     check("баланс в /api/me включает возврат", me.json()["balance"], before + 500)
+    st = client.get("/api/mines/state", headers=auth(SECRET_ID)).json()
+    check("state: автовозврат виден клиенту как auto_refunded", (st["game"], st["last"]["status"], st["last"]["payout"]), (None, "auto_refunded", 500))
 
     # ================= лимит частоты: write и read =================
     path2 = new_db()
