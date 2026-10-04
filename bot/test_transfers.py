@@ -30,6 +30,7 @@ DAY = 86400
 A, B, C, OWNER, D = 424242421, 424242422, 424242423, 424242499, 424242424
 CHAT, OTHER_CHAT = "chat-room-1", "chat-room-2"
 XP3 = levels.threshold(3)      # опыт, с которого начинается уровень 3
+STAKED = transfers.MIN_STAKED_TO_SEND
 
 # тест не зависит от окружения и bot/.env: переменные очищаются, в конце возвращаются
 _ENV_KEYS = ("DB_PATH", "TOMBSTONE_SECRET", "MEMBER_REF_SECRET", "OWNER_CHAT_ID", "GAME_LINK", "PRIVACY_URL",
@@ -89,7 +90,7 @@ def sql(path, query, params=()):
         conn.close()
 
 
-def add_player(path, uid, balance=100_000, xp=XP3 + 100, created=NOW - 5 * DAY, chat=CHAT, name=None, total=0):
+def add_player(path, uid, balance=100_000, xp=XP3 + 100, created=NOW - 5 * DAY, chat=CHAT, name=None, total=STAKED):
     sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level) "
               "VALUES (?, ?, 100, ?, ?, ?, ?, 0, 0)", (uid, balance, NOW + 10 * DAY, created, total, xp))
     if chat:
@@ -128,8 +129,9 @@ try:
     check("комиссия 5 %", [transfers.fee_for(a) for a in (100, 101, 1000, 1999, 50000)], [5, 5, 50, 99, 2500])
     check("минимум 1", [transfers.fee_for(a) for a in (1, 10, 19, 20, 39, 40)], [1, 1, 1, 1, 1, 2])
     check("0 отключает комиссию", [transfers.fee_for(a, 0) for a in (1, 100, 50000)], [0, 0, 0])
-    check("константы", (transfers.TRANSFER_MIN, transfers.TRANSFER_MAX, transfers.DAILY_SEND_CAP, transfers.COOLDOWN_SECONDS,
-                        transfers.SENDER_MIN_LEVEL, transfers.SENDER_MIN_AGE_HOURS, transfers.FEE_PERCENT), (100, 50000, 100000, 10, 3, 24, 5))
+    check("константы", (transfers.TRANSFER_MIN, transfers.TRANSFER_MAX, transfers.SEND_DAILY_LIMIT, transfers.RECEIVE_DAILY_LIMIT, transfers.COOLDOWN_SECONDS,
+                        transfers.SENDER_MIN_LEVEL, transfers.MIN_ACCOUNT_AGE_HOURS, transfers.MIN_STAKED_TO_SEND, transfers.FEE_PERCENT),
+          (100, 50000, 500000, 500000, 10, 3, 1, 20000, 5))
     assert all(transfers.valid_amount(a) for a in (100, 50000)) and not any(transfers.valid_amount(a) for a in (99, 50001, 0, -5, 1.5, "100", True, None))
 
     # ================= метки участников =================
@@ -162,7 +164,7 @@ try:
     total0 = total_chips(path)
     res = send(path, A, B, 1000)
     check("ответ", res, {"amount": 1000, "fee": 50, "received": 950, "balance": 99_000, "level": levels.profile_level(XP3 + 100),
-                         "daily_left": 99_000, "replayed": False})
+                         "daily_left": 499_000, "replayed": False})
     check("у отправителя ровно amount", row(path, A)[0], 100_000 - 1000)
     check("получатель получил amount - fee", row(path, B)[0], 5000 + 950)
     check("владелец получил fee", row(path, OWNER)[0], 1000 + 50)
@@ -203,7 +205,7 @@ try:
     check("лимиты владельца: fee_percent 0", (db.transfer_status(OWNER, owner_id=OWNER, now=NOW, db_path=path)[0]["fee_percent"],
                                              db.transfer_status(A, owner_id=OWNER, now=NOW, db_path=path)[0]["fee_percent"]), (0, 5))
     # комиссия сгорает: нет игрока владельца, не задан OWNER_CHAT_ID, потолок
-    burned_before = db._burned_fees[0]
+    cap.lines.clear()
     for label, owner_arg, owner_balance in (("нет игрока у владельца", OWNER, None), ("owner_id не задан", None, 1000), ("упёрся в потолок", OWNER, MAX_SAFE_INT - 10)):
         path = world(owner_balance=owner_balance)
         total0 = total_chips(path)
@@ -213,8 +215,11 @@ try:
         if owner_balance is not None:
             check("%s: баланс владельца не тронут" % label, row(path, OWNER)[0], owner_balance)
         assert len(sql(path, "SELECT * FROM players WHERE telegram_id = ?", (OWNER,))) == (0 if owner_balance is None else 1)
-    check("счётчик сгоревших комиссий", db._burned_fees[0], burned_before + 3)
-    assert any("Комиссия за перевод сгорела" in l for l in cap.lines)
+    check("лог без начисления: нейтральные строки", sum(1 for l in cap.lines if l == "Комиссия за перевод не начислена (владелец недоступен)"), 3)
+    assert not any("сгорела" in l or "начислена (" in l and "не" not in l for l in cap.lines)
+    cap.lines.clear()
+    send(world(), A, B, 1000)
+    check("лог при начислении владельцу", [l for l in cap.lines if "Комиссия" in l], ["Комиссия за перевод начислена"])
 
     # ================= ошибки =================
     path = world()
@@ -248,10 +253,26 @@ try:
     sql(path, "UPDATE players SET xp = ? WHERE telegram_id = ?", (XP3, A))
     send(path, A, B, 500)
     path = world()
-    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 24 * 3600 + 1, A))
-    check("возраст 24 ч - 1 с", raises(transfers.TransferError, send, path, A, B, 500).code, "account_too_new")
-    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 24 * 3600, A))
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 3600 + 1, A))
+    check("возраст 3599 с", raises(transfers.TransferError, send, path, A, B, 500).code, "account_too_new")
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 3600, A))
     send(path, A, B, 500)
+    path = world()
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 600, A))
+    check("аккаунту 10 минут: account_too_new", raises(transfers.TransferError, send, path, A, B, 500).code, "account_too_new")
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 2 * 3600, A))
+    check("аккаунту 2 часа и уровень 3: отправляет", send(path, A, B, 500)["amount"], 500)
+    # накопленные ставки отправителя (владельца условие не касается)
+    path = world()
+    sql(path, "UPDATE players SET total_staked = ? WHERE telegram_id = ?", (STAKED - 1, A))
+    e = raises(transfers.TransferError, send, path, A, B, 500)
+    check("ставок 19999: not_enough_staked", e.code, "not_enough_staked")
+    check("ничего не списано", (row(path, A)[0], row(path, B)[0], sql(path, "SELECT COUNT(*) FROM transfers")[0][0]), (100_000, 5000, 0))
+    sql(path, "UPDATE players SET total_staked = ? WHERE telegram_id = ?", (STAKED, A))
+    check("ставок 20000: можно", send(path, A, B, 500)["amount"], 500)
+    path = world()
+    sql(path, "UPDATE players SET total_staked = 0 WHERE telegram_id = ?", (OWNER,))
+    check("у владельца ставок 0: отправляет", send(path, OWNER, B, 500, owner=OWNER)["amount"], 500)
     # кулдаун
     path = world()
     send(path, A, B, 100, n=1, now=NOW)
@@ -261,23 +282,115 @@ try:
     check("остаток 1 секунда", e.extra, {"seconds": 1})
     send(path, A, B, 100, n=2, now=NOW + 10)
     check("через 10 секунд можно", sql(path, "SELECT COUNT(*) FROM transfers")[0][0], 2)
-    # суточный лимит: скользящее окно
-    path = world(balance=1_000_000)
-    send(path, A, B, 50000, n=1, now=NOW)
-    r = send(path, A, B, 50000, n=2, now=NOW + 10)
-    check("daily_left после двух переводов", r["daily_left"], 0)
-    e = raises(transfers.TransferError, send, path, A, B, 100, n=3, now=NOW + 20)
-    check("daily_limit", e.code, "daily_limit")
-    check("в лимитах daily_left 0", db.transfer_status(A, owner_id=OWNER, now=NOW + 20, db_path=path)[0]["daily_left"], 0)
-    e = raises(transfers.TransferError, send, path, A, B, 100, n=3, now=NOW + DAY - 1)
-    check("за секунду до окончания окна первого перевода ещё нельзя", e.code, "daily_limit")
-    r = send(path, A, B, 50000, n=3, now=NOW + DAY)
-    check("ровно через 24 часа первый перевод вышел из окна (второй ещё в окне, после нового лимит исчерпан)", r["daily_left"], 0)
-    path = world(balance=1_000_000)
-    send(path, A, B, 50000, n=1, now=NOW)
-    send(path, A, B, 49999, n=2, now=NOW + 10)
-    e = raises(transfers.TransferError, send, path, A, B, 100, n=3, now=NOW + 20)
+    # суточный лимит отправки: 500000 за скользящие 24 часа, считается списанное (amount, вместе с комиссией)
+    path = world(balance=2_000_000)
+    for i in range(10):
+        r = send(path, A, B, 50000, n=i + 1, now=NOW + 10 * i)
+    check("500 000 в сутки проходит: daily_left 0", r["daily_left"], 0)
+    check("отправитель потратил 500 000", row(path, A)[0], 2_000_000 - 500_000)
+    e = raises(transfers.TransferError, send, path, A, B, 100, n=11, now=NOW + 100)
+    check("сверх 500 000: daily_limit", e.code, "daily_limit")
+    check("в лимитах daily_left 0", db.transfer_status(A, owner_id=OWNER, now=NOW + 100, db_path=path)[0]["daily_left"], 0)
+    e = raises(transfers.TransferError, send, path, A, B, 100, n=11, now=NOW + DAY - 1)
+    check("за секунду до выхода первого перевода из окна ещё нельзя", e.code, "daily_limit")
+    r = send(path, A, B, 50000, n=11, now=NOW + DAY)
+    check("ровно через 24 часа первый перевод вышел из окна", r["daily_left"], 0)
+    path = world(balance=2_000_000)
+    for i in range(9):
+        send(path, A, B, 50000, n=i + 1, now=NOW + 10 * i)
+    send(path, A, B, 49999, n=10, now=NOW + 90)
+    e = raises(transfers.TransferError, send, path, A, B, 100, n=11, now=NOW + 100)
     check("осталось 1: перевод 100 не проходит", e.code, "daily_limit")
+    # владелец отправляет без суточного лимита (сумма, пауза и макс. за перевод действуют)
+    path = world(balance=100)
+    sql(path, "UPDATE players SET balance = 3000000 WHERE telegram_id = ?", (OWNER,))
+    for i in range(12):
+        r = send(path, OWNER, [C, B][i % 2], 50000, n=i + 1, now=NOW + 10 * i, owner=OWNER)
+    check("владелец отправил 600 000 за сутки (12 по 50 000) без отказа и комиссии", (sql(path, "SELECT SUM(amount) FROM transfers WHERE sender = ?", (OWNER,))[0][0], r["fee"]), (600_000, 0))
+    check("daily_left владельца: потолка нет", (r["daily_left"], db.transfer_status(OWNER, owner_id=OWNER, now=NOW + 250, db_path=path)[0]["unlimited"]), (MAX_SAFE_INT, True))
+    e = raises(transfers.TransferError, send, path, OWNER, B, 100, n=99, now=NOW + 115, owner=OWNER)
+    check("кулдаун у владельца сохраняется", e.code, "cooldown")
+    for bad in (99, 50001):
+        raises(ValueError, send, path, OWNER, B, bad, n=98, now=NOW + 400, owner=OWNER)
+    # лимит получения: 500 000 чистыми за скользящие 24 часа (20 свежих аккаунтов одному получателю)
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    for i in range(20):
+        add_player(path, 3000 + i, 100_000, created=NOW - 2 * 3600)     # 20 свежих аккаунтов (2 часа, уровень 3, ставки 20 000)
+    add_player(path, B, 5000)
+    ok_count = 0
+    for i in range(20):
+        try:
+            send(path, 3000 + i, B, 50000, n=i + 1, now=NOW)
+            ok_count += 1
+        except transfers.TransferError as e:
+            check("20 свежих аккаунтов: отказ получателя по лимиту", e.code, "recipient_daily_limit")
+    check("получено ровно 10 переводов по 47 500 = 475 000 (11-й дал бы 522 500)", (ok_count, sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0]), (10, 475_000))
+    check("баланс получателя вырос ровно на полученное", row(path, B)[0], 5000 + 475_000)
+    check("комиссии 10 x 2 500 владельцу (лимиты не затрагивают)", row(path, OWNER)[0], 1000 + 25_000)
+    # точная граница получения: без комиссии 10 x 50 000 = 500 000 проходит, ещё 100 нет; окно скользящее
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    for i in range(12):
+        add_player(path, 3000 + i, 100_000)
+    add_player(path, B, 5000)
+    with mock.patch.object(transfers, "FEE_PERCENT", 0):
+        for i in range(10):
+            send(path, 3000 + i, B, 50000, n=i + 1, now=NOW)
+        check("получено ровно 500 000", sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0], 500_000)
+        e = raises(transfers.TransferError, send, path, 3010, B, 100, n=50, now=NOW + 1)
+        check("500 000 + 100: recipient_daily_limit, ничего не списано", (e.code, row(path, 3010)[0]), ("recipient_daily_limit", 100_000))
+        check("через 24 часа окно получения освободилось", send(path, 3010, B, 100, n=51, now=NOW + DAY)["received"], 100)
+    # владелец-получатель без лимита получения
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    for i in range(12):
+        add_player(path, 3000 + i, 100_000)
+    for i in range(12):
+        send(path, 3000 + i, OWNER, 50000, n=i + 1, now=NOW)
+    check("владелец получил 600 000 за сутки", row(path, OWNER)[0], 1000 + 12 * 50000)
+    # владелец-отправитель считается в лимит получения других
+    path = new_db()
+    add_player(path, OWNER, 3_000_000)
+    add_player(path, B, 5000)
+    for i in range(10):
+        send(path, OWNER, B, 50000, n=i + 1, now=NOW + 10 * i, owner=OWNER)
+    e = raises(transfers.TransferError, send, path, OWNER, B, 100, n=11, now=NOW + 100, owner=OWNER)
+    check("получатель от владельца тоже ограничен 500 000", e.code, "recipient_daily_limit")
+    # параллельные переводы лимиты не обходят
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    def parallel(fn, n=20):
+        barrier = threading.Barrier(n)
+
+        def work(i):
+            barrier.wait()
+            try:
+                return ("ok", fn(i))
+            except transfers.TransferError as exc:
+                return ("err", exc.code)
+        with ThreadPoolExecutor(n) as pool:
+            return list(pool.map(work, range(n)))
+
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    for i in range(20):
+        add_player(path, 3000 + i, 100_000)
+    add_player(path, B, 5000)
+    res = parallel(lambda i: send(path, 3000 + i, B, 50000, n=100 + i, now=NOW))
+    check("20 параллельных отправителей одному получателю: ровно 10 успешных", (sum(1 for x in res if x[0] == "ok"), sorted({x[1] for x in res if x[0] == "err"})), (10, ["recipient_daily_limit"]))
+    check("получено не больше лимита", sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0] <= transfers.RECEIVE_DAILY_LIMIT, True)
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    add_player(path, A, 5_000_000)
+    for i in range(20):
+        add_player(path, 4000 + i, 5000)
+    with mock.patch.object(transfers, "COOLDOWN_SECONDS", 0):   # кулдаун выключен, чтобы проверить именно суточный лимит под гонкой
+        res = parallel(lambda i: send(path, A, 4000 + i, 50000, n=200 + i, now=NOW))
+    check("20 параллельных переводов одного отправителя: ровно 10 (500 000)", (sum(1 for x in res if x[0] == "ok"), sql(path, "SELECT SUM(amount) FROM transfers WHERE sender = ?", (A,))[0][0]), (10, 500_000))
+    res = parallel(lambda i: send(path, A, 4000 + i, 100, n=300 + i, now=NOW + DAY * 3))
+    check("параллельно в одну секунду: кулдаун пропускает один", sum(1 for x in res if x[0] == "ok"), 1)
     # нехватка фишек, потолок получателя
     path = world(balance=300)
     raises(InsufficientFunds, send, path, A, B, 301)
@@ -339,14 +452,15 @@ try:
     # ================= статус, история, просмотр =================
     path = world()
     limits, incoming = db.transfer_status(B, owner_id=OWNER, now=NOW, db_path=path)
-    check("лимиты", limits, {"min": 100, "max": 50000, "daily_left": 100_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10})
+    check("лимиты", limits, {"min": 100, "max": 50000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10,
+                       "min_age_hours": 1, "min_staked": 20000, "unlimited": False})
     check("входящих нет", incoming, {"count": 0, "total": 0})
     send(path, A, B, 1000, n=1, now=NOW)
     send(path, C, B, 500, n=2, now=NOW + 5)
     limits, incoming = db.transfer_status(B, owner_id=OWNER, now=NOW + 6, db_path=path)
     check("два непросмотренных: сумма получено", incoming, {"count": 2, "total": 950 + 475})
     check("у отправителя входящих нет", db.transfer_status(A, owner_id=OWNER, now=NOW + 6, db_path=path)[1], {"count": 0, "total": 0})
-    check("daily_left отправителя", db.transfer_status(A, owner_id=OWNER, now=NOW + 6, db_path=path)[0]["daily_left"], 99_000)
+    check("daily_left отправителя", db.transfer_status(A, owner_id=OWNER, now=NOW + 6, db_path=path)[0]["daily_left"], 499_000)
     hist = db.transfer_history(B, db_path=path)
     check("история получателя (новые первыми, имена как в рейтинге)", hist, [
         {"direction": "in", "name": "Игрок%d" % (C % 100), "amount": 500, "fee": 25, "time": NOW + 5},
@@ -426,7 +540,7 @@ try:
     now_real = int(time.time())
     for uid, name in ((A, "Аня"), (B, "Борис"), (C, "Вера")):
         sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level) "
-                  "VALUES (?, 100000, 100, ?, ?, 0, ?, 0, 0)", (uid, now_real + 3 * DAY, now_real - 5 * DAY, XP3 + 100))
+                  "VALUES (?, 100000, 100, ?, ?, 20000, ?, 0, 0)", (uid, now_real + 3 * DAY, now_real - 5 * DAY, XP3 + 100))
         sql(path, "INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES ('room', ?, ?, ?, ?)", (uid, name, now_real - DAY, now_real))
     sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level) VALUES (?, 1000, 100, ?, ?, 0, 0, 0, 0)",
         (OWNER, now_real + 3 * DAY, now_real - 5 * DAY))
@@ -457,7 +571,7 @@ try:
     for uid in (A, B, C, OWNER):
         assert str(uid) not in top_text, "идентификатор в рейтинге"
     me0 = client.get("/api/me", headers=auth(A, "Аня")).json()
-    check("/api/me: лимиты и входящие", (me0["transfer_limits"], me0["incoming_unseen"]), ({"min": 100, "max": 50000, "daily_left": 100_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10}, {"count": 0, "total": 0}))
+    check("/api/me: лимиты и входящие", (me0["transfer_limits"], me0["incoming_unseen"]), ({"min": 100, "max": 50000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10, "min_age_hours": 1, "min_staked": 20000, "unlimited": False}, {"count": 0, "total": 0}))
     check("/api/me владельца: fee_percent 0", client.get("/api/me", headers=auth(OWNER, "Владелец")).json()["transfer_limits"]["fee_percent"], 0)
     good = {"request_id": "api-req-00001", "member_ref": refs_by_name["Борис"], "amount": 1000}
     for body in ({}, dict(good, extra=1), {"request_id": good["request_id"], "amount": 1000}, dict(good, amount=99), dict(good, amount=50001), dict(good, amount=1.5),
@@ -474,7 +588,7 @@ try:
     check("send 200", ok.status_code, 200)
     shape("send", ok.json(), examples["send"])
     check("send: значения", {k: ok.json()[k] for k in ("amount", "fee", "received", "balance", "daily_left", "replayed")},
-          {"amount": 1000, "fee": 50, "received": 950, "balance": 99_000, "daily_left": 99_000, "replayed": False})
+          {"amount": 1000, "fee": 50, "received": 950, "balance": 99_000, "daily_left": 499_000, "replayed": False})
     assert not any(str(u) in ok.text for u in (A, B, C, OWNER))
     check("комиссия на счёт владельца, получателю amount - fee", (row(path, OWNER)[0], row(path, B)[0], row(path, A)[0]), (1050, 100_950, 99_000))
     rep = post(good)
@@ -512,6 +626,58 @@ try:
     check("read: третий 429", [c2.get("/api/transfers", headers=auth(B, "Борис")).status_code for _ in range(3)], [200, 200, 429])
     os.environ.pop("OWNER_CHAT_ID")
 
+    # ================= большая беседа: поиск получателя не держит блокировку записи =================
+    path = new_db()
+    add_player(path, OWNER, 1000)
+    add_player(path, A, 100_000)
+    add_player(path, B, 5000)
+    add_player(path, C, 5000)
+    conn = sqlite3.connect(path)
+    conn.executemany("INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES (?, ?, ?, ?, ?)",
+                     [(CHAT, 10_000_000 + i, "Участник", NOW - 5 * DAY, NOW - 3 * DAY - i) for i in range(50_000)])
+    conn.commit()
+    conn.close()
+    fake_ref = "0" * 32
+    t0 = time.perf_counter()
+    e = raises(transfers.TransferError, send, path, A, fake_ref, 100, n=1)
+    spent = time.perf_counter() - t0
+    check("перевод с несуществующей меткой в беседе на 50 000 участников: not_in_chat", e.code, "not_in_chat")
+    assert spent < 0.05, "поиск получателя слишком долгий: %.3f с" % spent
+    # метка участника из первой тысячи находится, из хвоста за пределами тысячи нет (как и в списке «Кому перевести»)
+    check("метка из первой тысячи работает", send(path, A, B, 100, n=2, now=NOW + 20)["amount"], 100)
+    e = raises(transfers.TransferError, send, path, A, 10_000_000 + 49_999, 100, n=3, now=NOW + 40)
+    check("участник за пределами тысячи не находится", e.code, "not_in_chat")
+    # пока идут переводы с несуществующими метками, запись другого игрока не ждёт дольше 100 мс
+    import threading
+    stop = threading.Event()
+
+    def spam():
+        k = 100
+        while not stop.is_set():
+            k += 1
+            try:
+                send(path, A, fake_ref, 100, n=k, now=NOW + 60)
+            except transfers.TransferError:
+                pass
+
+    th = [threading.Thread(target=spam) for _ in range(4)]
+    for t in th:
+        t.start()
+    try:
+        worst = 0.0
+        for i in range(20):
+            wc = db._connect(path)
+            t0 = time.perf_counter()
+            wc.execute("BEGIN IMMEDIATE")      # ожидание блокировки записи; перебор HMAC её не держит
+            worst = max(worst, time.perf_counter() - t0)
+            wallet.credit(wc, C, 1)
+            wc.execute("COMMIT")
+            wc.close()
+    finally:
+        stop.set()
+        for t in th:
+            t.join()
+    assert worst < 0.1, "запись другого игрока ждала %.3f с" % worst
     # ================= документы и политика =================
     privacy = open(os.path.join(ROOT, "privacy.html"), encoding="utf-8").read()
     assert "историю ваших переводов" in privacy and "История переводов хранится 30 дней" in privacy and "видят имя друг друга в истории переводов" in privacy

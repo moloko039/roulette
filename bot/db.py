@@ -21,6 +21,7 @@ import transfers
 import wallet
 import xp
 from levels import profile_level
+import roulette
 from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
 
 logger = logging.getLogger("depnaya.db")
@@ -46,14 +47,35 @@ def _resolve_path(db_path):
 request_timing = contextvars.ContextVar("request_timing", default=None)
 
 
+BUSY_TIMEOUT_SECONDS = 10     # сколько соединение ждёт снятия чужой блокировки записи
+BUSY_RETRY_DELAY = 0.05       # пауза перед единственным повтором BEGIN, если блокировка не снялась
+
+
+def is_busy_error(exc):
+    """Ошибка SQLite «база занята» (database is locked / busy), а не поломка запроса."""
+    return isinstance(exc, sqlite3.OperationalError) and ("locked" in str(exc).lower() or "busy" in str(exc).lower())
+
+
 class TimedConnection(sqlite3.Connection):
-    """Обычное соединение, которое измеряет только BEGIN и COMMIT (поведение запросов не меняется)."""
+    """Соединение, которое измеряет BEGIN и COMMIT и один раз повторяет BEGIN, если база занята: на этом шаге в базе
+    ещё ничего не изменено, повтор безопасен. Остальные запросы не меняются."""
 
     def execute(self, sql, *args):
+        head = sql.lstrip()[:6].upper()
+        if head.startswith("BEGIN"):
+            try:
+                return self._timed_execute(sql, head, args)
+            except sqlite3.OperationalError as exc:
+                if not is_busy_error(exc):
+                    raise
+                time.sleep(BUSY_RETRY_DELAY)
+                return self._timed_execute(sql, head, args)
+        return self._timed_execute(sql, head, args)
+
+    def _timed_execute(self, sql, head, args):
         timing = request_timing.get()
         if timing is None:
             return super().execute(sql, *args)
-        head = sql.lstrip()[:6].upper()
         key = "begin" if head == "BEGIN" or head.startswith("BEGIN") else "commit" if head == "COMMIT" else None
         if key is None:
             return super().execute(sql, *args)
@@ -146,7 +168,7 @@ def log_sqlite_mode(db_path=None):
 
 def _connect(db_path):
     path = _resolve_path(db_path)
-    conn = sqlite3.connect(path, factory=TimedConnection)
+    conn = sqlite3.connect(path, timeout=BUSY_TIMEOUT_SECONDS, factory=TimedConnection)
     conn.row_factory = sqlite3.Row
     # транзакциями управляем вручную (BEGIN IMMEDIATE), а не автоматически
     conn.isolation_level = None
@@ -358,6 +380,8 @@ def init_db(db_path=None):
             )
             """
         )
+        # выборка последних активных участников беседы (список «Кому перевести», поиск получателя перевода)
+        conn.execute("CREATE INDEX IF NOT EXISTS chat_members_recent ON chat_members (chat_instance, last_seen)")
         # «надгробия» после удаления данных: только хэш идентификатора и дата удаления
         conn.execute(
             """
@@ -626,7 +650,7 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
 
     bets уже проверены validate_bets(). rng(n) возвращает число 0..n-1 (по умолчанию
     secrets.randbelow); параметр нужен, чтобы тесты подставляли числа.
-    Бросает InsufficientFunds или BalanceLimit; тогда в базе ничего не меняется.
+    Бросает InsufficientFunds, BalanceLimit или RequestConflict (тот же request_id с другими ставками); тогда в базе ничего не меняется.
     """
     if now is None:
         now = int(time.time())
@@ -640,11 +664,17 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             # (а) повторный запрос: отдаём сохранённый результат, ничего не меняем.
             # balance в ответе — текущий баланс игрока, а не баланс на момент раунда
             old = conn.execute(
-                "SELECT number, stake_total, payout_total FROM roulette_rounds "
+                "SELECT number, stake_total, payout_total, bets_json FROM roulette_rounds "
                 "WHERE telegram_id = ? AND request_id = ?",
                 (telegram_id, request_id),
             ).fetchone()
             if old is not None:
+                try:
+                    same = roulette.bets_fingerprint(json.loads(old["bets_json"])) == roulette.bets_fingerprint(bets)
+                except (ValueError, TypeError):
+                    same = False
+                if not same:
+                    raise roulette.RequestConflict()
                 cur = conn.execute(
                     "SELECT balance FROM players WHERE telegram_id = ?", (telegram_id,)
                 ).fetchone()
@@ -823,27 +853,41 @@ def give_owner(telegram_id, amount, db_path=None):
 
 
 # ---------- переводы между участниками беседы ----------
-_burned_fees = [0]   # сколько комиссий сгорело с запуска процесса (в лог только это число, без сумм и идентификаторов)
 
 
 def _resolve_member(conn, chat_instance, ref):
-    """Идентификатор участника беседы по метке (перебором участников этой беседы) или None."""
-    for r in conn.execute("SELECT telegram_id FROM chat_members WHERE chat_instance = ?", (chat_instance,)):
+    """Идентификатор участника беседы по метке или None. Ищет среди тех же MAX_CHAT_MEMBERS последних по активности
+    участников, что отдаёт список «Кому перевести» (индекс chat_members_recent), поэтому стоимость не растёт с размером беседы.
+    Вызывается до BEGIN IMMEDIATE: перебор HMAC не держит блокировку записи."""
+    rows = conn.execute("SELECT telegram_id FROM chat_members WHERE chat_instance = ? "
+                        "ORDER BY last_seen DESC, telegram_id LIMIT ?", (chat_instance, MAX_CHAT_MEMBERS)).fetchall()
+    found = None
+    for r in rows:   # без раннего выхода: время не зависит от места участника в списке
         if _hmac.compare_digest(transfers.member_ref(chat_instance, r["telegram_id"]), ref):
-            return r["telegram_id"]
-    return None
+            found = r["telegram_id"]
+    return found
 
 
-def _transfer_daily_left(conn, telegram_id, now):
+def _transfer_daily_left(conn, telegram_id, now, owner_id=None):
+    """Сколько отправитель ещё может отправить за скользящие 24 часа. Считается сумма списаний (amount, то есть вместе с комиссией).
+    У владельца лимита нет: возвращается MAX_SAFE_INT."""
+    if telegram_id == owner_id:
+        return MAX_SAFE_INT
     used = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM transfers WHERE sender = ? AND created_at > ?",
                         (telegram_id, now - transfers.DAY_SECONDS)).fetchone()[0]
-    return max(0, transfers.DAILY_SEND_CAP - used)
+    return max(0, transfers.SEND_DAILY_LIMIT - used)
 
 
-def _transfer_response(conn, sender, amount, fee, now, replayed):
+def _transfer_received_24h(conn, telegram_id, now):
+    """Сколько получатель получил «чистыми» (amount - fee) за скользящие 24 часа."""
+    return conn.execute("SELECT COALESCE(SUM(amount - fee), 0) FROM transfers WHERE recipient = ? AND created_at > ?",
+                        (telegram_id, now - transfers.DAY_SECONDS)).fetchone()[0]
+
+
+def _transfer_response(conn, sender, amount, fee, now, replayed, owner_id=None):
     pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (sender,)).fetchone()
     return {"amount": amount, "fee": fee, "received": amount - fee, "balance": pl["balance"], "level": profile_level(pl["xp"]),
-            "daily_left": _transfer_daily_left(conn, sender, now), "replayed": replayed}
+            "daily_left": _transfer_daily_left(conn, sender, now, owner_id), "replayed": replayed}
 
 
 def transfer_send(sender, chat_instance, sender_name, member_ref, amount, request_id, owner_id=None, now=None, db_path=None):
@@ -852,23 +896,24 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
     сгорает). Отправитель-владелец комиссию не платит; получатель-владелец получает amount. total_staked, XP и уровень не
     меняются ни у кого. Повтор с теми же параметрами и request_id возвращает сохранённый перевод (balance текущий).
     Ошибки: transfers.TransferError (code: no_chat, self_transfer, not_in_chat, level_too_low, account_too_new, cooldown,
-    daily_limit, recipient_limit, request_conflict), wallet.InsufficientFunds."""
+    daily_limit, recipient_daily_limit, not_enough_staked, recipient_limit, request_conflict),
+    wallet.InsufficientFunds. Получатель ищется до транзакции; внутри сначала дешёвые проверки отправителя, потом получателя."""
     if not transfers.valid_amount(amount) or not transfers.valid_member_ref(member_ref):
         raise ValueError("invalid transfer")
     if now is None:
         now = int(time.time())
     conn = _connect(db_path)
     try:
+        resolved = None if chat_instance is None else _resolve_member(conn, chat_instance, member_ref)
         conn.execute("BEGIN IMMEDIATE")
         try:
             old = conn.execute("SELECT recipient, amount, fee FROM transfers WHERE sender = ? AND request_id = ?",
                                (sender, request_id)).fetchone()
             if old is not None:
-                same = (chat_instance is not None and old["amount"] == amount
-                        and _resolve_member(conn, chat_instance, member_ref) == old["recipient"])
+                same = chat_instance is not None and old["amount"] == amount and resolved == old["recipient"]
                 if not same:
                     raise transfers.RequestConflict()
-                result = _transfer_response(conn, sender, old["amount"], old["fee"], now, True)
+                result = _transfer_response(conn, sender, old["amount"], old["fee"], now, True, owner_id)
                 conn.execute("COMMIT")
                 return result
             if chat_instance is None:
@@ -876,25 +921,31 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
             _register_player(conn, sender, now)
             _accrue_write(conn, sender, now)
             _touch_member(conn, chat_instance, sender, sender_name, now)
-            recipient = _resolve_member(conn, chat_instance, member_ref)
-            if recipient == sender:
-                raise transfers.TransferError("self_transfer")
-            rec = None if recipient is None else conn.execute(
-                "SELECT balance FROM players WHERE telegram_id = ?", (recipient,)).fetchone()
-            if rec is None:   # нет в этой беседе или удалил данные
-                raise transfers.TransferError("not_in_chat")
-            me = conn.execute("SELECT created_at, xp FROM players WHERE telegram_id = ?", (sender,)).fetchone()
+            me = conn.execute("SELECT created_at, xp, total_staked FROM players WHERE telegram_id = ?", (sender,)).fetchone()
             if profile_level(me["xp"]) < transfers.SENDER_MIN_LEVEL:
                 raise transfers.TransferError("level_too_low")
-            if now - me["created_at"] < transfers.SENDER_MIN_AGE_HOURS * 3600:
+            if now - me["created_at"] < transfers.MIN_ACCOUNT_AGE_HOURS * 3600:
                 raise transfers.TransferError("account_too_new")
+            if sender != owner_id and me["total_staked"] < transfers.MIN_STAKED_TO_SEND:
+                raise transfers.TransferError("not_enough_staked")
             last = conn.execute("SELECT MAX(created_at) FROM transfers WHERE sender = ?", (sender,)).fetchone()[0]
             if last is not None and now - last < transfers.COOLDOWN_SECONDS:
                 raise transfers.TransferError("cooldown", seconds=transfers.COOLDOWN_SECONDS - (now - last))
-            if amount > _transfer_daily_left(conn, sender, now):
+            if amount > _transfer_daily_left(conn, sender, now, owner_id):
                 raise transfers.TransferError("daily_limit")
+            recipient = resolved
+            if recipient == sender:
+                raise transfers.TransferError("self_transfer")
+            # получатель мог выйти из беседы или удалить данные между поиском и транзакцией
+            rec = None if recipient is None else conn.execute(
+                "SELECT p.balance FROM players p JOIN chat_members m ON m.telegram_id = p.telegram_id "
+                "WHERE p.telegram_id = ? AND m.chat_instance = ?", (recipient, chat_instance)).fetchone()
+            if rec is None:   # нет в этой беседе или удалил данные
+                raise transfers.TransferError("not_in_chat")
             fee = 0 if sender == owner_id else transfers.fee_for(amount)
             to_recipient = amount if recipient == owner_id else amount - fee   # владелец-получатель получает всю сумму
+            if recipient != owner_id and _transfer_received_24h(conn, recipient, now) + to_recipient > transfers.RECEIVE_DAILY_LIMIT:
+                raise transfers.TransferError("recipient_daily_limit")
             if rec["balance"] + to_recipient > MAX_SAFE_INT:
                 raise transfers.TransferError("recipient_limit")
             burned = False
@@ -909,7 +960,7 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
                     burned = True   # владельца нет в базе, не задан или упёрся в потолок: комиссия сгорает
             conn.execute("INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (?, ?, ?, ?, ?, ?)",
                          (sender, recipient, amount, fee, now, request_id))
-            result = _transfer_response(conn, sender, amount, fee, now, False)
+            result = _transfer_response(conn, sender, amount, fee, now, False, owner_id)
             conn.execute("COMMIT")
         except Exception:
             conn.execute("ROLLBACK")
@@ -917,9 +968,8 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
     finally:
         conn.close()
     logger.info("Перевод выполнен")
-    if burned:
-        _burned_fees[0] += 1
-        logger.info("Комиссия за перевод сгорела (владелец недоступен), всего с запуска: %d", _burned_fees[0])
+    if fee > 0 and recipient != owner_id:   # без сумм и идентификаторов
+        logger.info("Комиссия за перевод не начислена (владелец недоступен)" if burned else "Комиссия за перевод начислена")
     return result
 
 
@@ -929,7 +979,7 @@ def transfer_status(telegram_id, owner_id=None, now=None, db_path=None):
         now = int(time.time())
     conn = _connect(db_path)
     try:
-        left = _transfer_daily_left(conn, telegram_id, now)
+        left = _transfer_daily_left(conn, telegram_id, now, owner_id)
         seen = conn.execute("SELECT transfers_seen_at FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
         row = conn.execute("SELECT COUNT(*), COALESCE(SUM(amount - fee), 0) FROM transfers WHERE recipient = ? AND created_at > ?",
                            (telegram_id, seen[0] if seen is not None else 0)).fetchone()
@@ -937,7 +987,9 @@ def transfer_status(telegram_id, owner_id=None, now=None, db_path=None):
         conn.close()
     limits = {"min": transfers.TRANSFER_MIN, "max": transfers.TRANSFER_MAX, "daily_left": left,
               "fee_percent": 0 if telegram_id == owner_id else transfers.FEE_PERCENT,
-              "min_level": transfers.SENDER_MIN_LEVEL, "cooldown_seconds": transfers.COOLDOWN_SECONDS}
+              "min_level": transfers.SENDER_MIN_LEVEL, "cooldown_seconds": transfers.COOLDOWN_SECONDS,
+              "min_age_hours": transfers.MIN_ACCOUNT_AGE_HOURS, "min_staked": transfers.MIN_STAKED_TO_SEND,
+              "unlimited": telegram_id == owner_id}   # владелец: без суточного лимита отправки
     return limits, {"count": row[0], "total": row[1]}
 
 

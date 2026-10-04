@@ -1,3 +1,4 @@
+import json
 import re
 
 # Правила рулетки без базы данных: проверка ставок и расчёт выигрыша.
@@ -32,6 +33,15 @@ class InsufficientFunds(Exception):
 
 class BalanceLimit(Exception):
     pass
+
+
+class RequestConflict(Exception):
+    """Тот же request_id с другими ставками."""
+
+
+def bets_fingerprint(bets):
+    """Канонический вид набора ставок для сверки при повторе: порядок ставок и ключей значения не имеет."""
+    return sorted(json.dumps(b, sort_keys=True, separators=(",", ":")) for b in bets)
 
 
 def _is_int(v):

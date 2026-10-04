@@ -143,7 +143,7 @@ try:
     check("stake_total в ответе", r["stake_total"], 30)
     db.spin_roulette(1, "req-00000002", [bet("red", None, 5)], now=1000, db_path=path, rng=rng)
     check("растёт", staked(path, 1), 35)
-    again = db.spin_roulette(1, "req-00000001", [bet("red", None, 999)], now=1000, db_path=path, rng=lambda n: 0)
+    again = db.spin_roulette(1, "req-00000001", [bet("black", None, 20), bet("number", 17, 10)], now=1000, db_path=path, rng=lambda n: 0)
     check("повтор: replayed", again["replayed"], True)
     check("повтор не увеличивает", staked(path, 1), 35)
     try:

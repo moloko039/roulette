@@ -3,7 +3,7 @@ import sqlite3
 import tempfile
 
 from db import get_player, init_db, spin_roulette
-from roulette import (MAX_BETS, MAX_SAFE_INT, BalanceLimit, InsufficientFunds, InvalidBets,
+from roulette import (MAX_BETS, MAX_SAFE_INT, BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict,
                       bet_payout, is_win, max_payout, settle, validate_bets, validate_request_id)
 
 
@@ -154,10 +154,18 @@ try:
         pass
     check("баланс после отказа", get_player(3, now=now, db_path=path)["balance"], 0)
 
-    # повтор: ничего не меняется, число прежнее, даже если ставки другие
-    again = spin_roulette(1, "request-0001", [bet("red", None, 999)], now=now, db_path=path, rng=lambda n: 0)
+    # повтор с теми же ставками (порядок не важен): ничего не меняется, число прежнее
+    again = spin_roulette(1, "request-0001", [bet("black", None, 20), bet("number", 17, 10)], now=now, db_path=path, rng=lambda n: 0)
     check("повтор", (again["number"], again["replayed"], again["balance"], again["stake_total"]), (17, True, 1370, 30))
     check("повтор: баланс в базе", get_player(1, now=now, db_path=path)["balance"], 1370)
+    # тот же request_id с другими ставками: отказ, ничего не меняется
+    for other_bets in ([bet("red", None, 999)], [bet("number", 17, 10)], [bet("number", 17, 10), bet("black", None, 21)]):
+        try:
+            spin_roulette(1, "request-0001", other_bets, now=now, db_path=path, rng=lambda n: 0)
+            raise AssertionError("повтор с другими ставками принят")
+        except RequestConflict:
+            pass
+    check("конфликт: баланс не менялся", get_player(1, now=now, db_path=path)["balance"], 1370)
 
     # другой игрок с тем же request_id — новый раунд
     other = spin_roulette(4, "request-0001", [bet("black", None, 10)], now=now, db_path=path, rng=rng)

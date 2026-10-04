@@ -236,7 +236,7 @@ try:
         check("xp за раунд: " + name, player_xp(path, 1) - before, expected)
         total += expected
     # повтор с тем же request_id не добавляет
-    db.spin_roulette(1, rid(0), [bet("red", None, 999)], now=NOW, db_path=path, rng=lambda n: 0)
+    db.spin_roulette(1, rid(0), cases[0][1], now=NOW, db_path=path, rng=lambda n: 0)
     check("повтор не добавляет", player_xp(path, 1), total)
     # ошибочные запросы не добавляют
     before = player_xp(path, 1)

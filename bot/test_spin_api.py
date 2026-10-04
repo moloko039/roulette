@@ -129,7 +129,7 @@ try:
         r = client.post(URL, content=raw, headers=auth(4))
         check("400 для сырого тела", (r.status_code, r.json()), (400, {"detail": "invalid_bets"}))
     r = client.post(URL, content=b"x" * 70000, headers=auth(4))
-    check("слишком большое тело", (r.status_code, r.json()), (400, {"detail": "invalid_bets"}))
+    check("слишком большое тело", (r.status_code, r.json()), (413, {"detail": "payload_too_large"}))
     check("баланс не менялся", balance(client, 4), bal)
 
     # без подписи и с чужой подписью: 401 (раньше проверки тела)

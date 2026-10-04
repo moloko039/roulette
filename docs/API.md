@@ -18,7 +18,11 @@
 | 401 | `{"detail": "Unauthorized"}` | нет или неверная подпись initData (одно и то же при любой причине) |
 | 429 | `{"error": "too_many_requests"}` + заголовок `Retry-After` (целые секунды, не меньше 1) | превышена частота; проверка идёт после проверки подписи. Группа «write»: все POST, «read»: все GET |
 | 400 | зависит от эндпоинта (ниже) | неверная форма тела |
+| 413 | `{"detail": "payload_too_large"}` | тело больше 64 КБ (по `Content-Length` отказ до чтения; без него чтение обрывается на пределе) |
+| 503 | `{"detail": "busy"}` + `Retry-After: 1` | база занята дольше таймаута; запрос ничего не изменил, его можно повторить тем же `request_id` |
 | 409 | `{"detail": "<код>"}` (у `level_locked` ещё `required_level`) | правило игры не позволяет действие |
+
+Все ответы несут `X-Content-Type-Options: nosniff` и `Referrer-Policy: no-referrer`, ответы `/api/*` ещё `Cache-Control: no-store`.
 
 Клиент повторяет POST (тем же `request_id`) только при сетевой ошибке, таймауте, 429 и 5xx; ответы 2xx и остальные 4xx не повторяются.
 
@@ -35,7 +39,7 @@
 | storage_level | int | всегда |
 | active_game | str\|null | всегда: `"mines"`, `"blackjack"`, `"crash"` (незавершённая игра игрока; если активных несколько, та, где действие было позже) или null |
 | incoming_unseen | `{count int, total int}` | всегда: непросмотренные входящие переводы (число и сумма, которую получатель получил) |
-| transfer_limits | `{min int, max int, daily_left int, fee_percent int, min_level int, cooldown_seconds int}` | всегда: лимиты переводов для клиента; у владельца `fee_percent` 0 |
+| transfer_limits | `{min int, max int, daily_left int, fee_percent int, min_level int, cooldown_seconds int, min_age_hours int, min_staked int, unlimited bool}` | всегда: лимиты переводов для клиента; у владельца `fee_percent` 0, `unlimited` true, `daily_left` равен 9007199254740991 |
 
 Побочные эффекты: закрывает просроченные игры (мины, блэкджек, краш) игрока, начисляет фишки по часам. `active_game` считается после закрытия просроченных игр.
 
@@ -52,7 +56,7 @@
 | balance | int | всегда |
 | replayed | bool | всегда |
 
-Ошибки: 400 `{"detail": "invalid_bets"}`; 409 `{"detail": "insufficient_funds"}` или `{"detail": "balance_limit"}`.
+Ошибки: 400 `{"detail": "invalid_bets"}`; 409 `{"detail": "insufficient_funds"}`, `{"detail": "balance_limit"}` или `{"detail": "request_conflict"}` (тот же `request_id` с другим набором ставок; порядок ставок значения не имеет).
 
 ## GET /api/chat/top
 Группа read. Вне группового чата (личная переписка) 200 `{"scope": "none"}`: **других полей нет**.
@@ -241,15 +245,19 @@
 Фишки виртуальные: перевод это подарок между участниками игры. Работает только если приложение открыто из беседы, получатель
 выбирается по `member_ref` из рейтинга беседы (идентификаторы Telegram в API не показываются: `member_ref` это HMAC от беседы и игрока секретом сервера).
 Константы в `bot/transfers.py`, клиент берёт лимиты из `transfer_limits` в `/api/me`. Примеры ответов: `docs/examples/transfers.json`.
-Правила: сумма 100..50000, не больше 100000 за скользящие 24 часа, пауза 10 секунд между переводами, отправитель не ниже уровня 3 и старше 24 часов,
-комиссия 5 % (минимум 1; идёт на игровой аккаунт разработчика, владелец-отправитель комиссию не платит). Перевод не влияет на опыт, уровень и `total_staked`.
+Правила: сумма 100..50000 за перевод; пауза 10 секунд между переводами; отправитель не ниже уровня 3, старше 1 часа с регистрации и с накопленными ставками
+(`total_staked`) не менее 20000; за скользящие 24 часа отправитель отправляет не больше 500000 (считается списанное, то есть вместе с комиссией), а получатель
+получает не больше 500000 «чистыми» (после комиссии). Комиссия 5 % (минимум 1) идёт на игровой аккаунт разработчика. Владелец (`OWNER_CHAT_ID`) не подпадает под суточные
+лимиты (отправки и получения) и условие по ставкам, комиссию не платит; мин. и макс. сумма, пауза, уровень и возраст аккаунта действуют и для него. Комиссия владельцу в лимиты других не входит.
+Перевод не влияет на опыт, уровень и `total_staked`. Значения лежат в `bot/transfers.py`.
 
 ### POST /api/transfers/send
 Группа write. Тело: `{"request_id": str, "member_ref": str (32 hex), "amount": int (100..50000)}`. 200 (все ключи всегда):
 `amount int`, `fee int`, `received int` (сколько получит получатель), `balance int` (баланс отправителя после), `level int`, `daily_left int`, `replayed bool`.
 Повтор с тем же `request_id` и параметрами возвращает сохранённый перевод (`replayed: true`, `balance` текущий).
 Ошибки: 400 `{"detail": "invalid_request"}`; 409 `{"detail": "<код>"}`: `no_chat`, `self_transfer`, `not_in_chat`, `level_too_low`, `account_too_new`,
-`cooldown` (в теле ещё `seconds int`: сколько ждать), `daily_limit`, `insufficient_funds`, `recipient_limit`, `request_conflict`.
+`not_enough_staked` (у отправителя ставок меньше порога), `cooldown` (в теле ещё `seconds int`: сколько ждать), `daily_limit` (исчерпан суточный лимит отправки),
+`recipient_daily_limit` (получатель уже получил максимум за сутки), `insufficient_funds`, `recipient_limit` (баланс получателя упёрся бы в потолок), `request_conflict`.
 
 ### GET /api/transfers
 Группа read. 200: `{"items": [{"direction": "out"|"in", "name": str, "amount": int, "fee": int, "time": int}]}`: до 20 последних переводов

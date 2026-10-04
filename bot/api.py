@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 
@@ -32,7 +33,7 @@ import mines
 from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
-from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, validate_bets,
+from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets,
                       validate_request_id)
 
 HOST = "127.0.0.1"  # локально только так; на Railway адрес и порт задаёт команда запуска
@@ -44,6 +45,29 @@ SECRET_HEADER = "x-telegram-bot-api-secret-token"
 SECRET_RE = re.compile(r"^[A-Za-z0-9_-]{1,256}$")  # допустимые символы secret_token у Telegram
 
 logger = logging.getLogger("depnaya")
+
+
+class BodyTooLarge(Exception):
+    pass
+
+
+async def read_body_limited(request):
+    """Тело запроса не больше MAX_BODY_BYTES: по Content-Length отказ до чтения, иначе чтение кусками с обрывом на пределе
+    (клиент с chunked-телом не заставит сервер держать в памяти больше предела)."""
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            if int(declared) > MAX_BODY_BYTES:
+                raise BodyTooLarge()
+        except ValueError:
+            raise BodyTooLarge()
+    chunks, size = [], 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > MAX_BODY_BYTES:
+            raise BodyTooLarge()
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def configure_logging():
@@ -100,6 +124,34 @@ class TimingMiddleware:
             if (method == "POST" and path.startswith("/api/")) or timing["begin"] or timing["commit"]:
                 line += " db_ms=begin:%d,commit:%d" % (int(timing["begin"] * 1000), int(timing["commit"] * 1000))
             http_logger.log(logging.WARNING if elapsed_ms > SLOW_REQUEST_MS else logging.INFO, line)
+
+class SecurityHeadersMiddleware:
+    """Заголовки ответов: nosniff и Referrer-Policy: no-referrer для всех, Cache-Control: no-store для /api/*
+    (ответы личные: баланс и состояние игр не должны оседать в общих кэшах). CSP не задаётся."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        is_api = str(scope.get("path", "")).startswith("/api/")
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = [(k, v) for k, v in message.get("headers", [])
+                           if k.lower() not in (b"x-content-type-options", b"referrer-policy")
+                           and not (is_api and k.lower() == b"cache-control")]
+                headers.append((b"x-content-type-options", b"nosniff"))
+                headers.append((b"referrer-policy", b"no-referrer"))
+                if is_api:
+                    headers.append((b"cache-control", b"no-store"))
+                message = dict(message, headers=headers)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
 
 # ВАЖНО: SQLite рассчитана на один экземпляр сервиса (см. db.py), число реплик = 1.
 
@@ -223,6 +275,16 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         allow_headers=["Authorization", "Content-Type"],
     )
     app.add_middleware(TimingMiddleware)  # последним: внешний слой, измеряет весь запрос
+    app.add_middleware(SecurityHeadersMiddleware)  # внешний: заголовки есть и у 4xx/5xx, и у ответов CORS
+
+    @app.exception_handler(sqlite3.OperationalError)
+    async def database_busy(request, exc):
+        """База занята дольше таймаута (и после повтора BEGIN): 503 с просьбой повторить, а не 500. Остальные ошибки SQLite
+        остаются 500. В лог идёт только факт, без запроса и параметров."""
+        if not db.is_busy_error(exc):
+            raise exc
+        logger.warning("База занята: ответ 503")
+        return JSONResponse({"detail": "busy"}, status_code=503, headers={"Retry-After": "1"})
 
     @app.get("/health")
     def health():
@@ -321,9 +383,10 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
 
         # любая ошибка формы тела: 400 с одним и тем же текстом
         try:
-            raw = await request.body()
-            if len(raw) > MAX_BODY_BYTES:
-                raise ValueError()
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
             data = json.loads(raw)
             if type(data) is not dict or set(data) != {"request_id", "kind"}:
                 raise ValueError()
@@ -363,9 +426,10 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         try:
-            raw = await request.body()
-            if len(raw) > MAX_BODY_BYTES:
-                raise ValueError()
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
             data = json.loads(raw)
             if type(data) is not dict or not (keys <= set(data) <= keys | optional):
                 raise ValueError()
@@ -504,9 +568,10 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         try:
-            raw = await request.body()
-            if len(raw) > MAX_BODY_BYTES:
-                raise ValueError()
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
             data = json.loads(raw)
             if type(data) is not dict or set(data) != {"request_id", "member_ref", "amount"}:
                 raise ValueError()
@@ -573,9 +638,10 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
 
         # любая ошибка формы тела: 400 с одним и тем же текстом (без стандартных 422)
         try:
-            raw = await request.body()
-            if len(raw) > MAX_BODY_BYTES:
-                raise InvalidBets()
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
             data = json.loads(raw)
             if type(data) is not dict or set(data) != {"request_id", "bets"}:
                 raise InvalidBets()
@@ -591,6 +657,8 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
         except BalanceLimit:
             return JSONResponse({"detail": "balance_limit"}, status_code=409)
+        except RequestConflict:
+            return JSONResponse({"detail": "request_conflict"}, status_code=409)
 
     @app.post(WEBHOOK_PATH)
     async def telegram_webhook(request: Request):

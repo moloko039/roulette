@@ -24,14 +24,20 @@ SHORT = "123456:TEST-TOKEN-not-real"
 bad = [".env", "bot/.env", ".env.local", ".env.production", "players.db", "bot/data/x.sqlite", "a.sqlite3",
        "k.key", "x.enc", "cert.pem", "id_rsa", "id_rsa.pub", "id_ed25519", "ssh/id_ed25519.pub",
        "my_private_key.json", "PRIVATE_KEY.txt", "bot/.venv/lib/x.py", ".venv/pyvenv.cfg",
-       "backups/latest.db", "bot/backups/readme.txt", "PLAYERS.DB"]
+       "backups/latest.db", "bot/backups/readme.txt", "PLAYERS.DB",
+       "players.db-wal", "bot/players.db-shm", "players.db-journal", "x.sqlite-wal", "x.sqlite3-shm", "a.SQLITE", ".env.staging", "bot/k.pem", "dump.enc"]
 for path in bad:
     assert check_repo.forbidden_path_reason(path), "не запрещён: " + path
-good = [".env.example", "bot/.env.example", ".env.sample", "bot/api.py", "index.html", "docs/JOURNAL.md",
+good = ["bot/stubs.py", "docs/db.md", "wal.md", ".env.example", "bot/.env.example", ".env.sample", "bot/api.py", "index.html", "docs/JOURNAL.md",
         "bot/test_db.py", "environment.md", "bot/backup.py", "bot/test_backup.py", "keyboard.py",
         "scripts/check_repo.py", ".github/workflows/tests.yml"]
 for path in good:
     check("разрешён " + path, check_repo.forbidden_path_reason(path), None)
+
+# .gitignore закрывает те же имена (случайный git add не подхватит файлы базы и ключи)
+ignore = open(os.path.join(ROOT, ".gitignore"), encoding="utf-8").read().split()
+for pattern in ("*.db-wal", "*.db-shm", "*.db-journal", "*.sqlite*", ".env.*", "*.pem", "*.key", "*.enc", "*.db"):
+    assert pattern in ignore, ".gitignore: нет " + pattern
 
 # ---------- токены ----------
 check("токен найден", check_repo.token_lines("a\nTOKEN = '%s'\nb" % FAKE_TOKEN, ()), [2])
