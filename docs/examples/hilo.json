@@ -1,0 +1,276 @@
+{
+  "_comment": "Примеры ответов хило (значения-заглушки). Серверный тест test_hilo.py сверяет с ними форму настоящих ответов; мок клиента строится из этого же файла. Одна форма для start, guess, cashout и state. Следующей карты в ответах нет никогда.",
+  "active_start": {
+    "status": "active",
+    "bet": 100,
+    "card": {
+      "rank": 7,
+      "suit": "H",
+      "how": "start"
+    },
+    "history": [],
+    "steps": 0,
+    "multiplier": "1.00",
+    "payout_now": 100,
+    "can_cashout": false,
+    "moves": {
+      "hi": {
+        "available": true,
+        "probability": "53.8",
+        "multiplier": "1.80",
+        "payout": 180
+      },
+      "lo": {
+        "available": true,
+        "probability": "53.8",
+        "multiplier": "1.80",
+        "payout": 180
+      }
+    },
+    "cap": "1000.00",
+    "payout": null,
+    "balance": 900,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "active_forbidden_hi": {
+    "status": "active",
+    "bet": 100,
+    "card": {
+      "rank": 1,
+      "suit": "S",
+      "how": "start"
+    },
+    "history": [],
+    "steps": 0,
+    "multiplier": "1.00",
+    "payout_now": 100,
+    "can_cashout": false,
+    "moves": {
+      "hi": {
+        "available": false,
+        "probability": "100.0",
+        "multiplier": "0.97",
+        "payout": 97
+      },
+      "lo": {
+        "available": true,
+        "probability": "7.6",
+        "multiplier": "12.64",
+        "payout": 1264
+      }
+    },
+    "cap": "1000.00",
+    "payout": null,
+    "balance": 900,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "active_after_steps": {
+    "status": "active",
+    "bet": 100,
+    "card": {
+      "rank": 4,
+      "suit": "S",
+      "how": "skip"
+    },
+    "history": [
+      {
+        "rank": 7,
+        "suit": "H",
+        "how": "start"
+      },
+      {
+        "rank": 9,
+        "suit": "C",
+        "how": "win"
+      }
+    ],
+    "steps": 1,
+    "multiplier": "1.80",
+    "payout_now": 180,
+    "can_cashout": true,
+    "moves": {
+      "hi": {
+        "available": true,
+        "probability": "76.9",
+        "multiplier": "2.28",
+        "payout": 228
+      },
+      "lo": {
+        "available": true,
+        "probability": "30.7",
+        "multiplier": "5.71",
+        "payout": 571
+      }
+    },
+    "cap": "1000.00",
+    "payout": null,
+    "balance": 900,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_lost": {
+    "status": "lost",
+    "bet": 100,
+    "card": {
+      "rank": 12,
+      "suit": "C",
+      "how": "lose"
+    },
+    "history": [
+      {
+        "rank": 7,
+        "suit": "H",
+        "how": "start"
+      }
+    ],
+    "steps": 0,
+    "multiplier": "1.00",
+    "payout_now": null,
+    "can_cashout": false,
+    "moves": null,
+    "cap": "1000.00",
+    "payout": 0,
+    "balance": 900,
+    "level": 1,
+    "xp": 46,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_cashed": {
+    "status": "cashed",
+    "bet": 100,
+    "card": {
+      "rank": 9,
+      "suit": "C",
+      "how": "win"
+    },
+    "history": [
+      {
+        "rank": 7,
+        "suit": "H",
+        "how": "start"
+      }
+    ],
+    "steps": 1,
+    "multiplier": "1.80",
+    "payout_now": null,
+    "can_cashout": false,
+    "moves": null,
+    "cap": "1000.00",
+    "payout": 180,
+    "balance": 1080,
+    "level": 1,
+    "xp": 46,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_capped": {
+    "status": "capped",
+    "bet": 100,
+    "card": {
+      "rank": 1,
+      "suit": "D",
+      "how": "tie"
+    },
+    "history": [
+      {
+        "rank": 1,
+        "suit": "S",
+        "how": "start"
+      },
+      {
+        "rank": 1,
+        "suit": "H",
+        "how": "tie"
+      },
+      {
+        "rank": 1,
+        "suit": "C",
+        "how": "tie"
+      }
+    ],
+    "steps": 2,
+    "multiplier": "159.98",
+    "payout_now": null,
+    "can_cashout": false,
+    "moves": null,
+    "cap": "1000.00",
+    "payout": 100000,
+    "balance": 100900,
+    "level": 1,
+    "xp": 99,
+    "auto": false,
+    "replayed": false
+  },
+  "finished_refunded_auto": {
+    "status": "refunded",
+    "bet": 100,
+    "card": {
+      "rank": 7,
+      "suit": "H",
+      "how": "start"
+    },
+    "history": [],
+    "steps": 0,
+    "multiplier": "1.00",
+    "payout_now": null,
+    "can_cashout": false,
+    "moves": null,
+    "cap": "1000.00",
+    "payout": 100,
+    "balance": 1000,
+    "level": 1,
+    "xp": 0,
+    "auto": true,
+    "replayed": false
+  },
+  "none": {
+    "status": "none",
+    "bet": null,
+    "card": null,
+    "history": [],
+    "steps": 0,
+    "multiplier": "1.00",
+    "payout_now": null,
+    "can_cashout": false,
+    "moves": null,
+    "cap": "1000.00",
+    "payout": null,
+    "balance": 1000,
+    "level": 1,
+    "xp": 0,
+    "auto": false,
+    "replayed": false
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "active_game_exists": {
+      "detail": "active_game_exists"
+    },
+    "insufficient_funds": {
+      "detail": "insufficient_funds"
+    },
+    "no_active_game": {
+      "detail": "no_active_game"
+    },
+    "move_forbidden": {
+      "detail": "move_forbidden"
+    },
+    "nothing_to_cash_out": {
+      "detail": "nothing_to_cash_out"
+    },
+    "request_conflict": {
+      "detail": "request_conflict"
+    }
+  }
+}

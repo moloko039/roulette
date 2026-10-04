@@ -357,6 +357,83 @@
       <button type="button" id="cr-cash" class="keno-play cr-cash">Забрать</button>
     </section>
   </section>
+  <section class="screen mines hilo" data-screen="hilo" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="hl-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="hl-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Хило</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice" id="hl-notice" aria-live="polite"></p>
+    <div class="skeleton-card" id="hl-skel" hidden aria-hidden="true">
+      <div class="skeleton tall"></div><div class="skeleton"></div>
+    </div>
+    <p class="profile-msg" id="hl-msg"></p>
+    <small class="profile-code" id="hl-code"></small>
+    <button type="button" class="action profile-retry" id="hl-retry" hidden>Повторить</button>
+    <div class="hl-table" id="hl-table" hidden>
+      <ol class="hl-history" id="hl-history" aria-label="Прошлые карты"></ol>
+      <div class="hl-stage"><div class="hl-card" id="hl-card" aria-live="polite"></div></div>
+      <div class="hl-stats">
+        <span>Множитель <strong id="hl-mult">×1.00</strong></span>
+        <span>Ходов <strong id="hl-steps">0</strong></span>
+        <span>Выплата <strong id="hl-now">0</strong></span>
+      </div>
+    </div>
+    <div class="bj-banner hl-banner" id="hl-banner" aria-live="polite" hidden>
+      <strong id="hl-banner-title"></strong>
+      <span id="hl-banner-detail"></span>
+    </div>
+    <details class="hl-rules" id="hl-rules">
+      <summary>Правила</summary>
+      <ul>
+        <li>Колода: 13 достоинств, туз младший, король старший. Каждая карта выпадает независимо.</li>
+        <li>«Выше или равно» и «Ниже или равно»: при равенстве достоинств вы выигрываете.</li>
+        <li>Каждый угаданный ход умножает выплату; вероятность и множитель видны под кнопкой.</li>
+        <li>Забрать выигрыш можно после первого угаданного хода. Ошибка сжигает ставку.</li>
+        <li>«Пропустить» бесплатно меняет карту, ставка и множитель не меняются.</li>
+        <li>Возврат 97,3 %. Потолок выплаты ×1000: партия закрывается сама.</li>
+      </ul>
+    </details>
+    <section class="bets bets-dock hl-bets" id="hl-bets" hidden>
+      <div class="row bet-chips">
+        <button type="button" class="chip" data-hbet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-hbet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-hbet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-hbet="500" aria-pressed="false">500</button>
+      </div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="hl-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="hl-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="hl-double-bet" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="hl-max">Макс</button>
+      </div>
+      <div class="row">
+        <button type="button" id="hl-start" class="keno-play">Играть</button>
+      </div>
+    </section>
+    <section class="bets hl-actions" id="hl-actions" hidden>
+      <div class="row hl-moves">
+        <button type="button" class="action hl-move" id="hl-hi">
+          <span class="hl-move-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>Выше или равно</span>
+          <span class="hl-move-sub" id="hl-hi-sub"></span>
+        </button>
+        <button type="button" class="action hl-move" id="hl-lo">
+          <span class="hl-move-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>Ниже или равно</span>
+          <span class="hl-move-sub" id="hl-lo-sub"></span>
+        </button>
+      </div>
+      <div class="row hl-extra">
+        <button type="button" class="action" id="hl-skip">Пропустить</button>
+        <button type="button" class="keno-play hl-cash" id="hl-cash">Забрать</button>
+      </div>
+    </section>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">

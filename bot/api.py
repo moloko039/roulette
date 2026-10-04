@@ -26,11 +26,12 @@ from auth import InvalidInitData, validate_init_data, validate_init_data_full
 import db
 import blackjack
 import crash
+import hilo
 import transfers
 import farm
 import keno
 import mines
-from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
 from economy import HOUR
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets,
@@ -318,6 +319,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
         settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша
+        settle_expired_hilo(user_id, now=now, db_path=db_path)  # и просроченная партия в хило
         player = get_player(user_id, now=now, db_path=db_path)
         limits, incoming = transfer_status(user_id, owner_id=notify.load_owner_id(), now=now, db_path=db_path)
         if _in_group(info):
@@ -332,7 +334,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "level": profile_level(player["xp"]),   # уровень профиля по опыту
             "income_level": player["income_level"],
             "storage_level": player["storage_level"],
-            "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | null
+            "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | "hilo" | null
             "incoming_unseen": incoming,     # {count, total}: непросмотренные входящие переводы
             "transfer_limits": limits,       # лимиты переводов для клиента (клиент констант не дублирует)
         }
@@ -439,7 +441,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError) as exc:
+        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError, hilo.HiloError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
@@ -551,6 +553,40 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return crash_state(user_id, db_path=db_path)
+
+    # ---------- хило ----------
+    # Следующей карты нет нигде до хода: она выбирается в момент действия
+
+    @app.post("/api/hilo/start")
+    async def hilo_start_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            bet = data["bet"]
+            if type(bet) is not int or not 1 <= bet <= hilo.HILO_MAX_BET:
+                raise ValueError()
+            return lambda: hilo_start(user_id, request_id, bet, db_path=db_path)
+        return await _mines_post(request, {"request_id", "bet"}, prepare)
+
+    @app.post("/api/hilo/guess")
+    async def hilo_guess_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            choice = data["choice"]
+            if type(choice) is not str or choice not in hilo.CHOICES:
+                raise ValueError()
+            return lambda: hilo_guess(user_id, request_id, choice, db_path=db_path)
+        return await _mines_post(request, {"request_id", "choice"}, prepare)
+
+    @app.post("/api/hilo/cashout")
+    async def hilo_cashout_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            return lambda: hilo_cashout(user_id, request_id, db_path=db_path)
+        return await _mines_post(request, {"request_id"}, prepare)
+
+    @app.get("/api/hilo/state")
+    def hilo_state_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return hilo_state(user_id, db_path=db_path)
 
     # ---------- переводы между участниками беседы ----------
     # Идентификаторы Telegram в ответах не показываются: участник задаётся непрозрачной меткой member_ref из рейтинга беседы
