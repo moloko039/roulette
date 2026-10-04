@@ -13,6 +13,7 @@ from antiabuse import COOLDOWN_SECONDS, TombstoneUnavailable
 from economy import START_BALANCE, BASE_RATE, accrue
 import blackjack
 import crash
+import hilo
 import farm
 import hmac as _hmac
 import keno
@@ -357,6 +358,48 @@ def init_db(db_path=None):
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS crash_actions (
+                telegram_id   INTEGER NOT NULL,
+                request_id    TEXT    NOT NULL,
+                action        TEXT    NOT NULL,
+                params        TEXT    NOT NULL,
+                response_json TEXT    NOT NULL,
+                created_at    INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
+        # хило: следующая карта нигде не хранится (выбирается в момент хода); множитель дробью из двух целых (текстом: числа
+        # бывают длиннее 64 бит); hist_json: последние карты раунда [достоинство, масть, как выпала], текущая карта последняя
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS hilo_games (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id    INTEGER NOT NULL,
+                bet            INTEGER NOT NULL,
+                card_rank      INTEGER NOT NULL,
+                card_suit      TEXT    NOT NULL,
+                steps          INTEGER NOT NULL DEFAULT 0,
+                mult_num       TEXT    NOT NULL,
+                mult_den       TEXT    NOT NULL,
+                hist_json      TEXT    NOT NULL,
+                status         TEXT    NOT NULL,
+                payout         INTEGER NOT NULL DEFAULT 0,
+                staked_counted INTEGER NOT NULL DEFAULT 0,
+                auto           INTEGER NOT NULL DEFAULT 0,
+                created_at     INTEGER NOT NULL,
+                updated_at     INTEGER NOT NULL,
+                finished_at    INTEGER
+            )
+            """
+        )
+        # не больше одной активной партии на игрока
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_hilo_active ON hilo_games(telegram_id) WHERE status = 'active'"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_hilo_history ON hilo_games(telegram_id, finished_at)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS hilo_actions (
                 telegram_id   INTEGER NOT NULL,
                 request_id    TEXT    NOT NULL,
                 action        TEXT    NOT NULL,
@@ -1077,7 +1120,7 @@ def chat_members_page(telegram_id, chat_instance, q="", offset=0, db_path=None):
 # ---------- незавершённая игра для /api/me ----------
 
 def active_game_of(telegram_id, db_path=None):
-    """Название незавершённой игры игрока ("mines", "blackjack", "crash") или None: один лёгкий запрос по трём
+    """Название незавершённой игры игрока ("mines", "blackjack", "crash", "hilo") или None: один лёгкий запрос по
     индексам. Если активных несколько, берётся та, где действие было позже. Просроченные игры уже закрыты вызывающим кодом."""
     conn = _connect(db_path)
     try:
@@ -1085,8 +1128,9 @@ def active_game_of(telegram_id, db_path=None):
             "SELECT game FROM ("
             "SELECT 'mines' AS game, updated_at AS ts FROM mines_games WHERE telegram_id = ? AND status = 'active' "
             "UNION ALL SELECT 'blackjack', updated_at FROM blackjack_games WHERE telegram_id = ? AND status = 'active' "
-            "UNION ALL SELECT 'crash', created_at FROM crash_games WHERE telegram_id = ? AND status = 'active') "
-            "ORDER BY ts DESC LIMIT 1", (telegram_id, telegram_id, telegram_id)).fetchone()
+            "UNION ALL SELECT 'crash', created_at FROM crash_games WHERE telegram_id = ? AND status = 'active' "
+            "UNION ALL SELECT 'hilo', updated_at FROM hilo_games WHERE telegram_id = ? AND status = 'active') "
+            "ORDER BY ts DESC LIMIT 1", (telegram_id, telegram_id, telegram_id, telegram_id)).fetchone()
         return row["game"] if row is not None else None
     finally:
         conn.close()
@@ -1546,6 +1590,294 @@ def crash_state(telegram_id, now_ms=None, db_path=None):
             level = profile_level(pl["xp"])
             result = _crash_none_view(pl["balance"], level, pl["xp"]) if row is None else _crash_view(
                 row, now_ms, pl["balance"], level, pl["xp"])
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+# ---------- хило ----------
+
+def _hilo_active(conn, telegram_id):
+    return conn.execute("SELECT * FROM hilo_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)).fetchone()
+
+
+HOW_TEXT = {"s": "start", "w": "win", "t": "tie", "k": "skip", "l": "lose"}
+
+
+def _hilo_cards(row):
+    """(текущая карта, прошлые карты) из hist_json; у каждой карты how: start, win, tie, skip, lose."""
+    hist = [{"rank": c[0], "suit": c[1], "how": HOW_TEXT[c[2]]} for c in json.loads(row["hist_json"])]
+    return hist[-1], hist[:-1][-hilo.HISTORY_SHOWN:]
+
+
+def _hilo_moves(row, m):
+    """Ходы hi и lo активной партии: доступность, вероятность (проценты), множитель и выплата после угадывания. Считает сервер."""
+    moves = {}
+    for choice in ("hi", "lo"):
+        k = hilo.ways(choice, row["card_rank"])
+        after = m * hilo.step_multiplier(k)
+        moves[choice] = {"available": k < hilo.RANKS, "probability": hilo.probability_text(k),
+                         "multiplier": hilo.multiplier_text(min(after, hilo.Fraction(hilo.HILO_MAX_X))),   # не выше потолка
+                         "payout": hilo.payout(row["bet"], after)}
+    return moves
+
+
+def _hilo_view(row, balance, level, xp_total, replayed=False):
+    """Ответ API (одна форма). Следующей карты в ответе нет: её ещё не существует."""
+    active = row["status"] == "active"
+    m = hilo.frac(row["mult_num"], row["mult_den"])
+    card, history = _hilo_cards(row)
+    return {
+        "status": row["status"],
+        "bet": row["bet"],
+        "card": card,
+        "history": history,
+        "steps": row["steps"],
+        "multiplier": hilo.multiplier_text(m),
+        "payout_now": hilo.payout(row["bet"], m) if active else None,
+        "can_cashout": active and row["steps"] >= 1,
+        "moves": _hilo_moves(row, m) if active else None,
+        "cap": hilo.multiplier_text(hilo.Fraction(hilo.HILO_MAX_X)),
+        "payout": None if active else row["payout"],
+        "balance": balance,
+        "level": level,
+        "xp": xp_total,
+        "auto": bool(row["auto"]),
+        "replayed": replayed,
+    }
+
+
+def _hilo_none_view(balance, level, xp_total):
+    return {"status": "none", "bet": None, "card": None, "history": [], "steps": 0, "multiplier": "1.00", "payout_now": None,
+            "can_cashout": False, "moves": None, "cap": hilo.multiplier_text(hilo.Fraction(hilo.HILO_MAX_X)), "payout": None,
+            "balance": balance, "level": level, "xp": xp_total, "auto": False, "replayed": False}
+
+
+def _hilo_response(conn, telegram_id, game_id):
+    row = conn.execute("SELECT * FROM hilo_games WHERE id = ?", (game_id,)).fetchone()
+    pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+    return _hilo_view(row, pl["balance"], profile_level(pl["xp"]), pl["xp"])
+
+
+def _hilo_finish(conn, row, status, paid, xp_m, now, auto, card=None, how=None):
+    """Единственное место окончания партии: выплата через wallet, XP, отметка времени. Закрывается один раз (условие
+    status = 'active'), значит выплата и опыт тоже один раз. xp_m: множитель цели для опыта (None: опыта нет).
+    card и how: карта, которой закончилась партия (проигравшая), добавляется в историю."""
+    hist = json.loads(row["hist_json"])
+    if card is not None:
+        hist.append([card[0], card[1], how])
+    rank, suit = (card if card is not None else (row["card_rank"], row["card_suit"]))
+    changed = conn.execute(
+        "UPDATE hilo_games SET status = ?, payout = ?, auto = ?, card_rank = ?, card_suit = ?, hist_json = ?, "
+        "finished_at = ?, updated_at = ? WHERE id = ? AND status = 'active'",
+        (status, paid, 1 if auto else 0, rank, suit, json.dumps(hist[-(hilo.HISTORY_SHOWN + 1):], separators=(",", ":")),
+         now, now, row["id"])).rowcount
+    if changed == 0:
+        return
+    if paid > 0:
+        _credit_capped(conn, row["telegram_id"], paid)
+    if xp_m is not None:
+        _add_xp(conn, row["telegram_id"], xp.hilo_xp(row["bet"], xp_m))
+
+
+def _hilo_settle_in(conn, telegram_id, now):
+    """Закрывает просроченную партию (внутри открытой транзакции), как у мин: без угаданных ходов возврат ставки, иначе
+    автоматический cashout по текущему множителю. True, если закрыла."""
+    row = _hilo_active(conn, telegram_id)
+    if row is None or now - row["updated_at"] < hilo.HILO_IDLE_SECONDS:
+        return False
+    if row["steps"] == 0:
+        _hilo_finish(conn, row, "refunded", row["bet"], None, now, True)
+    else:
+        m = hilo.frac(row["mult_num"], row["mult_den"])
+        _hilo_finish(conn, row, "cashed", hilo.payout(row["bet"], m), m, now, True)
+    return True
+
+
+def settle_expired_hilo(telegram_id, now=None, db_path=None):
+    """Закрывает просроченную партию игрока отдельной транзакцией (идемпотентно). Ничего не меняет, пока срок не вышел."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        row = _hilo_active(conn, telegram_id)
+        if row is None or now - row["updated_at"] < hilo.HILO_IDLE_SECONDS:
+            return False
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            closed = _hilo_settle_in(conn, telegram_id, now)
+            conn.execute("COMMIT")
+            return closed
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+HILO_CLOSE_BATCH = 200
+
+
+def close_expired_hilo(now=None, db_path=None, batch=HILO_CLOSE_BATCH):
+    """Фоновое закрытие просроченных партий всех игроков (не больше batch за проход). Возвращает число."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'hilo_games'").fetchone() is None:
+            return 0
+        owners = [r["telegram_id"] for r in conn.execute(
+            "SELECT telegram_id FROM hilo_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
+            (now, hilo.HILO_IDLE_SECONDS, batch))]
+    finally:
+        conn.close()
+    closed = sum(1 for owner in owners if settle_expired_hilo(owner, now=now, db_path=db_path))
+    if closed:
+        logger.info("Закрыто просроченных партий в хило: %d", closed)   # только количество
+    return closed
+
+
+def _run_hilo_action(telegram_id, request_id, action, params, body, now, db_path):
+    """Общий порядок действия: закрытие просроченной партии, повтор по request_id (другое действие или параметры:
+    RequestConflict), начисление по часам, тело действия, запись ответа."""
+    if now is None:
+        now = int(time.time())
+    settle_expired_hilo(telegram_id, now=now, db_path=db_path)
+    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute(
+                "SELECT action, params, response_json FROM hilo_actions WHERE telegram_id = ? AND request_id = ?",
+                (telegram_id, request_id)).fetchone()
+            if old is not None:
+                if old["action"] != action or old["params"] != params_json:
+                    raise hilo.RequestConflict()
+                response = json.loads(old["response_json"])
+                response["replayed"] = True
+                conn.execute("COMMIT")
+                return response
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            response = body(conn, now)
+            response["replayed"] = False
+            conn.execute(
+                "INSERT INTO hilo_actions (telegram_id, request_id, action, params, response_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now))
+            conn.execute("COMMIT")
+            return response
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def hilo_start(telegram_id, request_id, bet, now=None, db_path=None, rng=None):
+    """Старт: нет активной партии, ставка списывается через wallet, выбирается первая карта. В total_staked ставка идёт
+    при первом ходе hi/lo (как у мин), не на старте."""
+    if type(bet) is not int or not 1 <= bet <= hilo.HILO_MAX_BET:
+        raise ValueError("bet out of range")
+
+    def body(conn, now_):
+        if _hilo_active(conn, telegram_id) is not None:
+            raise hilo.ActiveGameExists()
+        wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
+        rank, suit = hilo.draw_card(rng)
+        cur = conn.execute(
+            "INSERT INTO hilo_games (telegram_id, bet, card_rank, card_suit, steps, mult_num, mult_den, hist_json, status, "
+            "payout, staked_counted, auto, created_at, updated_at) VALUES (?, ?, ?, ?, 0, '1', '1', ?, 'active', 0, 0, 0, ?, ?)",
+            (telegram_id, bet, rank, suit, json.dumps([[rank, suit, "s"]], separators=(",", ":")), now_, now_))
+        return _hilo_response(conn, telegram_id, cur.lastrowid)
+
+    return _run_hilo_action(telegram_id, request_id, "start", {"bet": bet}, body, now, db_path)
+
+
+def hilo_guess(telegram_id, request_id, choice, now=None, db_path=None, rng=None):
+    """Ход hi, lo или skip. Следующая карта выбирается здесь и до этого нигде не существует. Равенство достоинств выигрывает.
+    Ход с k = 13 запрещён (MoveForbidden). Потолок: M >= 1000 закрывает партию выплатой 1000 * ставка."""
+    if choice not in hilo.CHOICES:
+        raise ValueError("choice")
+
+    def body(conn, now_):
+        row = _hilo_active(conn, telegram_id)
+        if row is None:
+            raise hilo.NoActiveGame()
+        m = hilo.frac(row["mult_num"], row["mult_den"])
+        hist = json.loads(row["hist_json"])
+        rank = row["card_rank"]
+        if choice == "skip":
+            new_rank, new_suit = hilo.draw_card(rng)
+            hist.append([new_rank, new_suit, "k"])
+            conn.execute("UPDATE hilo_games SET card_rank = ?, card_suit = ?, hist_json = ?, updated_at = ? WHERE id = ?",
+                         (new_rank, new_suit, json.dumps(hist[-(hilo.HISTORY_SHOWN + 1):], separators=(",", ":")), now_, row["id"]))
+            return _hilo_response(conn, telegram_id, row["id"])
+        k = hilo.ways(choice, rank)
+        if k >= hilo.RANKS:
+            raise hilo.MoveForbidden()
+        if not row["staked_counted"]:
+            conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
+                         (row["bet"], MAX_SAFE_INT, telegram_id))
+            conn.execute("UPDATE hilo_games SET staked_counted = 1 WHERE id = ?", (row["id"],))
+        new_rank, new_suit = hilo.draw_card(rng)
+        after = m * hilo.step_multiplier(k)
+        if not hilo.is_win(choice, rank, new_rank):
+            _hilo_finish(conn, row, "lost", 0, after, now_, False, card=(new_rank, new_suit), how="l")
+            return _hilo_response(conn, telegram_id, row["id"])
+        hist.append([new_rank, new_suit, "t" if new_rank == rank else "w"])
+        if hilo.reached_cap(after):
+            _hilo_finish(conn, row, "capped", row["bet"] * hilo.HILO_MAX_X, hilo.Fraction(hilo.HILO_MAX_X), now_, False,
+                         card=(new_rank, new_suit), how=hist[-1][2])
+            return _hilo_response(conn, telegram_id, row["id"])
+        conn.execute(
+            "UPDATE hilo_games SET card_rank = ?, card_suit = ?, steps = steps + 1, mult_num = ?, mult_den = ?, hist_json = ?, "
+            "updated_at = ? WHERE id = ?",
+            (new_rank, new_suit, str(after.numerator), str(after.denominator),
+             json.dumps(hist[-(hilo.HISTORY_SHOWN + 1):], separators=(",", ":")), now_, row["id"]))
+        return _hilo_response(conn, telegram_id, row["id"])
+
+    return _run_hilo_action(telegram_id, request_id, "guess", {"choice": choice}, body, now, db_path)
+
+
+def hilo_cashout(telegram_id, request_id, now=None, db_path=None):
+    """Забрать выигрыш: только после хотя бы одного угаданного хода (NothingToCashOut, партия остаётся)."""
+    def body(conn, now_):
+        row = _hilo_active(conn, telegram_id)
+        if row is None:
+            raise hilo.NoActiveGame()
+        if row["steps"] < 1:
+            raise hilo.NothingToCashOut()
+        m = hilo.frac(row["mult_num"], row["mult_den"])
+        _hilo_finish(conn, row, "cashed", hilo.payout(row["bet"], m), m, now_, False)
+        return _hilo_response(conn, telegram_id, row["id"])
+
+    return _run_hilo_action(telegram_id, request_id, "cashout", {}, body, now, db_path)
+
+
+def hilo_state(telegram_id, now=None, db_path=None):
+    """Активная партия, иначе последняя завершённая, иначе status none; баланс с начислением, как /api/me."""
+    if now is None:
+        now = int(time.time())
+    settle_expired_hilo(telegram_id, now=now, db_path=db_path)
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            _register_player(conn, telegram_id, now)
+            _accrue_write(conn, telegram_id, now)
+            row = conn.execute(
+                "SELECT * FROM hilo_games WHERE telegram_id = ? ORDER BY (status = 'active') DESC, id DESC LIMIT 1",
+                (telegram_id,)).fetchone()
+            pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            level = profile_level(pl["xp"])
+            result = _hilo_none_view(pl["balance"], level, pl["xp"]) if row is None else _hilo_view(
+                row, pl["balance"], level, pl["xp"])
             conn.execute("COMMIT")
             return result
         except Exception:
@@ -2201,6 +2533,14 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             crash_active = conn.execute(
                 "SELECT 1 FROM crash_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
             ).fetchone() is not None
+            hilo_games = conn.execute(
+                "SELECT created_at, bet, steps, mult_num, mult_den, status, payout, finished_at FROM hilo_games "
+                "WHERE telegram_id = ? AND status != 'active' ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
+            hilo_active = conn.execute(
+                "SELECT 1 FROM hilo_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
+            ).fetchone() is not None
             transfer_rows = conn.execute(
                 "SELECT sender, recipient, amount, fee, created_at FROM transfers WHERE sender = ? OR recipient = ? "
                 "ORDER BY created_at DESC, id DESC LIMIT ?", (telegram_id, telegram_id, rounds_limit)).fetchall()
@@ -2217,7 +2557,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not transfer_items:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -2248,6 +2588,14 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             for g in crash_games
         ],
         "crash_active": crash_active,
+        # хило: карты незавершённой партии в выгрузку не входят (текущая карта и история видны игроку в игре, но не нужны здесь)
+        "hilo_games": [
+            {"created_at": g["created_at"], "bet": g["bet"], "steps": g["steps"],
+             "multiplier": hilo.multiplier_text(hilo.frac(g["mult_num"], g["mult_den"])), "status": g["status"],
+             "payout": g["payout"], "finished_at": g["finished_at"]}
+            for g in hilo_games
+        ],
+        "hilo_active": hilo_active,
         # идентификаторы Telegram других игроков не включаются: только имя второй стороны как в рейтинге
         "transfers": transfer_items,
         "keno_rounds": [
@@ -2300,6 +2648,9 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["crash_games"] = conn.execute(
                 "DELETE FROM crash_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённый вместе со ставкой
             conn.execute("DELETE FROM crash_actions WHERE telegram_id = ?", (telegram_id,))
+            counts["hilo_games"] = conn.execute(
+                "DELETE FROM hilo_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённая вместе со ставкой
+            conn.execute("DELETE FROM hilo_actions WHERE telegram_id = ?", (telegram_id,))
             counts["transfers"] = conn.execute(
                 "DELETE FROM transfers WHERE sender = ? OR recipient = ?", (telegram_id, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
@@ -2339,7 +2690,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "transfers": 0, "chat_members": 0,
+               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "hilo_games": 0, "hilo_actions": 0,
+               "transfers": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
         present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -2406,6 +2758,17 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM crash_actions WHERE rowid IN "
                 "(SELECT rowid FROM crash_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "hilo_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
+            deleted["hilo_games"] = batches(
+                "DELETE FROM hilo_games WHERE id IN "
+                "(SELECT id FROM hilo_games WHERE status != 'active' AND finished_at IS NOT NULL "
+                "AND finished_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
+        if "hilo_actions" in present:
+            deleted["hilo_actions"] = batches(
+                "DELETE FROM hilo_actions WHERE rowid IN "
+                "(SELECT rowid FROM hilo_actions WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
         if "transfers" in present:  # тот же срок хранения, что у раундов
             deleted["transfers"] = batches(
                 "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",
@@ -2422,8 +2785,9 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d переводы=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d хило=%d переводы=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
                 deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"],
-                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"], deleted["transfers"])
+                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"],
+                deleted["hilo_games"] + deleted["hilo_actions"], deleted["transfers"])
     return deleted

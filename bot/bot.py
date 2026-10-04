@@ -397,6 +397,8 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "blackjack_active": export["blackjack_active"],
         "crash_games": export["crash_games"],
         "crash_active": export["crash_active"],
+        "hilo_games": export["hilo_games"],
+        "hilo_active": export["hilo_active"],
         "transfers": export["transfers"],
         "chats": {"count": len(export["chats"]), "items": export["chats"]},
     }
@@ -698,9 +700,9 @@ async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # edit_message_text без reply_markup убирает кнопки
     await query.edit_message_text(
         "Готово: ваши данные удалены. Удалено записей: игрок — %d, раунды рулетки — %d, участие в рейтингах — %d, "
-        "покупки улучшений — %d, игры в мины — %d, раунды кено — %d, раздачи блэкджека — %d, раунды краша — %d, переводы — %d"
+        "покупки улучшений — %d, игры в мины — %d, раунды кено — %d, раздачи блэкджека — %d, раунды краша — %d, партии хило — %d, переводы — %d"
         % (counts["players"], counts["roulette_rounds"], counts["chat_members"], counts["farm_purchases"],
-           counts["mines_games"], counts["keno_rounds"], counts["blackjack_games"], counts["crash_games"], counts["transfers"])
+           counts["mines_games"], counts["keno_rounds"], counts["blackjack_games"], counts["crash_games"], counts["hilo_games"], counts["transfers"])
     )
 
 

@@ -384,7 +384,7 @@ try:
         if name.startswith("_"):
             continue
         assert not shape_errors(ME, example), (name, "пример /api/me не совпадает с контрактом", shape_errors(ME, example))
-        assert example["active_game"] in (None, "mines", "blackjack", "crash")
+        assert example["active_game"] in (None, "mines", "blackjack", "crash", "hilo")
     for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, None)):
         r = ca.get("/api/me", headers=auth(uid))
         contract("GET /api/me %s" % expected, r.json(), ME)
@@ -402,6 +402,14 @@ try:
     with _mock.patch.object(_cr, "new_crash", return_value=5000):
         ca.post("/api/crash/start", headers=auth(5006), json={"request_id": rid(5007), "bet": 10})
     assert ca.get("/api/me", headers=auth(5006)).json()["active_game"] == "crash"
+    # хило: незавершённая партия видна в /api/me (возобновление после перезапуска)
+    add_player(pa, 5008)
+    import hilo as _hl
+    with _mock.patch.object(_hl, "draw_card", return_value=(7, "H")):
+        ca.post("/api/hilo/start", headers=auth(5008), json={"request_id": rid(5008), "bet": 10})
+    r = ca.get("/api/me", headers=auth(5008))
+    contract("GET /api/me хило", r.json(), ME)
+    assert r.json()["active_game"] == "hilo", r.json()
 finally:
     for _k, _v in _saved_env.items():
         os.environ.pop(_k, None)
