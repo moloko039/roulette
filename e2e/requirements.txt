@@ -1,2 +1,2 @@
 # Зависимости только для e2e (не для сервера): клиент протокола Chrome DevTools
-websockets>=12
+websockets>=17.1
