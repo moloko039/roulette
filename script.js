@@ -92,15 +92,37 @@ function setBetValue(input, n) {
 }
 
 const halfBet = (input) => setBetValue(input, Math.max(1, Math.floor(parseBet(input) / 2)));
-const doubleBet = (input, max) => setBetValue(input, Math.max(1, Math.min(parseBet(input) * 2, max)));
+const doubleBet = (input, max) => setBetValue(input, Math.max(1, Math.min(parseBet(input) * 2, max))); // не выше предела
 
-// Поле суммы: только цифры (до 16), без ведущих нулей; Enter и «Готово» закрывают клавиатуру
-function setupBetInput(input, doneRow, doneBtn) {
+// Предел ставки одинаков в обеих играх: не больше баланса и максимума ставки игры.
+// Рулетка: поле суммы это размер ставки на один клик по клетке, предел = доступный баланс (серверный минус ставки
+// на столе), как проверяет placeBet. Мины: min(баланс, 10**9).
+const rouletteBetLimit = () => (srv.loaded ? Math.max(1, availableBalance()) : Number.MAX_SAFE_INTEGER);
+const minesBetLimit = () => Math.max(1, Math.min(MINES_BET_MAX, mn.balance === null ? MINES_BET_MAX : mn.balance));
+
+const betPanels = [];
+const refreshBetPanels = () => betPanels.forEach((p) => p.refresh());
+
+// Поле суммы и кнопки панели: только цифры (до 16), без ведущих нулей; число выше предела при вводе и потере
+// фокуса ограничивается пределом; «Макс» ставит предел, а пока поле в фокусе та же кнопка работает как «Готово»;
+// Enter тоже закрывает клавиатуру. Панель прижимается к клавиатуре (dockPanel).
+function setupBetPanel({ input, maxBtn, halfBtn, doubleBtn, getLimit }) {
+  const panel = input.closest('.bets-dock');
+  const clampToLimit = () => {
+    const limit = getLimit();
+    if (input.value !== '' && Number(input.value) > limit) input.value = String(limit);
+  };
+  const refresh = () => {
+    doubleBtn.classList.toggle('dim', input.value !== '' && parseBet(input) >= getLimit());
+    doubleBtn.setAttribute('aria-disabled', String(doubleBtn.classList.contains('dim')));
+  };
   input.setAttribute('inputmode', 'numeric');
   input.setAttribute('enterkeyhint', 'done');
   input.addEventListener('input', () => {
     const clean = input.value.replace(/\D/g, '').slice(0, 16).replace(/^0+(?=\d)/, '');
     if (clean !== input.value) input.value = clean;
+    clampToLimit();
+    refresh();
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -109,13 +131,86 @@ function setupBetInput(input, doneRow, doneBtn) {
     }
   });
   input.addEventListener('focus', () => {
-    doneRow.hidden = false;
-    setTimeout(() => { if (document.activeElement === input) input.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300);
+    maxBtn.dataset.mode = 'done';
+    maxBtn.textContent = 'Готово';
+    dockPanel(panel);
   });
-  input.addEventListener('blur', () => { doneRow.hidden = true; });
-  doneBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // фокус остаётся, пока не сработает click
-  doneBtn.addEventListener('click', () => input.blur());
+  input.addEventListener('blur', () => {
+    clampToLimit();
+    refresh();
+    maxBtn.dataset.mode = 'max';
+    maxBtn.textContent = 'Макс';
+    undockPanel(panel);
+  });
+  maxBtn.addEventListener('pointerdown', (e) => e.preventDefault()); // фокус остаётся, пока не сработает click
+  maxBtn.addEventListener('click', () => {
+    if (maxBtn.dataset.mode === 'done') input.blur();
+    else setBetValue(input, getLimit());
+  });
+  halfBtn.addEventListener('click', () => halfBet(input));
+  doubleBtn.addEventListener('click', () => doubleBet(input, getLimit()));
+  maxBtn.dataset.mode = 'max';
+  betPanels.push({ refresh });
+  refresh();
+  return refresh;
 }
+
+// ---------- панель ставок над клавиатурой ----------
+// Пока поле в фокусе и клавиатура открыта, панель смещается (transform: раскладка не меняется, стол не прыгает)
+// так, чтобы её низ был у верхнего края клавиатуры. Видимый низ экрана берём из visualViewport (offsetTop + height),
+// запасной вариант: Telegram.WebApp.viewportHeight. Клавиатура считается открытой, если низ оболочки заметно ниже видимого.
+let dockedPanel = null;
+let dockFrame = 0;
+
+function visibleBottom() {
+  const vv = window.visualViewport;
+  if (vv) return vv.offsetTop + vv.height;
+  if (tg && typeof tg.viewportHeight === 'number' && tg.viewportHeight > 0) return tg.viewportHeight;
+  return window.innerHeight;
+}
+
+function positionDock() {
+  const p = dockedPanel;
+  if (!p) return;
+  p.style.transform = '';
+  const shellBottom = document.querySelector('.shell').getBoundingClientRect().bottom;
+  const bottom = visibleBottom();
+  if (shellBottom - bottom <= 80) {          // клавиатуры нет
+    p.classList.remove('docked');
+    return;
+  }
+  const dy = Math.round(bottom - p.getBoundingClientRect().bottom - 4);
+  p.classList.add('docked');
+  if (dy) p.style.transform = `translateY(${dy}px)`;
+}
+
+function scheduleDock() {
+  if (dockFrame) return;
+  dockFrame = requestAnimationFrame(() => {
+    dockFrame = 0;
+    positionDock();
+  });
+}
+
+function dockPanel(panel) {
+  dockedPanel = panel;
+  [0, 150, 350, 700].forEach((ms) => setTimeout(() => { if (dockedPanel === panel) scheduleDock(); }, ms)); // клавиатура выезжает не сразу
+}
+
+function undockPanel(panel) {
+  if (dockedPanel !== panel) return;
+  dockedPanel = null;
+  panel.style.transform = '';
+  panel.classList.remove('docked');
+  window.scrollTo(0, 0);
+}
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', scheduleDock);
+  window.visualViewport.addEventListener('scroll', scheduleDock);
+}
+window.addEventListener('resize', scheduleDock);
+window.addEventListener('scroll', scheduleDock, true);
 
 // Тап вне поля и прокрутка закрывают клавиатуру
 (() => {
@@ -125,7 +220,7 @@ function setupBetInput(input, doneRow, doneBtn) {
   };
   document.addEventListener('pointerdown', (e) => {
     const a = active();
-    if (!a || e.target === a || (e.target.closest && e.target.closest('.bet-done'))) return;
+    if (!a || e.target === a || (e.target.closest && e.target.closest('.bet-maxdone'))) return;
     a.blur();
   }, true);
   let startY = null;
@@ -136,21 +231,6 @@ function setupBetInput(input, doneRow, doneBtn) {
   }, { passive: true, capture: true });
   document.addEventListener('wheel', () => { const a = active(); if (a) a.blur(); }, { passive: true, capture: true });
 })();
-
-// Клавиатура: отступ снизу (visualViewport), чтобы панель ставок оставалась над ней
-function updateKeyboardInset() {
-  const vv = window.visualViewport;
-  const editing = !!(document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('bet-input'));
-  const inset = vv && editing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
-  document.documentElement.style.setProperty('--kb-inset', inset + 'px');
-  document.body.classList.toggle('kb-open', inset > 80);
-}
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', updateKeyboardInset);
-  window.visualViewport.addEventListener('scroll', updateKeyboardInset);
-}
-document.addEventListener('focusin', updateKeyboardInset);
-document.addEventListener('focusout', () => setTimeout(updateKeyboardInset, 50));
 
 
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
@@ -352,6 +432,7 @@ function renderBalance() {
   else balanceEl.textContent = srv.error ? '—' : 'Загрузка…';
   fitNumberFont(balanceEl, balanceEl.textContent.length);
   renderRouletteChips();
+  refreshBetPanels();
 }
 
 // Фишки рулетки по серверному балансу (srv.balance меняется только по ответу сервера, после остановки колеса)
@@ -517,7 +598,7 @@ function updateControls() {
   const canAdd = canBet && availableBalance() > 0;
   const loadRetry = !srv.loaded && srv.error && srv.error.retry;
   document.querySelectorAll('#table button').forEach((el) => { el.disabled = !canAdd; });
-  document.querySelectorAll('#bets .chip, #bets input, #bets .step-btn, #repeat-bets, #clear-bets').forEach((el) => { el.disabled = !canBet; });
+  document.querySelectorAll('#bets .chip, #bets input, #bets .step-btn, #bets .bet-maxdone, #repeat-bets, #clear-bets').forEach((el) => { el.disabled = !canBet; });
   const retry = game.phase === 'pending' || loadRetry;
   spinBtn.textContent = retry ? 'Повторить' : 'Крутить';
   spinBtn.classList.toggle('retry', retry);
@@ -1867,6 +1948,7 @@ function renderMines() {
     fitNumberFont(minesEls.balance, minesEls.balance.textContent.length);
   }
   renderMinesChips();
+  refreshBetPanels();
   const inGame = mn.game !== null && mn.view === 'play';
   minesEls.inplay.hidden = !inGame;
   if (inGame) setNumberLabel(minesEls.inplay, 'В игре: ', mn.game.bet);
@@ -2148,15 +2230,13 @@ minesEls.form.querySelectorAll('[data-mines]').forEach((b) => b.addEventListener
   setMinesCount(Number(b.dataset.mines));
   haptic('light');
 }));
-minesEls.maxBtn.addEventListener('click', () => {
-  // «Макс» = меньшее из баланса и технического предела (окончательно решает сервер)
-  const cap = mn.balance === null ? MINES_BET_MAX : Math.min(mn.balance, MINES_BET_MAX);
-  mn.settings.bet = Math.max(1, cap);
-  renderMinesForm();
+setupBetPanel({
+  input: minesEls.bet,
+  maxBtn: minesEls.maxBtn,
+  halfBtn: document.getElementById('mines-half'),
+  doubleBtn: document.getElementById('mines-double'),
+  getLimit: minesBetLimit
 });
-setupBetInput(minesEls.bet, document.getElementById('mines-done-row'), document.getElementById('mines-done'));
-document.getElementById('mines-half').addEventListener('click', () => halfBet(minesEls.bet));
-document.getElementById('mines-double').addEventListener('click', () => doubleBet(minesEls.bet, MINES_BET_MAX));
 minesEls.bet.addEventListener('input', () => {
   const v = Number(minesEls.bet.value);
   if (Number.isSafeInteger(v) && v >= 1) {
@@ -2343,13 +2423,14 @@ betsPanel.querySelectorAll('.chip').forEach((btn) => {
     haptic('light');
   });
 });
-setupBetInput(amountEl, document.getElementById('amount-done-row'), document.getElementById('amount-done'));
-amountEl.addEventListener('input', syncChips);
-document.getElementById('amount-half').addEventListener('click', () => halfBet(amountEl));
-document.getElementById('amount-double').addEventListener('click', () => {
-  // максимум как у ставки на стол: не больше доступного баланса (пока баланс не загружен, предел безопасного целого)
-  doubleBet(amountEl, srv.loaded ? Math.max(1, availableBalance()) : Number.MAX_SAFE_INTEGER);
+setupBetPanel({
+  input: amountEl,
+  maxBtn: document.getElementById('amount-max'),
+  halfBtn: document.getElementById('amount-half'),
+  doubleBtn: document.getElementById('amount-double'),
+  getLimit: rouletteBetLimit
 });
+amountEl.addEventListener('input', syncChips);
 syncChips();
 
 // шрифты грузятся локально: после загрузки колесо перерисовывается (числа на секторах)
