@@ -14,7 +14,7 @@
 | `db.py` | **фасад**: реэкспортирует все имена слоёв ниже (`db.get_player`, `db._connect`, `db.BUSY_TIMEOUT_SECONDS` и т.д.), присваивание константы через фасад доходит до модулей (тесты патчат `db.<имя>`) | core, features, games |
 | `core/` | подключение и журнал SQLite (`db_conn`), схема (`schema`), миграции (`migrations`), ядро (`kernel`: поминутное начисление, регистрация, `_credit_capped`, `_add_xp`), участники бесед (`members`), `get_player` (`players`) | wallet, economy, farm, levels |
 | `features/*_db.py` | переводы, рейтинг и участники (`chat`), ферма, гранты `/grantall`, `/give`, `bot_chats`, `active_game`, экспорт и удаление (`data_rights`), очистка (`purge`) | только core |
-| `games/*_db.py` | БД-слой игр: рулетка, кено, мины, блэкджек, краш, хило (правила остаются в `<игра>.py` в корне `bot/`) | только core |
+| `games/*_db.py`, `games/round_common.py` | БД-слой игр: рулетка, кено, мины, блэкджек, краш, хило (правила остаются в `<игра>.py` в корне `bot/`); общий скелет партии в `round_common.py` | только core |
 | `wallet.py` | единственное место списаний и выплат (`debit`, `credit`, потолок `MAX_SAFE_INT`) | roulette |
 | `economy.py` | стартовый баланс, ставка, поминутное начисление (`accrue_minutes`); `accrue` устаревшая часовая, нужна миграции | – |
 | `farm.py` | улучшения дохода и хранилища (цены, ставки, потолок часов) | levels |
@@ -39,13 +39,21 @@
 - Общие функции лежат в `core/kernel.py` (`_accrue_write`, `_credit_capped`, `_add_xp`, `_register_player`); слои зависят только вниз: `games` и `features` импортируют `core`, друг друга и `db.py` не импортируют.
 
 ## 4. Шаблон партии (мины, блэкджек, краш, хило)
+Общий скелет лежит в `games/round_common.py` (без денег и правил игр): `Game` (имя игры, ошибка конфликта request_id, тексты запросов к `<игра>_games`
+и `<игра>_actions`), `run_action` (закрытие просроченной, повтор по `(игрок, request_id)`: тот же id с другими параметрами даёт `RequestConflict`, `_register_player`,
+`_accrue_write`, тело, запись ответа в `*_actions`), `settle_expired` (закрытие брошенной отдельной транзакцией, `precheck` для игр, которые сначала читают),
+`close_expired` (фоновый проход), `read_state` (чтение с начислением), `active_row`, `latest_row`, `player_view`, `add_staked`, `pay_and_xp`, `run_tx`.
 1. Таблицы `<игра>_games` и `<игра>_actions`; уникальный частичный индекс «одна активная партия на игрока».
-2. Действие идёт через `_run_<игра>_action`: закрытие просроченной, повтор по `(игрок, request_id)` (тот же id с другими параметрами: `request_conflict`), `_register_player`,
-   `_accrue_write`, тело действия, запись ответа в `*_actions`. Выплата и опыт один раз, в `_<игра>_finish` (условие `status = 'active'`).
+2. Игра в `games/<игра>_db.py` задаёт ТОЛЬКО своё: тела действий (списание через `wallet.debit`, `ActiveGameExists`), формы ответов (`_view`, `_none_view`), `_finish` (окончание партии
+   один раз по условию `status = 'active'`, затем `pay_and_xp`), правило «брошена ли партия», момент учёта `total_staked` (`add_staked`: сразу у блэкджека и краша, при первом ходе у мин и хило).
+   Остаются в играх намеренно: мины (выплата зачисляется ДО отметки закрытия, порядок SQL другой, поэтому свой `_finish_game`), краш (чтение без транзакции во время полёта), все формулы выплат и XP.
 3. Брошенная партия закрывается сама (`settle_expired_*` при запросе, `close_expired_*` раз в проход фоновой задачи); `/api/me` отдаёт `active_game` для возобновления.
 4. `total_staked` и опыт по правилам игры (см. `CLAUDE.md`); скрытое состояние (мины, колода, точка краха) не попадает в ответы, логи и `/mydata`.
-5. **Новая игра по шагам:** правила в `<игра>.py` + тесты математики; формула опыта в `xp.py`; таблицы в `core/schema.py`, функции в `games/<игра>_db.py` (+ строка в фасаде `db.py`); очистка, экспорт и удаление в `purge_old_data`,
-   `get_player_export`, `delete_player_data`; маршруты в `api.py`; `active_game_of`; пример в `docs/examples/<игра>.json` и раздел в `docs/API.md`; запись в `GAMES` и экран в клиенте; `privacy.html`.
+5. **Новая игра по шагам:** правила в `<игра>.py` + тесты математики; формула опыта в `xp.py`; таблицы в `core/schema.py`; `games/<игра>_db.py`: `GAME = Game("<имя>", <игра>.RequestConflict)`
+   (имя добавить в `GAMES` в `round_common.py`), `_<игра>_active` (через `active_row`), `_view`/`_none_view`, `_finish` (UPDATE ... AND status = 'active', потом `pay_and_xp`), `_settle_in`,
+   `settle_expired_<игра>` (`settle_expired`), `close_expired_<игра>` (`close_expired`), `_run_<игра>_action` (`run_action`), функции start/ход/cashout/state (`read_state`) + строка в фасаде `db.py`;
+   очистка, экспорт и удаление в `purge_old_data`, `get_player_export`, `delete_player_data`; `active_game_of`; маршруты в `api.py`; пример в `docs/examples/<игра>.json` и раздел в `docs/API.md`;
+   запись в `GAMES` и экран в клиенте; `privacy.html`. **Сначала добавь сценарии новой игры в `bot/test_game_golden.py`** (эталон `bot/testdata/game_golden.json`: ответы, таблицы, число и порядок SQL).
 
 ## 5. API
 Контракт: `docs/API.md` + `docs/examples/*.json` + `bot/test_api_contract.py` (и тесты игр). **Меняешь форму ответа: правь три места** (код, `API.md` с примерами, тест контракта) и клиент.
@@ -66,7 +74,7 @@
 
 ## 8. Проверки
 - `cd bot && .venv/bin/python run_tests.py` (все `test_*.py`, код 1 при сбое), один файл: `.venv/bin/python test_db.py`. CI: Python 3.9 и 3.12. `python scripts/check_repo.py` перед коммитом.
-- Тесты не зависят от окружения и `bot/.env`. Покрытие сервера строчное около 95 %.
+- Тесты не зависят от окружения и `bot/.env`. Покрытие сервера строчное около 95 %. `bot/test_game_golden.py` сверяет мины, блэкджек, краш и хило с эталоном (`bot/testdata/game_golden.json`); перезапись только осознанно: `python test_game_golden.py --record`.
 - **Клиентские e2e** (`e2e/`): настоящий сервер FastAPI во временной базе + headless Chrome по CDP, клиент копируется во временную папку (файлы репозитория не
   меняются). Запуск: `pip install -r bot/requirements.txt -r e2e/requirements.txt`, затем `python e2e/run_e2e.py [сценарий ...] [--repeat N] [--list]` (код 0/1; нет Chrome: пропуск с кодом 0).
   `e2e/harness.py` (CDP, Chrome, сервер, раздача клиента, касания, ожидания по условию), `e2e/server_boot.py` (все подмены: серверные часы через файл-смещение,

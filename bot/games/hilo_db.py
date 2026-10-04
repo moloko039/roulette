@@ -1,20 +1,19 @@
 """Хило: партии, ходы, кэшаут, автозакрытие брошенных (правила в hilo.py)."""
 
 import json
-import time
 
 import hilo
 import wallet
 import xp
-from levels import profile_level
-from roulette import MAX_SAFE_INT
 
-from core.db_conn import _connect, logger
-from core.kernel import _accrue_write, _add_xp, _credit_capped, _register_player
+from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, latest_row, now_or_clock, pay_and_xp,
+                                player_view, read_state, run_action, settle_expired)
+
+GAME = Game("hilo", hilo.RequestConflict)
 
 
 def _hilo_active(conn, telegram_id):
-    return conn.execute("SELECT * FROM hilo_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)).fetchone()
+    return active_row(conn, GAME, telegram_id)
 
 
 HOW_TEXT = {"s": "start", "w": "win", "t": "tie", "k": "skip", "l": "lose"}
@@ -71,8 +70,7 @@ def _hilo_none_view(balance, level, xp_total):
 
 def _hilo_response(conn, telegram_id, game_id):
     row = conn.execute("SELECT * FROM hilo_games WHERE id = ?", (game_id,)).fetchone()
-    pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
-    return _hilo_view(row, pl["balance"], profile_level(pl["xp"]), pl["xp"])
+    return _hilo_view(row, *player_view(conn, telegram_id))
 
 
 def _hilo_finish(conn, row, status, paid, xp_m, now, auto, card=None, how=None):
@@ -90,10 +88,7 @@ def _hilo_finish(conn, row, status, paid, xp_m, now, auto, card=None, how=None):
          now, now, row["id"])).rowcount
     if changed == 0:
         return
-    if paid > 0:
-        _credit_capped(conn, row["telegram_id"], paid)
-    if xp_m is not None:
-        _add_xp(conn, row["telegram_id"], xp.hilo_xp(row["bet"], xp_m))
+    pay_and_xp(conn, row["telegram_id"], paid, None if xp_m is None else xp.hilo_xp(row["bet"], xp_m))
 
 
 def _hilo_settle_in(conn, telegram_id, now):
@@ -112,83 +107,32 @@ def _hilo_settle_in(conn, telegram_id, now):
 
 def settle_expired_hilo(telegram_id, now=None, db_path=None):
     """Закрывает просроченную партию игрока отдельной транзакцией (идемпотентно). Ничего не меняет, пока срок не вышел."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
+    now = now_or_clock(now)
+
+    def not_expired(conn):
         row = _hilo_active(conn, telegram_id)
-        if row is None or now - row["updated_at"] < hilo.HILO_IDLE_SECONDS:
-            return False
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            closed = _hilo_settle_in(conn, telegram_id, now)
-            conn.execute("COMMIT")
-            return closed
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+        return not (row is None or now - row["updated_at"] < hilo.HILO_IDLE_SECONDS)
+
+    return settle_expired(lambda conn: _hilo_settle_in(conn, telegram_id, now), db_path, precheck=not_expired)
 
 
-HILO_CLOSE_BATCH = 200
+HILO_CLOSE_BATCH = CLOSE_BATCH
 
 
 def close_expired_hilo(now=None, db_path=None, batch=HILO_CLOSE_BATCH):
     """Фоновое закрытие просроченных партий всех игроков (не больше batch за проход). Возвращает число."""
-    if now is None:
-        now = int(time.time())
-    conn = _connect(db_path)
-    try:
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'hilo_games'").fetchone() is None:
-            return 0
-        owners = [r["telegram_id"] for r in conn.execute(
-            "SELECT telegram_id FROM hilo_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
-            (now, hilo.HILO_IDLE_SECONDS, batch))]
-    finally:
-        conn.close()
-    closed = sum(1 for owner in owners if settle_expired_hilo(owner, now=now, db_path=db_path))
-    if closed:
-        logger.info("Закрыто просроченных партий в хило: %d", closed)   # только количество
-    return closed
+    now = now_or_clock(now)
+    return close_expired(
+        GAME, "SELECT telegram_id FROM hilo_games WHERE status = 'active' AND ? - updated_at >= ? LIMIT ?",
+        (now, hilo.HILO_IDLE_SECONDS, batch), lambda owner: settle_expired_hilo(owner, now=now, db_path=db_path), db_path,
+        "Закрыто просроченных партий в хило")
 
 
 def _run_hilo_action(telegram_id, request_id, action, params, body, now, db_path):
-    """Общий порядок действия: закрытие просроченной партии, повтор по request_id (другое действие или параметры:
-    RequestConflict), минутное начисление, тело действия, запись ответа."""
-    if now is None:
-        now = int(time.time())
-    settle_expired_hilo(telegram_id, now=now, db_path=db_path)
-    params_json = json.dumps(params, sort_keys=True, separators=(",", ":"))
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            old = conn.execute(
-                "SELECT action, params, response_json FROM hilo_actions WHERE telegram_id = ? AND request_id = ?",
-                (telegram_id, request_id)).fetchone()
-            if old is not None:
-                if old["action"] != action or old["params"] != params_json:
-                    raise hilo.RequestConflict()
-                response = json.loads(old["response_json"])
-                response["replayed"] = True
-                conn.execute("COMMIT")
-                return response
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)
-            response = body(conn, now)
-            response["replayed"] = False
-            conn.execute(
-                "INSERT INTO hilo_actions (telegram_id, request_id, action, params, response_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now))
-            conn.execute("COMMIT")
-            return response
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+    """Общий порядок действия (round_common.run_action): закрытие просроченной партии, повтор по request_id, начисление, тело."""
+    now = now_or_clock(now)
+    return run_action(GAME, telegram_id, request_id, action, params, lambda conn: body(conn, now), now, db_path,
+                      presettle=lambda: settle_expired_hilo(telegram_id, now=now, db_path=db_path))
 
 
 def hilo_start(telegram_id, request_id, bet, now=None, db_path=None, rng=None):
@@ -234,8 +178,7 @@ def hilo_guess(telegram_id, request_id, choice, now=None, db_path=None, rng=None
         if k >= hilo.RANKS:
             raise hilo.MoveForbidden()
         if not row["staked_counted"]:
-            conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                         (row["bet"], MAX_SAFE_INT, telegram_id))
+            add_staked(conn, telegram_id, row["bet"])
             conn.execute("UPDATE hilo_games SET staked_counted = 1 WHERE id = ?", (row["id"],))
         new_rank, new_suit = hilo.draw_card(rng)
         after = m * hilo.step_multiplier(k)
@@ -274,26 +217,12 @@ def hilo_cashout(telegram_id, request_id, now=None, db_path=None):
 
 def hilo_state(telegram_id, now=None, db_path=None):
     """Активная партия, иначе последняя завершённая, иначе status none; баланс с начислением, как /api/me."""
-    if now is None:
-        now = int(time.time())
+    now = now_or_clock(now)
     settle_expired_hilo(telegram_id, now=now, db_path=db_path)
-    conn = _connect(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            _register_player(conn, telegram_id, now)
-            _accrue_write(conn, telegram_id, now)
-            row = conn.execute(
-                "SELECT * FROM hilo_games WHERE telegram_id = ? ORDER BY (status = 'active') DESC, id DESC LIMIT 1",
-                (telegram_id,)).fetchone()
-            pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
-            level = profile_level(pl["xp"])
-            result = _hilo_none_view(pl["balance"], level, pl["xp"]) if row is None else _hilo_view(
-                row, pl["balance"], level, pl["xp"])
-            conn.execute("COMMIT")
-            return result
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
-    finally:
-        conn.close()
+
+    def read(conn):
+        row = latest_row(conn, GAME, telegram_id)
+        balance, level, xp_total = player_view(conn, telegram_id)
+        return _hilo_none_view(balance, level, xp_total) if row is None else _hilo_view(row, balance, level, xp_total)
+
+    return read_state(telegram_id, now, db_path, read)
