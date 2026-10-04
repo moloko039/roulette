@@ -24,7 +24,7 @@ import wallet
 import xp
 from levels import profile_level
 import roulette
-from roulette import BalanceLimit, InsufficientFunds, MAX_SAFE_INT, max_payout, settle
+from roulette import BalanceLimit, MAX_SAFE_INT, max_payout, settle
 
 logger = logging.getLogger("depnaya.db")
 
@@ -732,6 +732,36 @@ def get_player(telegram_id, now=None, db_path=None):
     }
 
 
+# ---------- ЯДРО: общие функции для нескольких игр и переводов ----------
+# Все они работают ВНУТРИ уже открытой транзакции вызвавшего кода (сами транзакцию не открывают) и стоят до секций игр.
+#   _accrue_write    подтягивает поминутное начисление дохода игрока (обёртка над _accrue_conn): рулетка не использует, а
+#                    кено, переводы, блэкджек, краш, хило и мины вызывают в начале каждого действия и состояния
+#   _credit_capped   зачисляет выплату через wallet.credit не выше MAX_SAFE_INT: блэкджек, краш, хило, мины и _accrue_conn
+#   _add_xp          прибавляет опыт игрока (не выше MAX_SAFE_INT): рулетка, кено, блэкджек, краш, хило, мины
+# Рядом и тоже общие, но лежат выше: _register_player и _accrue_conn (раздел «игроки и миграции»), wallet (отдельный модуль).
+# _active_game, _game_view и _last_view относятся только к минам (запрос к mines_games) и остаются в секции «мины»:
+# у блэкджека, краша и хило свои _bj_active, _crash_active, _hilo_active.
+
+def _accrue_write(conn, telegram_id, now):
+    """Подтягивает поминутное начисление внутри открытой транзакции (единая _accrue_conn); без тиков ничего не пишет."""
+    return _accrue_conn(conn, telegram_id, now)
+
+
+def _credit_capped(conn, telegram_id, amount):
+    """Зачисляет min(amount, MAX_SAFE_INT - баланс) (на практике недостижимо). Возвращает зачисленное."""
+    amount = min(amount, MAX_SAFE_INT - wallet.get_balance(conn, telegram_id))
+    if amount > 0:
+        wallet.credit(conn, telegram_id, amount)
+        return amount
+    return 0
+
+
+def _add_xp(conn, telegram_id, amount):
+    """Опыт игрока (в той же транзакции, что и результат), не выше MAX_SAFE_INT."""
+    if amount > 0:
+        conn.execute("UPDATE players SET xp = MIN(xp + ?, ?) WHERE telegram_id = ?", (amount, MAX_SAFE_INT, telegram_id))
+
+
 def _round_result(number, stake_total, payout_total, balance, replayed):
     return {
         "number": number,
@@ -782,7 +812,7 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
                 return result
 
             # (б) игрок и начисление: потратить можно и только что начисленное.
-            # Начисление по часам записывается сразу (при ошибке ниже транзакция откатится целиком)
+            # Минутное начисление (_accrue_conn) пишется сразу (при ошибке ниже транзакция откатится целиком)
             _register_player(conn, telegram_id, now)
             _accrue_conn(conn, telegram_id, now)
 
@@ -917,7 +947,7 @@ class PlayerMissing(Exception):
 
 def give_owner(telegram_id, amount, db_path=None):
     """Начисляет amount (1..GIVE_MAX_AMOUNT) на баланс этого игрока через wallet.credit в одной транзакции BEGIN IMMEDIATE:
-    не больше, чем помещается под MAX_SAFE_INT. total_staked, XP, уровень и время начисления по часам не меняются, игрок не
+    не больше, чем помещается под MAX_SAFE_INT. total_staked, XP, уровень и метка минутного начисления не меняются, игрок не
     создаётся (PlayerMissing). Возвращает (зачислено, баланс)."""
     if type(amount) is not int or not 1 <= amount <= GIVE_MAX_AMOUNT:
         raise ValueError("amount")
@@ -1272,7 +1302,7 @@ def close_expired_blackjack(now=None, db_path=None, batch=BLACKJACK_CLOSE_BATCH)
 
 
 def _run_blackjack_action(telegram_id, request_id, action, params, body, now, db_path):
-    """Общий порядок действия: закрытие просроченной раздачи, повтор по request_id, начисление по часам, тело
+    """Общий порядок действия: закрытие просроченной раздачи, повтор по request_id, минутное начисление, тело
     действия, запись ответа. Один request_id с другим действием или параметрами даёт RequestConflict."""
     if now is None:
         now = int(time.time())
@@ -1514,7 +1544,7 @@ def close_expired_crash(now_ms=None, db_path=None, batch=CRASH_CLOSE_BATCH):
 
 def _run_crash_action(telegram_id, request_id, action, params, body, now_ms, db_path, presettle=True):
     """Общий порядок действия: закрытие просроченного раунда (кроме cashout: он закрывает сам), повтор по request_id,
-    начисление по часам, тело действия, запись ответа. Один request_id с другими параметрами: RequestConflict."""
+    минутное начисление, тело действия, запись ответа. Один request_id с другими параметрами: RequestConflict."""
     if now_ms is None:
         now_ms = _now_ms()
     now = now_ms // 1000
@@ -1781,7 +1811,7 @@ def close_expired_hilo(now=None, db_path=None, batch=HILO_CLOSE_BATCH):
 
 def _run_hilo_action(telegram_id, request_id, action, params, body, now, db_path):
     """Общий порядок действия: закрытие просроченной партии, повтор по request_id (другое действие или параметры:
-    RequestConflict), начисление по часам, тело действия, запись ответа."""
+    RequestConflict), минутное начисление, тело действия, запись ответа."""
     if now is None:
         now = int(time.time())
     settle_expired_hilo(telegram_id, now=now, db_path=db_path)
@@ -1961,7 +1991,7 @@ def grant_preview(amount, grant_id, db_path=None):
 def grant_all(amount, grant_id, now=None, db_path=None):
     """Разовое начисление всем игрокам, которые есть в базе сейчас: ОДНА транзакция BEGIN IMMEDIATE, каждому credit через
     wallet (не больше, чем помещается под MAX_SAFE_INT), одна итоговая строка в admin_grants. total_staked, XP, уровень и
-    время начисления по часам не меняются. Любая ошибка откатывает всё. Возвращает (получили, выдано всего)."""
+    метка минутного начисления не меняются. Любая ошибка откатывает всё. Возвращает (получили, выдано всего)."""
     validate_grant(amount, grant_id)
     if now is None:
         now = int(time.time())
@@ -2108,20 +2138,6 @@ def farm_status(telegram_id, now=None, db_path=None):
 # ни в response_json, ни в выгрузку данных. Баланс игрока с активной игрой не включает ставку, лежащую в игре
 # (она возвращается при завершении), в рейтинге беседы это так же.
 
-def _accrue_write(conn, telegram_id, now):
-    """Подтягивает поминутное начисление внутри открытой транзакции (единая _accrue_conn); без тиков ничего не пишет."""
-    return _accrue_conn(conn, telegram_id, now)
-
-
-def _credit_capped(conn, telegram_id, amount):
-    """Зачисляет min(amount, MAX_SAFE_INT - баланс) (на практике недостижимо). Возвращает зачисленное."""
-    amount = min(amount, MAX_SAFE_INT - wallet.get_balance(conn, telegram_id))
-    if amount > 0:
-        wallet.credit(conn, telegram_id, amount)
-        return amount
-    return 0
-
-
 def _active_game(conn, telegram_id):
     return conn.execute(
         "SELECT * FROM mines_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
@@ -2157,12 +2173,6 @@ def _last_view(row):
         "payout": row["payout"],
         "finished_at": row["finished_at"],
     }
-
-
-def _add_xp(conn, telegram_id, amount):
-    """Опыт игрока (в той же транзакции, что и результат), не выше MAX_SAFE_INT."""
-    if amount > 0:
-        conn.execute("UPDATE players SET xp = MIN(xp + ?, ?) WHERE telegram_id = ?", (amount, MAX_SAFE_INT, telegram_id))
 
 
 def _finish_game(conn, game_id, status, payout, now):
@@ -2241,7 +2251,7 @@ def close_expired_mines(now=None, db_path=None, batch=MINES_CLOSE_BATCH):
 
 
 def _run_mines_action(telegram_id, request_id, action, params, body, now, db_path):
-    """Общий порядок действия: закрытие просроченной игры, повтор по request_id, начисление по часам, тело
+    """Общий порядок действия: закрытие просроченной игры, повтор по request_id, минутное начисление, тело
     действия, запись ответа. Один request_id с другим действием или параметрами даёт RequestConflict."""
     if now is None:
         now = int(time.time())

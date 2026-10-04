@@ -4821,7 +4821,6 @@ const TABS = [
 const START_TAB = 'play';
 const navEl = document.getElementById('nav');
 
-const shellEl = document.querySelector('.shell');
 const gameMenu = document.getElementById('game-menu');
 const gamePanel = document.getElementById('game-panel');
 const gameGrid = document.getElementById('game-grid');

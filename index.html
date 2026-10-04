@@ -29,7 +29,7 @@
         <strong id="balance">Загрузка…</strong>
       </div>
       <button type="button" class="game-switch" id="game-switch" aria-label="Сменить игру">
-        <span id="game-switch-icon" class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-icon" aria-hidden="true"></span>
         <span id="game-switch-name" class="switch-name">Рулетка</span>
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
@@ -143,7 +143,7 @@
     <button type="button" class="action profile-retry" id="mines-retry" hidden>Повторить</button>
 
     <form class="mines-start" id="mines-start" hidden onsubmit="return false">
-      <section class="mines-card mines-bets bets-dock" id="mines-bets">
+      <section class="mines-card mines-bets bets-dock">
         <label class="mines-label" for="mines-bet">Ставка</label>
         <div class="row bet-chips">
           <button type="button" class="chip" data-bet="10" aria-pressed="false">10</button>
@@ -395,7 +395,7 @@
       <strong id="hl-banner-title"></strong>
       <span id="hl-banner-detail"></span>
     </div>
-    <details class="hl-rules" id="hl-rules">
+    <details class="hl-rules">
       <summary>Правила</summary>
       <ul>
         <li>Колода: 13 достоинств, туз младший, король старший. Каждая карта выпадает независимо.</li>
@@ -506,7 +506,7 @@
   </div>
   <div class="transfer-sheet" id="transfer-sheet" hidden>
     <div class="transfer-dim" id="transfer-dim"></div>
-    <section class="transfer-panel bets-dock" id="transfer-panel" role="dialog" aria-label="Перевод">
+    <section class="transfer-panel bets-dock" role="dialog" aria-label="Перевод">
       <div class="transfer-head"><strong>Перевод</strong><span class="transfer-to" id="transfer-to"></span><button type="button" class="transfer-change" id="transfer-change">Изменить</button></div>
       <div class="row bet-row">
         <button type="button" class="action step-btn" id="transfer-half" aria-label="Уменьшить вдвое">÷2</button>
