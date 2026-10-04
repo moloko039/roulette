@@ -1,3 +1,4 @@
+import contextvars
 import json
 import logging
 import os
@@ -32,8 +33,32 @@ def _resolve_path(db_path):
     return path
 
 
+# Замеры времени базы: middleware запроса кладёт сюда словарь {"begin": секунды, "commit": секунды}, а
+# соединение прибавляет время BEGIN (ожидание блокировки записи) и COMMIT. Вне запроса (бот, фоновые задачи)
+# значения нет, замеров нет. Словарь изменяемый, поэтому значения видны и из потоков, где идёт работа с базой.
+request_timing = contextvars.ContextVar("request_timing", default=None)
+
+
+class TimedConnection(sqlite3.Connection):
+    """Обычное соединение, которое измеряет только BEGIN и COMMIT (поведение запросов не меняется)."""
+
+    def execute(self, sql, *args):
+        timing = request_timing.get()
+        if timing is None:
+            return super().execute(sql, *args)
+        head = sql.lstrip()[:6].upper()
+        key = "begin" if head == "BEGIN" or head.startswith("BEGIN") else "commit" if head == "COMMIT" else None
+        if key is None:
+            return super().execute(sql, *args)
+        started = time.perf_counter()
+        try:
+            return super().execute(sql, *args)
+        finally:
+            timing[key] += time.perf_counter() - started
+
+
 def _connect(db_path):
-    conn = sqlite3.connect(_resolve_path(db_path))
+    conn = sqlite3.connect(_resolve_path(db_path), factory=TimedConnection)
     conn.row_factory = sqlite3.Row
     # транзакциями управляем вручную (BEGIN IMMEDIATE), а не автоматически
     conn.isolation_level = None
