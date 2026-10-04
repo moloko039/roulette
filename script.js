@@ -795,7 +795,8 @@ let srvLastFailed = false;
 let srvFetchTimer = null;       // отложенный запрос (ноль таймера или автоповтор после ошибки)
 
 // данные нужны, только пока открыт экран рулетки или «Профиль»
-const srvWanted = () => activeTab === 'profile' || activeTab === 'farm' || (activeTab === 'play' && currentGame === 'roulette');
+const srvWanted = () => activeTab === 'profile' || activeTab === 'farm'
+  || (activeTab === 'play' && (currentGame === 'roulette' || currentGame === 'mines'));
 
 function renderProfile() {
   renderProfileIdentity();
@@ -1463,6 +1464,508 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadFarm('visible');
 });
 
+// ---------- игра «Мины» ----------
+// Состояние игры только с сервера: клиент не знает раскладку мин до конца игры и не пытается её угадать.
+// Ответы с mine_cells нигде не сохраняются и не пишутся в консоль. Настройки (ставка, число мин) живут в памяти.
+// Каждое действие пользователя получает новый request_id; все повторы действия идут с тем же (postJson).
+const MINES_BET_MAX = 1000000000;
+const MINES_COUNT_MIN = 1;
+const MINES_COUNT_MAX = 24;
+const MINES_CELLS = 25;
+const MINES_GEM_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>';
+const MINES_MINE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>';
+
+const minesEls = {
+  balance: document.getElementById('mines-balance'),
+  switchBtn: document.getElementById('mines-switch'),
+  inplay: document.getElementById('mines-inplay'),
+  notice: document.getElementById('mines-notice'),
+  skel: document.getElementById('mines-skel'),
+  msg: document.getElementById('mines-msg'),
+  code: document.getElementById('mines-code'),
+  retry: document.getElementById('mines-retry'),
+  form: document.getElementById('mines-start'),
+  bet: document.getElementById('mines-bet'),
+  maxBtn: document.getElementById('mines-max'),
+  minus: document.getElementById('mines-minus'),
+  plus: document.getElementById('mines-plus'),
+  count: document.getElementById('mines-count'),
+  begin: document.getElementById('mines-begin'),
+  boardWrap: document.getElementById('mines-board-wrap'),
+  grid: document.getElementById('mines-grid'),
+  panel: document.getElementById('mines-panel'),
+  mult: document.getElementById('mines-mult'),
+  now: document.getElementById('mines-now'),
+  next: document.getElementById('mines-next'),
+  left: document.getElementById('mines-left'),
+  cash: document.getElementById('mines-cash'),
+  expiry: document.getElementById('mines-expiry'),
+  result: document.getElementById('mines-result'),
+  resultTitle: document.getElementById('mines-result-title'),
+  resultDetail: document.getElementById('mines-result-detail'),
+  again: document.getElementById('mines-again'),
+  last: document.getElementById('mines-last')
+};
+
+const mn = {
+  view: 'loading',      // 'loading' | 'start' | 'play' | 'result'
+  loaded: false,
+  error: false,
+  game: null,
+  last: null,
+  balance: null,
+  busy: false,          // идёт действие: поле и кнопки заблокированы
+  hit: null,            // клетка, на которой сработала мина (только в этой сессии)
+  showLast: true,       // показывать блок прошлой игры под формой
+  settings: { bet: 10, mines: 3 },
+  seen: new Set(),      // завершённые игры, о которых пользователь уже знает (в этой сессии)
+  inFlight: false,
+  lastRequestAt: -Infinity,
+  timer: null
+};
+
+const minesCells = [];
+for (let i = 0; i < MINES_CELLS; i++) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mines-cell';
+  btn.setAttribute('aria-label', 'Клетка ' + (i + 1));
+  btn.addEventListener('click', () => minesReveal(i));
+  minesEls.grid.appendChild(btn);
+  minesCells.push(btn);
+}
+
+// число одним текстом: сокращение от миллиона, полное значение в title и по нажатию (не в кнопках)
+function setNumberLabel(el, prefix, n, suffix = '') {
+  const full = prefix + formatNumber(n) + suffix;
+  const short = prefix + formatCompact(n) + suffix;
+  el.textContent = short;
+  el.title = full;
+  el.dataset.short = short;
+  el.dataset.full = full;
+  el.classList.toggle('num-tap', short !== full);
+}
+
+// то же для кнопок: без нажатия-раскрытия, чтобы случайно не нажать «Забрать»
+function setButtonLabel(el, prefix, n) {
+  el.textContent = prefix + formatCompact(n);
+  el.title = prefix + formatNumber(n);
+}
+
+const minesKey = (last) => last.status + ':' + last.finished_at;
+
+function validMinesGame(g) {
+  return !!g && typeof g === 'object' && isCount(g.bet) && isCount(g.mines) && Array.isArray(g.revealed)
+    && g.revealed.every((c) => isCount(c) && c < MINES_CELLS) && isCount(g.safe_left)
+    && typeof g.multiplier === 'string' && isCount(g.payout_now)
+    && (g.next_multiplier === null || typeof g.next_multiplier === 'string')
+    && (g.next_payout === null || isCount(g.next_payout)) && isCount(g.expires_at);
+}
+
+function validMinesLast(l) {
+  return !!l && typeof l === 'object' && typeof l.status === 'string' && isCount(l.bet) && isCount(l.mines)
+    && Array.isArray(l.revealed) && Array.isArray(l.mine_cells) && l.mine_cells.every((c) => isCount(c) && c < MINES_CELLS)
+    && isCount(l.payout) && (l.finished_at === null || isCount(l.finished_at));
+}
+
+const validMinesState = (d) => !!d && typeof d === 'object' && isCount(d.balance)
+  && (d.game === null || validMinesGame(d.game)) && (d.last === null || validMinesLast(d.last));
+
+// ---------- отрисовка ----------
+function setMinesMessage(text, code, canRetry) {
+  minesEls.msg.textContent = text;
+  minesEls.code.textContent = code ? 'код: ' + code : '';
+  minesEls.retry.hidden = !canRetry;
+}
+
+function setMinesNotice(text) {
+  minesEls.notice.textContent = text;
+}
+
+function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
+  const open = new Set(revealed);
+  const bombs = new Set(mineCells);
+  minesEls.boardWrap.classList.toggle('locked', mn.busy);
+  minesCells.forEach((btn, i) => {
+    let cls = 'mines-cell';
+    let html = '';
+    if (open.has(i)) {
+      cls += ' safe';
+      html = MINES_GEM_SVG;
+    } else if (bombs.has(i)) {
+      cls += ' mine' + (muted ? ' muted' : '') + (i === hit ? ' hit' : '');
+      html = MINES_MINE_SVG;
+    }
+    btn.className = cls;
+    btn.innerHTML = html; // постоянная разметка значков, данных сервера в ней нет
+    btn.disabled = !interactive || mn.busy || open.has(i) || bombs.has(i);
+  });
+}
+
+function renderMinesPlay() {
+  const g = mn.game;
+  renderMinesBoard(g.revealed, [], false, null, true);
+  minesEls.mult.textContent = '×' + g.multiplier;       // множитель строкой с сервера как есть
+  setNumberLabel(minesEls.now, '', g.payout_now);
+  minesEls.next.textContent = '';
+  if (g.next_multiplier !== null && g.next_payout !== null) {
+    setNumberLabel(minesEls.next, `Следующая клетка: ×${g.next_multiplier} (`, g.next_payout, ')');
+  }
+  minesEls.left.textContent = 'Осталось безопасных клеток: ' + g.safe_left;
+  if (g.revealed.length === 0) {
+    minesEls.cash.textContent = 'Вернуть ставку';
+    minesEls.cash.title = '';
+  } else {
+    setButtonLabel(minesEls.cash, 'Забрать ', g.payout_now);
+  }
+  minesEls.cash.disabled = mn.busy;
+  const hours = Math.max(1, Math.ceil((g.expires_at - Date.now() / 1000) / 3600));
+  minesEls.expiry.textContent = `Игра закроется автоматически через ${hours} ч без действий`;
+}
+
+function renderMinesResult() {
+  const l = mn.last;
+  const lost = l.status === 'lost';
+  renderMinesBoard(l.revealed, l.mine_cells, !lost, mn.hit, false);
+  const refundedGame = l.status === 'refunded' || l.status === 'auto_refunded';
+  minesEls.result.classList.toggle('win', !lost && !refundedGame);
+  minesEls.result.classList.toggle('lose', lost);
+  minesEls.resultDetail.textContent = '';
+  if (lost) {
+    setNumberLabel(minesEls.resultTitle, 'Мина! Потеряно ', l.bet);
+  } else if (refundedGame) {
+    minesEls.resultTitle.textContent = 'Ставка возвращена';
+    minesEls.resultTitle.classList.remove('num-tap');
+    minesEls.resultTitle.title = '';
+  } else {
+    setNumberLabel(minesEls.resultTitle, 'Выигрыш ', l.payout);
+    const profit = l.payout - l.bet;
+    if (profit > 0) setNumberLabel(minesEls.resultDetail, 'Чистая прибыль: ', profit);
+    else minesEls.resultDetail.textContent = 'Чистая прибыль: 0';
+  }
+  minesEls.again.disabled = mn.busy;
+}
+
+function renderMinesForm() {
+  minesEls.bet.value = String(mn.settings.bet);
+  minesEls.count.textContent = String(mn.settings.mines);
+  minesEls.form.querySelectorAll('[data-bet]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.bet) === mn.settings.bet));
+  });
+  minesEls.form.querySelectorAll('[data-mines]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.mines) === mn.settings.mines));
+  });
+  minesEls.form.querySelectorAll('button, input').forEach((el) => { el.disabled = mn.busy; });
+  minesEls.last.hidden = true;
+  const l = mn.last;
+  if (mn.showLast && l) {
+    minesEls.last.hidden = false;
+    if (l.status === 'lost') setNumberLabel(minesEls.last, 'Прошлая игра: мина, потеряно ', l.bet);
+    else if (l.status === 'refunded' || l.status === 'auto_refunded') minesEls.last.textContent = 'Прошлая игра: ставка возвращена';
+    else setNumberLabel(minesEls.last, 'Прошлая игра: выигрыш ', l.payout);
+  }
+}
+
+function renderMines() {
+  const loading = mn.view === 'loading';
+  minesEls.skel.hidden = !(loading && !mn.error);
+  minesEls.form.hidden = mn.view !== 'start';
+  minesEls.boardWrap.hidden = !(mn.view === 'play' || mn.view === 'result');
+  minesEls.panel.hidden = mn.view !== 'play';
+  minesEls.result.hidden = mn.view !== 'result';
+  minesEls.last.hidden = true;
+  minesEls.switchBtn.disabled = mn.busy;
+  if (mn.balance !== null) {
+    minesEls.balance.classList.remove('skeleton');
+    minesEls.balance.textContent = spacedNumber(mn.balance);
+    fitNumberFont(minesEls.balance, minesEls.balance.textContent.length);
+  }
+  const inGame = mn.game !== null && mn.view === 'play';
+  minesEls.inplay.hidden = !inGame;
+  if (inGame) setNumberLabel(minesEls.inplay, 'В игре: ', mn.game.bet);
+  if (mn.view === 'play') renderMinesPlay();
+  else if (mn.view === 'result') renderMinesResult();
+  else if (mn.view === 'start') renderMinesForm();
+}
+
+// Применяет состояние с сервера: определяет, что показывать
+function applyMinesState(d, announce) {
+  mn.loaded = true;
+  mn.error = false;
+  mn.balance = d.balance;
+  mn.game = d.game;
+  mn.last = d.last;
+  setMinesMessage('', '', false);
+  if (d.game !== null) {
+    mn.view = 'play';
+  } else if (mn.view === 'result' && d.last !== null) {
+    // итог только что закончившейся игры остаётся, пока игрок не нажмёт «Играть снова»
+  } else {
+    mn.view = 'start';
+    mn.showLast = true;
+  }
+  // автоматически закрытая игра: сообщаем один раз за сессию
+  const l = d.last;
+  if (announce && d.game === null && l && (l.status === 'auto_cashed' || l.status === 'auto_refunded') && !mn.seen.has(minesKey(l))) {
+    setMinesNotice(l.status === 'auto_cashed'
+      ? 'Игра закрылась автоматически: выплата ' + formatCompact(l.payout)
+      : 'Игра закрылась автоматически: ставка возвращена');
+  }
+  if (l) mn.seen.add(minesKey(l));
+  renderMines();
+}
+
+// ---------- запросы ----------
+async function fetchMinesState() {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/mines/state', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + tg.initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
+    }
+    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
+    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
+    const d = await res.json();
+    if (!validMinesState(d)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
+    return d;
+  } catch (e) {
+    if (e && typeof e.text === 'string') throw e;
+    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
+async function loadMines(reason) {
+  if (mn.inFlight || mn.busy || activeTab !== 'play' || currentGame !== 'mines') return;
+  const now = performance.now();
+  const sinceLast = now - mn.lastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') {
+      clearTimeout(mn.timer);
+      mn.timer = setTimeout(() => loadMines('manual'), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
+  if (!(tg && tg.initData)) {
+    // вне Telegram запросы не отправляются
+    mn.view = 'loading';
+    mn.error = true;
+    setMinesMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    renderMines();
+    return;
+  }
+  clearTimeout(mn.timer);
+  mn.inFlight = true;
+  mn.lastRequestAt = now;
+  if (!mn.loaded) {
+    mn.error = false;
+    setMinesMessage('', '', false);
+    renderMines();
+  }
+  try {
+    applyMinesState(await fetchMinesState(), true);
+  } catch (e) {
+    if (mn.loaded) {
+      setMinesNotice(e.text);   // уже есть данные: оставляем экран, сообщаем о сбое
+    } else {
+      mn.error = true;
+      setMinesMessage(e.text, e.code, e.retry);
+      renderMines();
+    }
+  } finally {
+    mn.inFlight = false;
+  }
+}
+
+// Один POST действия. { kind: 'ok', data } | { kind: 'conflict', detail } | { kind: 'fatal', text } | { kind: 'retry', code }
+async function postMinesOnce(path, payload, validate) {
+  try {
+    const res = await postJson(path, payload);
+    if (res.status === 401) {
+      return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
+    }
+    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры' };
+    if (res.status === 409) {
+      let body = {};
+      try { body = await res.json(); } catch (e) { body = {}; }
+      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
+    }
+    if (!res.ok) return { kind: 'retry', code: String(res.status) };
+    const d = await res.json();
+    return validate(d) ? { kind: 'ok', data: d } : { kind: 'retry', code: 'ответ' };
+  } catch (e) {
+    return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
+  }
+}
+
+const validMinesStart = (d) => !!d && validMinesGame(d.game) && isCount(d.balance);
+const validMinesReveal = (d) => !!d && ['safe', 'mine', 'cleared'].includes(d.result) && isCount(d.balance)
+  && (d.game === null || validMinesGame(d.game)) && (d.last === null || validMinesLast(d.last))
+  && (d.result === 'safe' ? d.game !== null : d.last !== null);
+const validMinesCashout = (d) => !!d && validMinesLast(d.last) && isCount(d.balance);
+
+// Действие пользователя: блокировка, до 3 попыток с одним request_id, разбор ответа.
+// Если после повторов результата нет, ничего не угадываем: запрашиваем реальное состояние
+async function minesAct(path, body, validate, onOk) {
+  if (mn.busy) return;
+  if (!(tg && tg.initData)) {
+    setMinesNotice('Откройте игру через бота в Telegram');
+    return;
+  }
+  const id = makeRequestId();
+  if (!id) {
+    setMinesNotice('Ошибка');
+    return;
+  }
+  mn.busy = true;
+  setMinesNotice('');
+  renderMines();
+  let result = null;
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await postMinesOnce(path, { request_id: id, ...body }, validate);
+    if (r.kind !== 'retry') result = r;
+  }
+  if (result && result.kind === 'ok') {
+    mn.balance = result.data.balance;
+    onOk(result.data);
+    mn.busy = false;
+    renderMines();
+    return;
+  }
+  // дальше состояние известно только серверу
+  let reload = true;
+  let note = 'Состояние обновлено';
+  if (result && result.kind === 'fatal') {
+    note = result.text;
+    reload = false;
+  } else if (result && result.kind === 'conflict' && result.detail === 'insufficient_funds') {
+    note = 'Не хватает фишек';
+  } else if (result && result.kind === 'conflict' && result.detail === 'active_game_exists') {
+    note = 'У вас уже есть начатая игра';
+  }
+  if (reload) {
+    try {
+      applyMinesState(await fetchMinesState(), false);
+      setMinesNotice(note);
+    } catch (e) {
+      setMinesNotice('Нет связи. Состояние игры неизвестно, обновите экран');
+    }
+  } else {
+    setMinesNotice(note);
+  }
+  mn.busy = false;
+  renderMines();
+  loadServer('after');
+}
+
+// ---------- действия ----------
+function minesStart() {
+  const bet = Number(minesEls.bet.value);
+  if (!Number.isSafeInteger(bet) || bet < 1 || bet > MINES_BET_MAX) {
+    setMinesNotice('Введите целую ставку от 1 до ' + formatNumber(MINES_BET_MAX));
+    return;
+  }
+  if (mn.balance !== null && bet > mn.balance) {
+    setMinesNotice('Не хватает фишек');
+    return;
+  }
+  mn.settings.bet = bet;
+  minesAct('/api/mines/start', { bet, mines: mn.settings.mines }, validMinesStart, (d) => {
+    mn.game = d.game;
+    mn.view = 'play';
+    mn.hit = null;
+    mn.showLast = false;
+    haptic('light');
+  });
+}
+
+function minesReveal(cell) {
+  if (mn.view !== 'play' || mn.busy) return;
+  minesAct('/api/mines/reveal', { cell }, validMinesReveal, (d) => {
+    if (d.result === 'safe') {
+      mn.game = d.game;
+      haptic('light');
+      return;
+    }
+    mn.game = null;
+    mn.last = d.last;
+    mn.seen.add(minesKey(d.last));
+    mn.view = 'result';
+    mn.hit = d.result === 'mine' ? cell : null;
+    haptic(d.result === 'mine' ? 'error' : 'success');
+    loadServer('after');
+  });
+}
+
+function minesCashout() {
+  if (mn.view !== 'play' || mn.busy) return;
+  minesAct('/api/mines/cashout', {}, validMinesCashout, (d) => {
+    mn.game = null;
+    mn.last = d.last;
+    mn.seen.add(minesKey(d.last));
+    mn.view = 'result';
+    mn.hit = null;
+    haptic('success');
+    loadServer('after');
+  });
+}
+
+function setMinesCount(n) {
+  mn.settings.mines = Math.min(MINES_COUNT_MAX, Math.max(MINES_COUNT_MIN, n));
+  renderMinesForm();
+}
+
+minesEls.begin.addEventListener('click', minesStart);
+minesEls.cash.addEventListener('click', minesCashout);
+minesEls.again.addEventListener('click', () => {
+  mn.view = 'start';
+  mn.showLast = false;
+  mn.hit = null;
+  setMinesNotice('');
+  renderMines();
+});
+minesEls.minus.addEventListener('click', () => setMinesCount(mn.settings.mines - 1));
+minesEls.plus.addEventListener('click', () => setMinesCount(mn.settings.mines + 1));
+minesEls.form.querySelectorAll('[data-bet]').forEach((b) => b.addEventListener('click', () => {
+  mn.settings.bet = Number(b.dataset.bet);
+  renderMinesForm();
+  haptic('light');
+}));
+minesEls.form.querySelectorAll('[data-mines]').forEach((b) => b.addEventListener('click', () => {
+  setMinesCount(Number(b.dataset.mines));
+  haptic('light');
+}));
+minesEls.maxBtn.addEventListener('click', () => {
+  // «Макс» = меньшее из баланса и технического предела (окончательно решает сервер)
+  const cap = mn.balance === null ? MINES_BET_MAX : Math.min(mn.balance, MINES_BET_MAX);
+  mn.settings.bet = Math.max(1, cap);
+  renderMinesForm();
+});
+minesEls.bet.addEventListener('input', () => {
+  const v = Number(minesEls.bet.value);
+  if (Number.isSafeInteger(v) && v >= 1) {
+    mn.settings.bet = v;
+    minesEls.form.querySelectorAll('[data-bet]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.bet) === v));
+    });
+  }
+});
+minesEls.retry.addEventListener('click', () => loadMines('manual'));
+minesEls.switchBtn.addEventListener('click', toggleGameMenu);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadMines('visible');
+});
+
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
 // Для ready: false экран-заглушка «Скоро» создаётся автоматически.
 // Иконка — вложенный SVG (24×24, контур)
@@ -1470,7 +1973,7 @@ const GAMES = [
   { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
   { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', ready: false, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
   { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', ready: false, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
-  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: false, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
+  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
   { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', ready: false, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' }
 ];
 const START_GAME = 'roulette';
@@ -1507,6 +2010,7 @@ function showTab(id) {
   if (started && (screen === 'profile' || screen === 'roulette')) loadServer('open');
   if (started && screen === 'rating') loadRating('open');
   if (started && screen === 'farm') loadFarm('open');
+  if (started && screen === 'mines') loadMines('open');
   navEl.querySelectorAll('.tab').forEach((btn) => {
     if (btn.dataset.tab === id) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
@@ -1548,8 +2052,9 @@ function toggleGameMenu() {
 function selectGame(id) {
   currentGame = id;
   navEl.querySelector('.tab.main svg').outerHTML = iconSvg(getGame(id).icon);
-  document.getElementById('game-switch-icon').innerHTML = iconSvg(getGame(id).icon); // постоянная разметка из реестра
-  document.getElementById('game-switch-name').textContent = getGame(id).label;
+  // кнопка смены игры есть в шапке рулетки и в шапке мин; разметка иконки постоянная, из реестра
+  document.querySelectorAll('.switch-icon').forEach((el) => { el.innerHTML = iconSvg(getGame(id).icon); });
+  document.querySelectorAll('.switch-name').forEach((el) => { el.textContent = getGame(id).label; });
   gamePanel.querySelectorAll('.tile').forEach((t) => {
     t.setAttribute('aria-current', String(t.dataset.game === id));
   });

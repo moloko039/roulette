@@ -18,8 +18,8 @@
         <strong id="balance">Загрузка…</strong>
       </div>
       <button type="button" class="game-switch" id="game-switch" aria-label="Сменить игру">
-        <span id="game-switch-icon" aria-hidden="true"></span>
-        <span id="game-switch-name">Рулетка</span>
+        <span id="game-switch-icon" class="switch-icon" aria-hidden="true"></span>
+        <span id="game-switch-name" class="switch-name">Рулетка</span>
         <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
     </header>
@@ -93,6 +93,73 @@
     <p class="profile-msg" id="farm-msg"></p>
     <small class="profile-code" id="farm-code"></small>
     <button type="button" class="action profile-retry" id="farm-retry" hidden>Повторить</button>
+  </section>
+  <section class="screen mines" data-screen="mines" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="mines-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="mines-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Мины</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <div class="mines-inplay" id="mines-inplay" hidden></div>
+    <p class="mines-notice" id="mines-notice" aria-live="polite"></p>
+    <div class="skeleton-card" id="mines-skel" hidden aria-hidden="true">
+      <div class="skeleton tall"></div><div class="skeleton"></div>
+    </div>
+    <p class="profile-msg" id="mines-msg"></p>
+    <small class="profile-code" id="mines-code"></small>
+    <button type="button" class="action profile-retry" id="mines-retry" hidden>Повторить</button>
+
+    <form class="mines-start" id="mines-start" hidden onsubmit="return false">
+      <label class="mines-label" for="mines-bet">Ставка</label>
+      <div class="row">
+        <button type="button" class="chip" data-bet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-bet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-bet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-bet="500" aria-pressed="false">500</button>
+        <button type="button" class="action mines-max" id="mines-max">Макс</button>
+      </div>
+      <input id="mines-bet" type="number" inputmode="numeric" min="1" max="1000000000" step="1" value="10" aria-label="Сумма ставки">
+      <div class="mines-label" id="mines-count-label">Число мин</div>
+      <div class="mines-count-row">
+        <button type="button" class="action mines-step" id="mines-minus" aria-label="Меньше мин">−</button>
+        <output class="mines-count" id="mines-count" for="mines-minus mines-plus" aria-labelledby="mines-count-label">3</output>
+        <button type="button" class="action mines-step" id="mines-plus" aria-label="Больше мин">+</button>
+      </div>
+      <div class="row mines-quick">
+        <button type="button" class="chip" data-mines="1" aria-pressed="false">1</button>
+        <button type="button" class="chip" data-mines="3" aria-pressed="false">3</button>
+        <button type="button" class="chip" data-mines="5" aria-pressed="false">5</button>
+        <button type="button" class="chip" data-mines="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-mines="24" aria-pressed="false">24</button>
+      </div>
+      <button type="button" class="mines-primary" id="mines-begin">Начать</button>
+    </form>
+
+    <div class="mines-board" id="mines-board-wrap" hidden>
+      <div class="mines-grid" id="mines-grid" role="group" aria-label="Поле 5 на 5"></div>
+    </div>
+
+    <div class="mines-panel" id="mines-panel" hidden>
+      <div class="mines-stat"><span class="stat-label">Множитель</span><strong class="num" id="mines-mult"></strong></div>
+      <div class="mines-stat"><span class="stat-label">Выигрыш сейчас</span><strong class="num" id="mines-now"></strong></div>
+      <div class="mines-line" id="mines-next"></div>
+      <div class="mines-line" id="mines-left"></div>
+      <button type="button" class="mines-primary" id="mines-cash"></button>
+      <small class="mines-expiry" id="mines-expiry"></small>
+    </div>
+
+    <div class="mines-result" id="mines-result" hidden>
+      <strong class="mines-result-title" id="mines-result-title"></strong>
+      <span class="mines-result-detail" id="mines-result-detail"></span>
+      <button type="button" class="mines-primary" id="mines-again">Играть снова</button>
+    </div>
+    <div class="mines-last" id="mines-last" hidden></div>
   </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
