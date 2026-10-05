@@ -103,6 +103,9 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM hilo_actions WHERE rowid IN "
                 "(SELECT rowid FROM hilo_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "cosmetic_actions" in present:  # только журнал действий (идемпотентность); предметы и надетое не чистятся
+            batches("DELETE FROM cosmetic_actions WHERE rowid IN "
+                    "(SELECT rowid FROM cosmetic_actions WHERE created_at < ? LIMIT ?)", (now - rounds_days * 86400, batch))
         if "transfers" in present:  # тот же срок хранения, что у раундов
             deleted["transfers"] = batches(
                 "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",

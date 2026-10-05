@@ -29,7 +29,20 @@
       "min_staked": 20000,
       "unlimited": false
     },
-    "active_game": null
+    "active_game": null,
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   },
   "active_mines": {
     "balance": 900,
@@ -60,7 +73,20 @@
       "min_staked": 20000,
       "unlimited": false
     },
-    "active_game": "mines"
+    "active_game": "mines",
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   },
   "active_blackjack": {
     "balance": 900,
@@ -91,7 +117,20 @@
       "min_staked": 20000,
       "unlimited": false
     },
-    "active_game": "blackjack"
+    "active_game": "blackjack",
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   },
   "active_crash": {
     "balance": 900,
@@ -122,7 +161,20 @@
       "min_staked": 20000,
       "unlimited": false
     },
-    "active_game": "crash"
+    "active_game": "crash",
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   },
   "incoming_transfer": {
     "balance": 1000,
@@ -153,7 +205,20 @@
       "min_staked": 20000,
       "unlimited": false
     },
-    "active_game": null
+    "active_game": null,
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   },
   "owner": {
     "balance": 1000,
@@ -184,6 +249,19 @@
       "min_staked": 20000,
       "unlimited": true
     },
-    "active_game": null
+    "active_game": null,
+    "cosmetics": {
+      "equipped": {
+        "card_back": "back_classic",
+        "chip": "chip_plain",
+        "table": "table_green",
+        "mine_icons": "mine_classic",
+        "keno_ball": "keno_round",
+        "crash": "crash_line",
+        "avatar_frame": "frame_plain",
+        "badge": "badge_none"
+      },
+      "show_in_rating": true
+    }
   }
 }

@@ -305,6 +305,51 @@ def init_db(db_path=None):
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transfers_sender ON transfers(sender, created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_transfers_recipient ON transfers(recipient, created_at)")
+        # косметика (bot/cosmetics.py): принадлежность, надетое по слотам, настройка показа в рейтинге, идемпотентность действий.
+        # Стартовые предметы строками не хранятся. Игровой код эти таблицы не читает.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cosmetic_items (
+                telegram_id INTEGER NOT NULL,
+                item_code   TEXT    NOT NULL,
+                source      TEXT    NOT NULL,
+                payment_ref TEXT,
+                acquired_at INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, item_code)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cosmetic_equipped (
+                telegram_id INTEGER NOT NULL,
+                slot        TEXT    NOT NULL,
+                item_code   TEXT    NOT NULL,
+                PRIMARY KEY (telegram_id, slot)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cosmetic_prefs (
+                telegram_id    INTEGER PRIMARY KEY,
+                show_in_rating INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cosmetic_actions (
+                telegram_id   INTEGER NOT NULL,
+                request_id    TEXT    NOT NULL,
+                action        TEXT    NOT NULL,
+                params        TEXT    NOT NULL,
+                response_json TEXT    NOT NULL,
+                created_at    INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+        )
         # служебные отметки (время последних уведомлений владельцу); личных данных здесь нет
         conn.execute(
             """

@@ -3,6 +3,7 @@
 import unicodedata
 import time
 
+import cosmetics
 import transfers
 from levels import profile_level
 from roulette import MAX_SAFE_INT
@@ -69,6 +70,30 @@ def touch_chat_member(chat_instance, telegram_id, first_name, now=None, db_path=
     return changed
 
 
+def _public_cosmetics(db_path, ids):
+    """{telegram_id: {slot: код}} только для публичных слотов (cosmetics.PUBLIC_SLOTS), только надетых не стартовых предметов
+    и только у игроков, не скрывших показ в рейтинге. Остальные слоты других игроков не отдаются никогда."""
+    if not ids:
+        return {}
+    conn = _connect(db_path)
+    try:
+        marks = ",".join("?" * len(ids))
+        slots = ",".join("?" * len(cosmetics.PUBLIC_SLOTS))
+        rows = conn.execute(
+            "SELECT e.telegram_id, e.slot, e.item_code FROM cosmetic_equipped e "
+            "LEFT JOIN cosmetic_prefs p ON p.telegram_id = e.telegram_id "
+            "WHERE e.telegram_id IN (" + marks + ") AND e.slot IN (" + slots + ") AND COALESCE(p.show_in_rating, 1) = 1",
+            list(ids) + list(cosmetics.PUBLIC_SLOTS)).fetchall()
+    finally:
+        conn.close()
+    out = {}
+    for r in rows:
+        it = cosmetics.item(r["item_code"])
+        if it is not None and it["slot"] == r["slot"] and not it["starter"]:
+            out.setdefault(r["telegram_id"], {})[r["slot"]] = r["item_code"]
+    return out
+
+
 def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     """Рейтинг беседы: до 10 лучших и позиция вызвавшего.
 
@@ -109,8 +134,10 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
                         r["total_staked"], r["xp"]))
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
+    shown = _public_cosmetics(db_path, [e[2] for e in entries[:TOP_SIZE]])
     top = [
         {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4],
+         "cosmetics": shown.get(e[2], {}),   # только публичные слоты (рамка, значок), если надеты и игрок их не скрыл
          "level": profile_level(e[5]),   # уровень по опыту, поле staked остаётся информацией
          # непрозрачная метка для перевода (HMAC беседы и игрока); у самого себя нет
          "member_ref": None if e[2] == telegram_id else transfers.member_ref(chat_instance, e[2])}

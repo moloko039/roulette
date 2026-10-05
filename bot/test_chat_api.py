@@ -64,7 +64,7 @@ try:
 
     # ---------- /api/me записывает участника только из групп ----------
     r = me(1, chat_type="group", first_name="Аня")
-    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits"})
+    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits", "cosmetics"})
     me(2, chat_type="supergroup", first_name="Боря")
     me(3, chat_type="private")
     me(4, chat_type="sender")
@@ -92,7 +92,7 @@ try:
     # ошибка записи не ломает /api/me
     with mock.patch("api.touch_chat_member", side_effect=RuntimeError("boom")):
         r = me(1, chat_type="group")
-    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits"}))
+    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits", "cosmetics"}))
 
     # ---------- /api/chat/top: нет беседы ----------
     for kw in [{"chat_type": "private"}, {"chat_type": "sender"}, {"chat_type": "channel"},
@@ -175,7 +175,7 @@ try:
     for secret in ["987654321", "987654322", "chat-secret-77", "secret_user", "username", "telegram_id", "chat_instance"]:
         assert secret not in raw, "в ответе есть " + secret
     body = r.json()
-    check("поля записи", sorted(body["top"][0]), ["balance", "is_me", "level", "member_ref", "name", "rank", "staked"])
+    check("поля записи", sorted(body["top"][0]), ["balance", "cosmetics", "is_me", "level", "member_ref", "name", "rank", "staked"])
     check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])
     check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "top"])
 

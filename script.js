@@ -51,8 +51,8 @@ const RED_NUMBERS = new Set([
   1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
 ]);
 
-// цвета секторов колеса: те же, что у токенов --red, --surface-2, --green в style.css
-const COLOR_HEX = { red: '#B3262B', black: '#17171B', green: '#1E9E4A' };
+// цвета секторов колеса задают CSS-переменные стола (--table-red, --table-black, --table-green в style.css); читаются при отрисовке (см. wheelPalette)
+const WHEEL_SECTOR_VAR = { red: '--table-red', black: '--table-black', green: '--table-green' };
 
 // числа с разделителем тысяч («1 300»); если Intl недоступен, без него
 const formatNumber = (() => {
@@ -150,12 +150,15 @@ const isCount = (v) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 
 
 const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-const BJ_SUIT_SVG = {
-  S: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3.2 4.2 8 6.7 8 11.2a4.4 4.4 0 0 1-7.1 3.4c.2 2.3 1 3.8 2.3 5.4H8.8c1.3-1.6 2.1-3.1 2.3-5.4A4.4 4.4 0 0 1 4 13.2C4 8.7 8.8 6.2 12 2z"/></svg>',
-  H: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5S3.5 16 3.5 9.8a4.6 4.6 0 0 1 8.5-2.4 4.6 4.6 0 0 1 8.5 2.4C20.5 16 12 21.5 12 21.5z"/></svg>',
-  D: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 10-7 10-7-10z"/></svg>',
-  C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
+const BJ_SUIT_SETS = {
+  default: {
+    S: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3.2 4.2 8 6.7 8 11.2a4.4 4.4 0 0 1-7.1 3.4c.2 2.3 1 3.8 2.3 5.4H8.8c1.3-1.6 2.1-3.1 2.3-5.4A4.4 4.4 0 0 1 4 13.2C4 8.7 8.8 6.2 12 2z"/></svg>',
+    H: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5S3.5 16 3.5 9.8a4.6 4.6 0 0 1 8.5-2.4 4.6 4.6 0 0 1 8.5 2.4C20.5 16 12 21.5 12 21.5z"/></svg>',
+    D: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 10-7 10-7-10z"/></svg>',
+    C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
+  }
 };
+let BJ_SUIT_SVG = BJ_SUIT_SETS.default;      // набор мастей зависит от скина рубашки (applySkins); стартовый набор один
 
 // Тост поверх нижней панели (общий для «Скоро», «Отправлено», «Вам перевели»)
 let toastTimer = null;
@@ -401,6 +404,31 @@ function makeChipBar({ root, attr, getBalance, getBet, setBet }) {
 // баланс, после начисления ядро подтягивает его к серверному (keepBalance() = сейчас не трогать).
 const gameRegistry = [];
 const registerGame = (entry) => { gameRegistry.push(entry); };
+
+// Скины (косметика, только внешний вид): код надетого предмета каждого слота ставится атрибутом data-skin-<слот> на корень
+// (для стартового предмета атрибут тоже есть и равен стартовому коду). CSS-переменные скина переопределяются в style.css внутри
+// [data-skin-<слот>="<код>"]; сами правила читают переменные. Наборы SVG (масти, иконки мин) выбираются по коду, стартовый набор один.
+// Слоты avatar_frame и badge (рамка и значок) здесь не обрабатываются. Источник: cosmetics.equipped из /api/me.
+const SKIN_SLOTS = ['card_back', 'chip', 'table', 'mine_icons', 'keno_ball', 'crash'];
+const SKIN_CODE_RE = /^[a-z0-9_]{1,40}$/;
+function applySkins(equipped) {
+  const root = document.documentElement;
+  const src = equipped && typeof equipped === 'object' ? equipped : {};
+  const before = root.getAttribute('data-skin-table');
+  SKIN_SLOTS.forEach((slot) => {
+    const code = src[slot];
+    if (typeof code === 'string' && SKIN_CODE_RE.test(code)) root.setAttribute('data-skin-' + slot, code);
+    else root.removeAttribute('data-skin-' + slot);
+  });
+  const pick = (sets, code) => (typeof code === 'string' && Object.prototype.hasOwnProperty.call(sets, code) ? sets[code] : sets.default);
+  const suits = pick(BJ_SUIT_SETS, src.card_back);
+  const icons = pick(MINES_ICON_SETS, src.mine_icons);
+  const setsChanged = suits !== BJ_SUIT_SVG || icons !== minesIcons;
+  BJ_SUIT_SVG = suits;
+  minesIcons = icons;
+  if (root.getAttribute('data-skin-table') !== before) drawWheel();       // колесо рисуется в canvas: перерисовка при смене стола
+  if (setsChanged) { renderMines(); renderBj(); renderHl(); }               // наборы SVG вставляются при отрисовке
+}
 
 // #endregion ЯДРО
 
@@ -727,7 +755,19 @@ function getColor(n) {
 
 // Рисуем колесо один раз. Сектор i находится по центру в углу i * SECTOR
 // от верха (по часовой стрелке), поэтому 0 изначально под стрелкой.
+// Палитра колеса из CSS-переменных корня (скин «стол» переопределяет их): читается при каждой отрисовке, колесо рисуется редко.
+function wheelPalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name) => cs.getPropertyValue(name).trim() || 'transparent';
+  return {
+    sector: { red: v(WHEEL_SECTOR_VAR.red), black: v(WHEEL_SECTOR_VAR.black), green: v(WHEEL_SECTOR_VAR.green) },
+    rimA: v('--wheel-rim-a'), rimB: v('--wheel-rim-b'), rimC: v('--wheel-rim-c'), line: v('--wheel-sector-line'),
+    text: v('--wheel-text'), edge: v('--wheel-edge'), hub: v('--wheel-hub'), hubLine: v('--wheel-hub-line')
+  };
+}
+
 function drawWheel() {
+  const pal = wheelPalette();
   const size = canvas.width;
   const cx = size / 2;
   const cy = size / 2;
@@ -739,9 +779,9 @@ function drawWheel() {
 
   // Обод рисуем прямо на колесе: он вращается вместе с ним и везде одинаков
   const rim = ctx.createRadialGradient(cx, cy, radius, cx, cy, outer);
-  rim.addColorStop(0, '#55555B');
-  rim.addColorStop(0.5, '#F5F5F2');
-  rim.addColorStop(1, '#8A8A90');
+  rim.addColorStop(0, pal.rimA);
+  rim.addColorStop(0.5, pal.rimB);
+  rim.addColorStop(1, pal.rimC);
   ctx.beginPath();
   ctx.arc(cx, cy, outer, 0, Math.PI * 2);
   ctx.fillStyle = rim;
@@ -756,9 +796,9 @@ function drawWheel() {
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
     ctx.closePath();
-    ctx.fillStyle = COLOR_HEX[getColor(num)];
+    ctx.fillStyle = pal.sector[getColor(num)];
     ctx.fill();
-    ctx.strokeStyle = 'rgba(245, 245, 242, 0.35)';
+    ctx.strokeStyle = pal.line;
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -766,7 +806,7 @@ function drawWheel() {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(rad(i * SECTOR));
-    ctx.fillStyle = '#F5F5F2';
+    ctx.fillStyle = pal.text;
     ctx.font = 'bold 28px "Playfair Display", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -777,16 +817,16 @@ function drawWheel() {
   // тонкая линия по границе секторов и обода
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = '#050506';
+  ctx.strokeStyle = pal.edge;
   ctx.lineWidth = 3;
   ctx.stroke();
 
   // центр колеса
   ctx.beginPath();
   ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
-  ctx.fillStyle = '#0F0F12';
+  ctx.fillStyle = pal.hub;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(245, 245, 242, 0.5)';
+  ctx.strokeStyle = pal.hubLine;
   ctx.lineWidth = 4;
   ctx.stroke();
 }
@@ -1493,6 +1533,7 @@ async function loadServer(reason) {
     const iu = d.incoming_unseen;
     srv.incomingUnseen = iu && isCount(iu.count) && isCount(iu.total) ? iu : null;
     srv.activeGame = ['mines', 'blackjack', 'crash', 'hilo'].includes(d.active_game) ? d.active_game : null;
+    applySkins(d.cosmetics && d.cosmetics.equipped);       // внешний вид по надетому (только оформление)
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
       && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
@@ -2139,8 +2180,8 @@ const MINES_BET_MAX = 1000000000;
 const MINES_COUNT_MIN = 1;
 const MINES_COUNT_MAX = 24;
 const MINES_CELLS = 25;
-const MINES_GEM_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>';
-const MINES_MINE_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>';
+const MINES_ICON_SETS = { default: { gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>', mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>' } };
+let minesIcons = MINES_ICON_SETS.default;   // набор иконок зависит от скина «значки мин» (applySkins)
 
 const minesEls = {
   balance: document.getElementById('mines-balance'),
@@ -2267,10 +2308,10 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
     let html = '';
     if (open.has(i)) {
       cls += ' safe';
-      html = MINES_GEM_SVG;
+      html = minesIcons.gem;
     } else if (bombs.has(i)) {
       cls += ' mine' + (muted ? ' muted' : '') + (i === hit ? ' hit' : '');
-      html = MINES_MINE_SVG;
+      html = minesIcons.mine;
     }
     if (mn.busy && i === mn.pending && !open.has(i) && !bombs.has(i)) cls += ' opening';
     btn.className = cls;

@@ -40,6 +40,7 @@
 | farm | `{income_per_hour int, per_minute_estimate str, next_tick_in_s int, hours_cap int, accrued_now int}` | всегда: поминутное начисление дохода (ниже) |
 | active_game | str\|null | всегда: `"mines"`, `"blackjack"`, `"crash"`, `"hilo"` (незавершённая игра игрока; если активных несколько, та, где действие было позже) или null |
 | incoming_unseen | `{count int, total int}` | всегда: непросмотренные входящие переводы (число и сумма, которую получатель получил) |
+| cosmetics | `{equipped {слот: код}, show_in_rating bool}` | всегда: косметика (только внешний вид): надетое по всем 8 слотам (стартовый, если ничего не надето) и показ рамки и значка в рейтинге |
 | transfer_limits | `{min int, max int, daily_left int, fee_percent int, min_level int, cooldown_seconds int, min_age_hours int, min_staked int, unlimited bool}` | всегда: лимиты переводов для клиента; у владельца `fee_percent` 0, `unlimited` true, `daily_left` равен 9007199254740991 |
 
 Побочные эффекты: закрывает просроченные игры (мины, блэкджек, краш, хило) игрока, подтягивает поминутное начисление дохода. `active_game` считается после закрытия просроченных игр.
@@ -80,6 +81,7 @@
 
 Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int`, `member_ref str|null` (все всегда; `member_ref` непрозрачная метка участника для перевода, у самого себя null).
 `me`: `rank int`, `balance int`, `total int` (число участников рейтинга), `staked int`, `level int` (все всегда).
+Элемент `top` дополнительно содержит `cosmetics {слот: код}`: только публичные слоты (`avatar_frame`, `badge`), только надетые не стартовые предметы и только если игрок не отключил показ (`show_in_rating`); иначе `{}`. Остальные слоты других игроков не отдаются никогда. Пример: `docs/examples/cosmetics.json` (`rating_entry`).
 
 ## GET /api/farm
 Группа read. 200 (все ключи всегда):
@@ -327,3 +329,24 @@
 Ошибки: 400 `{"detail": "invalid_request"}` (плохой `offset`); 409 `{"detail": "no_chat"}` (приложение открыто вне беседы) или `{"detail": "not_in_chat"}`
 (запрашивающего нет среди участников этой беседы). Примеры: `docs/examples/chat_members.json`.
 
+## Косметика
+Только внешний вид; не влияет на шансы, выплаты, множители, XP, лимиты, ферму и экономику. Каталог в коде (`bot/cosmetics.py`): 8 слотов (`card_back`, `chip`, `table`, `mine_icons`, `keno_ball`, `crash`,
+`avatar_frame`, `badge`), в каждом один стартовый предмет (в базе не хранится: если для слота нет записи, действует стартовый). Предметы не передаются между игроками. Платежей нет: предметы выдаёт владелец командой `/giveitem`
+(источник `owner_gift`); поле `source` (`free`, `owner_gift`, `stars`) и внутренний `payment_ref` зарезервированы под будущую оплату и в API не отдаются. Примеры: `docs/examples/cosmetics.json`.
+
+### GET /api/cosmetics/catalog
+Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price_stars int", "starter bool", "available bool"}]}`.
+Одинаков для всех игроков. `available: false`: предмет в каталоге есть, но надеть его нельзя (`item_unavailable`).
+
+### GET /api/cosmetics/mine
+Группа read. 200: `{"owned": [{"code", "source", "acquired_at"}], "equipped": {слот: код}, "show_in_rating": bool}`. `owned` без стартовых; `equipped` по всем слотам.
+
+### POST /api/cosmetics/equip
+Группа write. Тело: `{"request_id", "slot", "code"}`. 200: `{"slot", "code", "equipped": {слот: код}, "replayed": bool}`. Надеть можно только свой или стартовый предмет и только в его слоте; стартовый предмет равен «снять».
+Ошибки: 400 `invalid_request`; 404 `unknown_item`; 409 `slot_mismatch`, `item_unavailable`, `not_owned`, `request_conflict` (тот же `request_id` с другими параметрами); 429 (не чаще одной смены в секунду на игрока, `Retry-After: 1`, тело `{"error": "too_many_requests"}`, как у общего лимитера).
+
+### POST /api/cosmetics/unequip
+Группа write. Тело: `{"request_id", "slot"}`. 200: `{"slot", "code" (стартовый), "equipped", "replayed"}`. Слот без надетого предмета не ошибка. Ошибки те же (кроме `unknown_item`, `slot_mismatch`, `not_owned`).
+
+### POST /api/cosmetics/visibility
+Группа write. Тело: `{"request_id", "show_in_rating": bool}`. 200: `{"show_in_rating", "replayed"}`. Выключенный показ скрывает рамку и значок игрока в рейтинге беседы. Ошибки: 400, 409 `request_conflict`, 429.

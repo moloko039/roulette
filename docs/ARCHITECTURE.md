@@ -13,17 +13,18 @@
 | `auth.py` | проверка подписи `initData` (HMAC), chat_instance, имя | – |
 | `db.py` | **фасад**: реэкспортирует все имена слоёв ниже (`db.get_player`, `db._connect`, `db.BUSY_TIMEOUT_SECONDS` и т.д.), присваивание константы через фасад доходит до модулей (тесты патчат `db.<имя>`) | core, features, games |
 | `core/` | подключение и журнал SQLite (`db_conn`), схема (`schema`), миграции (`migrations`), ядро (`kernel`: поминутное начисление, регистрация, `_credit_capped`, `_add_xp`), участники бесед (`members`), `get_player` (`players`) | wallet, economy, farm, levels |
-| `features/*_db.py` | переводы, рейтинг и участники (`chat`), ферма, гранты `/grantall`, `/give`, `bot_chats`, `active_game`, экспорт и удаление (`data_rights`), очистка (`purge`) | только core |
+| `features/*_db.py` | косметика (`cosmetics_db`: предметы, надетое, показ в рейтинге, `grant_item`), переводы, рейтинг и участники (`chat`), ферма, гранты `/grantall`, `/give`, `bot_chats`, `active_game`, экспорт и удаление (`data_rights`), очистка (`purge`) | только core |
 | `games/*_db.py`, `games/round_common.py` | БД-слой игр: рулетка, кено, мины, блэкджек, краш, хило (правила остаются в `<игра>.py` в корне `bot/`); общий скелет партии в `round_common.py` | только core |
 | `wallet.py` | единственное место списаний и выплат (`debit`, `credit`, потолок `MAX_SAFE_INT`) | roulette |
 | `economy.py` | стартовый баланс, ставка, поминутное начисление (`accrue_minutes`); `accrue` устаревшая часовая, нужна миграции | – |
 | `farm.py` | улучшения дохода и хранилища (цены, ставки, потолок часов) | levels |
 | `levels.py`, `xp.py` | уровень профиля по опыту; формулы опыта всех игр | правила игр |
 | `roulette.py`, `keno.py`, `mines.py`, `blackjack.py`, `crash.py`, `hilo.py` | чистые правила и математика игр без базы; `MAX_SAFE_INT` в `roulette.py` | – |
+| `cosmetics.py` | каталог косметики (в коде), слоты, источники, ошибки; только внешний вид, игры, wallet, economy и transfers его не импортируют (тест) | – |
 | `transfers.py` | правила и константы переводов, метки участников (`member_ref`) | – |
 | `ratelimit.py` | токен-бакет по (игрок, группа write/read) | – |
 | `antiabuse.py` | защита от повторной регистрации (хэши удалённых) | – |
-| `bot.py` | команды бота, скрытые команды владельца (`/give`, `/grantall`, `/backupnow`), `/mydata`, `/deletemydata`, события групп | db, backup, notify |
+| `bot.py` | команды бота, скрытые команды владельца (`/give`, `/grantall`, `/giveitem`, `/backupnow`), `/mydata`, `/deletemydata`, события групп | db, backup, notify |
 | `backup.py`, `backup_crypto.py`, `backup_send.py`, `backup_keys.py` | копии базы, шифрование публичным ключом, отправка владельцу, генерация ключей | db |
 | `verify_backup.py`, `decrypt_backup.py` | проверка и расшифровка копии на компьютере владельца | backup_crypto |
 | `notify.py` | уведомления владельцу | – |
@@ -74,10 +75,19 @@
 - **Как добавить игру на клиенте:** экран `<section class="screen mines" data-screen="...">` в `index.html`; в `script.js` секция игры: `xEls` (элементы), состояние `x` (`balance`, `view`, `busy`, `inFlight`, `lastRequestAt`, `timer`, `loaded`, `error`)
   и сразу `registerGame({ id, state: x, render: renderX, busy: () => x.busy [|| x.animating] })`; `validXState`/`validXAction` (по `docs/API.md`); `fetchXState` и `loadX` через `fetchGameState` и `loadGameState`;
   `xAct` по образцу блэкджека; фишки через `makeChipBar`; запись в `GAMES` (название, иконка) и строка `if (started && screen === 'x') loadX('open')` в `showTab` (выбор игры: `selectGame`); пример ответа в `docs/examples/`; сценарий в `e2e/scenarios/`, затем `--record-net` для сетевого эталона.
+- **Темизация (скины, косметика):** внешний вид слотов `card_back`, `chip`, `table`, `mine_icons`, `keno_ball`, `crash` задают CSS-переменные в блоке «переменные скинов» `style.css`
+  (`--card-*`, `--chip-*`, `--table-*`, `--wheel-*`, `--mines-*`, `--keno-*`, `--cr-*`; значения по умолчанию = стартовый вид, правила читают только переменные). `applySkins(equipped)` (ядро) ставит на `<html>`
+  атрибуты `data-skin-<слот>` (значение = код надетого предмета, у стартового тоже) после каждого успешного `/api/me` (`cosmetics.equipped`) и при любой смене надетого; слоты `avatar_frame` и `badge` в `applySkins` не обрабатываются.
+  Canvas колеса читает палитру из переменных при каждой отрисовке (`wheelPalette`) и перерисовывается при смене скина стола; наборы SVG (масти `BJ_SUIT_SETS`, иконки мин `MINES_ICON_SETS`) выбираются по коду, пока есть только стартовый набор.
+  **Как добавить скин:** 1) предмет в `bot/cosmetics.py`; 2) в `style.css` блок `[data-skin-<слот>="<код>"] { --переменная: значение; }` на корне (переопределяются только переменные слота); 3) для SVG-слотов набор в `BJ_SUIT_SETS` или `MINES_ICON_SETS` под тем же кодом;
+  4) снимки скина в визуальном эталоне, `skin_vars` и `skin_apply` проходят без правок.
+  **Правила для авторов скинов:** скин не меняет размеры, отступы, раскладку, анимации и логику (только цвет, градиент, форму внутри того же размера, SVG тех же размеров), без внешних ресурсов. Пары, которые нельзя сливать по цвету
+  (различимость не ниже 3:1 по яркости или заметная разница формы): рулетка красное, чёрное, зелёное и подпись числа на секторе; кено `selected`, `drawn`, `hit`, `miss` (у `hit` и `drawn` разное свечение и фон); краш выигрыш и крах
+  (линия, рамка, число) и обычная линия; мины закрытая, открытая (`safe`), мина, взорванная (`hit`) и приглушённая мина; фишка и выбранная фишка; красная и чёрная масть на лице карты, рубашка и лицо карты.
 - Дизайн правит владелец: перед правкой `index.html`, `style.css`, `script.js` читай их текущее состояние.
 
 ## 7. Данные и приватность
-Таблицы: `players` (+`accrual_acc`), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `chat_members`, `bot_chats` (только chat_id групп),
+Таблицы: `players` (+`accrual_acc`), `cosmetic_items`, `cosmetic_equipped`, `cosmetic_prefs`, `cosmetic_actions` (косметика: предметы и надетое хранятся, пока есть профиль, журнал действий 30 дней; удаляются с игроком), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `chat_members`, `bot_chats` (только chat_id групп),
 `deletion_tombstones`, `admin_grants`, `service_meta`. Сроки: раунды и действия 30 дней, участники бесед 90 дней, надгробия 30 дней, копии по `BACKUP_KEEP`.
 Меняется то, что хранится о людях или видят другие игроки: в той же задаче правь `privacy.html` (разделы 2, 4, 5) и дату.
 
@@ -87,7 +97,7 @@
 - **Клиентские e2e** (`e2e/`): настоящий сервер FastAPI во временной базе + headless Chrome по CDP, клиент копируется во временную папку (файлы репозитория не
   меняются). Запуск: `pip install -r bot/requirements.txt -r e2e/requirements.txt`, затем `python e2e/run_e2e.py [сценарий ...] [--repeat N] [--list]` (код 0/1; нет Chrome: пропуск с кодом 0).
   `e2e/harness.py` (CDP, Chrome, сервер, раздача клиента, касания, ожидания по условию, запись запросов клиента), `e2e/server_boot.py` (все подмены: серверные часы через файл-смещение,
-  числа игр из очереди `script.json`; в боевом коде хуков нет), `e2e/scenarios/*.py` (лобби, тапы при «клавиатуре», игры, возобновление, минутный тик, тексты переводов, раскладка 320/360/390/430, экран мин без прокрутки).
+  числа игр из очереди `script.json`; в боевом коде хуков нет), `e2e/scenarios/*.py` (темизация: `skin_vars`, `skin_apply`; лобби, тапы при «клавиатуре», игры, возобновление, минутный тик, тексты переводов, раскладка 320/360/390/430, экран мин без прокрутки).
   В каждом сценарии консоль без ошибок и предупреждений (допустимое объявляется в сценарии `ALLOW_CONSOLE`). **Сетевой эталон** `e2e/golden_net.json`: порядок, метод, путь и тело запросов клиента по каждому сценарию (случайные `request_id` и `member_ref` заменены формой); проверяется в каждом прогоне, перезапись `python e2e/run_e2e.py --record-net` только осознанно. **Визуальный эталон** `e2e/visual_snapshots.py`: скриншоты всех экранов на 320/360/390/430, сравнение попиксельно (`--out НОВАЯ --compare СТАРАЯ`), снимки лежат вне репозитория. CI: отдельная задача `e2e` (пока не блокирует).
 
 ## 9. Деплой

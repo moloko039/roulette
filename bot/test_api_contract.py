@@ -80,9 +80,12 @@ ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income
       "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
       "active_game": OPT(str), "incoming_unseen": {"count": int, "total": int},
       "transfer_limits": {"min": int, "max": int, "daily_left": int, "fee_percent": int, "min_level": int, "cooldown_seconds": int,
-                        "min_age_hours": int, "min_staked": int, "unlimited": bool}}
+                        "min_age_hours": int, "min_staked": int, "unlimited": bool},
+      "cosmetics": {"equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
+                                 "avatar_frame": str, "badge": str}, "show_in_rating": bool}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
-TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int, "member_ref": OPT(str)}
+TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int, "member_ref": OPT(str),
+            "cosmetics": dict}     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
 CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}

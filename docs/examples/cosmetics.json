@@ -1,0 +1,128 @@
+{
+  "_comment": "Примеры ответов косметики (значения-заглушки). test_api_contract.py сверяет с ними форму настоящих ответов.",
+  "catalog": {
+    "slots": [
+      {
+        "slot": "card_back",
+        "name": "Рубашка карт",
+        "starter": "back_classic",
+        "public": false
+      },
+      {
+        "slot": "badge",
+        "name": "Значок в рейтинге",
+        "starter": "badge_none",
+        "public": true
+      }
+    ],
+    "items": [
+      {
+        "code": "back_classic",
+        "slot": "card_back",
+        "name": "Классика",
+        "description": "Диагональные тёмно-серые полосы",
+        "rarity": "starter",
+        "price_stars": 0,
+        "starter": true,
+        "available": true
+      },
+      {
+        "code": "back_ember",
+        "slot": "card_back",
+        "name": "Уголь",
+        "description": "Чёрный фон с тёплыми оранжевыми штрихами",
+        "rarity": "rare",
+        "price_stars": 100,
+        "starter": false,
+        "available": false
+      }
+    ]
+  },
+  "mine": {
+    "owned": [
+      {
+        "code": "back_midnight",
+        "source": "owner_gift",
+        "acquired_at": 1760000000
+      }
+    ],
+    "equipped": {
+      "card_back": "back_midnight",
+      "chip": "chip_plain",
+      "table": "table_green",
+      "mine_icons": "mine_classic",
+      "keno_ball": "keno_round",
+      "crash": "crash_line",
+      "avatar_frame": "frame_plain",
+      "badge": "badge_none"
+    },
+    "show_in_rating": true
+  },
+  "equip": {
+    "slot": "card_back",
+    "code": "back_midnight",
+    "equipped": {
+      "card_back": "back_midnight",
+      "chip": "chip_plain",
+      "table": "table_green",
+      "mine_icons": "mine_classic",
+      "keno_ball": "keno_round",
+      "crash": "crash_line",
+      "avatar_frame": "frame_plain",
+      "badge": "badge_none"
+    },
+    "replayed": false
+  },
+  "unequip": {
+    "slot": "card_back",
+    "code": "back_classic",
+    "equipped": {
+      "card_back": "back_classic",
+      "chip": "chip_plain",
+      "table": "table_green",
+      "mine_icons": "mine_classic",
+      "keno_ball": "keno_round",
+      "crash": "crash_line",
+      "avatar_frame": "frame_plain",
+      "badge": "badge_none"
+    },
+    "replayed": false
+  },
+  "visibility": {
+    "show_in_rating": false,
+    "replayed": false
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "unknown_item": {
+      "detail": "unknown_item"
+    },
+    "not_owned": {
+      "detail": "not_owned"
+    },
+    "slot_mismatch": {
+      "detail": "slot_mismatch"
+    },
+    "item_unavailable": {
+      "detail": "item_unavailable"
+    },
+    "request_conflict": {
+      "detail": "request_conflict"
+    }
+  },
+  "rating_entry": {
+    "rank": 1,
+    "name": "Игрок",
+    "balance": 1000,
+    "is_me": true,
+    "staked": 0,
+    "level": 1,
+    "member_ref": null,
+    "cosmetics": {
+      "avatar_frame": "frame_thin",
+      "badge": "badge_spade"
+    }
+  }
+}

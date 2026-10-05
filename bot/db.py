@@ -55,6 +55,9 @@ from features.active_game_db import active_game_of
 from features.grants_db import GRANT_MAX_AMOUNT, GRANT_ID_RE, GrantExists, validate_grant, grant_preview, grant_all
 from features.bot_chats_db import chat_register, chat_forget, chat_ids
 from features.farm_db import buy_upgrade, farm_status
+from features.cosmetics_db import (
+    CHANGE_INTERVAL_SECONDS, cosmetics_state, cosmetics_mine, grant_item, equip_item, unequip_item, set_visibility,
+)
 from features.data_rights_db import get_player_export, delete_player_data
 from features.purge_db import PURGE_BATCH, purge_old_data
 from games.roulette_db import _round_result, spin_roulette

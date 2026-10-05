@@ -78,6 +78,13 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 {"time": r["created_at"], "direction": "out" if r["sender"] == telegram_id else "in",
                  "name": _member_name(conn, r["recipient"] if r["sender"] == telegram_id else r["sender"]),
                  "amount": r["amount"], "fee": r["fee"]} for r in transfer_rows]
+            cosmetic_items = conn.execute(
+                "SELECT item_code, source, acquired_at FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at, item_code",
+                (telegram_id,)).fetchall()
+            cosmetic_equipped = conn.execute(
+                "SELECT slot, item_code FROM cosmetic_equipped WHERE telegram_id = ? ORDER BY slot", (telegram_id,)).fetchall()
+            cosmetic_pref = conn.execute(
+                "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -87,7 +94,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -128,6 +135,12 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         "hilo_active": hilo_active,
         # идентификаторы Telegram других игроков не включаются: только имя второй стороны как в рейтинге
         "transfers": transfer_items,
+        # без платёжных идентификаторов: payment_ref в выгрузку не входит
+        "cosmetics": {
+            "items": [{"code": c["item_code"], "source": c["source"], "acquired_at": c["acquired_at"]} for c in cosmetic_items],
+            "equipped": {c["slot"]: c["item_code"] for c in cosmetic_equipped},
+            "show_in_rating": True if cosmetic_pref is None else bool(cosmetic_pref["show_in_rating"]),
+        },
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
@@ -185,6 +198,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                 "DELETE FROM transfers WHERE sender = ? OR recipient = ?", (telegram_id, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
+            for table in ("cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"):   # косметика удаляется вместе с игроком
+                conn.execute("DELETE FROM " + table + " WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",
