@@ -204,6 +204,22 @@ async def scenario(w, shooter):
     await p.tap(tab_js("rating"))
     await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && document.querySelector('#rating-list .rating-badge')", 15, "рейтинг с рамкой и значком")
     await shot("rating-cosmetics")
+    # покупка в гардеробе: карточки с ценами, лист с кнопкой «Купить», подтверждение за фишки (снимки добавлены в конец)
+    await p.tap(tab_js("profile"))
+    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
+    await p.tap("#wardrobe-open")
+    await p.wait("!document.getElementById('wd-sheet').hidden && wd.catalog !== null && wd.mine !== null", 10, "гардероб")
+    await p.tap("#wd-tabs .wd-tab:nth-child(3)")
+    await shot("wardrobe-priced")
+    await p.tap("#wd-grid .wd-card:nth-child(2)")
+    await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
+    await shot("wardrobe-buy")
+    await p.tap("#wd-prev-close")
+    await p.tap("#wd-tabs .wd-tab:nth-child(4)")
+    await p.tap("#wd-grid .wd-card:nth-child(2)")
+    await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
+    await p.tap("#wd-prev-act")
+    await shot("wardrobe-confirm")
 
 
 async def run_width(harness, chrome, width, folder):
