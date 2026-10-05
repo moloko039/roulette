@@ -154,10 +154,8 @@ try:
     check("блэкджек дилера (десятка)", (lambda x: (x["status"], x["result"], x["payout"]))(play(100, ["9S", "KC", "7D", "AH"])), ("finished", "lose", 0))
     check("у обоих: ничья", (lambda x: (x["result"], x["payout"]))(play(100, ["AS", "AC", "KD", "KH"])), ("push", 100))
     check("21 из трёх карт не блэкджек", play(100, ["5S", "9C", "6D", "7H"], ["hit"])["status"] in ("active", "finished"), True)
-    s = play(100, ["5S", "9C", "6D", "7H", "KS"], ["hit"])    # 5+6+10 = 21, не блэкджек; дилер 16 (ещё не ходил)
-    check("21 тремя картами: игра продолжается", (s["status"], bj.hand_value(s["player"])), ("active", (21, False)))
-    s = bj.act(s, "stand")
-    check("и платит как обычная победа (дилер 16 + добор)", s["result"] in ("win", "dealer_bust", "push"), True)
+    s = play(100, ["5S", "9C", "6D", "7H", "KS", "5D"], ["hit"])    # 5+6+10 = 21, не блэкджек: автоматический stand, дилер 16 + 5 = 21
+    check("21 тремя картами: рука завершается сама (ничья с дилером 21)", (s["status"], bj.hand_value(s["player"]), s["result"], s["payout"]), ("finished", (21, False), "push", 100))
     # игра дилера
     s = play(100, ["10S", "AC", "8D", "6H"], ["stand"])       # у дилера мягкие 17: стоит
     check("дилер стоит на мягких 17", (len(s["dealer"]), bj.hand_value(s["dealer"]), s["result"], s["payout"]), (2, (17, True), "win", 200))
@@ -176,7 +174,7 @@ try:
     # удвоение
     s = play(100, ["5S", "6C", "6D", "10H", "10D", "7C"], ["double"])   # 11 + 10 = 21; дилер 16 + 7 = 23
     check("удвоение: wager и выплата", (s["wager"], s["result"], s["payout"], len(s["player"])), (200, "dealer_bust", 400, 3))
-    s = play(100, ["5S", "6C", "6D", "10H", "10D", "7C"])
+    s = play(100, ["5S", "6C", "6D", "10H", "9D", "7C"])
     check("double только на двух картах", (bj.can_double(s), bj.legal_actions(s, 1000), bj.legal_actions(s, 99)),
           (True, ["hit", "stand", "double"], ["hit", "stand"]))
     bj.act(s, "hit")
@@ -201,6 +199,35 @@ try:
           ({"cards": ["10C", None], "total": 10}, ["hit", "stand", "double"], None, None))
     assert "shoe" not in json.dumps(v) and "deck" not in json.dumps(v)
     check("туз открыт: 11", bj.view(play(100, ["10S", "AC", "9D", "6H"]), 500, 1, 0)["dealer"]["total"], 11)
+
+    # ================= автоматический stand на 21 =================
+    s = play(100, ["5S", "9C", "6D", "7H", "10H", "KS"], ["hit"])       # твёрдый 21 после добора: 11 + 10; дилер 16 + король
+    check("твёрдый 21 после первого hit: сразу дилер, победа", (s["status"], s["player"], s["dealer"], s["result"], s["payout"]),
+          ("finished", ["5S", "6D", "10H"], ["9C", "7H", "KS"], "dealer_bust", 200))
+    s = play(100, ["2S", "9C", "3D", "7H", "6H", "10D", "KS"], ["hit", "hit"])   # 5, потом 11, потом 21 на второй добор
+    check("твёрдый 21 после второго hit", (s["status"], bj.hand_value(s["player"]), s["result"]), ("finished", (21, False), "dealer_bust"))
+    s = play(100, ["AS", "9C", "2D", "7H", "8H", "KS"], ["hit"])          # мягкие 13 + 8 = мягкий 21
+    check("мягкий 21: автоматический stand", (s["status"], bj.hand_value(s["player"]), s["result"], s["payout"]), ("finished", (21, True), "dealer_bust", 200))
+    s = play(100, ["AS", "9C", "2D", "7H", "8H", "5S"], ["hit"])          # дилер 16 + 5 = 21: ничья
+    check("мягкий 21 против 21 дилера: ничья", (s["result"], s["payout"]), ("push", 100))
+    s = play(100, ["AS", "9C", "2D", "7H", "9H", "8S", "KS"], ["hit", "hit"])    # мягкие 13 + 9 = 22 -> туз как 1 = 12; потом 12 + 8 = 20
+    check("после hit без 21 игра продолжается (20)", (s["status"], bj.hand_value(s["player"]), bj.legal_actions(s, 1000)), ("active", (20, False), ["hit", "stand"]))
+    s = play(100, ["AS", "9C", "KD", "7H"])                               # натуральный блэкджек не меняется
+    check("натуральный блэкджек: выплата 3:2 как раньше", (s["status"], s["result"], s["payout"]), ("finished", "blackjack", 250))
+    s = play(100, ["5S", "6C", "6D", "10H", "10D", "7C"], ["double"])    # удвоение: одна карта и стоп, как раньше
+    check("удвоение как раньше", (s["wager"], s["result"], s["payout"], len(s["player"])), (200, "dealer_bust", 400, 3))
+    # раздача, начатая до правила (рука 21 осталась активной): hit запрещён без изменения состояния, доступен только stand
+    s = play(100, ["5S", "9C", "6D", "7H", "KS"])
+    s["player"].append("10H")
+    check("устаревшая активная рука на 21: только stand (ни hit, ни double)", (bj.legal_actions(s, 10 ** 6), bj.can_double(s)), (["stand"], False))
+    snapshot = json.dumps(s, sort_keys=True)
+    raises(bj.InvalidAction, bj.act, s, "hit")
+    raises(bj.InvalidAction, bj.act, s, "double")
+    check("hit при 21 не изменил состояние", json.dumps(s, sort_keys=True), snapshot)
+    s = bj.act(s, "stand")
+    check("stand на такой руке работает", (s["status"], s["result"]), ("finished", "dealer_bust"))
+    check("в ответе активной руки на 21 действие одно", bj.view({"bet": 1, "wager": 1, "shoe": [], "pos": 0, "player": ["5S", "6D", "10H"], "dealer": ["9C", "7H"],
+                                                                  "status": "active", "result": None, "payout": None}, 100, 1, 0)["actions"], ["stand"])
 
     # ================= база: раздача, кошелёк, статистика =================
     path = new_db()
@@ -658,6 +685,60 @@ try:
     for secret in (str(SECRET_ID), str(SECRET_BET), str(SECRET_BALANCE), rid(103), rid(105), "bj-req-", "7H", "shoe"):
         for line in cap.lines:
             assert secret not in line, "секрет в логе: " + line[:80]
+    # ================= база: автоматический stand на 21 =================
+    path = new_db()
+    add_player(path, 1, balance=1_000)
+    start(path, 1, 1, 100, ["5S", "9C", "6D", "7H", "10H", "KS"])           # игрок 11, дилер 16
+    r = act(path, 1, 2, "hit")                                             # 11 + 10 = 21: рука завершается сама, дилер добирает
+    check("hit до 21: раздача закончена, дилер сыграл, выплата 2x", (r["status"], r["player"]["total"], r["dealer"]["cards"], r["result"], r["payout"], r["actions"]),
+          ("finished", 21, ["9C", "7H", "KS"], "dealer_bust", 200, []))
+    check("баланс и опыт как после stand", (r["balance"], balance(path, 1), sql(path, "SELECT xp FROM players")[0][0]), (1_100, 1_100, 48))
+    check("колода очищена, раздача закрыта один раз", (sql(path, "SELECT deck_json, status, payout FROM blackjack_games")[0], sql(path, "SELECT COUNT(*) FROM blackjack_games")[0][0]), (("", "finished", 200), 1))
+    again = act(path, 1, 2, "hit", now=NOW + 5)
+    check("повтор по request_id: тот же ответ, replayed, баланс не менялся", ({k: v for k, v in again.items() if k != "replayed"}, again["replayed"], balance(path, 1)),
+          ({k: v for k, v in r.items() if k != "replayed"}, True, 1_100))
+    raises(bj.NoActiveGame, act, path, 1, 3, "hit")
+    check("после конца новая раздача возможна", start(path, 1, 4, 100, ["10S", "9C", "9D", "7H"])["status"], "active")
+    # мягкий 21 и ничья
+    path = new_db()
+    add_player(path, 1, balance=1_000)
+    start(path, 1, 1, 100, ["AS", "9C", "2D", "7H", "8H", "5S"])
+    r = act(path, 1, 2, "hit")
+    check("мягкий 21 против 21 дилера: автоматически ничья, ставка возвращена", (r["status"], r["player"]["soft"], r["result"], r["payout"], r["balance"]), ("finished", True, "push", 100, 1_000))
+    # удвоение до 21 и натуральный блэкджек как раньше
+    path = new_db()
+    add_player(path, 1, balance=1_000)
+    start(path, 1, 1, 100, ["5S", "6C", "6D", "10H", "10D", "7C"])
+    r = act(path, 1, 2, "double")
+    check("удвоение до 21: одна карта и стоп, как раньше", (r["wager"], r["result"], r["payout"], r["balance"]), (200, "dealer_bust", 400, 1_200))
+    r = start(path, 1, 3, 100, ["AS", "9C", "KD", "7H"])
+    check("натуральный: сразу выплата 3:2", (r["status"], r["result"], r["payout"]), ("finished", "blackjack", 250))
+    # раздача, начатая до правила: рука на 21 осталась активной; hit возвращает invalid_action и ничего не меняет, stand закрывает
+    path = new_db()
+    add_player(path, 1, balance=1_000)
+    start(path, 1, 1, 100, ["5S", "9C", "6D", "7H", "10H", "KS"])
+    sql(path, "UPDATE blackjack_games SET player_json = ?, deck_pos = 5", (json.dumps(["5S", "6D", "10H"]),))
+    before = (sql(path, "SELECT player_json, deck_pos, wager, status FROM blackjack_games")[0], balance(path, 1), sql(path, "SELECT COUNT(*) FROM blackjack_actions")[0][0])
+    st = db.blackjack_state(1, now=NOW, db_path=path)
+    check("состояние такой раздачи: только stand", st["actions"], ["stand"])
+    e = raises(bj.InvalidAction, act, path, 1, 2, "hit")
+    check("код ошибки", e.code, "invalid_action")
+    raises(bj.InvalidAction, act, path, 1, 3, "double")
+    check("ошибка ничего не изменила (карты, колода, ставка, баланс, журнал действий)",
+          (sql(path, "SELECT player_json, deck_pos, wager, status FROM blackjack_games")[0], balance(path, 1), sql(path, "SELECT COUNT(*) FROM blackjack_actions")[0][0]), before)
+    r = act(path, 1, 4, "stand")
+    check("stand закрывает: дилер 16 + король = перебор", (r["status"], r["result"], r["payout"]), ("finished", "dealer_bust", 200))
+    # API: понятная ошибка 409 invalid_action
+    path = new_db()
+    add_player(path, 1, balance=1_000)
+    start(path, 1, 1, 100, ["5S", "9C", "6D", "7H", "10H", "KS"])
+    sql(path, "UPDATE blackjack_games SET player_json = ?, deck_pos = 5, updated_at = ?", (json.dumps(["5S", "6D", "10H"]), int(time.time())))   # свежая (иначе API закроет её по бездействию)
+    api = TestClient(create_app(TOKEN, [], db_path=path))
+    hdr = {"Authorization": "tma " + make_init_data(TOKEN, user_id=1, auth_date=int(time.time()))}
+    r = api.post("/api/blackjack/action", headers=hdr, json={"request_id": "request-api-0001", "action": "hit"})
+    check("API: hit при 21 даёт 409 invalid_action", (r.status_code, r.json()), (409, {"detail": "invalid_action"}))
+    check("API: state не изменился", api.get("/api/blackjack/state", headers=hdr).json()["actions"], ["stand"])
+
 finally:
     root.removeHandler(cap)
     root.setLevel(old_level)

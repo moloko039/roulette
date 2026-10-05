@@ -2,6 +2,8 @@
 
 6 колод по 52 карты, перетасовка перед каждой раздачей. Действия: hit, stand, double (без сплита, страховки и сдачи).
 Дилер берёт до 17 и останавливается на любых 17 (в том числе мягких). Блэкджек платит 3:2 (округление вниз).
+Достигнув 21 (твёрдого или мягкого) после hit, рука сразу завершается как stand: ход переходит к дилеру без действий игрока. Взять карту при 21
+нельзя (InvalidAction, состояние не меняется); это возможно только у раздачи, начатой до этого правила: у неё допустим один stand.
 Карта: строка «ранг + масть», например "AS", "10H", "KD" (масти S, H, D, C).
 
 Состояние раздачи (dict): bet, wager, shoe (колода, порядок только на сервере), pos, player, dealer, status
@@ -136,9 +138,14 @@ def act(state, action):
     if state["status"] != "active":
         raise NoActiveGame()
     if action == "hit":
+        if hand_value(state["player"])[0] >= 21:
+            raise InvalidAction()      # при 21 карта заведомо не нужна: до правила автоматического stand рука могла остаться активной
         state["player"].append(_draw(state))
-        if hand_value(state["player"])[0] > 21:
+        total = hand_value(state["player"])[0]
+        if total > 21:
             _finish(state, "bust")
+        elif total == 21:
+            _dealer_plays_and_settle(state)      # 21 (в том числе мягкий): автоматический stand
     elif action == "stand":
         _dealer_plays_and_settle(state)
     elif action == "double":
@@ -156,9 +163,11 @@ def act(state, action):
 
 
 def legal_actions(state, balance):
-    """Допустимые действия: double только на первых двух картах и если баланса хватает на вторую ставку."""
+    """Допустимые действия: double только на первых двух картах и если баланса хватает на вторую ставку; при 21 только stand."""
     if state["status"] != "active":
         return []
+    if hand_value(state["player"])[0] >= 21:
+        return ["stand"]
     actions = ["hit", "stand"]
     if can_double(state) and balance >= state["bet"]:
         actions.append("double")

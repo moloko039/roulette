@@ -3339,7 +3339,8 @@ let bjDrawn = { player: 0, dealer: 0 };   // сколько карт уже бы
 function bjTotalText(hand, finished) {
   if (hand.cards.filter((c) => c !== null).length === 2 && hand.total === 21 && finished) return { text: 'Блэкджек!', cls: 'blackjack' };
   if (hand.total > 21) return { text: 'Перебор ' + hand.total, cls: 'bust' };
-  return { text: (hand.soft ? 'Мягкие ' : '') + hand.total, cls: '' };
+  // мягкая рука: туз сейчас считается как 11 (при переборе станет 1); подпись объясняет это словами, а не термином
+  return { text: hand.soft ? 'Мягкая ' + hand.total + ' (туз = 11)' : String(hand.total), cls: '' };
 }
 
 function renderBjTable() {
