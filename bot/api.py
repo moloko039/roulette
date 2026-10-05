@@ -28,11 +28,13 @@ import blackjack
 import crash
 import hilo
 import transfers
+import cosmetics
 import farm
 import keno
 import mines
 from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
-                mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member)
+                mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member,
+                cosmetics_state, cosmetics_mine, equip_item, unequip_item, set_visibility)
 import economy
 from roulette import (BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets,
                       validate_request_id)
@@ -344,6 +346,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | "hilo" | null
             "incoming_unseen": incoming,     # {count, total}: непросмотренные входящие переводы
             "transfer_limits": limits,       # лимиты переводов для клиента (клиент констант не дублирует)
+            "cosmetics": cosmetics_state(user_id, db_path=db_path),   # только внешний вид: {equipped: {слот: код}, show_in_rating}
         }
 
     @app.get("/api/chat/top")
@@ -414,6 +417,64 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "level_locked", "required_level": exc.required_level}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
+
+    # ---------- косметика ----------
+    # Только внешний вид (bot/cosmetics.py). Принадлежность чужих игроков не раскрывается; платежей нет.
+
+    @app.get("/api/cosmetics/catalog")
+    def cosmetics_catalog(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return cosmetics.catalog_view()
+
+    @app.get("/api/cosmetics/mine")
+    def cosmetics_mine_endpoint(authorization: str = Header(default=None)):
+        user_id, limited = _mines_user({"authorization": authorization}, "read")
+        if limited is not None:
+            return limited
+        return cosmetics_mine(user_id, db_path=db_path)
+
+    async def _cosmetics_post(request, keys, call):
+        user_id, limited = _mines_user(request.headers, "write")
+        if limited is not None:
+            return limited
+        try:
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != keys:
+                raise ValueError()
+            request_id = validate_request_id(data["request_id"])
+        except Exception:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        try:
+            return await run_in_threadpool(call, user_id, request_id, data)
+        except ValueError:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        except cosmetics.UnknownItem:
+            return JSONResponse({"detail": "unknown_item"}, status_code=404)
+        except cosmetics.TooFast:
+            return JSONResponse({"error": "too_many_requests"}, status_code=429, headers={"Retry-After": "1"})
+        except cosmetics.CosmeticsError as exc:
+            return JSONResponse({"detail": exc.code}, status_code=409)
+
+    @app.post("/api/cosmetics/equip")
+    async def cosmetics_equip(request: Request):
+        return await _cosmetics_post(request, {"request_id", "slot", "code"},
+                                     lambda uid, rid, d: equip_item(uid, rid, d["slot"], d["code"], db_path=db_path))
+
+    @app.post("/api/cosmetics/unequip")
+    async def cosmetics_unequip(request: Request):
+        return await _cosmetics_post(request, {"request_id", "slot"},
+                                     lambda uid, rid, d: unequip_item(uid, rid, d["slot"], db_path=db_path))
+
+    @app.post("/api/cosmetics/visibility")
+    async def cosmetics_visibility(request: Request):
+        return await _cosmetics_post(request, {"request_id", "show_in_rating"},
+                                     lambda uid, rid, d: set_visibility(uid, rid, d["show_in_rating"], db_path=db_path))
 
     # ---------- мины ----------
     # Раскладка мин активной игры не попадает ни в один ответ (только завершённые игры раскрывают mine_cells)

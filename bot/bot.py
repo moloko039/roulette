@@ -17,6 +17,7 @@ from telegram.ext import (Application, CallbackQueryHandler, ChatMemberHandler, 
 
 import antiabuse
 import backup
+import cosmetics
 import db as db_module
 from db import delete_player_data, get_player, get_player_export, init_db
 from economy import next_tick_in
@@ -399,6 +400,7 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "hilo_games": export["hilo_games"],
         "hilo_active": export["hilo_active"],
         "transfers": export["transfers"],
+        "cosmetics": export["cosmetics"],
         "chats": {"count": len(export["chats"]), "items": export["chats"]},
     }
     data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
@@ -462,6 +464,44 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Начислено %d. Баланс: %d" % (given, balance_now))
     else:
         await _reply(update, "Баланс у потолка: начислено %d из %d. Баланс: %d" % (given, amount, balance_now))
+
+
+async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): /giveitem <код> [telegram_id] выдаёт косметический предмет из каталога
+    себе или игроку (source=owner_gift, повтор: «уже есть»). Все остальные (и любой чат, кроме личного) не получают ответа;
+    в лог не попадают идентификаторы, имена и коды предметов."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    args = list(context.args or [])
+    if not 1 <= len(args) <= 2 or (len(args) == 2 and not re.fullmatch(r"\d{1,15}", args[1])):
+        await _reply(update, "Формат: /giveitem <код предмета> [id игрока]. Без id предмет выдаётся вам")
+        return
+    item = cosmetics.item(args[0])
+    if item is None:
+        await _reply(update, "Такого предмета нет в каталоге")
+        return
+    if item["starter"]:
+        await _reply(update, "Стартовые предметы есть у всех, выдавать их не нужно")
+        return
+    target = int(args[1]) if len(args) == 2 else user.id
+    try:
+        added = await asyncio.to_thread(db_module.grant_item, target, item["code"], "owner_gift")
+    except cosmetics.NoSuchPlayer:
+        await _reply(update, "Игрока нет в базе: он должен хотя бы раз открыть игру")
+        return
+    except Exception as exc:
+        logger.error("Выдача предмета не выполнена: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выдать предмет (подробности в логах сервиса)")
+        return
+    if added:
+        logger.info("Предмет выдан")
+        await _reply(update, "Выдано: %s" % item["name"])
+    else:
+        await _reply(update, "Уже есть: %s" % item["name"])
 
 
 async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -754,7 +794,7 @@ def build_application(token, use_updater=True):
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
                           ("deletemydata", deletemydata), ("backupnow", backupnow),
-                          ("grantall", grantall), ("give", give)):
+                          ("grantall", grantall), ("give", give), ("giveitem", giveitem)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
     app.add_handler(ChatMemberHandler(guarded(my_chat_member), ChatMemberHandler.MY_CHAT_MEMBER))

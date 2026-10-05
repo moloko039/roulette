@@ -95,6 +95,15 @@
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}"
 ],
+"skin_apply": [
+"GET /api/me",
+"GET /api/me",
+"GET /api/transfers",
+"GET /api/me"
+],
+"skin_vars": [
+"GET /api/me"
+],
 "transfers_ui": [
 "GET /api/me",
 "GET /api/me",
