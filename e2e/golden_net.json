@@ -101,6 +101,9 @@
 "GET /api/transfers",
 "GET /api/me"
 ],
+"skin_contrast": [
+"GET /api/me"
+],
 "skin_vars": [
 "GET /api/me"
 ],
@@ -120,5 +123,32 @@
 "GET /api/me",
 "GET /api/me",
 "GET /api/chat/top"
+],
+"wardrobe_flow": [
+"GET /api/me",
+"GET /api/me",
+"GET /api/transfers",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"POST /api/cosmetics/equip {\"code\":\"back_midnight\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
+"POST /api/cosmetics/unequip {\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
+"POST /api/cosmetics/equip {\"code\":\"back_midnight\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
+"POST /api/cosmetics/equip {\"code\":\"table_blue\",\"request_id\":\"<rid:36>\",\"slot\":\"table\"}",
+"POST /api/cosmetics/equip {\"code\":\"back_ember\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
+"POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":false}",
+"POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":true}",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine"
+],
+"wardrobe_rating": [
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/transfers"
+],
+"wardrobe_safety": [
+"GET /api/me",
+"GET /api/transfers"
 ]
 }

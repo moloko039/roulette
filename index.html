@@ -453,6 +453,8 @@
     <div class="profile-head">
       <span class="avatar" id="profile-avatar" aria-hidden="true"></span>
       <span class="profile-name" id="profile-name"></span>
+      <span class="rating-badge" id="profile-badge" hidden aria-hidden="true"></span>
+      <button type="button" class="action profile-wardrobe-btn" id="wardrobe-open">Гардероб</button>
     </div>
     <div class="profile-card" id="profile-data" hidden>
       <div class="stat"><span class="stat-label">Баланс на сервере</span><strong id="profile-balance"></strong></div>
@@ -529,6 +531,31 @@
         <button type="button" class="action" id="transfer-cancel">Отмена</button>
         <button type="button" class="keno-play" id="transfer-send">Отправить</button>
       </div>
+    </section>
+  </div>
+  <div class="transfer-sheet" id="wd-sheet" hidden>
+    <div class="transfer-dim" id="wd-dim"></div>
+    <section class="transfer-panel wd-panel" role="dialog" aria-label="Гардероб">
+      <div class="wd-head"><button type="button" class="transfer-change" id="wd-back">Назад</button><strong>Гардероб</strong><span class="wd-head-gap" aria-hidden="true"></span></div>
+      <div class="wd-tabs" id="wd-tabs" role="tablist" aria-label="Слоты оформления"></div>
+      <div class="wd-grid" id="wd-grid"></div>
+      <button type="button" class="wd-switch" id="wd-vis" role="switch" aria-checked="true"><span class="wd-switch-text">Показывать мои рамку и значок в рейтинге</span><span class="wd-switch-knob" aria-hidden="true"></span></button>
+      <p class="transfer-msg" id="wd-msg" aria-live="polite"></p>
+      <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
+    </section>
+  </div>
+  <div class="transfer-sheet" id="wd-prev-sheet" hidden>
+    <div class="transfer-dim" id="wd-prev-dim"></div>
+    <section class="transfer-panel wd-prev-panel" role="dialog" aria-label="Предпросмотр">
+      <div class="transfer-head"><strong id="wd-prev-title"></strong><span class="wd-status" id="wd-prev-status"></span></div>
+      <div class="wd-scene" id="wd-prev-scene"></div>
+      <p class="wd-desc" id="wd-prev-desc"></p>
+      <p class="transfer-msg" id="wd-prev-msg" aria-live="polite"></p>
+      <div class="row transfer-actions">
+        <button type="button" class="action" id="wd-prev-close">Закрыть</button>
+        <button type="button" class="keno-play" id="wd-prev-act" hidden>Надеть</button>
+      </div>
+      <div class="soon-toast wd-toast" id="wd-prev-toast" role="status" aria-live="polite"></div>
     </section>
   </div>
   <div class="soon-toast" id="soon-toast" role="status" aria-live="polite">Скоро</div>

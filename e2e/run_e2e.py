@@ -16,7 +16,7 @@ sys.path.insert(0, HERE)
 GOLDEN_NET = os.path.join(HERE, "golden_net.json")
 NET_SKIP = ("layout", "mines_layout")    # раскладка меняет размеры и открывает игры подряд: порядок фоновых GET состояния плавает, запросы не предмет проверки
 SCENARIOS = ["lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
-             "transfers_ui", "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply"]
+             "transfers_ui", "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast"]
 
 
 def net_diff(want, got):

@@ -53,3 +53,9 @@ async def run(w):
         {"card_back": None, "chip": None, "table": None, "mine_icons": "ok_code", "keno_ball": None, "crash": None})
     await p.ev("applySkins(undefined)")
     check("applySkins без данных снимает все атрибуты", await p.ev(ATTRS), {s: None for s in SLOTS})
+    # набор иконок мин по коду: звезда вместо самоцвета, мина остаётся колючим кругом; сброс возвращает стартовый набор
+    check("иконки: стартовый набор по умолчанию", await p.ev("minesIcons === MINES_ICON_SETS.default"), True)
+    check("иконки: mine_star даёт звезду вместо самоцвета", await p.ev(
+        "(() => { applySkins({ mine_icons: 'mine_star' }); return [minesIcons === MINES_ICON_SETS.mine_star, minesIcons.gem !== MINES_ICON_SETS.default.gem, minesIcons.gem.includes('2.6 5.6'), minesIcons.mine.includes('<circle')]; })()"), [True, True, True, True])
+    await p.ev("applySkins(undefined)")
+    check("иконки: после сброса стартовый набор", await p.ev("minesIcons === MINES_ICON_SETS.default"), True)
