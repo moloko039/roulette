@@ -133,8 +133,8 @@ try:
     check("0 отключает комиссию", [transfers.fee_for(a, 0) for a in (1, 100, 50000)], [0, 0, 0])
     check("константы", (transfers.TRANSFER_MIN, transfers.TRANSFER_MAX, transfers.SEND_DAILY_LIMIT, transfers.RECEIVE_DAILY_LIMIT, transfers.COOLDOWN_SECONDS,
                         transfers.SENDER_MIN_LEVEL, transfers.MIN_ACCOUNT_AGE_HOURS, transfers.MIN_STAKED_TO_SEND, transfers.FEE_PERCENT),
-          (100, 50000, 500000, 500000, 10, 3, 1, 20000, 5))
-    assert all(transfers.valid_amount(a) for a in (100, 50000)) and not any(transfers.valid_amount(a) for a in (99, 50001, 0, -5, 1.5, "100", True, None))
+          (100, 500000, 500000, 500000, 10, 3, 1, 20000, 5))
+    assert all(transfers.valid_amount(a) for a in (100, 499999, 500000)) and not any(transfers.valid_amount(a) for a in (99, 500001, 0, -5, 1.5, "100", True, None))
 
     # ================= метки участников =================
     r1 = transfers.member_ref(CHAT, A)
@@ -179,7 +179,7 @@ try:
     # границы суммы
     send(path, A, B, 100, n=2, now=NOW + 20)
     send(path, A, B, 50000, n=3, now=NOW + 40)
-    for bad in (99, 50001, 0, -1, 1.5, "100", True, None):
+    for bad in (99, 500_001, 0, -1, 1.5, "100", True, None):
         raises(ValueError, send, path, A, B, bad, n=9, now=NOW + 60)
     for bad_ref in ("", "xyz", "0" * 31, "0" * 33, "G" * 32, None, [], "A" * 32):
         raises(ValueError, send, path, A, bad_ref, 100, n=9, now=NOW + 60)
@@ -303,6 +303,42 @@ try:
     send(path, A, B, 49999, n=10, now=NOW + 90)
     e = raises(transfers.TransferError, send, path, A, B, 100, n=11, now=NOW + 100)
     check("осталось 1: перевод 100 не проходит", e.code, "daily_limit")
+    # максимум за один перевод 500 000: границы, комиссия, суточные лимиты отправки и получения после него
+    for amount, ok in ((499_999, True), (500_000, True), (500_001, False)):
+        path = world(balance=2_000_000)
+        if ok:
+            r = send(path, A, B, amount, n=1)
+            check("перевод %d проходит: списано всё, получено за вычетом комиссии 5 %%" % amount,
+                  (row(path, A)[0], r["received"], r["fee"]), (2_000_000 - amount, amount - transfers.fee_for(amount), transfers.fee_for(amount)))
+        else:
+            raises(ValueError, send, path, A, B, amount, n=1)     # тот же отказ, что и раньше при превышении максимума
+            check("500 001: ничего не списано", row(path, A)[0], 2_000_000)
+    path = world(balance=2_000_000)
+    r = send(path, A, B, 500_000, n=1, now=NOW)
+    check("500 000: списано 500 000, получатель получил 475 000, комиссия 25 000", (row(path, A)[0], row(path, B)[0], row(path, OWNER)[0], r["received"], r["fee"]),
+          (1_500_000, 5000 + 475_000, 1000 + 25_000, 475_000, 25_000))
+    check("после 500 000 суточный лимит отправки исчерпан", r["daily_left"], 0)
+    e = raises(transfers.TransferError, send, path, A, C, 100, n=2, now=NOW + 10)
+    check("следующий перевод 100 в тот же день: daily_limit", e.code, "daily_limit")
+    # получатель с уже полученной суммой: 475 000 чистыми проходят, пока набранное не больше 25 000
+    path = world(balance=2_000_000)
+    add_player(path, 4001, 100_000, created=NOW - 2 * 3600)
+    with mock.patch.object(transfers, "FEE_PERCENT", 0):
+        send(path, 4001, B, 25_000, n=1, now=NOW)
+    send(path, A, B, 500_000, n=2, now=NOW + 10)            # 25 000 + 475 000 = 500 000: ровно предел
+    path = world(balance=2_000_000)
+    add_player(path, 4001, 100_000, created=NOW - 2 * 3600)
+    with mock.patch.object(transfers, "FEE_PERCENT", 0):
+        send(path, 4001, B, 25_100, n=1, now=NOW)
+    e = raises(transfers.TransferError, send, path, A, B, 500_000, n=2, now=NOW + 10)
+    check("получено уже 25 100: 475 000 сверх лимита получения", (e.code, row(path, A)[0]), ("recipient_daily_limit", 2_000_000))
+    # владелец: суточных лимитов нет, максимум за раз действует
+    path = world(balance=100)
+    sql(path, "UPDATE players SET balance = 3000000 WHERE telegram_id = ?", (OWNER,))
+    r1 = send(path, OWNER, B, 500_000, n=1, now=NOW, owner=OWNER)
+    r2 = send(path, OWNER, C, 500_000, n=2, now=NOW + 10, owner=OWNER)
+    check("владелец: два перевода по 500 000 подряд без комиссии и суточного отказа", (r1["fee"], r2["fee"], row(path, OWNER)[0]), (0, 0, 2_000_000))
+    raises(ValueError, send, path, OWNER, B, 500_001, n=3, now=NOW + 20, owner=OWNER)
     # владелец отправляет без суточного лимита (сумма, пауза и макс. за перевод действуют)
     path = world(balance=100)
     sql(path, "UPDATE players SET balance = 3000000 WHERE telegram_id = ?", (OWNER,))
@@ -312,7 +348,7 @@ try:
     check("daily_left владельца: потолка нет", (r["daily_left"], db.transfer_status(OWNER, owner_id=OWNER, now=NOW + 250, db_path=path)[0]["unlimited"]), (MAX_SAFE_INT, True))
     e = raises(transfers.TransferError, send, path, OWNER, B, 100, n=99, now=NOW + 115, owner=OWNER)
     check("кулдаун у владельца сохраняется", e.code, "cooldown")
-    for bad in (99, 50001):
+    for bad in (99, 500_001):
         raises(ValueError, send, path, OWNER, B, bad, n=98, now=NOW + 400, owner=OWNER)
     # лимит получения: 500 000 чистыми за скользящие 24 часа (20 свежих аккаунтов одному получателю)
     path = new_db()
@@ -454,7 +490,7 @@ try:
     # ================= статус, история, просмотр =================
     path = world()
     limits, incoming = db.transfer_status(B, owner_id=OWNER, now=NOW, db_path=path)
-    check("лимиты", limits, {"min": 100, "max": 50000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10,
+    check("лимиты", limits, {"min": 100, "max": 500000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10,
                        "min_age_hours": 1, "min_staked": 20000, "unlimited": False})
     check("входящих нет", incoming, {"count": 0, "total": 0})
     send(path, A, B, 1000, n=1, now=NOW)
@@ -573,10 +609,10 @@ try:
     for uid in (A, B, C, OWNER):
         assert str(uid) not in top_text, "идентификатор в рейтинге"
     me0 = client.get("/api/me", headers=auth(A, "Аня")).json()
-    check("/api/me: лимиты и входящие", (me0["transfer_limits"], me0["incoming_unseen"]), ({"min": 100, "max": 50000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10, "min_age_hours": 1, "min_staked": 20000, "unlimited": False}, {"count": 0, "total": 0}))
+    check("/api/me: лимиты и входящие", (me0["transfer_limits"], me0["incoming_unseen"]), ({"min": 100, "max": 500000, "daily_left": 500_000, "fee_percent": 5, "min_level": 3, "cooldown_seconds": 10, "min_age_hours": 1, "min_staked": 20000, "unlimited": False}, {"count": 0, "total": 0}))
     check("/api/me владельца: fee_percent 0", client.get("/api/me", headers=auth(OWNER, "Владелец")).json()["transfer_limits"]["fee_percent"], 0)
     good = {"request_id": "api-req-00001", "member_ref": refs_by_name["Борис"], "amount": 1000}
-    for body in ({}, dict(good, extra=1), {"request_id": good["request_id"], "amount": 1000}, dict(good, amount=99), dict(good, amount=50001), dict(good, amount=1.5),
+    for body in ({}, dict(good, extra=1), {"request_id": good["request_id"], "amount": 1000}, dict(good, amount=99), dict(good, amount=500_001), dict(good, amount=1.5),
                  dict(good, amount="1000"), dict(good, amount=True), dict(good, member_ref="x"), dict(good, member_ref=5), dict(good, member_ref="A" * 32), dict(good, request_id="short")):
         r = post(body)
         check("400 %s" % json.dumps(body)[:60], (r.status_code, r.json()), (400, {"detail": "invalid_request"}))
