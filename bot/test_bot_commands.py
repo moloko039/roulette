@@ -493,7 +493,7 @@ try:
     asyncio.run(bot.register_commands(app))
     (priv, priv_scope), (grp, grp_scope) = app.bot.commands_calls
     check("команды личных", [c.command for c in priv],
-          ["start", "play", "balance", "help", "privacy", "developer_info", "mydata", "deletemydata"])
+          ["start", "play", "balance", "help", "privacy", "developer_info", "mydata", "deletemydata", "paysupport", "terms"])
     check("область личных", priv_scope.type, "all_private_chats")
     check("команды групп", [c.command for c in grp], ["play", "balance", "help", "privacy", "developer_info"])
     check("область групп", grp_scope.type, "all_group_chats")
@@ -513,7 +513,7 @@ try:
     # ---------- сборка приложения и обработка ошибок ----------
     asyncio.set_event_loop(asyncio.new_event_loop())  # Python 3.9: Queue() внутри Application ищет цикл
     real = bot.build_application("123456:TEST-TOKEN-not-real", use_updater=False)
-    check("обработчики", len(real.handlers[0]), 14)  # 8 команд, скрытые /backupnow, /grantall, /give и /giveitem, кнопки удаления, my_chat_member
+    check("обработчики", len(real.handlers[0]), 21)  # 8 команд, /paysupport и /terms, скрытые /backupnow, /grantall, /give, /giveitem, /refund, /regrant, /teststars, кнопки удаления, my_chat_member, pre_checkout и successful_payment
     assert bot.on_error in real.error_handlers, "нет обработчика ошибок"
 
     cap = Capture()

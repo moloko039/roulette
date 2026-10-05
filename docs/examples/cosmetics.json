@@ -22,9 +22,9 @@
         "name": "Классика",
         "description": "Диагональные тёмно-серые полосы",
         "rarity": "starter",
-        "price_stars": 0,
         "starter": true,
-        "available": true
+        "available": true,
+        "price": null
       },
       {
         "code": "back_ember",
@@ -32,9 +32,35 @@
         "name": "Уголь",
         "description": "Чёрный фон с тёплыми оранжевыми штрихами",
         "rarity": "rare",
-        "price_stars": 100,
         "starter": false,
-        "available": false
+        "available": false,
+        "price": null
+      },
+      {
+        "code": "table_blue",
+        "slot": "table",
+        "name": "Лагуна",
+        "description": "Бирюзовое сукно и мягкие синие сектора",
+        "rarity": "rare",
+        "price": {
+          "currency": "stars",
+          "amount": 150
+        },
+        "starter": false,
+        "available": true
+      },
+      {
+        "code": "chip_ring",
+        "slot": "chip",
+        "name": "Кольцо",
+        "description": "Светлое кольцо с насечками по краю",
+        "rarity": "common",
+        "price": {
+          "currency": "chips",
+          "amount": 40000
+        },
+        "starter": false,
+        "available": true
       }
     ]
   },
@@ -110,6 +136,18 @@
     },
     "request_conflict": {
       "detail": "request_conflict"
+    },
+    "already_owned": {
+      "detail": "already_owned"
+    },
+    "insufficient_chips": {
+      "detail": "insufficient_chips"
+    },
+    "not_for_chips": {
+      "detail": "not_for_chips"
+    },
+    "not_for_stars": {
+      "detail": "not_for_stars"
     }
   },
   "rating_entry": {
@@ -124,5 +162,18 @@
       "avatar_frame": "frame_thin",
       "badge": "badge_spade"
     }
+  },
+  "buy": {
+    "item_code": "chip_ring",
+    "price": {
+      "currency": "chips",
+      "amount": 40000
+    },
+    "balance": 60000,
+    "replayed": false
+  },
+  "invoice": {
+    "invoice_url": "https://t.me/$example",
+    "replayed": false
   }
 }

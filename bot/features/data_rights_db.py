@@ -83,6 +83,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 (telegram_id,)).fetchall()
             cosmetic_equipped = conn.execute(
                 "SELECT slot, item_code FROM cosmetic_equipped WHERE telegram_id = ? ORDER BY slot", (telegram_id,)).fetchall()
+            purchase_rows = conn.execute(
+                "SELECT item_code, amount_stars, created_at, status FROM cosmetic_purchases WHERE telegram_id = ? ORDER BY created_at, id", (telegram_id,)).fetchall()
             cosmetic_pref = conn.execute(
                 "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
@@ -94,7 +96,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -140,6 +142,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             "items": [{"code": c["item_code"], "source": c["source"], "acquired_at": c["acquired_at"]} for c in cosmetic_items],
             "equipped": {c["slot"]: c["item_code"] for c in cosmetic_equipped},
             "show_in_rating": True if cosmetic_pref is None else bool(cosmetic_pref["show_in_rating"]),
+            # покупки за Stars: без идентификатора платежа (он остаётся у владельца для споров и возвратов)
+            "purchases": [{"item_code": r["item_code"], "amount_stars": r["amount_stars"], "time": r["created_at"], "status": r["status"]} for r in purchase_rows],
         },
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),

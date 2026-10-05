@@ -110,14 +110,20 @@ try:
     for slot in cosmetics.SLOTS:
         starters = [i for i in cosmetics.CATALOG if i["slot"] == slot and i["starter"]]
         check("ровно один стартовый в слоте %s" % slot, len(starters), 1)
-        check("стартовый бесплатный и доступный (%s)" % slot, (starters[0]["price_stars"], starters[0]["available"], starters[0]["rarity"]), (0, True, "starter"))
+        check("стартовый бесплатный и доступный (%s)" % slot, (starters[0]["price"], starters[0]["available"], starters[0]["rarity"]), (None, True, "starter"))
     check("стартовый только у редкости starter", all(i["starter"] == (i["rarity"] == "starter") for i in cosmetics.CATALOG), True)
     check("23 предмета", len(cosmetics.CATALOG), 23)
     check("доступны (кроме стартовых) только восемь", sorted(i["code"] for i in cosmetics.CATALOG if i["available"] and not i["starter"]),
           sorted(["back_midnight", "chip_ring", "table_blue", "mine_star", "keno_hex", "crash_neon", "frame_thin", "badge_spade"]))
-    check("цены целые и неотрицательные", all(type(i["price_stars"]) is int and i["price_stars"] >= 0 for i in cosmetics.CATALOG), True)
+    check("цена есть ровно у восьми доступных нестартовых предметов (одна цена), у остальных нет", sorted(i["code"] for i in cosmetics.CATALOG if i["price"] is not None),
+          sorted(c for c, _ in cosmetics.PRICES.items()))
+    check("цены в одном месте: валюта и целая положительная сумма", all(v[0] in ("stars", "chips") and type(v[1]) is int and v[1] > 0 for v in cosmetics.PRICES.values()), True)
+    check("цены из задания", {k: tuple(v) for k, v in cosmetics.PRICES.items()}, {"table_blue": ("stars", 150), "crash_neon": ("stars", 100), "back_midnight": ("stars", 100), "keno_hex": ("stars", 75),
+                                                                           "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000)})
+    check("недоступные и стартовые без цены", all(i["price"] is None for i in cosmetics.CATALOG if i["starter"] or not i["available"]), True)
+    check("скрытого тестового предмета нет в каталоге для клиента", ("test_1star" in codes, cosmetics.item("test_1star"), cosmetics.sellable("test_1star")["price"]), (False, None, {"currency": "stars", "amount": 1}))
     check("публичные слоты", cosmetics.PUBLIC_SLOTS, ("avatar_frame", "badge"))
-    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars"))
+    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars", "chips"))
 
     # ================= статически: экономика и игры косметику не читают =================
     guarded = (glob.glob(os.path.join(HERE, "games", "*.py")) + glob.glob(os.path.join(HERE, "core", "kernel.py")) +
@@ -451,7 +457,7 @@ try:
     db.grant_item(B, "chip_ring", "free", now=NOW, db_path=path)
     ex = db.get_player_export(A, db_path=path)
     check("экспорт: косметика", ex["cosmetics"], {"items": [{"code": "back_midnight", "source": "owner_gift", "acquired_at": NOW}],
-                                                  "equipped": {"card_back": "back_midnight"}, "show_in_rating": False})
+                                                  "equipped": {"card_back": "back_midnight"}, "show_in_rating": False, "purchases": []})
     assert "secret-ref" not in json.dumps(ex), "payment_ref не должен попадать в выгрузку"
     only = new_db()
     add_player(only, C)
@@ -508,7 +514,7 @@ try:
         balance = sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0]
         db.init_db(old_db)
         after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только новые таблицы", after - before, {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"})
+        check("миграция добавила только новые таблицы", after - before, {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases"})
         check("старые данные на месте", sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0], balance)
         check("игрок со старой базы получает стартовые предметы", db.cosmetics_state(777, db_path=old_db)["equipped"], cosmetics.STARTERS)
         print("миграция со старой базой (коммит dbc9242) проверена")

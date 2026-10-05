@@ -11,9 +11,10 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from telegram import (BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats,
                       InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Update, WebAppInfo)
-from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter
+from telegram import LabeledPrice
+from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter, TelegramError
 from telegram.ext import (Application, CallbackQueryHandler, ChatMemberHandler, CommandHandler, ContextTypes,
-                          MessageHandler, filters)
+                          MessageHandler, PreCheckoutQueryHandler, filters)
 
 import antiabuse
 import backup
@@ -304,7 +305,9 @@ PRIVATE_HELP = (
     "/privacy — политика конфиденциальности\n"
     "/developer_info — о разработчике\n"
     "/mydata — выгрузить мои данные\n"
-    "/deletemydata — удалить мои данные"
+    "/deletemydata — удалить мои данные\n"
+    "/paysupport — помощь по оплате\n"
+    "/terms — условия покупки предметов"
 )
 GROUP_HELP = (
     "Команды:\n"
@@ -432,6 +435,233 @@ async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Не отправлено: копия больше лимита BACKUP_SEND_MAX_MB")
     elif result != "ok":
         await _reply(update, "Не удалось отправить, подробности в логах сервиса")
+
+
+# ---------- оплата косметики Telegram Stars ----------
+# Официальная документация: https://core.telegram.org/bots/payments-stars (валюта XTR, provider_token пустой, один LabeledPrice;
+# pre_checkout_query нужно подтвердить за 10 секунд; в successful_payment есть telegram_payment_charge_id; возврат refundStarPayment).
+PAY_RETRIES = 3          # попыток записать оплату, потом уведомление владельцу и ручная выдача (/regrant)
+PAY_RETRY_DELAY = 0.5
+CHARGE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{1,200}$")
+
+
+def pay_support_contact():
+    value = _env("PAY_SUPPORT_CONTACT")
+    ok = value and len(value) <= 200 and not any(ord(c) < 32 for c in value)
+    return value if ok else None
+
+
+def terms_url():
+    """TERMS_URL или адрес рядом с политикой (privacy.html -> terms.html), иначе None."""
+    value = _env("TERMS_URL")
+    if value and len(value) <= 300 and re.fullmatch(r"https://\S+", value):
+        return value
+    url = privacy_url()
+    return url[:-len("privacy.html")] + "terms.html" if url and url.endswith("privacy.html") else None
+
+
+async def paysupport(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kind = _chat_type(update)
+    if kind in GROUP_TYPES:
+        await _reply(update, PRIVATE_ONLY)
+        return
+    if kind != "private":
+        return
+    contact, url = pay_support_contact(), terms_url()
+    text = ("Помощь по оплате. Покупки в приложении: косметические предметы (внешний вид, на игру не влияют) за фишки или Telegram Stars. "
+            "Если оплата прошла, а предмета нет, или нужен возврат за Stars, напишите владельцу бота")
+    text += (": " + contact) if contact else " через это сообщение (контакт для связи пока не указан)"
+    text += ". Условия: " + url if url else ". Условия покупки: /terms"
+    await _reply(update, text)
+
+
+async def terms(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kind = _chat_type(update)
+    if kind in GROUP_TYPES:
+        await _reply(update, PRIVATE_ONLY)
+        return
+    if kind != "private":
+        return
+    url = terms_url()
+    await _reply(update, ("Условия покупки предметов: " + url) if url else UNAVAILABLE)
+
+
+async def _send_quiet(context, chat_id, text):
+    """Сообщение пользователю или владельцу; сбой доставки не роняет обработчик (в лог только тип ошибки)."""
+    try:
+        await context.bot.send_message(chat_id=chat_id, text=text)
+    except Exception as exc:
+        logger.error("Не удалось отправить сообщение об оплате: %s", type(exc).__name__)
+
+
+async def _notify_owner(context, text):
+    owner_id = load_owner_id()
+    if owner_id is not None:
+        await _send_quiet(context, owner_id, text)
+
+
+async def pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Подтверждение заказа до списания (Telegram ждёт ответ 10 секунд): метка, цена, предмет и отсутствие его у игрока. Ничего долгого."""
+    query = update.pre_checkout_query
+    ok, message = True, None
+    try:
+        code = cosmetics.parse_payload(query.invoice_payload, query.from_user.id, now=_wall())
+        if code is None or query.currency != "XTR":
+            raise cosmetics.UnknownItem()
+        item = await asyncio.to_thread(db_module.stars_offer, query.from_user.id, code)
+        if item["price"]["amount"] != query.total_amount:
+            raise cosmetics.ItemUnavailable()
+    except cosmetics.AlreadyOwned:
+        ok, message = False, "Этот предмет у вас уже есть"
+    except (cosmetics.CosmeticsError, ValueError):
+        ok, message = False, "Предмет сейчас недоступен или цена изменилась. Откройте магазин и попробуйте снова"
+    except Exception as exc:
+        logger.error("Проверка заказа не выполнена: %s", type(exc).__name__)
+        ok, message = False, "Не удалось проверить заказ, попробуйте позже"
+    await query.answer(ok=ok, error_message=message)
+
+
+async def _refund_and_record(context, user_id, charge_id):
+    """Возврат Stars и отметка в журнале. True, если возврат выполнен (или Telegram сообщил, что он уже был)."""
+    try:
+        await context.bot.refund_star_payment(user_id=user_id, telegram_payment_charge_id=charge_id)
+    except TelegramError as exc:
+        if "ALREADY_REFUNDED" not in str(exc).upper():
+            logger.error("Возврат Stars не выполнен: %s", type(exc).__name__)
+            return False
+    await asyncio.to_thread(db_module.mark_refunded, charge_id)
+    return True
+
+
+async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Оплата прошла: одна транзакция (журнал с уникальным charge_id и выдача предмета); повтор апдейта дублей не создаёт. Предмет уже есть:
+    автоматический возврат. Сбой записи: до PAY_RETRIES повторов, затем сообщение владельцу и ручная выдача (/regrant)."""
+    payment = update.effective_message.successful_payment
+    user_id = update.effective_user.id
+    charge_id, amount = payment.telegram_payment_charge_id, payment.total_amount
+    code = cosmetics.parse_payload(payment.invoice_payload, user_id, ttl=None) if payment.currency == "XTR" else None
+    if code is None:      # метка не распознана (например, сменился ключ при перезапуске): записать нечего, деньги возвращаются
+        refunded = await _refund_and_record_unknown(context, user_id, charge_id)
+        await _send_quiet(context, user_id, "Не удалось распознать заказ, оплата возвращена." if refunded else
+                          "Не удалось распознать заказ. Напишите в поддержку: /paysupport")
+        if not refunded:
+            await _notify_owner(context, "Оплата без распознанного заказа, возврат не удался. Платёж: %s, игрок: %d" % (charge_id, user_id))
+        return
+    result = None
+    for attempt in range(PAY_RETRIES):
+        try:
+            result = await asyncio.to_thread(db_module.record_stars_payment, user_id, charge_id, code, amount)
+            break
+        except Exception as exc:
+            logger.error("Запись оплаты не удалась (попытка %d): %s", attempt + 1, type(exc).__name__)
+            if attempt + 1 < PAY_RETRIES:
+                await asyncio.sleep(PAY_RETRY_DELAY)
+    if result is None:
+        context.application.bot_data.setdefault("failed_payments", {})[charge_id] = {"user": user_id, "code": code, "amount": amount}
+        await _send_quiet(context, user_id, "Оплата получена, но предмет не удалось выдать сразу. Владелец выдаст его вручную; если предмета нет, напишите: /paysupport")
+        await _notify_owner(context, "Не удалось записать оплату. Платёж: %s, игрок: %d, предмет: %s, сумма: %d. Выдать: /regrant %s (или /regrant %s %d %s %d)"
+                            % (charge_id, user_id, code, amount, charge_id, charge_id, user_id, code, amount))
+        return
+    if result["result"] == "duplicate":
+        return                # повторная доставка того же платежа: ничего не делаем
+    if result["result"] == "already_owned":
+        if await _refund_and_record(context, user_id, charge_id):
+            await _send_quiet(context, user_id, "Этот предмет у вас уже был, оплата возвращена.")
+        else:
+            await _send_quiet(context, user_id, "Этот предмет у вас уже был. Возврат оформит владелец, подробности: /paysupport")
+            await _notify_owner(context, "Автоматический возврат не удался (предмет уже был). Платёж: %s. Вернуть: /refund %s" % (charge_id, charge_id))
+        return
+    await _send_quiet(context, user_id, "Предмет добавлен в гардероб")
+
+
+async def _refund_and_record_unknown(context, user_id, charge_id):
+    try:
+        await context.bot.refund_star_payment(user_id=user_id, telegram_payment_charge_id=charge_id)
+        return True
+    except TelegramError as exc:
+        logger.error("Возврат Stars не выполнен: %s", type(exc).__name__)
+        return False
+
+
+def _owner_private(update):
+    """Команда владельца: только владелец и только личный чат; остальным молчание."""
+    if _chat_type(update) != "private":
+        return False
+    user = update.effective_user
+    owner_id = load_owner_id()
+    return user is not None and owner_id is not None and user.id == owner_id
+
+
+async def refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца: /refund <charge_id> возвращает Stars, помечает платёж, убирает предмет у игрока. Повтор безопасен."""
+    if not _owner_private(update):
+        return
+    args = list(context.args or [])
+    if len(args) != 1 or not CHARGE_ID_RE.fullmatch(args[0]):
+        await _reply(update, "Формат: /refund <идентификатор платежа>")
+        return
+    charge_id = args[0]
+    row = await asyncio.to_thread(db_module.purchase_by_charge, charge_id)
+    if row is None:
+        await _reply(update, "Платёж не найден в журнале")
+        return
+    if row["status"] == "refunded":
+        await _reply(update, "Этот платёж уже возвращён")
+        return
+    if not await _refund_and_record(context, row["telegram_id"], charge_id):
+        await _reply(update, "Возврат не выполнен (подробности в логах сервиса)")
+        return
+    await _send_quiet(context, row["telegram_id"], "Платёж возвращён, предмет убран из гардероба.")
+    await _reply(update, "Возврат выполнен, предмет убран у игрока")
+
+
+async def regrant(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца: /regrant <charge_id> выдаёт оплаченный предмет, если запись есть, а предмета нет. Если записи нет из-за
+    сбоя, уведомление владельцу содержит нужные данные: /regrant <charge_id> <id игрока> <код предмета> <сумма>."""
+    if not _owner_private(update):
+        return
+    args = list(context.args or [])
+    if len(args) not in (1, 4) or not CHARGE_ID_RE.fullmatch(args[0]) or (len(args) == 4 and not (re.fullmatch(r"\d{1,15}", args[1]) and re.fullmatch(r"\d{1,6}", args[3]))):
+        await _reply(update, "Формат: /regrant <платёж> или /regrant <платёж> <id игрока> <код предмета> <сумма>")
+        return
+    charge_id = args[0]
+    try:
+        if len(args) == 4:
+            res = (await asyncio.to_thread(db_module.record_stars_payment, int(args[1]), charge_id, args[2], int(args[3])))["result"]
+            res = {"granted": "granted", "duplicate": "already_has", "already_owned": "already_has"}[res]
+            user_id = int(args[1])
+        else:
+            res = await asyncio.to_thread(db_module.regrant_purchase, charge_id)
+            row = await asyncio.to_thread(db_module.purchase_by_charge, charge_id)
+            user_id = row["telegram_id"] if row else None
+    except ValueError:
+        await _reply(update, "Неверные данные платежа или предмета")
+        return
+    except Exception as exc:
+        logger.error("Ручная выдача не выполнена: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выдать (подробности в логах сервиса)")
+        return
+    text = {"granted": "Выдано", "already_has": "Предмет у игрока уже есть", "refunded": "Платёж уже возвращён, выдавать нечего",
+            "missing": "Платёж не найден в журнале (используйте форму с идентификатором игрока, кодом и суммой)"}[res]
+    if res == "granted" and user_id is not None:
+        await _send_quiet(context, user_id, "Предмет добавлен в гардероб")
+    await _reply(update, text)
+
+
+async def teststars(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца: инвойс скрытого тестового предмета за 1 Star для проверки всего пути оплаты и возврата (/refund)."""
+    if not _owner_private(update):
+        return
+    owner_id = update.effective_user.id
+    item = cosmetics.TEST_ITEM
+    try:
+        await context.bot.send_invoice(
+            chat_id=owner_id, title=item["name"], description="Проверка оплаты Telegram Stars (1 Star). Возврат: /refund",
+            payload=cosmetics.make_payload(owner_id, item["code"], _wall()), currency="XTR", prices=[LabeledPrice(item["name"], item["price"]["amount"])],
+            provider_token="")
+    except Exception as exc:
+        logger.error("Тестовый инвойс не отправлен: %s", type(exc).__name__)
+        await _reply(update, "Не удалось создать счёт (подробности в логах сервиса)")
 
 
 GRANT_TTL = 300   # подтверждение начисления действует 5 минут
@@ -673,8 +903,10 @@ DELETE_WARNING = (
     "Данные на вашем устройстве (последние числа и ставки) останутся, их можно убрать очисткой "
     "кэша Telegram. Если вы снова откроете игру в ближайшие %d дней, стартовые 1000 фишек не выдаются: "
     "фишки будут начисляться по 100 в час. Для защиты от злоупотреблений на это время сохраняется "
-    "обезличенный идентификатор, через %d дней он удаляется."
-    % (antiabuse.REGISTRATION_COOLDOWN_DAYS, antiabuse.REGISTRATION_COOLDOWN_DAYS)
+    "обезличенный идентификатор, через %d дней он удаляется. "
+    "Купленные предметы оформления удаляются без возмещения. Запись об оплатах Telegram Stars (предмет, сумма, дата) "
+    "сохраняется для споров и возвратов %d дней после покупки, потом удаляется автоматически."
+    % (antiabuse.REGISTRATION_COOLDOWN_DAYS, antiabuse.REGISTRATION_COOLDOWN_DAYS, cosmetics.PURCHASE_RETENTION_DAYS)
 )
 DELETE_UNAVAILABLE = "Автоматическое удаление сейчас недоступно."
 
@@ -756,6 +988,8 @@ PRIVATE_COMMANDS = [
     BotCommand("developer_info", "О разработчике"),
     BotCommand("mydata", "Выгрузить мои данные"),
     BotCommand("deletemydata", "Удалить мои данные"),
+    BotCommand("paysupport", "Помощь по оплате"),
+    BotCommand("terms", "Условия покупки предметов"),
 ]
 GROUP_COMMANDS = [
     BotCommand("play", "Открыть игру"),
@@ -794,9 +1028,12 @@ def build_application(token, use_updater=True):
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
                           ("deletemydata", deletemydata), ("backupnow", backupnow),
-                          ("grantall", grantall), ("give", give), ("giveitem", giveitem)):
+                          ("grantall", grantall), ("give", give), ("giveitem", giveitem), ("paysupport", paysupport), ("terms", terms),
+                          ("refund", refund), ("regrant", regrant), ("teststars", teststars)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
+    app.add_handler(PreCheckoutQueryHandler(guarded(pre_checkout)))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, guarded(successful_payment)))
     app.add_handler(ChatMemberHandler(guarded(my_chat_member), ChatMemberHandler.MY_CHAT_MEMBER))
     # в группе -1: срабатывает до остальных и не мешает им (block=False)
     app.add_handler(MessageHandler(filters.COMMAND & filters.ChatType.GROUPS, guarded(note_group), block=False), group=-1)
