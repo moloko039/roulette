@@ -96,7 +96,8 @@
    (атрибуты ставит applySkins в script.js). Скин меняет только цвет, градиент и форму внутри того же размера: размеры, отступы,
    раскладка и логика не переменные. Пары, которые нельзя сливать по цвету: см. docs/ARCHITECTURE.md (раздел «Клиент», правила скинов). */
 /* Стартовый вид каждого слота = значения по умолчанию на :root и на элементе с атрибутом стартового кода (образец стартового предмета в гардеробе
-   не наследует переменные надетого скина с корня). */
+   не наследует переменные надетого скина с корня). Это касается и необязательных хуков: каждый хук, который задаёт хоть один скин, объявлен здесь
+   как «initial» (var(--хук, запасное) тогда берёт запасное). Без этого образец стартового предмета наследовал бы хук надетого скина с корня. */
 :root,
 [data-skin-card_back="back_classic"] {
   /* card_back: рубашка карт (блэкджек, хило) и лицо карты */
@@ -106,6 +107,11 @@
   --card-face: var(--text);
   --card-ink: var(--on-accent);
   --card-red: var(--red);
+  --card-back-image: initial;
+  --card-back-image-hl: initial;
+  --card-back-outline: initial;
+  --card-back-inset-bj: initial;
+  --card-back-inset-hl: initial;
 }
 
 :root,
@@ -122,6 +128,7 @@
   --chip-on-text: var(--on-accent);
   --chip-on-ring: var(--accent);
   --chip-on-glow: var(--glow);
+  --chip-inner: initial;
 }
 
 :root,
@@ -138,6 +145,7 @@
   --wheel-edge: #050506;
   --wheel-hub: #0F0F12;
   --wheel-hub-line: rgba(245, 245, 242, 0.5);
+  --table-felt: initial;
 }
 
 :root,
@@ -158,6 +166,7 @@
   --mines-hit-ring: var(--red-soft);
   --mines-opening-a: var(--surface-2);
   --mines-opening-b: var(--surface-3);
+  --mines-safe-text: initial;
 }
 
 :root,
@@ -177,6 +186,10 @@
   --keno-hit-bg: var(--green);
   --keno-hit-glow: 0 0 14px rgba(30, 158, 74, 0.95), 0 0 0 2px rgba(245, 245, 242, 0.55);
   --keno-miss-glow: 0 0 6px rgba(255, 255, 255, 0.3);
+  --keno-img: initial;
+  --keno-img-sel: initial;
+  --keno-img-drawn: initial;
+  --keno-img-hit: initial;
 }
 
 :root,
@@ -194,6 +207,9 @@
   --cr-label-strong: var(--text);
   --cr-history-text: var(--text-muted);
   --cr-history-border: var(--border);
+  --cr-line-glow: initial;
+  --cr-win-glow: initial;
+  --cr-crash-glow: initial;
 }
 
 :root,
@@ -209,8 +225,8 @@
 
 /* Скины. Селекторы пишутся БЕЗ привязки к html: атрибут data-skin-<слот> стоит на корне (надетое) или на самом элементе образца/аватара,
    переменные читают потомки. Скин меняет только цвет, градиент, форму (clip-path) и SVG внутри тех же размеров. Необязательные хуки
-   (--card-back-image, --card-back-outline, --chip-inner, --table-felt, --mines-safe-text, --keno-shape и -fx, --cr-line-glow и др.) на :root
-   не объявлены: их отсутствие даёт прежний вид. Единый стиль набора: тёмный синий, холодный металл, сдержанное золото. */
+   (--card-back-image, --card-back-outline, --chip-inner, --table-felt, --mines-safe-text, --keno-img*, --cr-line-glow и др.) объявлены
+   в стартовых группах как «initial»: прежний вид даёт запасное значение в var(). Единый стиль набора: тёмный синий, холодный металл, сдержанное золото. */
 
 /* back_midnight: тёмно-синяя рубашка, тонкая ромбовая сетка из градиентов, золотистая рамка и внутренний контур */
 [data-skin-card_back="back_midnight"] {
@@ -277,23 +293,26 @@
   --mines-opening-b: #24395c;
 }
 
-/* keno_hex: шестиугольники внутри того же квадрата; состояния различаются заливкой и свечением контура */
+/* keno_hex: шестиугольник нарисован фоном-SVG (одна простая форма на шарик, без clip-path и filter: десятки таких слоёв вешали WebKit на iPhone);
+   состояния различаются заливкой и контуром, собственные заливка и рамка шарика прозрачны */
 [data-skin-keno_ball="keno_hex"] {
-  --keno-shape: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-  --keno-bg: #14263d;
-  --keno-border: #4f6f9c;
+  --keno-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%2314263d' stroke='%234f6f9c' stroke-width='1.5'/%3E%3C/svg%3E");
+  --keno-img-sel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%232b4a78' stroke='%239cc4ff' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-img-drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%2314263d' stroke='%23e8c76a' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-img-hit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%234fd1b8' stroke='%23d8fff6' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-bg: transparent;
+  --keno-border: transparent;
   --keno-text: #dfe9f7;
-  --keno-active-bg: #1d3555;
+  --keno-active-bg: transparent;
   --keno-sel-text: #f5f8ff;
-  --keno-sel-bg: #2b4a78;
-  --keno-sel-border: #9cc4ff;
+  --keno-sel-bg: transparent;
+  --keno-sel-border: transparent;
+  --keno-sel-glow: none;
   --keno-drawn-text: #f5f8ff;
+  --keno-drawn-ring: none;
   --keno-hit-text: #06231f;
-  --keno-hit-bg: #4fd1b8;
-  --keno-fx: drop-shadow(0 0 0.6px #7da3d6) drop-shadow(0 0 0.6px #7da3d6);
-  --keno-sel-fx: drop-shadow(0 0 1px #bcd4f5) drop-shadow(0 0 4px #7da3d6);
-  --keno-drawn-fx: drop-shadow(0 0 1px #e8c76a) drop-shadow(0 0 3px #e8c76a);
-  --keno-hit-fx: drop-shadow(0 0 1px #d8fff6) drop-shadow(0 0 6px #5eead4);
+  --keno-hit-bg: transparent;
+  --keno-hit-glow: none;
   --keno-miss-glow: none;
 }
 
@@ -1839,25 +1858,25 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   font-size: 14px;
   font-weight: 600;
   color: var(--keno-text);
-  background: var(--keno-bg);
+  background-color: var(--keno-bg);
   border: 1px solid var(--keno-border);
   border-radius: 50%;
-  clip-path: var(--keno-shape, none);
+  background-image: var(--keno-img, none);
+  background-size: 100% 100%;
   transition: background-color 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out, color 0.15s ease-out;
 }
 
-.keno-ball { filter: var(--keno-fx, none); }
-.keno-ball.sel { filter: var(--keno-sel-fx, var(--keno-fx, none)); }
-.keno-ball.drawn { filter: var(--keno-drawn-fx, var(--keno-fx, none)); }
-.keno-ball.hit { filter: var(--keno-hit-fx, var(--keno-fx, none)); }
-.keno-ball:active:not(:disabled) span { background: var(--keno-active-bg); }
+.keno-ball.sel span { background-image: var(--keno-img-sel, var(--keno-img, none)); }
+.keno-ball.drawn span { background-image: var(--keno-img-drawn, var(--keno-img, none)); }
+.keno-ball.hit span { background-image: var(--keno-img-hit, var(--keno-img, none)); }
+.keno-ball:active:not(:disabled) span { background-color: var(--keno-active-bg); }
 .keno-ball:disabled { opacity: 1; cursor: default; }
 .keno-board.locked .keno-ball:not(.sel):not(.drawn) { opacity: 0.6; }
 
 /* выбранный: мягкое белое свечение */
 .keno-ball.sel span {
   color: var(--keno-sel-text);
-  background: var(--keno-sel-bg);
+  background-color: var(--keno-sel-bg);
   border-color: var(--keno-sel-border);
   box-shadow: var(--keno-sel-glow);
 }
@@ -1868,7 +1887,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 /* выпал и выбран: зелёный со свечением */
 .keno-ball.hit span {
   color: var(--keno-hit-text);
-  background: var(--keno-hit-bg);
+  background-color: var(--keno-hit-bg);
   border-color: transparent;
   box-shadow: var(--keno-hit-glow);
 }

@@ -39,8 +39,8 @@ HOOKS = {
     "--card-back-image": "linear-gradient(#e10001, #e10002)", "--card-back-image-hl": "linear-gradient(#e20001, #e20002)",
     "--card-back-outline": "3px solid #e30001", "--card-back-inset-bj": "-5px", "--card-back-inset-hl": "-9px",
     "--chip-inner": "inset 0 0 0 5px #e40001", "--table-felt": "#e50001", "--mines-safe-text": "#e60001",
-    "--keno-shape": "polygon(0 0, 100% 0, 50% 100%)", "--keno-fx": "drop-shadow(0 0 2px #e70001)", "--keno-sel-fx": "drop-shadow(0 0 3px #e80001)",
-    "--keno-drawn-fx": "drop-shadow(0 0 4px #e90001)", "--keno-hit-fx": "drop-shadow(0 0 5px #ea0001)",
+    "--keno-img": "linear-gradient(#e70001, #e70002)", "--keno-img-sel": "linear-gradient(#e80001, #e80002)",
+    "--keno-img-drawn": "linear-gradient(#e90001, #e90002)", "--keno-img-hit": "linear-gradient(#ea0001, #ea0002)",
     "--cr-line-glow": "drop-shadow(0 0 2px #eb0001)", "--cr-win-glow": "drop-shadow(0 0 3px #ec0001)", "--cr-crash-glow": "drop-shadow(0 0 4px #ed0001)",
 }
 SCARY_RAW.pop("--wheel-sector-line-x")
@@ -96,7 +96,7 @@ READ = """
     cWin: [g('p-cw', 'stroke', '.cr-curve'), g('p-cw', 'borderTopColor'), g('p-cw', 'backgroundImage')], cCrash: [g('p-cc', 'stroke', '.cr-curve'), g('p-cc', 'borderTopColor'), g('p-cc', 'backgroundImage')],
     tbl: g('p-tbl', 'backgroundColor'), bjOutline: g('p-bjback', 'outline'), hlOutline: g('p-hlback', 'outline'), bjInset: g('p-bjback', 'outlineOffset'), hlInset: g('p-hlback', 'outlineOffset'),
     chipInner: g('p-chip', 'boxShadow'), mSafeText: g('p-ms', 'color'),
-    kShape: g('p-k', 'clipPath', 'span'), kFx: [g('p-k', 'filter'), g('p-ks', 'filter'), g('p-kd', 'filter'), g('p-kh', 'filter'), g('p-km', 'filter')],
+    kImg: [g('p-k', 'backgroundImage', 'span'), g('p-ks', 'backgroundImage', 'span'), g('p-kd', 'backgroundImage', 'span'), g('p-kh', 'backgroundImage', 'span')],
     crGlow: [g('p-c', 'filter', '.cr-curve'), g('p-cw', 'filter', '.cr-curve'), g('p-cc', 'filter', '.cr-curve')],
     tr: g('p-tr', 'backgroundColor'), tb: g('p-tb', 'backgroundColor'), tg: g('p-tg', 'backgroundColor'), rg: g('p-rg', 'backgroundColor'),
     wheel: document.getElementById('wheel').toDataURL(),
@@ -176,15 +176,14 @@ async def run(w):
     await p.ev("(() => { const s = document.createElement('style'); s.id = 'e2e-skin2'; s.textContent = ':root { %s }'; document.head.appendChild(s); return true; })()" % hooks)
     await p.ev("E.sleep(700)")
     got2 = await p.ev(READ)
-    got = dict(got, **{k: v for k, v in got2.items() if k in ("tbl", "bjOutline", "hlOutline", "bjInset", "hlInset", "chipInner", "mSafeText", "kShape", "kFx", "crGlow")})
+    got = dict(got, **{k: v for k, v in got2.items() if k in ("tbl", "bjOutline", "hlOutline", "bjInset", "hlInset", "chipInner", "mSafeText", "kImg", "crGlow")})
     assert "rgb(225, 0, 1)" in got2["bjBack"] and "rgb(226, 0, 1)" in got2["hlBack"], (got2["bjBack"], got2["hlBack"])
     check("хук: сукно стола", got["tbl"], rgb("#e50001"))
     assert "rgb(227, 0, 1)" in got["bjOutline"] and "rgb(227, 0, 1)" in got["hlOutline"], (got["bjOutline"], got["hlOutline"])
     check("хук: смещение контура рубашки", [got["bjInset"], got["hlInset"]], ["-5px", "-9px"])
     assert "rgb(228, 0, 1)" in got["chipInner"], got["chipInner"]
     eq("хук: значок на открытой плитке", "mSafeText", "#e60001")
-    assert "polygon" in got["kShape"], got["kShape"]
-    for f, tag in zip(got["kFx"][:4], ("e70001", "e80001", "e90001", "ea0001")):
+    for f, tag in zip(got["kImg"], ("e70001", "e80001", "e90001", "ea0001")):
         n = int(tag[:2], 16)
         assert "rgb(%d, 0, 1)" % n in f, (tag, f)
     assert "rgb(236, 0, 1)" in got["crGlow"][1] and "rgb(237, 0, 1)" in got["crGlow"][2] and "rgb(235, 0, 1)" in got["crGlow"][0], got["crGlow"]
