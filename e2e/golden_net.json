@@ -1,0 +1,116 @@
+{
+"accrual_tick": [
+"GET /api/me",
+"GET /api/me",
+"GET /api/farm",
+"GET /api/me",
+"GET /api/me"
+],
+"betpanel_keyboard": [
+"GET /api/me",
+"GET /api/chat/top",
+"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}"
+],
+"blackjack": [
+"GET /api/me",
+"GET /api/blackjack/state",
+"POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"POST /api/blackjack/action {\"action\":\"stand\",\"request_id\":\"<rid:36>\"}"
+],
+"crash": [
+"GET /api/me",
+"GET /api/crash/state",
+"POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\",\"target_x100\":200}",
+"POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\",\"target_x100\":200}",
+"POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"GET /api/crash/state",
+"GET /api/crash/state",
+"POST /api/crash/cashout {\"request_id\":\"<rid:36>\"}"
+],
+"hilo": [
+"GET /api/me",
+"GET /api/hilo/state",
+"POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/guess {\"choice\":\"skip\",\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/cashout {\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/guess {\"choice\":\"lo\",\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/guess {\"choice\":\"lo\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"POST /api/hilo/guess {\"choice\":\"lo\",\"request_id\":\"<rid:36>\"}"
+],
+"keno": [
+"GET /api/me",
+"GET /api/keno/paytable",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}"
+],
+"lobby": [
+"GET /api/me",
+"GET /api/hilo/state",
+"GET /api/keno/paytable",
+"GET /api/me"
+],
+"mines": [
+"GET /api/me",
+"GET /api/mines/state",
+"POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
+"POST /api/mines/reveal {\"cell\":12,\"request_id\":\"<rid:36>\"}",
+"POST /api/mines/cashout {\"request_id\":\"<rid:36>\"}",
+"POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
+"POST /api/mines/reveal {\"cell\":0,\"request_id\":\"<rid:36>\"}"
+],
+"resume": [
+"GET /api/me",
+"GET /api/mines/state",
+"POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/mines/state",
+"GET /api/blackjack/state",
+"POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/blackjack/state",
+"GET /api/hilo/state",
+"POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/hilo/state",
+"GET /api/crash/state",
+"POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/crash/state"
+],
+"roulette": [
+"GET /api/me",
+"POST /api/roulette/spin {\"bets\":[{\"amount\":10,\"type\":\"number\",\"value\":17}],\"request_id\":\"<rid:36>\"}",
+"GET /api/me"
+],
+"shared_core": [
+"GET /api/me",
+"POST /api/roulette/spin {\"bets\":[{\"amount\":10,\"type\":\"number\",\"value\":17}],\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/me",
+"GET /api/crash/state",
+"POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\",\"target_x100\":5000}",
+"GET /api/hilo/state",
+"POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
+"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}"
+],
+"transfers_ui": [
+"GET /api/me",
+"GET /api/me",
+"GET /api/chat/top",
+"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/chat/top",
+"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/chat/top",
+"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/chat/top",
+"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/me",
+"GET /api/chat/top"
+]
+}

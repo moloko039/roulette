@@ -4,6 +4,7 @@
 пишутся во временную папку (путь печатается), в репозиторий ничего не попадает."""
 import asyncio
 import importlib
+import json
 import os
 import shutil
 import sys
@@ -12,8 +13,20 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+GOLDEN_NET = os.path.join(HERE, "golden_net.json")
+NET_SKIP = ("layout", "mines_layout")    # раскладка меняет размеры и открывает игры подряд: порядок фоновых GET состояния плавает, запросы не предмет проверки
 SCENARIOS = ["lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
-             "transfers_ui", "layout", "mines_layout"]
+             "transfers_ui", "layout", "mines_layout", "shared_core"]
+
+
+def net_diff(want, got):
+    """Первое расхождение двух последовательностей запросов (для сообщения о падении)."""
+    for i in range(max(len(want), len(got))):
+        a = want[i] if i < len(want) else "<нет>"
+        b = got[i] if i < len(got) else "<нет>"
+        if a != b:
+            return "запрос %d: ожидали «%s», получили «%s» (всего ожидали %d, получили %d)" % (i + 1, a, b, len(want), len(got))
+    return "?"
 
 
 def main(argv):
@@ -30,6 +43,9 @@ def main(argv):
         i = argv.index("--client-dir")
         client_dir = os.path.abspath(argv[i + 1])
         del argv[i:i + 2]
+    record_net = "--record-net" in argv
+    if record_net:
+        argv.remove("--record-net")
     names = [a for a in argv if not a.startswith("-")] or SCENARIOS
     unknown = [n for n in names if n not in SCENARIOS]
     if unknown:
@@ -45,15 +61,17 @@ def main(argv):
     if harness.websockets is None:
         print("Не установлен websockets: pip install -r e2e/requirements.txt")
         return 1
-    return asyncio.run(run_all(harness, chrome_path, names, repeat))
+    return asyncio.run(run_all(harness, chrome_path, names, repeat, record_net))
 
 
-async def run_all(harness, chrome_path, names, repeat):
+async def run_all(harness, chrome_path, names, repeat, record_net=False):
     tmp = tempfile.mkdtemp(prefix="e2e-chrome-")
     shots = tempfile.mkdtemp(prefix="e2e-shots-")
     chrome = harness.Chrome(chrome_path, tmp)
     failed = []
     results = []
+    golden = json.load(open(GOLDEN_NET, encoding="utf-8")) if os.path.exists(GOLDEN_NET) and not record_net else {}
+    recorded = {}
     try:
         for round_no in range(repeat):
             for name in names:
@@ -68,6 +86,15 @@ async def run_all(harness, chrome_path, names, repeat):
                     await mod.run(world)
                     if world.page.problems:
                         raise harness.E2EError("в консоли ошибки или предупреждения: " + " | ".join(world.page.problems[:3]))
+                    net = harness.normalize_net(world.page.net)
+                    if name in NET_SKIP:
+                        pass
+                    elif record_net:
+                        recorded.setdefault(name, net)
+                        if recorded[name] != net:
+                            raise harness.E2EError("запись сетевого эталона неповторима: " + net_diff(recorded[name], net))
+                    elif name in golden and golden[name] != net:
+                        raise harness.E2EError("последовательность запросов не совпала с golden_net.json: " + net_diff(golden[name], net))
                 except Exception as exc:  # noqa: BLE001
                     error = "%s: %s" % (type(exc).__name__, exc)
                     if world.page is not None:
@@ -85,6 +112,12 @@ async def run_all(harness, chrome_path, names, repeat):
     finally:
         chrome.stop()
         shutil.rmtree(tmp, ignore_errors=True)
+    if record_net and not failed:
+        old = json.load(open(GOLDEN_NET, encoding="utf-8")) if os.path.exists(GOLDEN_NET) else {}
+        old.update(recorded)
+        with open(GOLDEN_NET, "w", encoding="utf-8") as f:
+            json.dump(old, f, ensure_ascii=False, indent=0, sort_keys=True)
+        print("Сетевой эталон записан: %d сценариев, %d запросов" % (len(old), sum(len(v) for v in old.values())))
     total = len(results)
     print("Итого: %d прогонов, упало %d" % (total, len(failed)))
     if failed:

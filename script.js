@@ -1,6 +1,46 @@
 // Адрес сервера с балансом. Менять только здесь.
 const API_URL = 'https://roulette-production-4b93.up.railway.app';
 
+// Карта файла (секции помечены // #region ... // #endregion, свёртываются в редакторе):
+//   Константы и форматирование чисел
+//   ЯДРО: время, Telegram, сеть, реестр игр, общие каркасы игр (загрузка состояния, повторы, фишки)
+//   Ввод суммы и фишки
+//   Панель ставок над клавиатурой и защита тапов
+//   Рулетка
+//   Рулетка: ставка через сервер
+//   Баланс и профиль (/api/me)
+//   Рейтинг
+//   Ферма
+//   Минутное начисление
+//   Мины
+//   Мины: отрисовка
+//   Мины: запросы
+//   Мины: действия
+//   Кено
+//   Кено: таблица выплат
+//   Кено: раунд
+//   Блэкджек
+//   Блэкджек: проверка ответа сервера
+//   Блэкджек: рисование
+//   Блэкджек: запросы
+//   Блэкджек: анимация
+//   Краш
+//   Краш: проверка ответа сервера
+//   Краш: график и множитель
+//   Краш: итог
+//   Краш: запросы
+//   Хило
+//   Хило: проверка ответа сервера
+//   Хило: рисование
+//   Хило: запросы
+//   Хило: анимация
+//   Переводы
+//   Выбор получателя
+//   История переводов
+//   Лобби, меню игр и вкладки
+//   Запуск
+
+// #region Константы и форматирование чисел
 // Порядок чисел на колесе европейской рулетки (по часовой стрелке)
 const WHEEL_ORDER = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
@@ -50,6 +90,321 @@ document.addEventListener('click', (e) => {
   el.textContent = el.textContent === el.dataset.full ? el.dataset.short : el.dataset.full;
 });
 
+// #endregion Константы и форматирование чисел
+
+// #region ЯДРО: общее для всех экранов и игр (константы времени, Telegram, форматирование, сеть)
+
+const REQUEST_TIMEOUT_MS = 10000; // таймаут запроса
+const REFRESH_MIN_MS = 10000;     // обновление при открытии экрана и возврате в приложение
+const REQUEST_GAP_MS = 5000;      // любые два запроса /api/me не чаще, чем раз в 5 секунд
+const ERROR_RETRY_MS = 30000;     // после ошибки автоповтор не чаще, чем раз в 30 секунд
+const ZERO_DELAY_MS = 1000;       // пауза после нуля таймера перед новым запросом
+
+// Telegram Mini App: вне Telegram объекта нет, и игра работает как обычная страница
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  try {
+    tg.ready();
+    tg.expand();
+    if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes(); // Bot API 7.7+
+  } catch (e) {
+    // сбой Telegram API не должен ронять игру
+  }
+  // цвет шапки, фона и нижней панели Telegram = фон приложения (--bg), чтобы не было швов
+  const THEME_BG = '#050506';
+  [['6.1', 'setHeaderColor'], ['6.1', 'setBackgroundColor'], ['7.10', 'setBottomBarColor']].forEach(([ver, fn]) => {
+    try {
+      if (typeof tg[fn] === 'function' && tg.isVersionAtLeast(ver)) tg[fn](THEME_BG);
+    } catch (e) {
+      // старый клиент Telegram: цвета останутся по умолчанию
+    }
+  });
+}
+
+// Вибрация: 'light' (касание), 'success' (выигрыш), 'error' (проигрыш или отказ). Без Telegram ничего не делает
+function haptic(kind) {
+  try {
+    const h = tg && tg.HapticFeedback;
+    if (!h) return;
+    if (kind === 'light') h.impactOccurred('light');
+    else h.notificationOccurred(kind);
+  } catch (e) {
+    // вибрация необязательна
+  }
+}
+
+// Размер шрифта по длине записи: длинные числа (до 16 цифр) не должны выталкивать соседей за край экрана
+function fitNumberFont(el, length) {
+  el.dataset.len = length <= 9 ? 'l' : length <= 13 ? 'm' : length <= 17 ? 's' : 'xs';
+}
+
+// число баланса с обычными пробелами: очень длинное можно перенести по группам цифр, а не посреди группы
+const spacedNumber = (n) => formatNumber(n).replace(/[\u00a0\u202f]/g, ' ');
+
+const mmss = (sec) => {
+  const left = Math.max(0, Math.ceil(sec));
+  return String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+};
+
+const isCount = (v) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+
+const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+const BJ_SUIT_SVG = {
+  S: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3.2 4.2 8 6.7 8 11.2a4.4 4.4 0 0 1-7.1 3.4c.2 2.3 1 3.8 2.3 5.4H8.8c1.3-1.6 2.1-3.1 2.3-5.4A4.4 4.4 0 0 1 4 13.2C4 8.7 8.8 6.2 12 2z"/></svg>',
+  H: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5S3.5 16 3.5 9.8a4.6 4.6 0 0 1 8.5-2.4 4.6 4.6 0 0 1 8.5 2.4C20.5 16 12 21.5 12 21.5z"/></svg>',
+  D: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 10-7 10-7-10z"/></svg>',
+  C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
+};
+
+// Тост поверх нижней панели (общий для «Скоро», «Отправлено», «Вам перевели»)
+let toastTimer = null;
+function showToast(text) {
+  const el = document.getElementById('soon-toast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+const ROUND_ATTEMPTS = 3;               // попыток отправки одного раунда
+const ROUND_PAUSES_MS = [2000, 4000];   // паузы перед 2-й и 3-й попытками
+const REQUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function makeRequestId() {
+  let id = null;
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      id = window.crypto.randomUUID();
+    } else if (window.crypto && window.crypto.getRandomValues) {
+      id = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {
+    id = null;
+  }
+  return id && REQUEST_ID_RE.test(id) ? id : null;
+}
+
+const isInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
+
+// Единое место для всех POST-запросов. Если сервер ответил 429 (слишком часто), это временный сбой:
+// ждём Retry-After (не меньше 1 и не больше 10 секунд) и повторяем ТОТ ЖЕ запрос (с тем же request_id),
+// всего не более 3 повторов на один request_id (счёт общий для всех попыток вызывающего кода; через минуту
+// он сбрасывается). Остальные ответы и ошибки сети отдаются вызывающему как есть.
+const RATE_LIMIT_RETRIES = 3;
+const RATE_BUDGET_MS = 60000;
+const rateBudget = new Map(); // request_id -> { used, at }
+const retryAfterMs = (res) => {
+  const sec = parseInt(res.headers.get('Retry-After'), 10);
+  return Math.min(10, Math.max(1, Number.isFinite(sec) ? sec : 1)) * 1000;
+};
+
+// Что повторять. POST повторяется (с тем же request_id) только при сетевой ошибке, таймауте, 429 (это делает
+// postJson) и ответе 5xx. Остальные 4xx и любой ответ 2xx не повторяются: после 2xx сервер уже выполнил действие,
+// а если наш код не смог разобрать или показать ответ, это наша ошибка, а не сбой сети.
+const isServerError = (res) => res.status >= 500;
+
+async function readJsonBody(res) {
+  try {
+    return { ok: true, data: await res.json() };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+async function postJson(path, payload) {
+  for (;;) {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(API_URL + path, {
+        method: 'POST',
+        headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        signal: ctrl.signal
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    const key = payload.request_id;
+    if (res.status !== 429) {
+      rateBudget.delete(key);
+      return res;
+    }
+    const now = performance.now();
+    let budget = rateBudget.get(key);
+    if (!budget || now - budget.at > RATE_BUDGET_MS) budget = { used: 0, at: now };
+    if (budget.used >= RATE_LIMIT_RETRIES) return res; // повторы исчерпаны: 429 уходит вызывающему коду
+    budget.used += 1;
+    rateBudget.set(key, budget);
+    await sleep(retryAfterMs(res));
+  }
+}
+
+// Один POST действия. { kind: 'ok', data } | { kind: 'conflict', detail } | { kind: 'fatal', text } | { kind: 'retry', code }
+async function postMinesOnce(path, payload, validate) {
+  try {
+    const res = await postJson(path, payload);
+    if (res.status === 401) {
+      return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
+    }
+    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры' };
+    if (res.status === 409) {
+      let body = {};
+      try { body = await res.json(); } catch (e) { body = {}; }
+      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
+    }
+    if (!res.ok) {
+      return isServerError(res) ? { kind: 'retry', code: String(res.status) }
+        : { kind: 'fatal', text: 'Не удалось выполнить действие' };
+    }
+    const body = await readJsonBody(res);
+    // ответ 2xx не повторяем: действие уже выполнено сервером; непонятный ответ = повод запросить состояние
+    return body.ok && validate(body.data) ? { kind: 'ok', data: body.data } : { kind: 'invalid' };
+  } catch (e) {
+    return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
+  }
+}
+
+// До ROUND_ATTEMPTS попыток одного действия (один request_id): исход 'retry' повторяется после паузы, любой другой возвращается.
+// post() делает один POST; после неудачных попыток результат null.
+async function postWithRetries(post) {
+  let result = null;
+  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
+    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
+    const r = await post();
+    if (r.kind !== 'retry') result = r;
+  }
+  return result;
+}
+
+// Что сказать игроку, если действие не дало результата: { note, reload } (reload: запросить ли состояние с сервера).
+// notes: тексты по ответу 409 (detail); значение-массив [текст, false] означает «состояние не запрашивать».
+function actionFailure(result, notes) {
+  let note = 'Состояние обновлено';
+  let reload = true;
+  if (result && result.kind === 'invalid') {
+    note = 'Ответ сервера не распознан. Состояние обновлено';
+  } else if (result && result.kind === 'fatal') {
+    note = result.text;
+    reload = false;
+  } else if (result && result.kind === 'conflict' && Object.prototype.hasOwnProperty.call(notes, result.detail)) {
+    const n = notes[result.detail];
+    if (Array.isArray(n)) { note = n[0]; reload = n[1]; } else note = n;
+  }
+  return { note, reload };
+}
+
+// Состояние игры с сервера (GET, общий для мин, блэкджека, краша и хило): таймаут и единый разбор ошибок.
+// validate(d) решает, верен ли ответ. Ошибка: { text, code, retry }.
+async function fetchGameState(path, validate) {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + path, {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + tg.initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (res.status === 401) {
+      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
+    }
+    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
+    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
+    const d = await res.json();
+    if (!validate(d)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
+    return d;
+  } catch (e) {
+    if (e && typeof e.text === 'string') throw e;
+    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Загрузка состояния игры g при открытии экрана, возврате в приложение и вручную (общая для мин, блэкджека, краша и хило).
+// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд.
+// cfg: id игры; fetchState(); applyState(d); setMessage(text, code, canRetry); setNotice(text); render();
+// blockWhileAnimating: не грузить, пока идёт анимация (краш); skipRecent(g): можно ли пропустить недавнее обновление (по умолчанию да).
+async function loadGameState(g, cfg, reason) {
+  if (g.inFlight || g.busy || (cfg.blockWhileAnimating && g.animating) || activeTab !== 'play' || currentGame !== cfg.id) return;
+  const now = performance.now();
+  const sinceLast = now - g.lastRequestAt;
+  if (sinceLast < REQUEST_GAP_MS) {
+    if (reason === 'manual') {
+      clearTimeout(g.timer);
+      g.timer = setTimeout(() => loadGameState(g, cfg, 'manual'), REQUEST_GAP_MS - sinceLast + 20);
+    }
+    return;
+  }
+  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS && (!cfg.skipRecent || cfg.skipRecent(g))) return;
+  if (!(tg && tg.initData)) {
+    // вне Telegram запросы не отправляются
+    g.view = 'loading';
+    g.error = true;
+    cfg.setMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
+    cfg.render();
+    return;
+  }
+  clearTimeout(g.timer);
+  g.inFlight = true;
+  g.lastRequestAt = now;
+  if (!g.loaded) {
+    g.error = false;
+    cfg.setMessage('', '', false);
+    cfg.render();
+  }
+  try {
+    cfg.applyState(await cfg.fetchState());
+  } catch (e) {
+    if (g.loaded) {
+      cfg.setNotice(e.text);   // уже есть данные: оставляем экран, сообщаем о сбое
+    } else {
+      g.error = true;
+      cfg.setMessage(e.text, e.code, e.retry);
+      cfg.render();
+    }
+  } finally {
+    g.inFlight = false;
+  }
+}
+
+// Фишки ставки по серверному балансу игры (номиналы chipSet) и подсветка нажатой: одна на панель ставок игры.
+// attr: имя data-атрибута кнопок-фишек; getBalance(), getBet(), setBet(v): доступ к балансу и полю ставки игры.
+function makeChipBar({ root, attr, getBalance, getBet, setBet }) {
+  let values = [];
+  const render = () => {
+    const next = chipSet(getBalance());
+    if (next.join() === values.join()) return;
+    const wasChip = values.includes(getBet());
+    values = next;
+    root.querySelectorAll('[data-' + attr + ']').forEach((btn, i) => {
+      btn.dataset[attr] = String(next[i]);
+      setChipText(btn, next[i]);
+    });
+    if (wasChip && !next.includes(getBet())) setBet(nearestChip(next, getBet()));
+  };
+  const sync = () => {
+    const v = getBet();
+    root.querySelectorAll('[data-' + attr + ']').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset[attr]) === v)));
+  };
+  return { render, sync };
+}
+
+// Реестр игр: ядро (запрос баланса, минутное начисление) обходит его и не знает игр по именам. Игра регистрируется при объявлении
+// своего состояния: busy() = идёт запрос или анимация раунда (баланс на экране менять нельзя); state и render: если у игры свой серверный
+// баланс, после начисления ядро подтягивает его к серверному (keepBalance() = сейчас не трогать).
+const gameRegistry = [];
+const registerGame = (entry) => { gameRegistry.push(entry); };
+
+// #endregion ЯДРО
+
+// #region Ввод суммы и фишки
 // ---------- динамические фишки и ввод суммы ----------
 // Фишки считаются от серверного баланса: T = наибольшая степень 10, не больше баланса, но не меньше 100;
 // номиналы T/10, T/2, T, 5T (баланс 305: 10/50/100/500; 25 000: 1000/5000/10 000/50 000).
@@ -155,6 +510,9 @@ function setupBetPanel({ input, maxBtn, halfBtn, doubleBtn, getLimit }) {
   return refresh;
 }
 
+// #endregion
+
+// #region Панель ставок над клавиатурой и защита тапов
 // ---------- панель ставок над клавиатурой ----------
 // Пока поле в фокусе и клавиатура открыта, панель смещается (transform: раскладка не меняется, стол не прыгает)
 // так, чтобы её низ был у верхнего края клавиатуры. Видимый низ экрана берём из visualViewport (offsetTop + height),
@@ -276,6 +634,10 @@ function closeOnBackdropTap(backdrop, close) {
 })();
 
 
+// #endregion
+
+// #region Рулетка
+// ---------- рулетка: колесо, стол, ставки, вращение ----------
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
 const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
 
@@ -459,14 +821,6 @@ function flash(net) {
 const stakedTotal = () => bets.reduce((sum, b) => sum + b.amount, 0);
 const availableBalance = () => srv.balance - stakedTotal();
 
-// Размер шрифта по длине записи: длинные числа (до 16 цифр) не должны выталкивать соседей за край экрана
-function fitNumberFont(el, length) {
-  el.dataset.len = length <= 9 ? 'l' : length <= 13 ? 'm' : length <= 17 ? 's' : 'xs';
-}
-
-// число баланса с обычными пробелами: очень длинное можно перенести по группам цифр, а не посреди группы
-const spacedNumber = (n) => formatNumber(n).replace(/[\u00a0\u202f]/g, ' ');
-
 function renderBalance() {
   stopBalanceAnimation(); // промежуточные кадры накрутки не должны перебивать актуальное значение
   const loading = !srv.loaded && !srv.error;
@@ -610,11 +964,6 @@ function setMessage(text, kind = '', code = '') {
   messageCodeEl.textContent = code ? 'код: ' + code : '';
 }
 
-const mmss = (sec) => {
-  const left = Math.max(0, Math.ceil(sec));
-  return String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
-};
-
 // Постоянное состояние под сообщением: ошибка загрузки баланса или «фишки закончились»
 function renderStatus() {
   let text = '';
@@ -634,6 +983,7 @@ function renderStatus() {
 // раунд мог быть засчитан, ждём «Повторить» с тем же request_id
 const game = { phase: 'idle', round: null };
 const gameBusy = () => game.phase !== 'idle';
+registerGame({ id: 'roulette', busy: gameBusy });
 
 // Блокирует/разблокирует ставки, кнопку «Крутить» и нижнюю панель
 function updateControls() {
@@ -770,85 +1120,11 @@ function animateSpin(index, onDone) {
   requestAnimationFrame(frame);
 }
 
+// #endregion
+
+// #region Рулетка: ставка через сервер
 // ---------- ставка через сервер ----------
 // Сервер сам выбирает число и считает выигрыш. Клиент шлёт только request_id и ставки.
-const ROUND_ATTEMPTS = 3;               // попыток отправки одного раунда
-const ROUND_PAUSES_MS = [2000, 4000];   // паузы перед 2-й и 3-й попытками
-const REQUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function makeRequestId() {
-  let id = null;
-  try {
-    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-      id = window.crypto.randomUUID();
-    } else if (window.crypto && window.crypto.getRandomValues) {
-      id = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
-    }
-  } catch (e) {
-    id = null;
-  }
-  return id && REQUEST_ID_RE.test(id) ? id : null;
-}
-
-const isInt = (v) => typeof v === 'number' && Number.isSafeInteger(v);
-
-// Единое место для всех POST-запросов. Если сервер ответил 429 (слишком часто), это временный сбой:
-// ждём Retry-After (не меньше 1 и не больше 10 секунд) и повторяем ТОТ ЖЕ запрос (с тем же request_id),
-// всего не более 3 повторов на один request_id (счёт общий для всех попыток вызывающего кода; через минуту
-// он сбрасывается). Остальные ответы и ошибки сети отдаются вызывающему как есть.
-const RATE_LIMIT_RETRIES = 3;
-const RATE_BUDGET_MS = 60000;
-const rateBudget = new Map(); // request_id -> { used, at }
-const retryAfterMs = (res) => {
-  const sec = parseInt(res.headers.get('Retry-After'), 10);
-  return Math.min(10, Math.max(1, Number.isFinite(sec) ? sec : 1)) * 1000;
-};
-
-// Что повторять. POST повторяется (с тем же request_id) только при сетевой ошибке, таймауте, 429 (это делает
-// postJson) и ответе 5xx. Остальные 4xx и любой ответ 2xx не повторяются: после 2xx сервер уже выполнил действие,
-// а если наш код не смог разобрать или показать ответ, это наша ошибка, а не сбой сети.
-const isServerError = (res) => res.status >= 500;
-
-async function readJsonBody(res) {
-  try {
-    return { ok: true, data: await res.json() };
-  } catch (e) {
-    return { ok: false };
-  }
-}
-
-async function postJson(path, payload) {
-  for (;;) {
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
-    let res;
-    try {
-      res = await fetch(API_URL + path, {
-        method: 'POST',
-        headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        cache: 'no-store',
-        signal: ctrl.signal
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-    const key = payload.request_id;
-    if (res.status !== 429) {
-      rateBudget.delete(key);
-      return res;
-    }
-    const now = performance.now();
-    let budget = rateBudget.get(key);
-    if (!budget || now - budget.at > RATE_BUDGET_MS) budget = { used: 0, at: now };
-    if (budget.used >= RATE_LIMIT_RETRIES) return res; // повторы исчерпаны: 429 уходит вызывающему коду
-    budget.used += 1;
-    rateBudget.set(key, budget);
-    await sleep(retryAfterMs(res));
-  }
-}
 
 // Один POST. Возвращает { kind: 'ok', data } | { kind: 'fatal', text, code, refresh } | { kind: 'retry', code }
 async function postRound(round) {
@@ -986,46 +1262,11 @@ function showResult(round, data) {
   loadServer('after'); // обновит таймер (не чаще, чем раз в 5 секунд)
 }
 
-// Telegram Mini App: вне Telegram объекта нет, и игра работает как обычная страница
-const tg = window.Telegram && window.Telegram.WebApp;
-if (tg) {
-  try {
-    tg.ready();
-    tg.expand();
-    if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes(); // Bot API 7.7+
-  } catch (e) {
-    // сбой Telegram API не должен ронять игру
-  }
-  // цвет шапки, фона и нижней панели Telegram = фон приложения (--bg), чтобы не было швов
-  const THEME_BG = '#050506';
-  [['6.1', 'setHeaderColor'], ['6.1', 'setBackgroundColor'], ['7.10', 'setBottomBarColor']].forEach(([ver, fn]) => {
-    try {
-      if (typeof tg[fn] === 'function' && tg.isVersionAtLeast(ver)) tg[fn](THEME_BG);
-    } catch (e) {
-      // старый клиент Telegram: цвета останутся по умолчанию
-    }
-  });
-}
+// #endregion
 
-// Вибрация: 'light' (касание), 'success' (выигрыш), 'error' (проигрыш или отказ). Без Telegram ничего не делает
-function haptic(kind) {
-  try {
-    const h = tg && tg.HapticFeedback;
-    if (!h) return;
-    if (kind === 'light') h.impactOccurred('light');
-    else h.notificationOccurred(kind);
-  } catch (e) {
-    // вибрация необязательна
-  }
-}
-
+// #region Баланс и профиль (/api/me)
 // ---------- серверное состояние: общее для экрана игры и вкладки «Профиль» ----------
 // Баланс только серверный и хранится в памяти страницы, в localStorage он не пишется.
-const REQUEST_TIMEOUT_MS = 10000; // таймаут запроса
-const REFRESH_MIN_MS = 10000;     // обновление при открытии экрана и возврате в приложение
-const REQUEST_GAP_MS = 5000;      // любые два запроса /api/me не чаще, чем раз в 5 секунд
-const ERROR_RETRY_MS = 30000;     // после ошибки автоповтор не чаще, чем раз в 30 секунд
-const ZERO_DELAY_MS = 1000;       // пауза после нуля таймера перед новым запросом
 
 const srv = {
   loaded: false,   // получен ли хотя бы один ответ
@@ -1167,9 +1408,9 @@ function failServer(text, code, retry) {
 // Единственная функция запроса /api/me. reason: 'open' | 'visible' (с ограничением по частоте)
 // | 'timer' | 'manual' | 'after' (ручной запрос и запрос после раунда не теряются: откладываются)
 // Балансы игр хранятся у каждой игры отдельно: подпись нужна, чтобы устаревший ответ /api/me не затёр свежие значения
-const balanceSignature = () => [srv.balance, mn.balance, bj.balance, cr.balance, hl.balance].join('|');
+const balanceSignature = () => [srv.balance, ...gameRegistry.filter((g) => g.state).map((g) => g.state.balance)].join('|');
 // идёт запрос или анимация какой-либо игры: баланс на экране менять нельзя, данные ставятся в очередь (повтор через секунду)
-const anyRoundBusy = () => gameBusy() || kn.busy || mn.busy || bj.busy || cr.busy || cr.animating || hl.busy || hl.animating || bj.animating;
+const anyRoundBusy = () => gameRegistry.some((g) => g.busy());
 let srvNeedsTick = false;        // вкладка была скрыта, когда пришло время минутного запроса: при возврате обновляем сразу
 
 async function loadServer(reason) {
@@ -1284,6 +1525,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadServer('visible');
 });
 
+// #endregion
+
+// #region Рейтинг
 // ---------- вкладка «Рейтинг»: рейтинг беседы с сервера (только чтение) ----------
 // Какая это беседа, решает сервер по подписи initData; клиент ничего из неё не разбирает.
 // Данные хранятся только в памяти страницы, в localStorage не пишутся. Автоповтора при
@@ -1318,8 +1562,6 @@ function showRatingMessage(text, code, canRetry) {
 function failRating(text, code, canRetry) {
   showRatingMessage(text, code, canRetry);
 }
-
-const isCount = (v) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
 
 // форма ответа: scope «none» или «chat» с не более чем 10 записями и позицией игрока
 function validRating(d) {
@@ -1508,6 +1750,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadRating('visible');
 });
 
+// #endregion
+
+// #region Ферма
 // ---------- вкладка «Ферма»: улучшения дохода и хранилища за фишки ----------
 // Все числа и состояния приходят с сервера (GET /api/farm), клиент ничего не считает и не хранит.
 // Покупка: POST /api/farm/buy, до 3 попыток с одним request_id; 429 повторяется в postJson.
@@ -1624,6 +1869,9 @@ function renderFarmCard(kind, o, slots) {
   c.reason.textContent = reason;
 }
 
+// #endregion
+
+// #region Минутное начисление
 // ---------- минутное начисление: экран фермы, балансы игр, «+N» ----------
 // Блок дохода на экране фермы: берётся из /api/me (srv.farm), таймер идёт по монотонным часам и обновляется раз в секунду
 function renderFarmIncome() {
@@ -1640,9 +1888,10 @@ function renderFarmIncome() {
 // Балансы игр хранятся у каждой игры отдельно: после минутного начисления подтягиваем их к серверному (игры без запроса и анимации;
 // полёт краша и ход в процессе не трогаем: они обновятся сами по итогу)
 function syncGameBalances() {
-  [[mn, renderMines], [bj, renderBj], [cr, renderCrash], [hl, renderHl]].forEach(([g, render]) => {
+  gameRegistry.forEach(({ state: g, render, keepBalance }) => {
+    if (!g) return;
     if (g.balance === null || g.balance === srv.balance || g.busy || g.animating) return;
-    if (g === cr && cr.view === 'play') return;
+    if (keepBalance && keepBalance()) return;
     g.balance = srv.balance;
     render();
   });
@@ -1879,6 +2128,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadFarm('visible');
 });
 
+// #endregion
+
+// #region Мины
 // ---------- игра «Мины» ----------
 // Состояние игры только с сервера: клиент не знает раскладку мин до конца игры и не пытается её угадать.
 // Ответы с mine_cells нигде не сохраняются и не пишутся в консоль. Настройки (ставка, число мин) живут в памяти.
@@ -1943,6 +2195,7 @@ const mn = {
   lastRequestAt: -Infinity,
   timer: null
 };
+registerGame({ id: 'mines', state: mn, render: renderMines, busy: () => mn.busy });
 
 const minesCells = [];
 for (let i = 0; i < MINES_CELLS; i++) {
@@ -1991,6 +2244,9 @@ function validMinesLast(l) {
 const validMinesState = (d) => !!d && typeof d === 'object' && isCount(d.balance)
   && (d.game === null || validMinesGame(d.game)) && (d.last === null || validMinesLast(d.last));
 
+// #endregion
+
+// #region Мины: отрисовка
 // ---------- отрисовка ----------
 function setMinesMessage(text, code, canRetry) {
   minesEls.msg.textContent = text;
@@ -2099,18 +2355,14 @@ function renderMinesForm() {
 }
 
 // Фишки ставки в минах по серверному балансу (те же номиналы, что в рулетке)
-let minesChipValues = [];
-function renderMinesChips() {
-  const values = chipSet(mn.balance === null ? 0 : mn.balance);
-  if (values.join() === minesChipValues.join()) return;
-  const wasChip = minesChipValues.includes(mn.settings.bet);
-  minesChipValues = values;
-  minesEls.form.querySelectorAll('[data-bet]').forEach((btn, i) => {
-    btn.dataset.bet = String(values[i]);
-    setChipText(btn, values[i]);
-  });
-  if (wasChip && !values.includes(mn.settings.bet)) mn.settings.bet = nearestChip(values, mn.settings.bet);
-}
+const minesChipBar = makeChipBar({
+  root: minesEls.form,
+  attr: 'bet',
+  getBalance: () => (mn.balance === null ? 0 : mn.balance),
+  getBet: () => mn.settings.bet,
+  setBet: (v) => { mn.settings.bet = v; }
+});
+const renderMinesChips = minesChipBar.render;
 
 function renderMines() {
   const loading = mn.view === 'loading';
@@ -2178,100 +2430,23 @@ function applyMinesState(d, announce) {
   renderMines();
 }
 
+// #endregion
+
+// #region Мины: запросы
 // ---------- запросы ----------
 async function fetchMinesState() {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(API_URL + '/api/mines/state', {
-      method: 'GET',
-      headers: { Authorization: 'tma ' + tg.initData },
-      cache: 'no-store',
-      signal: ctrl.signal
-    });
-    if (res.status === 401) {
-      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
-    }
-    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
-    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
-    const d = await res.json();
-    if (!validMinesState(d)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
-    return d;
-  } catch (e) {
-    if (e && typeof e.text === 'string') throw e;
-    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetchGameState('/api/mines/state', validMinesState);
 }
 
-// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
 async function loadMines(reason) {
-  if (mn.inFlight || mn.busy || activeTab !== 'play' || currentGame !== 'mines') return;
-  const now = performance.now();
-  const sinceLast = now - mn.lastRequestAt;
-  if (sinceLast < REQUEST_GAP_MS) {
-    if (reason === 'manual') {
-      clearTimeout(mn.timer);
-      mn.timer = setTimeout(() => loadMines('manual'), REQUEST_GAP_MS - sinceLast + 20);
-    }
-    return;
-  }
-  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
-  if (!(tg && tg.initData)) {
-    // вне Telegram запросы не отправляются
-    mn.view = 'loading';
-    mn.error = true;
-    setMinesMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
-    renderMines();
-    return;
-  }
-  clearTimeout(mn.timer);
-  mn.inFlight = true;
-  mn.lastRequestAt = now;
-  if (!mn.loaded) {
-    mn.error = false;
-    setMinesMessage('', '', false);
-    renderMines();
-  }
-  try {
-    applyMinesState(await fetchMinesState(), true);
-  } catch (e) {
-    if (mn.loaded) {
-      setMinesNotice(e.text);   // уже есть данные: оставляем экран, сообщаем о сбое
-    } else {
-      mn.error = true;
-      setMinesMessage(e.text, e.code, e.retry);
-      renderMines();
-    }
-  } finally {
-    mn.inFlight = false;
-  }
-}
-
-// Один POST действия. { kind: 'ok', data } | { kind: 'conflict', detail } | { kind: 'fatal', text } | { kind: 'retry', code }
-async function postMinesOnce(path, payload, validate) {
-  try {
-    const res = await postJson(path, payload);
-    if (res.status === 401) {
-      return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
-    }
-    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры' };
-    if (res.status === 409) {
-      let body = {};
-      try { body = await res.json(); } catch (e) { body = {}; }
-      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
-    }
-    if (!res.ok) {
-      return isServerError(res) ? { kind: 'retry', code: String(res.status) }
-        : { kind: 'fatal', text: 'Не удалось выполнить действие' };
-    }
-    const body = await readJsonBody(res);
-    // ответ 2xx не повторяем: действие уже выполнено сервером; непонятный ответ = повод запросить состояние
-    return body.ok && validate(body.data) ? { kind: 'ok', data: body.data } : { kind: 'invalid' };
-  } catch (e) {
-    return { kind: 'retry', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть' };
-  }
+  return loadGameState(mn, {
+    id: 'mines',
+    fetchState: fetchMinesState,
+    applyState: (d) => applyMinesState(d, true),
+    setMessage: setMinesMessage,
+    setNotice: setMinesNotice,
+    render: renderMines
+  }, reason);
 }
 
 const validMinesStart = (d) => !!d && validMinesGame(d.game) && isCount(d.balance);
@@ -2298,12 +2473,7 @@ async function minesAct(path, body, validate, onOk) {
   mn.busy = true;
   setMinesNotice('');
   renderMines();
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postMinesOnce(path, { request_id: id, ...body }, validate);
-    if (r.kind !== 'retry') result = r;
-  }
+  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validate));
   let note = 'Состояние обновлено';
   if (result && result.kind === 'ok') {
     mn.balance = result.data.balance;
@@ -2320,15 +2490,11 @@ async function minesAct(path, body, validate, onOk) {
   }
   // дальше состояние известно только серверу
   let reload = true;
-  if (result && result.kind === 'invalid') {
-    note = 'Ответ сервера не распознан. Состояние обновлено';
-  } else if (result && result.kind === 'fatal') {
-    note = result.text;
-    reload = false;
-  } else if (result && result.kind === 'conflict' && result.detail === 'insufficient_funds') {
-    note = 'Не хватает фишек';
-  } else if (result && result.kind === 'conflict' && result.detail === 'active_game_exists') {
-    note = 'У вас уже есть начатая игра';
+  if (!(result && result.kind === 'ok')) {
+    ({ note, reload } = actionFailure(result, {
+      insufficient_funds: 'Не хватает фишек',
+      active_game_exists: 'У вас уже есть начатая игра'
+    }));
   }
   if (reload) {
     try {
@@ -2346,6 +2512,9 @@ async function minesAct(path, body, validate, onOk) {
   loadServer('after');
 }
 
+// #endregion
+
+// #region Мины: действия
 // ---------- действия ----------
 function minesStart() {
   const bet = Number(minesEls.bet.value);
@@ -2446,6 +2615,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadMines('visible');
 });
 
+// #endregion
+
+// #region Кено
 // ---------- игра «Кено» ----------
 // Один раунд за запрос: клиент шлёт ставку и числа, сервер вытягивает 10 чисел и считает выплату. Баланс только серверный
 // (общий srv, как у рулетки) и в шапке кено обновляется после анимации розыгрыша. Выбор чисел и ставка живут только в памяти.
@@ -2487,6 +2659,7 @@ const kn = {
   payFailedAt: -Infinity,
   noticeTimer: null
 };
+registerGame({ id: 'keno', busy: () => kn.busy });
 
 const kenoBalls = [];
 for (let n = 1; n <= KENO_FIELD; n++) {
@@ -2503,7 +2676,6 @@ for (let n = 1; n <= KENO_FIELD; n++) {
 }
 
 const kenoBetLimit = () => Math.max(1, Math.min(KENO_BET_MAX, srv.loaded ? srv.balance : KENO_BET_MAX));
-const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 function setKenoNotice(text) {
   clearTimeout(kn.noticeTimer);
@@ -2556,25 +2728,15 @@ function kenoClear() {
 }
 
 // Фишки ставки по серверному балансу (те же номиналы, что в рулетке и минах)
-let kenoChipValues = [];
-function renderKenoChips() {
-  const values = chipSet(srv.loaded ? srv.balance : 0);
-  if (values.join() === kenoChipValues.join()) return;
-  const wasChip = kenoChipValues.includes(Number(kenoEls.bet.value));
-  kenoChipValues = values;
-  kenoEls.panel.querySelectorAll('[data-kbet]').forEach((btn, i) => {
-    btn.dataset.kbet = String(values[i]);
-    setChipText(btn, values[i]);
-  });
-  if (wasChip && !values.includes(Number(kenoEls.bet.value))) kenoEls.bet.value = String(nearestChip(values, Number(kenoEls.bet.value)));
-}
-
-function syncKenoChips() {
-  const v = Number(kenoEls.bet.value);
-  kenoEls.panel.querySelectorAll('[data-kbet]').forEach((b) => {
-    b.setAttribute('aria-pressed', String(Number(b.dataset.kbet) === v));
-  });
-}
+const kenoChipBar = makeChipBar({
+  root: kenoEls.panel,
+  attr: 'kbet',
+  getBalance: () => (srv.loaded ? srv.balance : 0),
+  getBet: () => Number(kenoEls.bet.value),
+  setBet: (v) => { kenoEls.bet.value = String(v); }
+});
+const renderKenoChips = kenoChipBar.render;
+const syncKenoChips = kenoChipBar.sync;
 
 // одна строка текста: короткая запись на экране, полное число в подсказке
 function setKenoLine(el, shortText, fullText) {
@@ -2667,6 +2829,9 @@ function renderKeno() {
 }
 kenoRender = renderKeno;
 
+// #endregion
+
+// #region Кено: таблица выплат
 // ---------- таблица выплат ----------
 const validKenoPay = (d) => {
   if (!d || typeof d.paytable !== 'object' || d.paytable === null) return false;
@@ -2704,6 +2869,9 @@ async function loadKenoPay() {
   }
 }
 
+// #endregion
+
+// #region Кено: раунд
 // ---------- раунд ----------
 // Ответ проверяется по настоящему контракту (docs/API.md): нужны только draw, hits, payout, balance
 function validKenoRound(d, picks) {
@@ -2788,12 +2956,7 @@ async function kenoPlay() {
   kn.busy = true;
   kn.shownBalance = srv.balance;
   renderKeno();
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postKenoOnce({ request_id: id, bet, picks }, picks);
-    if (r.kind !== 'retry') result = r;
-  }
+  const result = await postWithRetries(() => postKenoOnce({ request_id: id, bet, picks }, picks));
   let note = 'Баланс обновлён';
   if (result && result.kind === 'ok') {
     const d = result.data;
@@ -2852,6 +3015,9 @@ kenoEls.play.addEventListener('click', kenoPlay);
 kenoEls.switchBtn.addEventListener('click', toggleGameMenu);
 renderKeno();
 
+// #endregion
+
+// #region Блэкджек
 // ---------- игра «Блэкджек» ----------
 // Состояние раздачи только с сервера: колоды и скрытой карты дилера клиент не знает (в ответе у неё null).
 // Каждое действие получает новый request_id; повторы (сеть, таймаут, 429, 5xx) идут с тем же (postJson, postMinesOnce).
@@ -2862,12 +3028,6 @@ const BJ_DEALER_MS = 400;      // дилер открывает карту и д
 const BJ_CARD_RE = /^(A|10|[2-9]|J|Q|K)[SHDC]$/;
 const BJ_RESULTS = ['win', 'push', 'lose', 'bust', 'dealer_bust', 'blackjack'];
 const BJ_ACTIONS = ['hit', 'stand', 'double'];
-const BJ_SUIT_SVG = {
-  S: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c3.2 4.2 8 6.7 8 11.2a4.4 4.4 0 0 1-7.1 3.4c.2 2.3 1 3.8 2.3 5.4H8.8c1.3-1.6 2.1-3.1 2.3-5.4A4.4 4.4 0 0 1 4 13.2C4 8.7 8.8 6.2 12 2z"/></svg>',
-  H: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5S3.5 16 3.5 9.8a4.6 4.6 0 0 1 8.5-2.4 4.6 4.6 0 0 1 8.5 2.4C20.5 16 12 21.5 12 21.5z"/></svg>',
-  D: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 10-7 10-7-10z"/></svg>',
-  C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
-};
 
 const bjEls = {
   balance: document.getElementById('bj-balance'),
@@ -2910,6 +3070,7 @@ const bj = {
   lastRequestAt: -Infinity,
   timer: null
 };
+registerGame({ id: 'blackjack', state: bj, render: renderBj, busy: () => bj.busy || bj.animating });
 
 const bjBetLimit = () => Math.max(1, Math.min(BJ_BET_MAX, bj.balance === null ? BJ_BET_MAX : bj.balance));
 
@@ -2923,6 +3084,9 @@ function setBjMessage(text, code, retry) {
   bjEls.retry.hidden = !retry;
 }
 
+// #endregion
+
+// #region Блэкджек: проверка ответа сервера
 // ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
 const validBjCards = (cards, hiddenOk) => Array.isArray(cards) && cards.every((c) => (c === null ? hiddenOk : (typeof c === 'string' && BJ_CARD_RE.test(c))));
 const validBjHand = (h, hiddenOk) => !!h && validBjCards(h.cards, hiddenOk) && h.cards.length >= 2 && isCount(h.total);
@@ -2943,6 +3107,9 @@ function validBjState(d, allowNone) {
 }
 const validBjAction = (d) => validBjState(d, false);
 
+// #endregion
+
+// #region Блэкджек: рисование
 // ---------- рисование ----------
 function bjCardEl(card, isNew) {
   const el = document.createElement('div');
@@ -3036,23 +3203,15 @@ function renderBjBanner() {
 }
 
 // Фишки ставки по серверному балансу блэкджека (те же номиналы, что в других играх)
-let bjChipValues = [];
-function renderBjChips() {
-  const values = chipSet(bj.balance === null ? 0 : bj.balance);
-  if (values.join() === bjChipValues.join()) return;
-  const wasChip = bjChipValues.includes(Number(bjEls.bet.value));
-  bjChipValues = values;
-  bjEls.bets.querySelectorAll('[data-jbet]').forEach((btn, i) => {
-    btn.dataset.jbet = String(values[i]);
-    setChipText(btn, values[i]);
-  });
-  if (wasChip && !values.includes(Number(bjEls.bet.value))) bjEls.bet.value = String(nearestChip(values, Number(bjEls.bet.value)));
-}
-
-function syncBjChips() {
-  const v = Number(bjEls.bet.value);
-  bjEls.bets.querySelectorAll('[data-jbet]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.jbet) === v)));
-}
+const bjChipBar = makeChipBar({
+  root: bjEls.bets,
+  attr: 'jbet',
+  getBalance: () => bj.balance === null ? 0 : bj.balance,
+  getBet: () => Number(bjEls.bet.value),
+  setBet: (v) => { bjEls.bet.value = String(v); }
+});
+const renderBjChips = bjChipBar.render;
+const syncBjChips = bjChipBar.sync;
 
 function renderBj() {
   const loading = bj.view === 'loading';
@@ -3083,31 +3242,12 @@ function renderBj() {
   refreshBetPanels();
 }
 
+// #endregion
+
+// #region Блэкджек: запросы
 // ---------- запросы ----------
 async function fetchBjState() {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(API_URL + '/api/blackjack/state', {
-      method: 'GET',
-      headers: { Authorization: 'tma ' + tg.initData },
-      cache: 'no-store',
-      signal: ctrl.signal
-    });
-    if (res.status === 401) {
-      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
-    }
-    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
-    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
-    const d = await res.json();
-    if (!validBjState(d, true)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
-    return d;
-  } catch (e) {
-    if (e && typeof e.text === 'string') throw e;
-    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetchGameState('/api/blackjack/state', (d) => validBjState(d, true));
 }
 
 const bjKey = (g) => g.status + ':' + g.player.cards.join('') + ':' + g.dealer.cards.join('') + ':' + g.payout;
@@ -3135,49 +3275,20 @@ function applyBjState(d, announce) {
   renderBj();
 }
 
-// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
 async function loadBj(reason) {
-  if (bj.inFlight || bj.busy || activeTab !== 'play' || currentGame !== 'blackjack') return;
-  const now = performance.now();
-  const sinceLast = now - bj.lastRequestAt;
-  if (sinceLast < REQUEST_GAP_MS) {
-    if (reason === 'manual') {
-      clearTimeout(bj.timer);
-      bj.timer = setTimeout(() => loadBj('manual'), REQUEST_GAP_MS - sinceLast + 20);
-    }
-    return;
-  }
-  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
-  if (!(tg && tg.initData)) {
-    bj.view = 'loading';
-    bj.error = true;
-    setBjMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
-    renderBj();
-    return;
-  }
-  clearTimeout(bj.timer);
-  bj.inFlight = true;
-  bj.lastRequestAt = now;
-  if (!bj.loaded) {
-    bj.error = false;
-    setBjMessage('', '', false);
-    renderBj();
-  }
-  try {
-    applyBjState(await fetchBjState(), true);
-  } catch (e) {
-    if (bj.loaded) {
-      setBjNotice(e.text);
-    } else {
-      bj.error = true;
-      setBjMessage(e.text, e.code, e.retry);
-      renderBj();
-    }
-  } finally {
-    bj.inFlight = false;
-  }
+  return loadGameState(bj, {
+    id: 'blackjack',
+    fetchState: fetchBjState,
+    applyState: (d) => applyBjState(d, true),
+    setMessage: setBjMessage,
+    setNotice: setBjNotice,
+    render: renderBj
+  }, reason);
 }
 
+// #endregion
+
+// #region Блэкджек: анимация
 // ---------- анимация ----------
 // Карты раздаются по одной, дилер открывает вторую карту и добирает по одной. Очки показываются после анимации.
 async function animateBj(prev, d, kind) {
@@ -3232,12 +3343,7 @@ async function bjAct(path, body, kind) {
   bj.busy = true;
   setBjNotice('');
   renderBj();
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postMinesOnce(path, { request_id: id, ...body }, validBjAction);
-    if (r.kind !== 'retry') result = r;
-  }
+  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validBjAction));
   let note = 'Состояние обновлено';
   let reload = true;
   if (result && result.kind === 'ok') {
@@ -3259,16 +3365,13 @@ async function bjAct(path, body, kind) {
       bj.animating = false;
       note = 'Не удалось показать результат. Состояние обновлено';
     }
-  } else if (result && result.kind === 'invalid') {
-    note = 'Ответ сервера не распознан. Состояние обновлено';
-  } else if (result && result.kind === 'fatal') {
-    note = result.text;
-    reload = false;
-  } else if (result && result.kind === 'conflict') {
-    if (result.detail === 'insufficient_funds') note = 'Не хватает фишек';
-    else if (result.detail === 'active_game_exists') note = 'У вас уже есть начатая раздача';
-    else if (result.detail === 'no_active_game') note = 'Раздача уже закрыта';
-    else if (result.detail === 'invalid_action') note = 'Это действие сейчас недоступно';
+  } else {
+    ({ note, reload } = actionFailure(result, {
+      insufficient_funds: 'Не хватает фишек',
+      active_game_exists: 'У вас уже есть начатая раздача',
+      no_active_game: 'Раздача уже закрыта',
+      invalid_action: 'Это действие сейчас недоступно'
+    }));
   }
   if (reload) {
     try {
@@ -3326,6 +3429,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadBj('visible');
 });
 
+// #endregion
+
+// #region Краш
 // ---------- игра «Краш» ----------
 // Время и исход только на сервере. Клиент рисует рост множителя по elapsed_ms из ответа плюс локальное время с момента ответа
 // (только для показа), а во время полёта раз в 300 мс спрашивает состояние: крах и итог берутся из ответа сервера.
@@ -3386,6 +3492,7 @@ const cr = {
   pollTimer: 0,
   polling: false
 };
+registerGame({ id: 'crash', state: cr, render: renderCrash, busy: () => cr.busy || cr.animating, keepBalance: () => cr.view === 'play' });
 
 const crBetLimit = () => Math.max(1, Math.min(CR_BET_MAX, cr.balance === null ? CR_BET_MAX : cr.balance));
 const crText = (x100) => '×' + Math.floor(x100 / 100) + '.' + String(x100 % 100).padStart(2, '0');
@@ -3407,6 +3514,9 @@ function crParseTarget() {
   return x >= CR_TARGET_MIN && x <= CR_TARGET_MAX ? x : undefined;
 }
 
+// #endregion
+
+// #region Краш: проверка ответа сервера
 // ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
 function validCrash(d, allowNone) {
   if (!d || !isCount(d.balance) || !isInt(d.doubling_ms) || d.doubling_ms < 1 || typeof d.cap !== 'string') return false;
@@ -3423,6 +3533,9 @@ function validCrash(d, allowNone) {
 }
 const validCrashAction = (d) => validCrash(d, false);
 
+// #endregion
+
+// #region Краш: график и множитель
 // ---------- график и множитель ----------
 const crElapsed = () => cr.base.elapsed + (performance.now() - cr.base.at);
 const crDoubling = () => (cr.game && cr.game.doubling_ms) || 6000;
@@ -3524,6 +3637,9 @@ function crApplyLive(d) {
   crFinishWith(d, false);
 }
 
+// #endregion
+
+// #region Краш: итог
 // ---------- итог ----------
 function crFinishWith(d, byCashout) {
   crStopLoop();
@@ -3591,22 +3707,17 @@ function renderCrResult() {
 }
 
 // Фишки ставки по серверному балансу краша (те же номиналы, что в других играх)
-let crChipValues = [];
-function renderCrChips() {
-  const values = chipSet(cr.balance === null ? 0 : cr.balance);
-  if (values.join() === crChipValues.join()) return;
-  const wasChip = crChipValues.includes(Number(crEls.bet.value));
-  crChipValues = values;
-  crEls.bets.querySelectorAll('[data-cbet]').forEach((btn, i) => {
-    btn.dataset.cbet = String(values[i]);
-    setChipText(btn, values[i]);
-  });
-  if (wasChip && !values.includes(Number(crEls.bet.value))) crEls.bet.value = String(nearestChip(values, Number(crEls.bet.value)));
-}
+const crChipBar = makeChipBar({
+  root: crEls.bets,
+  attr: 'cbet',
+  getBalance: () => cr.balance === null ? 0 : cr.balance,
+  getBet: () => Number(crEls.bet.value),
+  setBet: (v) => { crEls.bet.value = String(v); }
+});
+const renderCrChips = crChipBar.render;
 
 function syncCrChips() {
-  const v = Number(crEls.bet.value);
-  crEls.bets.querySelectorAll('[data-cbet]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.cbet) === v)));
+  crChipBar.sync();
   const t = crParseTarget();
   crEls.bets.querySelectorAll('[data-ctarget]').forEach((b) => {
     b.setAttribute('aria-pressed', String(typeof t === 'number' && t === Math.round(parseFloat(b.dataset.ctarget) * 100)));
@@ -3696,74 +3807,25 @@ function applyCrashState(d, announce) {
   renderCrash();
 }
 
+// #endregion
+
+// #region Краш: запросы
 // ---------- запросы ----------
 async function fetchCrashState() {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(API_URL + '/api/crash/state', {
-      method: 'GET',
-      headers: { Authorization: 'tma ' + tg.initData },
-      cache: 'no-store',
-      signal: ctrl.signal
-    });
-    if (res.status === 401) {
-      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
-    }
-    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
-    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
-    const d = await res.json();
-    if (!validCrash(d, true)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
-    return d;
-  } catch (e) {
-    if (e && typeof e.text === 'string') throw e;
-    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetchGameState('/api/crash/state', (d) => validCrash(d, true));
 }
 
-// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
 async function loadCrash(reason) {
-  if (cr.inFlight || cr.busy || cr.animating || activeTab !== 'play' || currentGame !== 'crash') return;
-  const now = performance.now();
-  const sinceLast = now - cr.lastRequestAt;
-  if (sinceLast < REQUEST_GAP_MS) {
-    if (reason === 'manual') {
-      clearTimeout(cr.timer);
-      cr.timer = setTimeout(() => loadCrash('manual'), REQUEST_GAP_MS - sinceLast + 20);
-    }
-    return;
-  }
-  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS && cr.view !== 'play') return;
-  if (!(tg && tg.initData)) {
-    cr.view = 'loading';
-    cr.error = true;
-    setCrMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
-    renderCrash();
-    return;
-  }
-  clearTimeout(cr.timer);
-  cr.inFlight = true;
-  cr.lastRequestAt = now;
-  if (!cr.loaded) {
-    cr.error = false;
-    setCrMessage('', '', false);
-    renderCrash();
-  }
-  try {
-    applyCrashState(await fetchCrashState(), true);
-  } catch (e) {
-    if (cr.loaded) {
-      setCrNotice(e.text);
-    } else {
-      cr.error = true;
-      setCrMessage(e.text, e.code, e.retry);
-      renderCrash();
-    }
-  } finally {
-    cr.inFlight = false;
-  }
+  return loadGameState(cr, {
+    id: 'crash',
+    fetchState: fetchCrashState,
+    applyState: (d) => applyCrashState(d, true),
+    setMessage: setCrMessage,
+    setNotice: setCrNotice,
+    render: renderCrash,
+    blockWhileAnimating: true,
+    skipRecent: (g) => g.view !== 'play'
+  }, reason);
 }
 
 // Авто-режим: быстрая анимация до цели (выигрыш) или до точки краха (проигрыш), потом итог и баланс
@@ -3804,12 +3866,7 @@ async function crAct(path, body, onOk) {
   setCrNotice('');
   renderCrashChrome();
   crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = true; });
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postMinesOnce(path, { request_id: id, ...body }, validCrashAction);
-    if (r.kind !== 'retry') result = r;
-  }
+  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validCrashAction));
   let note = 'Состояние обновлено';
   let reload = true;
   if (result && result.kind === 'ok') {
@@ -3822,16 +3879,13 @@ async function crAct(path, body, onOk) {
       cr.animating = false;
       note = 'Не удалось показать результат. Состояние обновлено';
     }
-  } else if (result && result.kind === 'invalid') {
-    note = 'Ответ сервера не распознан. Состояние обновлено';
-  } else if (result && result.kind === 'fatal') {
-    note = result.text;
-    reload = false;
-  } else if (result && result.kind === 'conflict') {
-    if (result.detail === 'too_early') { note = 'Слишком рано: вывод возможен с ×1.01'; reload = false; }
-    else if (result.detail === 'insufficient_funds') note = 'Не хватает фишек';
-    else if (result.detail === 'active_game_exists') note = 'У вас уже есть начатый раунд';
-    else if (result.detail === 'no_active_game') note = 'Раунд уже закрыт';
+  } else {
+    ({ note, reload } = actionFailure(result, {
+      too_early: ['Слишком рано: вывод возможен с ×1.01', false],
+      insufficient_funds: 'Не хватает фишек',
+      active_game_exists: 'У вас уже есть начатый раунд',
+      no_active_game: 'Раунд уже закрыт'
+    }));
   }
   cr.busy = false;
   if (reload) {
@@ -3926,6 +3980,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadCrash('visible');
 });
 
+// #endregion
+
+// #region Хило
 // ---------- игра «Хило» ----------
 // Состояние партии только с сервера: следующей карты клиент не знает (её не существует до хода), множители, вероятности и выплаты
 // считает сервер, клиент ничего не считает сам. Каждое действие получает новый request_id; повторы (сеть, таймаут, 429, 5xx) идут с тем же
@@ -3984,6 +4041,7 @@ const hl = {
   lastRequestAt: -Infinity,
   timer: null
 };
+registerGame({ id: 'hilo', state: hl, render: renderHl, busy: () => hl.busy || hl.animating });
 
 const hlBetLimit = () => Math.max(1, Math.min(HL_BET_MAX, hl.balance === null ? HL_BET_MAX : hl.balance));
 
@@ -3994,6 +4052,9 @@ function setHlMessage(text, code, retry) {
   hlEls.retry.hidden = !retry;
 }
 
+// #endregion
+
+// #region Хило: проверка ответа сервера
 // ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
 const validHlCard = (c) => !!c && typeof c === 'object' && Number.isInteger(c.rank) && c.rank >= 1 && c.rank <= 13
   && typeof c.suit === 'string' && !!HL_SUIT_NAMES[c.suit] && HL_HOWS.includes(c.how);
@@ -4012,6 +4073,9 @@ function validHlState(d, allowNone) {
 }
 const validHlAction = (d) => validHlState(d, false);
 
+// #endregion
+
+// #region Хило: рисование
 // ---------- рисование ----------
 const hlCardKey = (c) => (c ? c.rank + c.suit + c.how : '');
 const hlRankText = (c) => HL_RANKS[c.rank];
@@ -4080,23 +4144,15 @@ function hlMoveText(m) {
 }
 
 // Фишки ставки по серверному балансу (те же номиналы, что в других играх)
-let hlChipValues = [];
-function renderHlChips() {
-  const values = chipSet(hl.balance === null ? 0 : hl.balance);
-  if (values.join() === hlChipValues.join()) return;
-  const wasChip = hlChipValues.includes(Number(hlEls.bet.value));
-  hlChipValues = values;
-  hlEls.bets.querySelectorAll('[data-hbet]').forEach((btn, i) => {
-    btn.dataset.hbet = String(values[i]);
-    setChipText(btn, values[i]);
-  });
-  if (wasChip && !values.includes(Number(hlEls.bet.value))) hlEls.bet.value = String(nearestChip(values, Number(hlEls.bet.value)));
-}
-
-function syncHlChips() {
-  const v = Number(hlEls.bet.value);
-  hlEls.bets.querySelectorAll('[data-hbet]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.hbet) === v)));
-}
+const hlChipBar = makeChipBar({
+  root: hlEls.bets,
+  attr: 'hbet',
+  getBalance: () => hl.balance === null ? 0 : hl.balance,
+  getBet: () => Number(hlEls.bet.value),
+  setBet: (v) => { hlEls.bet.value = String(v); }
+});
+const renderHlChips = hlChipBar.render;
+const syncHlChips = hlChipBar.sync;
 
 function renderHl() {
   const loading = hl.view === 'loading';
@@ -4139,31 +4195,12 @@ function renderHl() {
   refreshBetPanels();
 }
 
+// #endregion
+
+// #region Хило: запросы
 // ---------- запросы ----------
 async function fetchHlState() {
-  const ctrl = new AbortController();
-  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(API_URL + '/api/hilo/state', {
-      method: 'GET',
-      headers: { Authorization: 'tma ' + tg.initData },
-      cache: 'no-store',
-      signal: ctrl.signal
-    });
-    if (res.status === 401) {
-      throw { text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', code: '401', retry: false };
-    }
-    if (res.status === 429) throw { text: 'Слишком много запросов, подождите немного', code: '429', retry: true };
-    if (!res.ok) throw { text: 'Нет связи с сервером', code: String(res.status), retry: true };
-    const d = await res.json();
-    if (!validHlState(d, true)) throw { text: 'Нет связи с сервером', code: 'ответ', retry: true };
-    return d;
-  } catch (e) {
-    if (e && typeof e.text === 'string') throw e;
-    throw { text: 'Нет связи с сервером', code: e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', retry: true };
-  } finally {
-    clearTimeout(timeout);
-  }
+  return fetchGameState('/api/hilo/state', (d) => validHlState(d, true));
 }
 
 const hlKey = (g) => g.status + ':' + hlCardKey(g.card) + ':' + g.steps + ':' + g.payout;
@@ -4191,49 +4228,20 @@ function applyHlState(d, announce) {
   renderHl();
 }
 
-// reason: 'open' | 'visible' (не чаще раза в 10 секунд) | 'manual'. Между любыми двумя запросами не меньше 5 секунд
 async function loadHilo(reason) {
-  if (hl.inFlight || hl.busy || activeTab !== 'play' || currentGame !== 'hilo') return;
-  const now = performance.now();
-  const sinceLast = now - hl.lastRequestAt;
-  if (sinceLast < REQUEST_GAP_MS) {
-    if (reason === 'manual') {
-      clearTimeout(hl.timer);
-      hl.timer = setTimeout(() => loadHilo('manual'), REQUEST_GAP_MS - sinceLast + 20);
-    }
-    return;
-  }
-  if (reason !== 'manual' && sinceLast < REFRESH_MIN_MS) return;
-  if (!(tg && tg.initData)) {
-    hl.view = 'loading';
-    hl.error = true;
-    setHlMessage('Откройте игру через бота в Telegram', 'нет Telegram', false);
-    renderHl();
-    return;
-  }
-  clearTimeout(hl.timer);
-  hl.inFlight = true;
-  hl.lastRequestAt = now;
-  if (!hl.loaded) {
-    hl.error = false;
-    setHlMessage('', '', false);
-    renderHl();
-  }
-  try {
-    applyHlState(await fetchHlState(), true);
-  } catch (e) {
-    if (hl.loaded) {
-      setHlNotice(e.text);
-    } else {
-      hl.error = true;
-      setHlMessage(e.text, e.code, e.retry);
-      renderHl();
-    }
-  } finally {
-    hl.inFlight = false;
-  }
+  return loadGameState(hl, {
+    id: 'hilo',
+    fetchState: fetchHlState,
+    applyState: (d) => applyHlState(d, true),
+    setMessage: setHlMessage,
+    setNotice: setHlNotice,
+    render: renderHl
+  }, reason);
 }
 
+// #endregion
+
+// #region Хило: анимация
 // ---------- анимация ----------
 // Новая карта переворачивается; ход подсвечивается (угадал: зелёным, ошибся: красным). Баланс и итог показываются после.
 async function animateHl(d, kind) {
@@ -4263,12 +4271,7 @@ async function hlAct(path, body, kind) {
   hl.busy = true;
   setHlNotice('');
   renderHl();
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postMinesOnce(path, { request_id: id, ...body }, validHlAction);
-    if (r.kind !== 'retry') result = r;
-  }
+  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validHlAction));
   let note = 'Состояние обновлено';
   let reload = true;
   if (result && result.kind === 'ok') {
@@ -4291,18 +4294,15 @@ async function hlAct(path, body, kind) {
       hl.animating = false;
       note = 'Не удалось показать результат. Состояние обновлено';
     }
-  } else if (result && result.kind === 'invalid') {
-    note = 'Ответ сервера не распознан. Состояние обновлено';
-  } else if (result && result.kind === 'fatal') {
-    note = result.text;
-    reload = false;
-  } else if (result && result.kind === 'conflict') {
-    if (result.detail === 'insufficient_funds') note = 'Не хватает фишек';
-    else if (result.detail === 'active_game_exists') note = 'У вас уже есть начатая партия';
-    else if (result.detail === 'no_active_game') note = 'Партия уже закрыта';
-    else if (result.detail === 'move_forbidden') note = 'Этот ход сейчас недоступен';
-    else if (result.detail === 'nothing_to_cash_out') note = 'Забрать можно после первого угаданного хода';
-    else if (result.detail === 'request_conflict') note = 'Запрос уже обработан, обновите экран';
+  } else {
+    ({ note, reload } = actionFailure(result, {
+      insufficient_funds: 'Не хватает фишек',
+      active_game_exists: 'У вас уже есть начатая партия',
+      no_active_game: 'Партия уже закрыта',
+      move_forbidden: 'Этот ход сейчас недоступен',
+      nothing_to_cash_out: 'Забрать можно после первого угаданного хода',
+      request_conflict: 'Запрос уже обработан, обновите экран'
+    }));
   }
   if (reload) {
     try {
@@ -4359,6 +4359,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadHilo('visible');
 });
 
+// #endregion
+
+// #region Переводы
 // ---------- переводы фишек между участниками беседы ----------
 // Получатель выбирается по member_ref из рейтинга беседы (непрозрачная метка, Telegram ID клиент не знает). Лимиты, комиссия и
 // минимальный уровень приходят из /api/me (srv.transferLimits), клиент констант не дублирует. Баланс обновляется по ответу сервера.
@@ -4381,16 +4384,6 @@ const tr = { ref: null, name: '', confirm: false, busy: false };
 let incomingToastShown = false;      // тост «Вам перевели» один раз за сессию
 let trListAt = -Infinity;            // performance.now() последней загрузки истории
 let trListBusy = false;
-
-// Тост поверх нижней панели (общий для «Скоро», «Отправлено», «Вам перевели»)
-let toastTimer = null;
-function showToast(text) {
-  const el = document.getElementById('soon-toast');
-  el.textContent = text;
-  el.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
-}
 
 const trAmount = () => {
   const n = Number(trEls.amount.value);
@@ -4519,12 +4512,8 @@ async function doTransfer() {
   tr.busy = true;
   setTrMsg('');
   renderTransfer();
-  let result = null;
-  for (let attempt = 0; attempt < ROUND_ATTEMPTS && !result; attempt++) {   // повторы с тем же request_id только при сбоях сети, 429 и 5xx
-    if (attempt > 0) await sleep(ROUND_PAUSES_MS[attempt - 1]);
-    const r = await postTransferOnce({ request_id: id, member_ref: tr.ref, amount });
-    if (r.kind !== 'retry') result = r;
-  }
+  // повторы с тем же request_id только при сбоях сети, 429 и 5xx
+  const result = await postWithRetries(() => postTransferOnce({ request_id: id, member_ref: tr.ref, amount }));
   tr.busy = false;
   if (result && result.kind === 'ok') {
     const d = result.data;
@@ -4587,6 +4576,9 @@ trEls.cancel.addEventListener('click', closeTransfer);
 closeOnBackdropTap(trEls.dim, closeTransfer);
 
 
+// #endregion
+
+// #region Выбор получателя
 // ---------- выбор получателя среди всех участников беседы ----------
 // GET /api/chat/members?q=&offset=: по 30 имён с подгрузкой при прокрутке, поиск с дебаунсом 300 мс. В ответе только имя и метка.
 const PICKER_DEBOUNCE_MS = 300;
@@ -4735,6 +4727,9 @@ pkEls.newBtn.addEventListener('click', () => openPicker('profile'));
 document.getElementById('transfer-change').addEventListener('click', () => { if (!tr.busy) openPicker('transfer'); });
 renderTransferEntry();
 
+// #endregion
+
+// #region История переводов
 // ---------- история переводов в профиле ----------
 const validTransferList = (d) => !!d && Array.isArray(d.items) && d.items.every((i) => i && (i.direction === 'in' || i.direction === 'out')
   && typeof i.name === 'string' && isCount(i.amount) && isCount(i.fee) && isCount(i.time));
@@ -4799,6 +4794,9 @@ function notifyIncoming() {
   loadTransfers('toast');
 }
 
+// #endregion
+
+// #region Лобби, меню игр и вкладки
 // ---------- титульный экран ----------
 // Баланс и уровень берутся из общего серверного состояния (srv), новых запросов нет. Карточки игр строятся из реестра GAMES.
 const lobbyEls = {
@@ -4992,6 +4990,10 @@ gameSwitchEl.addEventListener('click', toggleGameMenu);
   gamePanel.addEventListener('touchend', end);
   gamePanel.addEventListener('touchcancel', end);
 })();
+// #endregion
+
+// #region Запуск
+// ---------- запуск ----------
 showTab('play');   // титульный экран; если у игрока есть незавершённая игра, её откроет ответ /api/me
 
 loadState();
@@ -5035,3 +5037,5 @@ if (document.fonts && document.fonts.load) {
 started = true;
 renderAll();
 loadServer('open');
+
+// #endregion

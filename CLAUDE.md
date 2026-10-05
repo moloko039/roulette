@@ -81,7 +81,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 ## Тесты
 Из папки bot: `.venv/bin/python run_tests.py` (запускает все test_*.py, код выхода 1 при сбое).
 Один файл: `.venv/bin/python test_db.py` (успех: последняя строка «Все проверки прошли»).
-Клиент: `python e2e/run_e2e.py` (Chrome + настоящий сервер, зависимости e2e/requirements.txt; без Chrome пропуск); хуков в боевом коде нет.
+Клиент: `python e2e/run_e2e.py` (Chrome + настоящий сервер, зависимости e2e/requirements.txt; без Chrome пропуск; сверяет запросы клиента с e2e/golden_net.json); хуков в боевом коде нет.
 
 ## Журнал
 История и обоснования решений: docs/JOURNAL.md. Читай его выборочно (последние записи или
