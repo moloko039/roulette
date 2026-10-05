@@ -30,7 +30,7 @@ PAIRS = {
     "keno_ball": [("цифра на обычном шарике", "text", "bg", ">=3"), ("цифра на выбранном", "selText", "selBg", ">=3"),
                   ("цифра на выпавшем", "drawnText", "bg", ">=3"), ("цифра на совпавшем", "hitText", "hitBg", ">=3"),
                   ("совпавший и обычный (заливка)", "hitBg", "bg", ">=3"),
-                  ("выбран, выпал, совпал, мимо", "selBg", "bg", "fx: разные контуры свечения и формы (проверяется отдельно)")],
+                  ("выбран, выпал, совпал, мимо", "selBg", "bg", "fx: разные цвета контура и заливки шестиугольника (проверяется отдельно)")],
     "crash": [("обычная линия и фон", "line", "bg", ">=3"), ("линия выигрыша и фон", "win", "bg", ">=3"), ("линия краха и фон", "crash", "bg", ">=3"),
               ("выигрыш и крах", "win", "crash", ">=3"), ("подпись и фон", "label", "bg", ">=3")],
     "avatar_frame": [("внешнее кольцо рамки и фон", "ring", "page", ">=3")],
@@ -78,10 +78,12 @@ JS = r"""
                mutedText: col(h, '.mu', 'color', parse(cs(h, '.mu').backgroundColor)), hitBorder: col(h, '.mh', 'borderTopColor') };
     },
     keno_ball(h) {
+      // у шестиугольника заливка внутри SVG-фона (background-color прозрачный): берётся fill из фона состояния
+      const fill = (cls, base) => { const m = /fill=.%23([0-9a-f]{6})/i.exec(cs(h, '.' + cls + ' span').backgroundImage); if (!m) return col(h, '.' + cls + ' span', 'backgroundColor', base); const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1]; };
       const sp = (cls, prop, base) => col(h, '.' + cls + ' span', prop, base);
-      const bg = sp('k', 'backgroundColor', surface);
-      return { bg, text: sp('k', 'color', bg), selBg: sp('ks', 'backgroundColor', surface), selText: sp('ks', 'color', over(parse(cs(h, '.ks span').backgroundColor), surface)),
-               drawnText: sp('kd', 'color', bg), hitBg: sp('kh', 'backgroundColor', surface), hitText: sp('kh', 'color', parse(cs(h, '.kh span').backgroundColor)) };
+      const bg = fill('k', surface);
+      return { bg, text: sp('k', 'color', bg), selBg: fill('ks', surface), selText: sp('ks', 'color', fill('ks', surface)),
+               drawnText: sp('kd', 'color', fill('kd', surface)), hitBg: fill('kh', surface), hitText: sp('kh', 'color', fill('kh', surface)) };
     },
     crash(h) {
       const bg = col(h, '.cw', 'backgroundColor', page);
@@ -115,9 +117,11 @@ JS = r"""
     for (const [k, v] of Object.entries(raw)) res[k] = v ? v.slice(0, 3).map((x) => Math.round(x)) : null;
     const extra = {};
     if (slot === 'keno_ball') {
-      const f = (cls) => getComputedStyle(h.querySelector('.' + cls)).filter;
-      extra.filters = ['k', 'ks', 'kd', 'kh'].map(f);
-      extra.shape = getComputedStyle(h.querySelector('.k span')).clipPath;
+      const f = (cls) => getComputedStyle(h.querySelector('.' + cls + ' span')).backgroundImage;
+      extra.images = ['k', 'ks', 'kd', 'kh'].map(f);
+      extra.shape = (/points=.([0-9. ,]+)/.exec(extra.images[0]) || [])[1] || '';
+      extra.filters = ['k', 'ks', 'kd', 'kh'].map((cls) => getComputedStyle(h.querySelector('.' + cls)).filter);
+      extra.clips = ['k', 'ks', 'kd', 'kh'].map((cls) => getComputedStyle(h.querySelector('.' + cls + ' span')).clipPath);
     }
     if (slot === 'crash') extra.filters = ['.c0', '.cw', '.cc'].map((s) => getComputedStyle(h.querySelector(s + ' .cr-curve')).filter);
     if (slot === 'avatar_frame') { const r = h.querySelector('.avatar').getBoundingClientRect(); extra.size = [r.width, r.height]; extra.shadows = getComputedStyle(h.querySelector('.avatar')).boxShadow; }
@@ -175,9 +179,10 @@ async def run(w):
         check("размеры не меняются скином %s" % skin, data["%s:%s" % (slot, skin)]["extra"]["sizes"], data["%s:%s" % (slot, start)]["extra"]["sizes"])
     # проверки «не только цветом»
     k = data["keno_ball:keno_hex"]["extra"]
-    check("кено hex: форма шестиугольника", k["shape"].startswith("polygon("), True)
-    check("кено hex: выбран, выпал, совпал имеют разные свечения контура", len(set(k["filters"][1:])), 3)
-    check("кено hex: свечения отличаются от обычного шарика", all(f != k["filters"][0] for f in k["filters"][1:]), True)
+    check("кено hex: форма шестиугольника (6 вершин в фоне-SVG)", len(k["shape"].split()), 6)
+    check("кено hex: выбран, выпал, совпал имеют разные картинки контура и заливки", len(set(k["images"][1:])), 3)
+    check("кено hex: картинки отличаются от обычного шарика", all(f != k["images"][0] for f in k["images"][1:]), True)
+    check("кено hex: без filter и clip-path (дёшево для WebKit)", [set(k["filters"]), set(k["clips"])], [{"none"}, {"none"}])
     c = data["crash:crash_neon"]["extra"]
     check("краш neon: линия светится, у выигрыша и краха разное свечение", [f != "none" for f in c["filters"]] + [len(set(c["filters"])) == 3], [True, True, True, True])
     a = data["avatar_frame:frame_thin"]["extra"]
