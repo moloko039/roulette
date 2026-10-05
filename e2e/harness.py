@@ -266,6 +266,7 @@ class Page:
         self.problems = []    # ошибки и предупреждения консоли
         self.allowed = list(ALLOWED_CONSOLE)
         self.shots = None
+        self.net = []         # запросы клиента к API по порядку: (метод, адрес, тело); переживает перезагрузку страницы
 
     async def open(self):
         self.ws = await websockets.connect(self.ws_url, max_size=2 ** 27)
@@ -283,6 +284,8 @@ class Page:
                 self.pending.pop(m["id"]).set_result(m)
                 continue
             ev, p = m.get("method"), m.get("params", {})
+            if ev == "Network.requestWillBeSent" and p["request"]["method"] != "OPTIONS":
+                self.net.append((p["request"]["method"], p["request"]["url"], p["request"].get("postData")))
             if ev == "Runtime.consoleAPICalled" and p["type"] in ("error", "warning", "assert"):
                 self._problem("console." + p["type"], " ".join(str(a.get("value", a.get("description", ""))) for a in p["args"]))
             elif ev == "Runtime.exceptionThrown":
@@ -469,6 +472,31 @@ class World:
             self.static.stop()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+
+
+_ORIGIN = re.compile(r"^http://127\.0\.0\.1:\d+")
+
+
+def normalize_net(entries):
+    """Последовательность запросов клиента к API без случайного: метод, путь, тело (ключи по алфавиту). Случайный request_id
+    заменяется его формой (длина), чтобы сравнивались правила, а не значения; запросы к статике не учитываются."""
+    out = []
+    for method, url, body in entries:
+        path = _ORIGIN.sub("", url)
+        if not path.startswith("/api/"):
+            continue
+        text = ""
+        if body:
+            try:
+                data = json.loads(body)
+                for key, tag in (("request_id", "rid"), ("member_ref", "ref")):    # случайные значения: сравнивается форма
+                    if isinstance(data, dict) and isinstance(data.get(key), str):
+                        data[key] = "<%s:%d>" % (tag, len(data[key]))
+                text = " " + json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+            except ValueError:
+                text = " <не JSON>"
+        out.append("%s %s%s" % (method, path, text))
+    return out
 
 
 def check(name, got, expected):

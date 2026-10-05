@@ -1231,10 +1231,13 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   text-align: center;
   color: var(--text);
   overflow-wrap: anywhere;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
 }
 
 .mines-notice:empty { display: none; }
-.mines-notice { padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
 
 .mines-panel, .mines-result, .mines-last, .mines-card {
   display: grid;
