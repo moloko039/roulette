@@ -1050,12 +1050,20 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--space-3);
   padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
   text-align: center;
   overflow-y: auto;
 }
+
+/* Вертикальное центрирование, когда содержимое короче окна, без потери верха, когда оно выше. С justify-content: center переполнение делилось
+   поровну вверх и вниз, а верхняя часть лежит выше начала прокрутки: до шапки (кнопка «Гардероб») нельзя было долистать (Telegram Desktop, окно ~380x640).
+   Две распорки с нулевой базой делят только свободное место; отрицательный отступ гасит gap рядом с ними (при переполнении распорки равны нулю). */
+.profile::before, .profile::after { content: ""; flex: 1 1 0; min-height: 0; }
+.profile::before { margin-bottom: calc(-1 * var(--space-3)); }
+.profile::after { margin-top: calc(-1 * var(--space-3)); }
+.profile.rating::before, .profile.rating::after { display: none; }   /* рейтинг прижат к верху */
 
 .profile-head {
   display: flex;
