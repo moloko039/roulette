@@ -82,7 +82,11 @@ STUB = """<script>
 window.__errs = []; window.__log = [];
 window.Telegram = {WebApp: {initData: (function(){ try { return localStorage.getItem('__init') || ''; } catch (e) { return ''; } })(),
   initDataUnsafe: {user: {first_name: 'Игрок'}}, ready(){}, expand(){}, isVersionAtLeast(){return true}, disableVerticalSwipes(){},
-  setHeaderColor(){}, setBackgroundColor(){}, setBottomBarColor(){}, HapticFeedback: {impactOccurred(){}, notificationOccurred(){}}}};
+  setHeaderColor(){}, setBackgroundColor(){}, setBottomBarColor(){},
+  // оплата и внешние ссылки Telegram: статус openInvoice задаёт сценарий (window.__invoiceStatus: paid, cancelled, failed, pending, none = колбэк не вызывается)
+  openInvoice(url, cb){ (window.__invoices = window.__invoices || []).push(url); const m = window.__invoiceStatus || 'cancelled'; if (m !== 'none') setTimeout(() => cb && cb(m), 20); },
+  openLink(url){ (window.__links = window.__links || []).push(url); },
+  HapticFeedback: {impactOccurred(){}, notificationOccurred(){}}}};
 const _fetch = window.fetch.bind(window);
 window.fetch = async (u, o) => {
   const rec = {method: (o && o.method) || 'GET', path: String(u).replace(__API__, '')};

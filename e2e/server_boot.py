@@ -32,7 +32,7 @@ def _clock():
 
 time.time = _clock
 
-# ---- генераторы случайных чисел игр: очередь значений из script.json (ключи spin, keno, mines, shoe, crash, hilo)
+# ---- генераторы случайных чисел игр: очередь значений из script.json (ключи spin, keno, mines, shoe, crash, hilo, invoice)
 import blackjack  # noqa: E402
 import crash  # noqa: E402
 import hilo  # noqa: E402
@@ -132,4 +132,30 @@ for u in cfg["users"]:
 conn.commit()
 conn.close()
 app = create_app(cfg["token"], [cfg["origin"]], db_path=cfg["db"], rate_limiter=ratelimit.RateLimiter(ratelimit.load_config({})))
+
+
+class _FakeBot:
+    """Подмена Telegram для оплаты (только e2e): ссылку на инвойс берёт из очереди сценария (ключ invoice; "ERR" = сбой Telegram, 502)."""
+
+    async def create_invoice_link(self, **kwargs):
+        value = take("invoice")
+        if value == "ERR":
+            raise RuntimeError("e2e: сбой Telegram")
+        return value or "https://t.me/$e2e-invoice"
+
+
+import contextlib  # noqa: E402
+import types  # noqa: E402
+
+_lifespan = app.router.lifespan_context
+
+
+@contextlib.asynccontextmanager
+async def _lifespan_with_fake_bot(a):
+    async with _lifespan(a):                                   # штатный запуск (в режиме API приложение Telegram = None) ...
+        a.state.application = types.SimpleNamespace(bot=_FakeBot())   # ... и подмена бота только для e2e
+        yield
+
+
+app.router.lifespan_context = _lifespan_with_fake_bot
 uvicorn.run(app, host="127.0.0.1", port=cfg["port"], log_level="warning")
