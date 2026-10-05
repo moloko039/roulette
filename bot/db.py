@@ -50,7 +50,7 @@ from features.transfers_db import (
     _resolve_member, _transfer_daily_left, _transfer_response, transfer_send, transfer_status,
     transfer_history,
 )
-from features.chat_db import _clean_query, chat_members_page, TOP_SIZE, touch_chat_member, chat_top
+from features.chat_db import _clean_query, chat_members_page, TOP_SIZE, touch_chat_member, chat_top, chat_best_wins
 from features.active_game_db import active_game_of
 from features.grants_db import GRANT_MAX_AMOUNT, GRANT_ID_RE, GrantExists, validate_grant, grant_preview, grant_all
 from features.bot_chats_db import chat_register, chat_forget, chat_ids

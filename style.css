@@ -1171,14 +1171,16 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .profile .profile-retry { flex: none; min-width: 140px; }
 
-/* рейтинг: прокручивается только список, а не страница */
+/* рейтинг: список основного рейтинга прокручивается внутри карточки, весь экран по вертикали тоже (под рейтингом блок «Рекорды выигрыша») */
 .rating {
   min-height: 0;
   justify-content: flex-start;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .rating-card {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1193,11 +1195,18 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .rating-list {
   min-height: 0;
+  max-height: min(340px, 50vh);
   margin: 0;
   padding: 0;
   overflow-y: auto;
   list-style: none;
 }
+.best-list { max-height: none; overflow: visible; }
+
+/* рекорды выигрыша: строки как в рейтинге; сумма не переносится (высота строки не плывёт), длинное имя усекается */
+.best-title { margin: 0; padding: 2px var(--space-2); font-size: 13px; font-weight: 600; text-align: left; color: var(--text-muted); }
+.best-empty { margin: 0; padding: var(--space-3) var(--space-2); font-size: 13px; text-align: center; color: var(--text-muted); }
+.best-amount { white-space: nowrap; }
 
 .rating-list li,
 .rating-me {

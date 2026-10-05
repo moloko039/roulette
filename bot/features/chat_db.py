@@ -152,3 +152,36 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
     return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked}
+
+
+def chat_best_wins(chat_instance, telegram_id, db_path=None):
+    """Рекорды выигрыша беседы: до 10 лучших личных рекордов (чистый выигрыш за один раунд) и место вызвавшего.
+
+    Участники определяются так же, как в chat_top: последние MAX_CHAT_MEMBERS участников этой беседы (chat_members), у которых есть
+    строка в players; чужие беседы не видны. Только чтение: вызвавшего не регистрирует и не отмечает участником (это делает
+    рейтинг баланса). Порядок: сумма по убыванию, при равенстве раньше достигший, затем telegram_id. В ответе нет telegram_id и времени;
+    member_ref как в chat_top (у себя None); рамка и значок по тем же правилам видимости. «me»: место среди участников с рекордом
+    (None, если своего рекорда нет), total: сколько в беседе участников с рекордом."""
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT m.telegram_id, m.first_name, b.game, b.net_amount "
+            "FROM (SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
+            "JOIN players p ON p.telegram_id = m.telegram_id "
+            "JOIN player_best_win b ON b.telegram_id = m.telegram_id "
+            "ORDER BY b.net_amount DESC, b.achieved_at ASC, m.telegram_id ASC",
+            (chat_instance, MAX_CHAT_MEMBERS)).fetchall()
+    finally:
+        conn.close()
+    shown = _public_cosmetics(db_path, [r["telegram_id"] for r in rows[:TOP_SIZE]])
+    top = [
+        {"rank": i + 1, "name": r["first_name"], "net_amount": r["net_amount"], "game": r["game"], "is_me": r["telegram_id"] == telegram_id,
+         "cosmetics": shown.get(r["telegram_id"], {}),
+         "member_ref": None if r["telegram_id"] == telegram_id else transfers.member_ref(chat_instance, r["telegram_id"])}
+        for i, r in enumerate(rows[:TOP_SIZE])
+    ]
+    me = None
+    for i, r in enumerate(rows):
+        if r["telegram_id"] == telegram_id:
+            me = {"rank": i + 1, "net_amount": r["net_amount"], "game": r["game"], "total": len(rows)}
+    return {"scope": "chat", "top": top, "me": me, "total": len(rows)}

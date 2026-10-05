@@ -40,6 +40,8 @@
 - Общие функции лежат в `core/kernel.py` (`_accrue_write`, `_credit_capped`, `_add_xp`, `_register_player`); слои зависят только вниз: `games` и `features` импортируют `core`, друг друга и `db.py` не импортируют.
 
 ## 4. Шаблон партии (мины, блэкджек, краш, хило)
+**Рекорды выигрыша:** единая точка записи личного рекорда (чистый выигрыш = выплата минус ВСЯ ставка раунда) это `core.kernel._record_best_win(conn, id, игра, ставка, выплата, now)`: один UPSERT, только если выигрыш строго больше сохранённого; вызывают `pay_and_xp(..., игра, ставка, now)` (краш, блэкджек: все поставленные суммы `wager`, хило), `mines_db._finish_game`, `play_keno`, `spin_roulette`; новая игра обязана вызвать её в своём месте выплаты (тест `test_best_wins.py` проверяет, что таблицу пишет только `kernel.py`). Рейтинг: `chat_db.chat_best_wins` и `GET /api/chat/best-wins` (участники те же, что у `chat_top`; отдельный маршрут, чтобы сбой рекордов не ломал рейтинг). Клиент: блок `#best-card` под рейтингом (`showBestWins`, тексты только `textContent`, игры по белому списку `BEST_GAMES`). В эталон golden SQL записи рекорда не входит (фильтр в `test_game_golden.py`).
+
 Общий скелет лежит в `games/round_common.py` (без денег и правил игр): `Game` (имя игры, ошибка конфликта request_id, тексты запросов к `<игра>_games`
 и `<игра>_actions`), `run_action` (закрытие просроченной, повтор по `(игрок, request_id)`: тот же id с другими параметрами даёт `RequestConflict`, `_register_player`,
 `_accrue_write`, тело, запись ответа в `*_actions`), `settle_expired` (закрытие брошенной отдельной транзакцией, `precheck` для игр, которые сначала читают),
@@ -94,7 +96,7 @@
 - Дизайн правит владелец: перед правкой `index.html`, `style.css`, `script.js` читай их текущее состояние.
 
 ## 7. Данные и приватность
-Таблицы: `players` (+`accrual_acc`), `cosmetic_items`, `cosmetic_equipped`, `cosmetic_prefs`, `cosmetic_actions` (косметика: предметы и надетое хранятся, пока есть профиль, журнал действий 30 дней; удаляются с игроком), `cosmetic_purchases` (журнал оплат Stars: `charge_id` уникален; остаётся после удаления данных игрока 365 дней для споров и возвратов), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `chat_members`, `bot_chats` (только chat_id групп),
+Таблицы: `players` (+`accrual_acc`), `cosmetic_items`, `cosmetic_equipped`, `cosmetic_prefs`, `cosmetic_actions` (косметика: предметы и надетое хранятся, пока есть профиль, журнал действий 30 дней; удаляются с игроком), `cosmetic_purchases` (журнал оплат Stars: `charge_id` уникален; остаётся после удаления данных игрока 365 дней для споров и возвратов), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `player_best_win` (рекорд выигрыша игрока: одна строка, пишет только `core.kernel._record_best_win`; удаляется с игроком, в копиях как вся база), `chat_members`, `bot_chats` (только chat_id групп),
 `deletion_tombstones`, `admin_grants`, `service_meta`. Сроки: раунды и действия 30 дней, участники бесед 90 дней, надгробия 30 дней, копии по `BACKUP_KEEP`.
 Меняется то, что хранится о людях или видят другие игроки: в той же задаче правь `privacy.html` (разделы 2, 4, 5) и дату.
 

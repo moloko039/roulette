@@ -88,7 +88,7 @@ def _hilo_finish(conn, row, status, paid, xp_m, now, auto, card=None, how=None):
          now, now, row["id"])).rowcount
     if changed == 0:
         return
-    pay_and_xp(conn, row["telegram_id"], paid, None if xp_m is None else xp.hilo_xp(row["bet"], xp_m))
+    pay_and_xp(conn, row["telegram_id"], paid, None if xp_m is None else xp.hilo_xp(row["bet"], xp_m), "hilo", row["bet"], now)
 
 
 def _hilo_settle_in(conn, telegram_id, now):

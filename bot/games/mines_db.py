@@ -4,7 +4,7 @@ import mines
 import wallet
 import xp
 
-from core.kernel import _add_xp, _credit_capped
+from core.kernel import _add_xp, _credit_capped, _record_best_win
 from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, now_or_clock, read_state, run_action,
                                 settle_expired)
 
@@ -63,6 +63,7 @@ def _finish_game(conn, game_id, status, payout, now):
         "UPDATE mines_games SET status = ?, payout = ?, finished_at = ?, updated_at = ? WHERE id = ?",
         (status, payout, now, now, game_id),
     )
+    _record_best_win(conn, game["telegram_id"], "mines", game["bet"], payout, now)   # возврат ставки и проигрыш рекорд не пишут
     if status in ("lost", "cashed", "auto_cashed"):
         _add_xp(conn, game["telegram_id"],
                 xp.mines_xp(game["bet"], game["mines_count"], mines.popcount(game["revealed_mask"]), status == "lost"))

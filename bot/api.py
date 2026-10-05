@@ -32,7 +32,7 @@ import cosmetics
 import farm
 import keno
 import mines
-from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, chat_best_wins, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member,
                 cosmetics_state, cosmetics_mine, equip_item, unequip_item, set_visibility, buy_with_chips, stars_offer)
 import economy
@@ -366,6 +366,24 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return {"scope": "none"}
         # в ответе только rank, name, balance, is_me, staked и chat_staked: ни telegram_id, ни chat_instance, ни username
         return chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
+
+    @app.get("/api/chat/best-wins")
+    def chat_best_wins_endpoint(authorization: str = Header(default=None)):
+        # отдельный маршрут (а не поле в /api/chat/top): сбой или рост рекордов не ломает основной рейтинг, клиент грузит их независимо;
+        # проверки те же (initData, лимит чтения, scope none вне беседы); только чтение. В ответе нет telegram_id, chat_instance и времени
+        try:
+            scheme, _, init_data = (authorization or "").partition(" ")
+            if scheme != "tma":
+                raise InvalidInitData()
+            info = validate_init_data_full(init_data, bot_token)
+        except InvalidInitData:
+            raise _unauthorized()
+        limited = throttled(info["user_id"], "read")
+        if limited is not None:
+            return limited
+        if not _in_group(info):
+            return {"scope": "none"}
+        return chat_best_wins(info["chat_instance"], info["user_id"], db_path=db_path)
 
     @app.get("/api/farm")
     def farm_endpoint(authorization: str = Header(default=None)):

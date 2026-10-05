@@ -375,6 +375,17 @@ def init_db(db_path=None):
             )
             """
         )
+        # личный рекорд игрока: лучший чистый выигрыш за один раунд по всем играм (одна строка на игрока; пишет только core.kernel._record_best_win)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_best_win (
+                telegram_id INTEGER PRIMARY KEY,
+                game        TEXT    NOT NULL,
+                net_amount  INTEGER NOT NULL,
+                achieved_at INTEGER NOT NULL
+            )
+            """
+        )
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)

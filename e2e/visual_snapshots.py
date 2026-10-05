@@ -167,9 +167,11 @@ async def scenario(w, shooter):
     for tab in ("farm", "rating", "profile"):
         await p.tap(tab_js(tab))
         await p.wait("!document.querySelector('.screen:not([hidden]) .skeleton-card:not([hidden])')", 15, "экран загружен: " + tab)
+        if tab == "rating":
+            await p.wait("!document.getElementById('best-card').hidden", 15, "блок рекордов выигрыша")
         await shot(tab)
     await p.tap(tab_js("rating"))
-    await p.wait("document.querySelectorAll('#rating-list li').length >= 2", 10, "рейтинг")
+    await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && !document.getElementById('best-card').hidden", 10, "рейтинг и блок рекордов")
     await p.ev("[...document.querySelectorAll('#rating-list li')].find(l => l.textContent.includes('bob')).id = 'e2e-bob'")
     await p.tap("#e2e-bob")
     await p.wait("!document.getElementById('transfer-sheet').hidden", 5, "окно перевода")
@@ -202,7 +204,7 @@ async def scenario(w, shooter):
     await shot("wardrobe-frames")
     await p.tap("#wd-back")
     await p.tap(tab_js("rating"))
-    await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && document.querySelector('#rating-list .rating-badge')", 15, "рейтинг с рамкой и значком")
+    await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && document.querySelector('#rating-list .rating-badge') && !document.getElementById('best-card').hidden", 15, "рейтинг с рамкой и значком")
     await shot("rating-cosmetics")
     # покупка в гардеробе: карточки с ценами, лист с кнопкой «Купить», подтверждение за фишки (снимки добавлены в конец)
     await p.tap(tab_js("profile"))
@@ -220,6 +222,13 @@ async def scenario(w, shooter):
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.tap("#wd-prev-act")
     await shot("wardrobe-confirm")
+    # рекорды выигрыша под рейтингом (снимок добавлен в конец): рекорд bob записан напрямую, блок прокручен в видимую область
+    w.sql("INSERT OR REPLACE INTO player_best_win (telegram_id, game, net_amount, achieved_at) VALUES (?, 'keno', 1250000, ?)", (bob, now))
+    await w.reload()
+    await p.tap(tab_js("rating"))
+    await p.wait("document.querySelectorAll('#best-list li').length >= 1 && document.querySelector('#best-list .rating-badge')", 15, "рекорды выигрыша")
+    await p.ev("document.getElementById('best-card').scrollIntoView(true)")
+    await shot("best-wins")
 
 
 async def run_width(harness, chrome, width, folder):

@@ -8,6 +8,7 @@ import time
 from harness import check, open_game, set_bet, shown
 
 NAME = "keno_hex_play"
+CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = {"me": {"rate": 0}}
 DRAW = [1, 2, 3, 11, 12, 13, 14, 15, 16, 17]
 
@@ -62,9 +63,15 @@ async def run(w):
         check("раунд %d: все 40 шариков нарисованы фоном-SVG" % (i + 1), h["hexImages"], 40)
     check("перерисовки доски не растут от раунда к раунду (%s)" % moves, moves[2] <= moves[0] * 1.25 + 40, True)
     check("перерисовка одного раунда ограничена (не больше 2000 записей)", max(moves) <= 2000, True)
-    await p.ev("E.sleep(3000)")       # после раунда сервер ещё раз синхронизирует состояние (одна перерисовка), потом доска стоит
-    settled = await p.ev("window.__moves")
-    await p.ev("E.sleep(5000)")
-    check("в покое доска не перерисовывается (5 с)", await p.ev("window.__moves") - settled, 0)
+    # после раунда сервер ещё раз синхронизирует состояние (одна перерисовка, при замедленном CPU время плавает), потом доска стоит:
+    # среди шести окон по 3 секунды должно найтись окно без перерисовок (периодический цикл перерисовок такого окна не даст)
+    windows = []
+    for _ in range(6):
+        before = await p.ev("window.__moves")
+        await p.ev("E.sleep(3000)")
+        windows.append(await p.ev("window.__moves") - before)
+        if windows[-1] == 0:
+            break
+    check("в покое доска не перерисовывается (окна по 3 с: %s)" % windows, windows[-1], 0)
     check("страница не перезагружалась", [await p.ev("window.__marker"), await p.ev("performance.getEntriesByType('navigation').length")], ["same-page", 1])
     await p.send("Emulation.setCPUThrottlingRate", {"rate": 1})
