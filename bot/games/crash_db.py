@@ -66,7 +66,8 @@ def _crash_finish(conn, telegram_id, row, result, mult_x100, now, auto):
     if changed == 0:
         return
     pay_and_xp(conn, telegram_id, paid,
-               xp.crash_xp(row["bet"], crash.xp_multiplier(row["mode"], result, mult_x100, row["target_x100"])))
+               xp.crash_xp(row["bet"], crash.xp_multiplier(row["mode"], result, mult_x100, row["target_x100"])),
+               "crash", row["bet"], now)
 
 
 def _crash_settle_in(conn, telegram_id, now_ms):

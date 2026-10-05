@@ -43,7 +43,7 @@ def _bj_finish(conn, telegram_id, game_id, state, now, auto=False):
     (раздача уже не active, повторно её никто не закроет)."""
     _bj_save(conn, game_id, state, now)
     conn.execute("UPDATE blackjack_games SET finished_at = ?, auto = ? WHERE id = ?", (now, 1 if auto else 0, game_id))
-    pay_and_xp(conn, telegram_id, state["payout"], xp.blackjack_xp(state["wager"]))
+    pay_and_xp(conn, telegram_id, state["payout"], xp.blackjack_xp(state["wager"]), "blackjack", state["wager"], now)
 
 
 def _bj_response(conn, telegram_id, row, replayed=False):

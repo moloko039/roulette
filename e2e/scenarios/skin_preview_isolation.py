@@ -14,6 +14,7 @@ import harness
 from harness import check
 
 NAME = "skin_preview_isolation"
+CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = {"me": {"rate": 0}}
 SLOTS = ("card_back", "chip", "table", "mine_icons", "keno_ball", "crash", "avatar_frame", "badge")
 

@@ -514,7 +514,7 @@ try:
         balance = sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0]
         db.init_db(old_db)
         after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только новые таблицы", after - before, {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases"})
+        check("миграция добавила только новые таблицы", after - before, {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win"})
         check("старые данные на месте", sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0], balance)
         check("игрок со старой базы получает стартовые предметы", db.cosmetics_state(777, db_path=old_db)["equipped"], cosmetics.STARTERS)
         print("миграция со старой базой (коммит dbc9242) проверена")

@@ -1587,6 +1587,18 @@ const ratingEls = {
   skel: document.getElementById('rating-skel')
 };
 
+// блок «Рекорды выигрыша» под рейтингом: лучший чистый выигрыш игрока за один раунд (GET /api/chat/best-wins, только чтение).
+// Клиент ничего не считает: сумма, игра и место приходят с сервера; коды игр по белому списку (неизвестный код: запись пропускается).
+const bestEls = {
+  card: document.getElementById('best-card'),
+  list: document.getElementById('best-list'),
+  empty: document.getElementById('best-empty'),
+  me: document.getElementById('best-me')
+};
+const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило' };
+let bestLast = null;          // последний ответ (перерисовывается при смене своих рамки и значка)
+let bestInFlight = false;
+
 let ratingInFlight = false;
 let ratingLastRequestAt = -Infinity; // performance.now() последнего запроса
 let ratingTimer = null;              // отложенное нажатие «Повторить»
@@ -1595,6 +1607,7 @@ let ratingHasData = false;
 function showRatingMessage(text, code, canRetry) {
   ratingEls.skel.hidden = true;
   ratingEls.card.hidden = true;
+  bestEls.card.hidden = true;
   ratingEls.title.textContent = 'Рейтинг';
   ratingEls.msg.textContent = text;
   ratingEls.code.textContent = code ? 'код: ' + code : '';
@@ -1615,6 +1628,122 @@ function validRating(d) {
   const rowsOk = d.top.every((e) => e && typeof e === 'object' && isCount(e.rank) && isCount(e.balance)
     && typeof e.name === 'string' && typeof e.is_me === 'boolean');
   return rowsOk && !!d.me && typeof d.me === 'object' && isCount(d.me.rank) && isCount(d.me.balance) && isCount(d.me.total);
+}
+
+const isBestGame = (code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(BEST_GAMES, code);
+
+// форма ответа рекордов: scope «none» или «chat» с не более чем 10 записями; me может быть null (своего рекорда нет)
+function validBestWins(d) {
+  if (!d || typeof d !== 'object' || typeof d.scope !== 'string') return false;
+  if (d.scope === 'none') return true;
+  if (d.scope !== 'chat' || !Array.isArray(d.top) || d.top.length > 10 || !isCount(d.total)) return false;
+  const rowsOk = d.top.every((e) => e && typeof e === 'object' && isCount(e.rank) && isCount(e.net_amount)
+    && typeof e.name === 'string' && typeof e.is_me === 'boolean' && typeof e.game === 'string');
+  const m = d.me;
+  return rowsOk && (m === null || (!!m && typeof m === 'object' && isCount(m.rank) && isCount(m.net_amount) && typeof m.game === 'string' && isCount(m.total)));
+}
+
+// сумма «+1 250 000»; от миллиарда сокращённо, полное значение по нажатию (как в рейтинге)
+function setBestAmount(el, n) {
+  if (n >= 1e9) { setNumberLabel(el, '+', n); return; }
+  el.textContent = '+' + formatNumber(n);
+}
+
+function bestRankEl(rank) {
+  const el = document.createElement('span');
+  el.className = 'rating-rank';
+  if (rank === 1) {
+    el.innerHTML = CROWN_SVG; // постоянная разметка иконки, данных сервера в ней нет
+    el.setAttribute('aria-label', '1');
+  } else {
+    el.textContent = rank;
+  }
+  return el;
+}
+
+function bestAvatarEl(name, frame) {
+  const el = document.createElement('span');
+  el.className = 'avatar';
+  el.setAttribute('aria-hidden', 'true');
+  el.textContent = initialOf(name);
+  decorateAvatar(el, frame);
+  return el;
+}
+
+function showBestWins(d) {
+  bestLast = d;
+  if (d.scope !== 'chat') { bestEls.card.hidden = true; return; }
+  bestEls.list.textContent = '';
+  d.top.filter((e) => isBestGame(e.game)).forEach((e) => {
+    const li = document.createElement('li');
+    li.className = (e.is_me ? 'me ' : '') + (e.rank >= 1 && e.rank <= 3 ? 'top' + e.rank : '');
+    const pub = e.is_me ? ownEquipped : publicOf(e.cosmetics);   // как в рейтинге: у себя своё надетое, у других публичное
+    const name = document.createElement('span');
+    name.className = 'rating-name';
+    name.textContent = e.name;
+    const who = document.createElement('span');
+    who.className = 'rating-who';
+    who.appendChild(name);
+    const badge = badgeEl(pub.badge);
+    if (badge) who.appendChild(badge);
+    const amount = document.createElement('span');
+    amount.className = 'rating-bal best-amount';
+    setBestAmount(amount, e.net_amount);
+    const game = document.createElement('span');
+    game.className = 'rating-staked';
+    game.textContent = BEST_GAMES[e.game];
+    li.append(bestRankEl(e.rank), bestAvatarEl(e.name, pub.avatar_frame), who, amount, game);
+    bestEls.list.appendChild(li);
+  });
+  const empty = bestEls.list.children.length === 0;
+  bestEls.empty.hidden = !empty;
+  // своя строка под списком: место среди участников с рекордом (если своего рекорда нет, строки нет)
+  const me = bestEls.me;
+  me.textContent = '';
+  if (d.me && isBestGame(d.me.game)) {
+    const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    const myName = document.createElement('span');
+    myName.className = 'rating-name';
+    myName.textContent = 'Вы';
+    const myWho = document.createElement('span');
+    myWho.className = 'rating-who';
+    myWho.appendChild(myName);
+    const myBadge = badgeEl(ownEquipped.badge);
+    if (myBadge) myWho.appendChild(myBadge);
+    const myAmount = document.createElement('span');
+    myAmount.className = 'rating-bal best-amount';
+    setBestAmount(myAmount, d.me.net_amount);
+    const mySub = document.createElement('span');
+    mySub.className = 'rating-staked';
+    mySub.textContent = `${BEST_GAMES[d.me.game]}, ${d.me.rank}-е место из ${d.me.total}`;
+    me.append(bestRankEl(d.me.rank), bestAvatarEl(tgUser && tgUser.first_name ? tgUser.first_name : 'Я', ownEquipped.avatar_frame), myWho, myAmount, mySub);
+  }
+  bestEls.card.hidden = false;
+}
+
+// Загрузка после успешного рейтинга (те же интервалы запросов). Сбой не ломает рейтинг: прежние данные остаются, а без них блок скрыт
+async function loadBestWins() {
+  const initData = tg && tg.initData;
+  if (bestInFlight || !initData) return;
+  bestInFlight = true;
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch(API_URL + '/api/chat/best-wins', {
+      method: 'GET',
+      headers: { Authorization: 'tma ' + initData },
+      cache: 'no-store',
+      signal: ctrl.signal
+    });
+    if (!res.ok) return;
+    const d = await res.json();
+    if (validBestWins(d)) showBestWins(d);
+  } catch (e) {
+    // нет связи: блок остаётся прежним
+  } finally {
+    clearTimeout(timeout);
+    bestInFlight = false;
+  }
 }
 
 // Все тексты с сервера (в том числе имена) выводятся только через textContent
@@ -1638,6 +1767,7 @@ function showRating(d) {
   renderTransferEntry();
   if (d.scope === 'none') {
     ratingEls.card.hidden = true;
+    bestEls.card.hidden = true;
     ratingEls.title.textContent = 'Рейтинг';
     ratingEls.msg.textContent = 'Рейтинг работает в беседах. Откройте игру по ссылке из группового чата, и здесь появится рейтинг участников';
     return;
@@ -1787,6 +1917,7 @@ async function loadRating(reason) {
       return;
     }
     showRating(d);
+    if (d.scope === 'chat') loadBestWins();
   } catch (e) {
     // fetch не различает сбой сети и запрет CORS, поэтому код с вопросом
     failRating('Нет связи с сервером', e && e.name === 'AbortError' ? 'таймаут' : 'сеть или CORS?', true);
@@ -4921,6 +5052,7 @@ function renderOwnCosmetics() {
     holder.removeAttribute('data-skin-badge');
   }
   if (ratingLast && ratingLast.scope === 'chat') showRating(ratingLast);
+  if (bestLast && bestLast.scope === 'chat') showBestWins(bestLast);
 }
 
 function setOwnCosmetics(c) {

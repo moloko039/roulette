@@ -88,6 +88,8 @@ TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": i
             "cosmetics": dict}     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
 CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int}
+BEST_ITEM = {"rank": int, "name": str, "net_amount": int, "game": str, "is_me": bool, "member_ref": OPT(str), "cosmetics": dict}
+BEST_WINS = {"scope": str, "top": [BEST_ITEM], "me": OPT({"rank": int, "net_amount": int, "game": str, "total": int}), "total": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}
 FARM = {
     "balance": int,
@@ -204,6 +206,21 @@ try:
     assert r.json()["scope"] == "chat" and 1 <= len(r.json()["top"]) <= 10
     assert r.json()["me"] is not None
     r = client.get("/api/chat/top")
+    assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
+
+    # ================= GET /api/chat/best-wins =================
+    r = client.get("/api/chat/best-wins", headers=auth(U, group=False))
+    assert (r.status_code, r.json()) == (200, {"scope": "none"}), "scope none: только поле scope"
+    r = client.get("/api/chat/best-wins", headers=auth(2001, group=True))
+    assert r.status_code == 200
+    contract("chat/best-wins без рекордов", r.json(), BEST_WINS)
+    assert r.json() == {"scope": "chat", "top": [], "me": None, "total": 0}
+    client.post("/api/roulette/spin", headers=auth(2001, group=True), json={"request_id": rid(60), "bets": [bet("red", None, 10)]})
+    sqlite3.connect(path).execute("INSERT OR REPLACE INTO player_best_win (telegram_id, game, net_amount, achieved_at) VALUES (2001, 'keno', 777, 1)").connection.commit()
+    r = client.get("/api/chat/best-wins", headers=auth(2001, group=True))
+    contract("chat/best-wins с рекордом", r.json(), BEST_WINS)
+    assert r.json()["me"] == {"rank": 1, "net_amount": 777, "game": "keno", "total": 1} and r.json()["top"][0]["member_ref"] is None
+    r = client.get("/api/chat/best-wins")
     assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
 
     # ================= GET /api/farm и POST /api/farm/buy =================
@@ -353,7 +370,7 @@ try:
                                                        "READ_RATE_BURST": "1", "READ_RATE_PER_SEC": "1"}), clock=lambda: clock[0])
     path2, limited = new_app(lim)
     add_player(path2, 1)
-    for method, url, extra in (("get", "/api/me", {}), ("get", "/api/farm", {}), ("get", "/api/chat/top", {}),
+    for method, url, extra in (("get", "/api/me", {}), ("get", "/api/farm", {}), ("get", "/api/chat/top", {}), ("get", "/api/chat/best-wins", {}),
                                ("get", "/api/mines/state", {}),
                                ("post", "/api/roulette/spin", {"json": {"request_id": rid(150), "bets": [bet("red")]}}),
                                ("post", "/api/farm/buy", {"json": {"request_id": rid(151), "kind": "income"}}),

@@ -87,6 +87,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT item_code, amount_stars, created_at, status FROM cosmetic_purchases WHERE telegram_id = ? ORDER BY created_at, id", (telegram_id,)).fetchall()
             cosmetic_pref = conn.execute(
                 "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            best_win = conn.execute(
+                "SELECT game, net_amount, achieved_at FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -96,7 +98,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -145,6 +147,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             # покупки за Stars: без идентификатора платежа (он остаётся у владельца для споров и возвратов)
             "purchases": [{"item_code": r["item_code"], "amount_stars": r["amount_stars"], "time": r["created_at"], "status": r["status"]} for r in purchase_rows],
         },
+        # личный рекорд (лучший чистый выигрыш за раунд); его видят участники бесед: имя, сумма и игра
+        "best_win": None if best_win is None else {"game": best_win["game"], "net_amount": best_win["net_amount"], "achieved_at": best_win["achieved_at"]},
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
@@ -202,6 +206,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                 "DELETE FROM transfers WHERE sender = ? OR recipient = ?", (telegram_id, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
+            counts["player_best_win"] = conn.execute("DELETE FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).rowcount
             for table in ("cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"):   # косметика удаляется вместе с игроком
                 conn.execute("DELETE FROM " + table + " WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:

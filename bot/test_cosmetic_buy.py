@@ -530,7 +530,7 @@ try:
         assert "cosmetic_items" in before and "cosmetic_purchases" not in before
         db.init_db(old_db)
         after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только cosmetic_purchases", after - before, {"cosmetic_purchases"})
+        check("миграция добавила только cosmetic_purchases", after - before, {"cosmetic_purchases", "player_best_win"})
         check("старые данные на месте, покупка за фишки работает на мигрированной базе", (owned(old_db, 777), db.cosmetics_state(777, db_path=old_db)["show_in_rating"]), (["chip_ring"], True))
         sql(old_db, "UPDATE players SET balance = 100000 WHERE telegram_id = 777")
         check("покупка на мигрированной базе (баланс с начисленным доходом не больше потолка 30 ч)", 80_000 <= db.buy_with_chips(777, rid(), "badge_spade", db_path=old_db)["balance"] <= 83_000, True)

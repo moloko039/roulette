@@ -4,6 +4,7 @@
   _accrue_conn / _accrue_write  подтягивают поминутное начисление дохода игрока
   _register_player              единственное место, где создаётся строка в players
   _credit_capped                зачисляет выплату через wallet.credit не выше MAX_SAFE_INT
+  _record_best_win              личный рекорд выигрыша (единственное место записи player_best_win)
   _add_xp                       прибавляет опыт игрока (не выше MAX_SAFE_INT)"""
 
 import antiabuse
@@ -102,6 +103,27 @@ def _credit_capped(conn, telegram_id, amount):
         wallet.credit(conn, telegram_id, amount)
         return amount
     return 0
+
+
+BEST_WIN_GAMES = ("roulette", "mines", "keno", "blackjack", "crash", "hilo")   # закрытый список кодов игр в рекордах
+
+
+def _record_best_win(conn, telegram_id, game, stake, paid, now):
+    """Единственное место записи личного рекорда: лучший ЧИСТЫЙ выигрыш за раунд (выплата минус вся ставка раунда) по всем играм.
+    Пишется только если чистый выигрыш больше нуля и строго больше сохранённого (проигрыш, возврат ставки и ничья ничего не пишут;
+    при равной сумме остаётся более ранний рекорд). Один оператор UPSERT в той же транзакции, что выплата; рекорды не читает ни одна игра,
+    деньги, опыт и уровни от них не зависят. paid: фактически зачисленное, stake: все поставленные в раунде суммы."""
+    net = min(paid, MAX_SAFE_INT) - stake
+    if net <= 0:
+        return False
+    if game not in BEST_WIN_GAMES:
+        raise ValueError("unknown game")
+    conn.execute(
+        "INSERT INTO player_best_win (telegram_id, game, net_amount, achieved_at) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(telegram_id) DO UPDATE SET game = excluded.game, net_amount = excluded.net_amount, "
+        "achieved_at = excluded.achieved_at WHERE excluded.net_amount > player_best_win.net_amount",
+        (telegram_id, game, net, now))
+    return True
 
 
 def _add_xp(conn, telegram_id, amount):

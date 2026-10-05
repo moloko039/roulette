@@ -6,9 +6,31 @@
 "GET /api/me",
 "GET /api/me"
 ],
+"best_wins_board": [
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/me",
+"GET /api/keno/paytable",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/chat/best-wins"
+],
+"best_wins_safety": [
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/chat/top",
+"GET /api/chat/top",
+"GET /api/chat/top"
+],
 "betpanel_keyboard": [
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}"
 ],
 "blackjack": [
@@ -44,6 +66,16 @@
 "GET /api/me",
 "GET /api/keno/paytable",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}"
+],
+"keno_hex_play": [
+"GET /api/me",
+"GET /api/me",
+"GET /api/keno/paytable",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
+"GET /api/me"
 ],
 "lobby": [
 "GET /api/me",
@@ -104,6 +136,9 @@
 "skin_contrast": [
 "GET /api/me"
 ],
+"skin_preview_isolation": [
+"GET /api/me"
+],
 "skin_vars": [
 "GET /api/me"
 ],
@@ -111,18 +146,23 @@
 "GET /api/me",
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "GET /api/me",
 "GET /api/me",
-"GET /api/chat/top"
+"GET /api/chat/top",
+"GET /api/chat/best-wins"
 ],
 "wardrobe_buy_chips": [
 "GET /api/me",
@@ -193,12 +233,15 @@
 "wardrobe_rating": [
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "GET /api/me",
 "GET /api/chat/top",
+"GET /api/chat/best-wins",
 "GET /api/transfers"
 ],
 "wardrobe_safety": [
 "GET /api/me",
-"GET /api/transfers"
+"GET /api/transfers",
+"GET /api/chat/best-wins"
 ]
 }
