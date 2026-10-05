@@ -4469,7 +4469,6 @@ function trErrorText(detail, seconds) {
     level_too_low: 'Нужен уровень ' + (l ? l.min_level : 3) + ' или выше',
     account_too_new: 'Аккаунт слишком новый: переводы откроются через ' + (l ? l.min_age_hours : 1) + ' ч после начала игры',
     not_enough_staked: 'Переводы откроются, когда вы поставите в играх не менее ' + formatNumber(l ? l.min_staked : 20000) + ' фишек',
-    recipient_daily_limit: 'Этот игрок уже получил максимум за сутки, попробуйте позже',
     cooldown: 'Подождите ' + (isCount(seconds) ? seconds : 10) + ' сек. перед следующим переводом',
     daily_limit: 'Суточный лимит переводов исчерпан',
     no_chat: 'Вне беседы переводы недоступны: откройте игру из группового чата',

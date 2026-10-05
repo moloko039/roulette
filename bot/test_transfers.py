@@ -131,9 +131,10 @@ try:
     check("комиссия 5 %", [transfers.fee_for(a) for a in (100, 101, 1000, 1999, 50000)], [5, 5, 50, 99, 2500])
     check("минимум 1", [transfers.fee_for(a) for a in (1, 10, 19, 20, 39, 40)], [1, 1, 1, 1, 1, 2])
     check("0 отключает комиссию", [transfers.fee_for(a, 0) for a in (1, 100, 50000)], [0, 0, 0])
-    check("константы", (transfers.TRANSFER_MIN, transfers.TRANSFER_MAX, transfers.SEND_DAILY_LIMIT, transfers.RECEIVE_DAILY_LIMIT, transfers.COOLDOWN_SECONDS,
+    check("константы", (transfers.TRANSFER_MIN, transfers.TRANSFER_MAX, transfers.SEND_DAILY_LIMIT, transfers.COOLDOWN_SECONDS,
                         transfers.SENDER_MIN_LEVEL, transfers.MIN_ACCOUNT_AGE_HOURS, transfers.MIN_STAKED_TO_SEND, transfers.FEE_PERCENT),
-          (100, 500000, 500000, 500000, 10, 3, 1, 20000, 5))
+          (100, 500000, 500000, 10, 3, 1, 20000, 5))
+    check("лимита на получение нет", hasattr(transfers, "RECEIVE_DAILY_LIMIT"), False)
     assert all(transfers.valid_amount(a) for a in (100, 499999, 500000)) and not any(transfers.valid_amount(a) for a in (99, 500001, 0, -5, 1.5, "100", True, None))
 
     # ================= метки участников =================
@@ -320,18 +321,13 @@ try:
     check("после 500 000 суточный лимит отправки исчерпан", r["daily_left"], 0)
     e = raises(transfers.TransferError, send, path, A, C, 100, n=2, now=NOW + 10)
     check("следующий перевод 100 в тот же день: daily_limit", e.code, "daily_limit")
-    # получатель с уже полученной суммой: 475 000 чистыми проходят, пока набранное не больше 25 000
-    path = world(balance=2_000_000)
-    add_player(path, 4001, 100_000, created=NOW - 2 * 3600)
-    with mock.patch.object(transfers, "FEE_PERCENT", 0):
-        send(path, 4001, B, 25_000, n=1, now=NOW)
-    send(path, A, B, 500_000, n=2, now=NOW + 10)            # 25 000 + 475 000 = 500 000: ровно предел
+    # получатель с уже полученной суммой: суточного лимита на получение нет, перевод проходит
     path = world(balance=2_000_000)
     add_player(path, 4001, 100_000, created=NOW - 2 * 3600)
     with mock.patch.object(transfers, "FEE_PERCENT", 0):
         send(path, 4001, B, 25_100, n=1, now=NOW)
-    e = raises(transfers.TransferError, send, path, A, B, 500_000, n=2, now=NOW + 10)
-    check("получено уже 25 100: 475 000 сверх лимита получения", (e.code, row(path, A)[0]), ("recipient_daily_limit", 2_000_000))
+    r = send(path, A, B, 500_000, n=2, now=NOW + 10)
+    check("получено уже 25 100: ещё 475 000 принято без отказа", (r["received"], row(path, B)[0]), (475_000, 5000 + 25_100 + 475_000))
     # владелец: суточных лимитов нет, максимум за раз действует
     path = world(balance=100)
     sql(path, "UPDATE players SET balance = 3000000 WHERE telegram_id = ?", (OWNER,))
@@ -350,35 +346,18 @@ try:
     check("кулдаун у владельца сохраняется", e.code, "cooldown")
     for bad in (99, 500_001):
         raises(ValueError, send, path, OWNER, B, bad, n=98, now=NOW + 400, owner=OWNER)
-    # лимит получения: 500 000 чистыми за скользящие 24 часа (20 свежих аккаунтов одному получателю)
+    # лимита на получение нет: 20 свежих аккаунтов шлют одному получателю, каждый в пределах своих лимитов отправителя
     path = new_db()
     add_player(path, OWNER, 1000)
     for i in range(20):
         add_player(path, 3000 + i, 100_000, created=NOW - 2 * 3600)     # 20 свежих аккаунтов (2 часа, уровень 3, ставки 20 000)
     add_player(path, B, 5000)
-    ok_count = 0
     for i in range(20):
-        try:
-            send(path, 3000 + i, B, 50000, n=i + 1, now=NOW)
-            ok_count += 1
-        except transfers.TransferError as e:
-            check("20 свежих аккаунтов: отказ получателя по лимиту", e.code, "recipient_daily_limit")
-    check("получено ровно 10 переводов по 47 500 = 475 000 (11-й дал бы 522 500)", (ok_count, sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0]), (10, 475_000))
-    check("баланс получателя вырос ровно на полученное", row(path, B)[0], 5000 + 475_000)
-    check("комиссии 10 x 2 500 владельцу (лимиты не затрагивают)", row(path, OWNER)[0], 1000 + 25_000)
-    # точная граница получения: без комиссии 10 x 50 000 = 500 000 проходит, ещё 100 нет; окно скользящее
-    path = new_db()
-    add_player(path, OWNER, 1000)
-    for i in range(12):
-        add_player(path, 3000 + i, 100_000)
-    add_player(path, B, 5000)
-    with mock.patch.object(transfers, "FEE_PERCENT", 0):
-        for i in range(10):
-            send(path, 3000 + i, B, 50000, n=i + 1, now=NOW)
-        check("получено ровно 500 000", sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0], 500_000)
-        e = raises(transfers.TransferError, send, path, 3010, B, 100, n=50, now=NOW + 1)
-        check("500 000 + 100: recipient_daily_limit, ничего не списано", (e.code, row(path, 3010)[0]), ("recipient_daily_limit", 100_000))
-        check("через 24 часа окно получения освободилось", send(path, 3010, B, 100, n=51, now=NOW + DAY)["received"], 100)
+        send(path, 3000 + i, B, 50000, n=i + 1, now=NOW)
+    check("принято 20 переводов по 47 500 = 950 000 (больше прежнего лимита 500 000)", sql(path, "SELECT COUNT(*), SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0], (20, 950_000))
+    check("баланс получателя вырос на всё полученное", row(path, B)[0], 5000 + 950_000)
+    check("комиссии 20 x 2 500 владельцу", row(path, OWNER)[0], 1000 + 50_000)
+    check("у каждого отправителя списано ровно 50 000", {row(path, 3000 + i)[0] for i in range(20)}, {50_000})
     # владелец-получатель без лимита получения
     path = new_db()
     add_player(path, OWNER, 1000)
@@ -387,14 +366,13 @@ try:
     for i in range(12):
         send(path, 3000 + i, OWNER, 50000, n=i + 1, now=NOW)
     check("владелец получил 600 000 за сутки", row(path, OWNER)[0], 1000 + 12 * 50000)
-    # владелец-отправитель считается в лимит получения других
+    # владелец-получатель без лимита получения; владелец-отправитель получателей тоже не ограничивает
     path = new_db()
     add_player(path, OWNER, 3_000_000)
     add_player(path, B, 5000)
-    for i in range(10):
-        send(path, OWNER, B, 50000, n=i + 1, now=NOW + 10 * i, owner=OWNER)
-    e = raises(transfers.TransferError, send, path, OWNER, B, 100, n=11, now=NOW + 100, owner=OWNER)
-    check("получатель от владельца тоже ограничен 500 000", e.code, "recipient_daily_limit")
+    for i in range(11):
+        r = send(path, OWNER, B, 50000, n=i + 1, now=NOW + 10 * i, owner=OWNER)
+    check("получатель принял 550 000 от владельца без отказа", row(path, B)[0], 5000 + 11 * 50000)
     # параллельные переводы лимиты не обходят
     import threading
     from concurrent.futures import ThreadPoolExecutor
@@ -417,8 +395,8 @@ try:
         add_player(path, 3000 + i, 100_000)
     add_player(path, B, 5000)
     res = parallel(lambda i: send(path, 3000 + i, B, 50000, n=100 + i, now=NOW))
-    check("20 параллельных отправителей одному получателю: ровно 10 успешных", (sum(1 for x in res if x[0] == "ok"), sorted({x[1] for x in res if x[0] == "err"})), (10, ["recipient_daily_limit"]))
-    check("получено не больше лимита", sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0] <= transfers.RECEIVE_DAILY_LIMIT, True)
+    check("20 параллельных отправителей одному получателю: все 20 успешны", (sum(1 for x in res if x[0] == "ok"), sorted({x[1] for x in res if x[0] == "err"})), (20, []))
+    check("получено 950 000 (лимита на получение нет)", sql(path, "SELECT SUM(amount - fee) FROM transfers WHERE recipient = ?", (B,))[0][0], 950_000)
     path = new_db()
     add_player(path, OWNER, 1000)
     add_player(path, A, 5_000_000)

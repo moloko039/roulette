@@ -63,9 +63,6 @@
     },
     "not_enough_staked": {
       "detail": "not_enough_staked"
-    },
-    "recipient_daily_limit": {
-      "detail": "recipient_daily_limit"
     }
   },
   "cooldown": {

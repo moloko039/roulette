@@ -108,9 +108,6 @@
 "POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
 "GET /api/chat/top",
-"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
-"GET /api/me",
-"GET /api/chat/top",
 "GET /api/me",
 "GET /api/me",
 "GET /api/chat/top"

@@ -386,7 +386,6 @@ class User:
         self.xp = kw.get("xp", 3000)             # уровень 3 и выше
         self.staked = kw.get("staked", 20_000)
         self.age_days = kw.get("age_days", 5)
-        self.received = kw.get("received", 0)
 
 
 class World:
@@ -423,8 +422,7 @@ class World:
         await self.login("me")
 
     def _start_server(self):
-        rows = [{"id": u.id, "name": u.name, "balance": u.balance, "rate": u.rate, "age_days": u.age_days, "staked": u.staked, "xp": u.xp,
-                 "received": u.received} for u in list(self.users.values()) + [self.owner]]
+        rows = [{"id": u.id, "name": u.name, "balance": u.balance, "rate": u.rate, "age_days": u.age_days, "staked": u.staked, "xp": u.xp} for u in list(self.users.values()) + [self.owner]]
         self.server = Server(self.tmp, self.origin, rows, self.owner.id, self.chat)
         build_client(self.site, self.server.url)
 

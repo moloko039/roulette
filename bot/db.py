@@ -47,7 +47,7 @@ from core.members import _member_name, NAME_MAX, DEFAULT_NAME, TOUCH_INTERVAL, M
 from core.players import get_player
 from features.give_db import GIVE_MAX_AMOUNT, PlayerMissing, give_owner
 from features.transfers_db import (
-    _resolve_member, _transfer_daily_left, _transfer_received_24h, _transfer_response, transfer_send, transfer_status,
+    _resolve_member, _transfer_daily_left, _transfer_response, transfer_send, transfer_status,
     transfer_history,
 )
 from features.chat_db import _clean_query, chat_members_page, TOP_SIZE, touch_chat_member, chat_top
