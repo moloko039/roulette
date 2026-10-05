@@ -20,7 +20,7 @@
 | `farm.py` | улучшения дохода и хранилища (цены, ставки, потолок часов) | levels |
 | `levels.py`, `xp.py` | уровень профиля по опыту; формулы опыта всех игр | правила игр |
 | `roulette.py`, `keno.py`, `mines.py`, `blackjack.py`, `crash.py`, `hilo.py` | чистые правила и математика игр без базы; `MAX_SAFE_INT` в `roulette.py` | – |
-| `cosmetics.py` | каталог косметики (в коде), слоты, источники, ошибки; только внешний вид, игры, wallet, economy и transfers его не импортируют (тест) | – |
+| `cosmetics.py` | каталог косметики (в коде), цены (`PRICES`), слоты, источники, ошибки, подписанная метка инвойса; только внешний вид, игры, wallet, economy и transfers его не импортируют (тест) | – |
 | `transfers.py` | правила и константы переводов, метки участников (`member_ref`) | – |
 | `ratelimit.py` | токен-бакет по (игрок, группа write/read) | – |
 | `antiabuse.py` | защита от повторной регистрации (хэши удалённых) | – |
@@ -93,7 +93,7 @@
 - Дизайн правит владелец: перед правкой `index.html`, `style.css`, `script.js` читай их текущее состояние.
 
 ## 7. Данные и приватность
-Таблицы: `players` (+`accrual_acc`), `cosmetic_items`, `cosmetic_equipped`, `cosmetic_prefs`, `cosmetic_actions` (косметика: предметы и надетое хранятся, пока есть профиль, журнал действий 30 дней; удаляются с игроком), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `chat_members`, `bot_chats` (только chat_id групп),
+Таблицы: `players` (+`accrual_acc`), `cosmetic_items`, `cosmetic_equipped`, `cosmetic_prefs`, `cosmetic_actions` (косметика: предметы и надетое хранятся, пока есть профиль, журнал действий 30 дней; удаляются с игроком), `cosmetic_purchases` (журнал оплат Stars: `charge_id` уникален; остаётся после удаления данных игрока 365 дней для споров и возвратов), `roulette_rounds`, `farm_purchases`, `keno_rounds`, `mines_*`, `blackjack_*`, `crash_*`, `hilo_*`, `transfers`, `chat_members`, `bot_chats` (только chat_id групп),
 `deletion_tombstones`, `admin_grants`, `service_meta`. Сроки: раунды и действия 30 дней, участники бесед 90 дней, надгробия 30 дней, копии по `BACKUP_KEEP`.
 Меняется то, что хранится о людях или видят другие игроки: в той же задаче правь `privacy.html` (разделы 2, 4, 5) и дату.
 

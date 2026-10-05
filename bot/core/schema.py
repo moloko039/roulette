@@ -350,6 +350,22 @@ def init_db(db_path=None):
             )
             """
         )
+        # журнал оплат косметики Telegram Stars: хранится для споров и возвратов и после удаления данных игрока (срок: cosmetics.PURCHASE_RETENTION_DAYS)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cosmetic_purchases (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                charge_id    TEXT    NOT NULL UNIQUE,
+                telegram_id  INTEGER NOT NULL,
+                item_code    TEXT    NOT NULL,
+                amount_stars INTEGER NOT NULL,
+                status       TEXT    NOT NULL,
+                created_at   INTEGER NOT NULL,
+                refunded_at  INTEGER
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_cosmetic_purchases_player ON cosmetic_purchases(telegram_id, created_at)")
         # служебные отметки (время последних уведомлений владельцу); личных данных здесь нет
         conn.execute(
             """

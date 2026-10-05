@@ -2,6 +2,7 @@
 
 import time
 
+import cosmetics
 from antiabuse import COOLDOWN_SECONDS
 
 from core.db_conn import _connect, logger
@@ -106,6 +107,10 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
         if "cosmetic_actions" in present:  # только журнал действий (идемпотентность); предметы и надетое не чистятся
             batches("DELETE FROM cosmetic_actions WHERE rowid IN "
                     "(SELECT rowid FROM cosmetic_actions WHERE created_at < ? LIMIT ?)", (now - rounds_days * 86400, batch))
+        if "cosmetic_purchases" in present:  # журнал оплат Stars: своё (долгое) время хранения; после удаления данных игрока он остаётся до этого срока
+            deleted["cosmetic_purchases"] = batches(
+                "DELETE FROM cosmetic_purchases WHERE id IN (SELECT id FROM cosmetic_purchases WHERE created_at < ? LIMIT ?)",
+                (now - cosmetics.PURCHASE_RETENTION_DAYS * 86400, batch))
         if "transfers" in present:  # тот же срок хранения, что у раундов
             deleted["transfers"] = batches(
                 "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",

@@ -8,9 +8,11 @@ import json
 import time
 
 import cosmetics
+import wallet
+from roulette import InsufficientFunds
 
 from core.db_conn import _connect
-from core.kernel import _register_player
+from core.kernel import _accrue_write, _register_player
 
 CHANGE_INTERVAL_SECONDS = 1
 
@@ -49,15 +51,30 @@ def cosmetics_mine(telegram_id, db_path=None):
         conn.close()
 
 
-def grant_item(telegram_id, code, source, payment_ref=None, now=None, db_path=None):
-    """Единственная точка выдачи предмета. Идемпотентна: повтор не создаёт дубль и не падает (False). True, если выдан сейчас.
-    ValueError: неизвестный код, неверный источник или стартовый предмет (стартовые не выдаются); NoSuchPlayer: игрока нет в базе.
-    Платежей здесь нет: payment_ref пока всегда None (место для этапа с оплатой)."""
-    it = cosmetics.item(code)
+def _grant_in(conn, telegram_id, code, source, payment_ref, now):
+    """Выдача внутри открытой транзакции (повтор не создаёт дубль). True, если выдан сейчас. Скрытый тестовый предмет выдаётся только за Stars."""
+    it = cosmetics.item(code) or (cosmetics.sellable(code) if source == "stars" else None)
     if it is None or source not in cosmetics.SOURCES or it["starter"]:
         raise ValueError("grant")
     if payment_ref is not None and type(payment_ref) is not str:
         raise ValueError("payment_ref")
+    added = conn.execute(
+        "INSERT OR IGNORE INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, ?, ?, ?, ?)",
+        (telegram_id, code, source, payment_ref, now)).rowcount
+    return added == 1
+
+
+def _owns(conn, telegram_id, code):
+    return conn.execute("SELECT 1 FROM cosmetic_items WHERE telegram_id = ? AND item_code = ?", (telegram_id, code)).fetchone() is not None
+
+
+def grant_item(telegram_id, code, source, payment_ref=None, now=None, db_path=None):
+    """Единственная точка выдачи предмета (подарок, оплата, покупка за фишки). Идемпотентна: повтор не создаёт дубль и не падает (False).
+    True, если выдан сейчас. ValueError: неизвестный код, неверный источник или стартовый предмет (стартовые не выдаются);
+    NoSuchPlayer: игрока нет в базе."""
+    it = cosmetics.item(code) or (cosmetics.sellable(code) if source == "stars" else None)
+    if it is None or source not in cosmetics.SOURCES or it["starter"]:
+        raise ValueError("grant")
     if now is None:
         now = int(time.time())
     conn = _connect(db_path)
@@ -66,19 +83,17 @@ def grant_item(telegram_id, code, source, payment_ref=None, now=None, db_path=No
         try:
             if conn.execute("SELECT 1 FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone() is None:
                 raise cosmetics.NoSuchPlayer()
-            added = conn.execute(
-                "INSERT OR IGNORE INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, ?, ?, ?, ?)",
-                (telegram_id, code, source, payment_ref, now)).rowcount
+            added = _grant_in(conn, telegram_id, code, source, payment_ref, now)
             conn.execute("COMMIT")
         except Exception:
             conn.execute("ROLLBACK")
             raise
     finally:
         conn.close()
-    return added == 1
+    return added
 
 
-def _run_action(telegram_id, request_id, action, params, body, now, db_path):
+def _run_action(telegram_id, request_id, action, params, body, now, db_path, throttle=True):
     """Общий порядок: повтор по request_id (другое действие или параметры: RequestConflict), ограничение частоты смен
     (TooFast), регистрация игрока, тело действия, запись ответа."""
     if now is None:
@@ -99,8 +114,8 @@ def _run_action(telegram_id, request_id, action, params, body, now, db_path):
                 return response
             _register_player(conn, telegram_id, now)
             response = body(conn)     # ошибки проверок (не свой предмет, не тот слот...) приходят раньше ограничения частоты
-            last = conn.execute("SELECT MAX(created_at) FROM cosmetic_actions WHERE telegram_id = ?", (telegram_id,)).fetchone()[0]
-            if last is not None and now - last < CHANGE_INTERVAL_SECONDS:
+            last = conn.execute("SELECT MAX(created_at) FROM cosmetic_actions WHERE telegram_id = ? AND action != 'buy'", (telegram_id,)).fetchone()[0]
+            if throttle and last is not None and now - last < CHANGE_INTERVAL_SECONDS:
                 raise cosmetics.TooFast()     # откат: смена не применяется
             response["replayed"] = False
             conn.execute(
@@ -164,3 +179,156 @@ def set_visibility(telegram_id, request_id, show_in_rating, now=None, db_path=No
         return {"show_in_rating": show_in_rating}
 
     return _run_action(telegram_id, request_id, "visibility", {"show_in_rating": show_in_rating}, body, now, db_path)
+
+
+# ---------- покупка за фишки ----------
+def buy_with_chips(telegram_id, request_id, item_code, now=None, db_path=None):
+    """Покупка предмета за фишки одной транзакцией BEGIN IMMEDIATE: предмет есть в каталоге, доступен, не стартовый и продаётся за фишки;
+    «уже есть» проверяется ДО списания; затем баланс (с начислением), wallet.debit и выдача (источник chips). Опыт, total_staked, уровень и
+    статистика ставок не меняются. Идемпотентно по (игрок, request_id). Ошибки: UnknownItem, ItemUnavailable, NotForChips, AlreadyOwned,
+    InsufficientChips, RequestConflict."""
+    if type(item_code) is not str:
+        raise ValueError("invalid")
+    if now is None:
+        now = int(time.time())
+
+    def body(conn):
+        it = cosmetics.item(item_code)
+        if it is None:
+            raise cosmetics.UnknownItem()
+        if not it["available"] or it["starter"]:
+            raise cosmetics.ItemUnavailable()
+        price = it["price"]
+        if price is None:
+            raise cosmetics.ItemUnavailable()
+        if price["currency"] != cosmetics.CHIPS:
+            raise cosmetics.NotForChips()
+        if _owns(conn, telegram_id, item_code):
+            raise cosmetics.AlreadyOwned()           # до списания
+        _accrue_write(conn, telegram_id, now)
+        try:
+            wallet.debit(conn, telegram_id, price["amount"])
+        except InsufficientFunds:
+            raise cosmetics.InsufficientChips()
+        _grant_in(conn, telegram_id, item_code, "chips", None, now)
+        return {"item_code": item_code, "price": dict(price), "balance": wallet.get_balance(conn, telegram_id)}
+
+    return _run_action(telegram_id, request_id, "buy", {"item_code": item_code}, body, now, db_path, throttle=False)
+
+
+# ---------- оплата Telegram Stars ----------
+def stars_offer(telegram_id, item_code, db_path=None):
+    """Проверка перед созданием инвойса и в pre_checkout_query (только чтение): предмет продаётся за Stars, доступен и у игрока его ещё нет.
+    Возвращает предмет (с ценой). Ошибки: UnknownItem, ItemUnavailable, NotForStars, AlreadyOwned."""
+    it = cosmetics.sellable(item_code)
+    if it is None:
+        raise cosmetics.UnknownItem()
+    if not it["available"] or it["starter"] or it["price"] is None:
+        raise cosmetics.ItemUnavailable()
+    if it["price"]["currency"] != cosmetics.STARS:
+        raise cosmetics.NotForStars()
+    conn = _connect(db_path)
+    try:
+        if _owns(conn, telegram_id, item_code):
+            raise cosmetics.AlreadyOwned()
+    finally:
+        conn.close()
+    return it
+
+
+def record_stars_payment(telegram_id, charge_id, item_code, amount, now=None, db_path=None):
+    """Успешная оплата: ОДНА транзакция, запись в журнал (charge_id уникален) и выдача предмета (source stars, payment_ref = charge_id).
+    Повторная доставка того же платежа ничего не создаёт: {"result": "duplicate"}. Если предмет у игрока уже есть (гонка двух инвойсов),
+    запись получает статус refund_pending и возвращается {"result": "already_owned"}: вызывающий делает возврат и потом mark_refunded.
+    {"result": "granted"} при успехе. ValueError: неверные данные платежа или предмета."""
+    if type(charge_id) is not str or not 1 <= len(charge_id) <= 256 or type(amount) is not int or amount < 1 or cosmetics.sellable(item_code) is None:
+        raise ValueError("payment")
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            old = conn.execute("SELECT status FROM cosmetic_purchases WHERE charge_id = ?", (charge_id,)).fetchone()
+            if old is not None:
+                conn.execute("COMMIT")
+                return {"result": "duplicate", "status": old["status"]}
+            _register_player(conn, telegram_id, now)
+            conn.execute("INSERT INTO cosmetic_purchases (charge_id, telegram_id, item_code, amount_stars, status, created_at) VALUES (?, ?, ?, ?, 'paid', ?)",
+                         (charge_id, telegram_id, item_code, amount, now))
+            if _grant_in(conn, telegram_id, item_code, "stars", charge_id, now):
+                result = "granted"
+            else:
+                conn.execute("UPDATE cosmetic_purchases SET status = 'refund_pending' WHERE charge_id = ?", (charge_id,))
+                result = "already_owned"
+            conn.execute("COMMIT")
+            return {"result": result}
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def purchase_by_charge(charge_id, db_path=None):
+    """Строка журнала оплат или None (для /refund и /regrant)."""
+    conn = _connect(db_path)
+    try:
+        row = conn.execute("SELECT charge_id, telegram_id, item_code, amount_stars, status, created_at, refunded_at FROM cosmetic_purchases WHERE charge_id = ?",
+                           (charge_id,)).fetchone()
+        return dict(row) if row is not None else None
+    finally:
+        conn.close()
+
+
+def mark_refunded(charge_id, now=None, db_path=None):
+    """После возврата Stars: статус refunded, предмет игрока (выданный этим платежом) удаляется и снимается, если надет. Повторный вызов безопасен.
+    Возвращает {"telegram_id", "item_code", "changed"} или None, если платежа нет."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = conn.execute("SELECT telegram_id, item_code, status FROM cosmetic_purchases WHERE charge_id = ?", (charge_id,)).fetchone()
+            if row is None:
+                conn.execute("COMMIT")
+                return None
+            changed = row["status"] != "refunded"
+            if changed:
+                conn.execute("UPDATE cosmetic_purchases SET status = 'refunded', refunded_at = ? WHERE charge_id = ?", (now, charge_id))
+                removed = conn.execute("DELETE FROM cosmetic_items WHERE telegram_id = ? AND item_code = ? AND payment_ref = ?",
+                                       (row["telegram_id"], row["item_code"], charge_id)).rowcount
+                if removed:
+                    conn.execute("DELETE FROM cosmetic_equipped WHERE telegram_id = ? AND item_code = ?", (row["telegram_id"], row["item_code"]))
+            conn.execute("COMMIT")
+            return {"telegram_id": row["telegram_id"], "item_code": row["item_code"], "changed": changed}
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
+
+
+def regrant_purchase(charge_id, now=None, db_path=None):
+    """Ручная выдача оплаченного, если запись в журнале есть, а предмета нет: "granted", "already_has", "refunded" или "missing" (записи нет)."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = conn.execute("SELECT telegram_id, item_code, status FROM cosmetic_purchases WHERE charge_id = ?", (charge_id,)).fetchone()
+            if row is None:
+                result = "missing"
+            elif row["status"] == "refunded":
+                result = "refunded"
+            else:
+                result = "granted" if _grant_in(conn, row["telegram_id"], row["item_code"], "stars", charge_id, now) else "already_has"
+            conn.execute("COMMIT")
+            return result
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()

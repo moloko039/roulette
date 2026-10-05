@@ -332,10 +332,11 @@
 ## Косметика
 Только внешний вид; не влияет на шансы, выплаты, множители, XP, лимиты, ферму и экономику. Каталог в коде (`bot/cosmetics.py`): 8 слотов (`card_back`, `chip`, `table`, `mine_icons`, `keno_ball`, `crash`,
 `avatar_frame`, `badge`), в каждом один стартовый предмет (в базе не хранится: если для слота нет записи, действует стартовый). Предметы не передаются между игроками. Платежей нет: предметы выдаёт владелец командой `/giveitem`
-(источник `owner_gift`); поле `source` (`free`, `owner_gift`, `stars`) и внутренний `payment_ref` зарезервированы под будущую оплату и в API не отдаются. Примеры: `docs/examples/cosmetics.json`.
+(источник `owner_gift`) или покупка за фишки (`chips`) и за Telegram Stars (`stars`); внутренний `payment_ref` (идентификатор платежа) в API не отдаётся. Примеры: `docs/examples/cosmetics.json`.
 
 ### GET /api/cosmetics/catalog
-Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price_stars int", "starter bool", "available bool"}]}`.
+Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price" ({"currency": "stars"|"chips", "amount": int} или null), "starter bool", "available bool"}]}`.
+Цена есть только у восьми доступных нестартовых предметов (константы в `bot/cosmetics.py`, `PRICES`); у стартовых и недоступных `price` null. Фишки за Stars не продаются.
 Одинаков для всех игроков. `available: false`: предмет в каталоге есть, но надеть его нельзя (`item_unavailable`).
 
 ### GET /api/cosmetics/mine
@@ -350,3 +351,14 @@
 
 ### POST /api/cosmetics/visibility
 Группа write. Тело: `{"request_id", "show_in_rating": bool}`. 200: `{"show_in_rating", "replayed"}`. Выключенный показ скрывает рамку и значок игрока в рейтинге беседы. Ошибки: 400, 409 `request_conflict`, 429.
+
+### POST /api/cosmetics/buy
+Группа write. Покупка за фишки. Тело: `{"request_id", "item_code"}`. 200: `{"item_code", "price": {"currency": "chips", "amount"}, "balance" (после списания), "replayed"}`. Одна транзакция: проверка предмета, «уже есть» до списания,
+баланс (с начисленным доходом), `wallet.debit`, выдача (источник `chips`); опыт, `total_staked` и уровень не меняются. Идемпотентно по `request_id`.
+Ошибки: 400 `invalid_request`; 404 `unknown_item`; 409 `item_unavailable` (недоступен или стартовый), `not_for_chips` (продаётся за Stars), `already_owned`, `insufficient_chips`, `request_conflict`; 429.
+
+### POST /api/cosmetics/invoice
+Группа write. Оплата Telegram Stars. Тело: `{"request_id", "item_code"}`. 200: `{"invoice_url", "replayed"}` (ссылка из `createInvoiceLink`, валюта XTR, пустой `provider_token`, одна цена; в `payload` подписанная метка без личных данных).
+Не чаще одной ссылки на игрока и предмет за 10 секунд (429 `too_many_requests`, `Retry-After`; тот же `request_id` возвращает ту же ссылку). Ошибки: 400; 404 `unknown_item`; 409 `item_unavailable`, `not_for_stars` (продаётся за фишки), `already_owned`; 502 `invoice_failed`; 503 `payments_unavailable` (нет подключения к Telegram).
+Оплата, выдача и возвраты идут в боте: `pre_checkout_query` (ответ за 10 с), `successful_payment` (запись в `cosmetic_purchases` с уникальным `charge_id` и выдача одной транзакцией), `/refund`, `/regrant`, `/teststars` (владелец), `/paysupport`, `/terms`.
+
