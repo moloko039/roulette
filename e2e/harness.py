@@ -449,6 +449,26 @@ class World:
         await self.page.ev("localStorage.setItem('__init', %s)" % json.dumps(self.init_data(who)))
         await self.reload()
 
+    def sql(self, query, params=()):
+        """Запись напрямую в базу e2e-сервера (подготовка данных сценария, например предметов косметики); боевой код не затрагивается."""
+        import sqlite3
+        conn = sqlite3.connect(os.path.join(self.tmp, "e2e.db"))
+        try:
+            conn.execute(query, params)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def sql_value(self, query, params=()):
+        """Первое значение первой строки (чтение базы e2e-сервера сценарием)."""
+        import sqlite3
+        conn = sqlite3.connect(os.path.join(self.tmp, "e2e.db"))
+        try:
+            row = conn.execute(query, params).fetchone()
+            return row[0] if row else None
+        finally:
+            conn.close()
+
     def align_clock(self):
         """Сдвигает серверные часы так, чтобы сейчас на сервере была секунда clock_mod минуты (до границы минуты остаётся 60 - clock_mod)."""
         self.server.offset((self.clock_mod - int(time.time())) % 60)

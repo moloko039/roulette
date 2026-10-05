@@ -95,17 +95,21 @@
    Значения по умолчанию = стартовый вид. Скин переопределяет переменные внутри [data-skin-<слот>="<код>"] { ... } на корне
    (атрибуты ставит applySkins в script.js). Скин меняет только цвет, градиент и форму внутри того же размера: размеры, отступы,
    раскладка и логика не переменные. Пары, которые нельзя сливать по цвету: см. docs/ARCHITECTURE.md (раздел «Клиент», правила скинов). */
-:root {
+/* Стартовый вид каждого слота = значения по умолчанию на :root и на элементе с атрибутом стартового кода (образец стартового предмета в гардеробе
+   не наследует переменные надетого скина с корня). */
+:root,
+[data-skin-card_back="back_classic"] {
   /* card_back: рубашка карт (блэкджек, хило) и лицо карты */
   --card-back-a: #17171b;
   --card-back-b: #24242a;
   --card-back-border: var(--border-strong);
-  --card-back-bj: repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 4px, var(--card-back-b) 4px, var(--card-back-b) 8px);
-  --card-back-hl: repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 6px, var(--card-back-b) 6px, var(--card-back-b) 12px);
   --card-face: var(--text);
   --card-ink: var(--on-accent);
   --card-red: var(--red);
+}
 
+:root,
+[data-skin-chip="chip_plain"] {
   /* chip: фишки ставок (и кнопки-фишки с тем же видом) */
   --chip-bg: var(--surface-2);
   --chip-text: var(--text);
@@ -118,7 +122,10 @@
   --chip-on-text: var(--on-accent);
   --chip-on-ring: var(--accent);
   --chip-on-glow: var(--glow);
+}
 
+:root,
+[data-skin-table="table_green"] {
   /* table: стол, история и колесо рулетки */
   --table-red: var(--red);
   --table-black: var(--surface-2);
@@ -131,7 +138,10 @@
   --wheel-edge: #050506;
   --wheel-hub: #0F0F12;
   --wheel-hub-line: rgba(245, 245, 242, 0.5);
+}
 
+:root,
+[data-skin-mine_icons="mine_classic"] {
   /* mine_icons / плитки мин */
   --mines-cell-bg: var(--surface-2);
   --mines-cell-border: var(--border);
@@ -148,7 +158,10 @@
   --mines-hit-ring: var(--red-soft);
   --mines-opening-a: var(--surface-2);
   --mines-opening-b: var(--surface-3);
+}
 
+:root,
+[data-skin-keno_ball="keno_round"] {
   /* keno_ball: шарики кено */
   --keno-bg: var(--surface-2);
   --keno-border: var(--border);
@@ -164,7 +177,10 @@
   --keno-hit-bg: var(--green);
   --keno-hit-glow: 0 0 14px rgba(30, 158, 74, 0.95), 0 0 0 2px rgba(245, 245, 242, 0.55);
   --keno-miss-glow: 0 0 6px rgba(255, 255, 255, 0.3);
+}
 
+:root,
+[data-skin-crash="crash_line"] {
   /* crash: график краша */
   --cr-bg: var(--surface);
   --cr-border: var(--border);
@@ -179,6 +195,131 @@
   --cr-history-text: var(--text-muted);
   --cr-history-border: var(--border);
 }
+
+:root,
+[data-skin-avatar_frame="frame_plain"] {
+  /* avatar_frame и badge: рамка аватара (тень вокруг, размер не меняется) и цвет значка рядом с именем */
+  --avatar-frame: none;
+}
+
+:root,
+[data-skin-badge="badge_none"] {
+  --badge-color: var(--text-muted);
+}
+
+/* Скины. Селекторы пишутся БЕЗ привязки к html: атрибут data-skin-<слот> стоит на корне (надетое) или на самом элементе образца/аватара,
+   переменные читают потомки. Скин меняет только цвет, градиент, форму (clip-path) и SVG внутри тех же размеров. Необязательные хуки
+   (--card-back-image, --card-back-outline, --chip-inner, --table-felt, --mines-safe-text, --keno-shape и -fx, --cr-line-glow и др.) на :root
+   не объявлены: их отсутствие даёт прежний вид. Единый стиль набора: тёмный синий, холодный металл, сдержанное золото. */
+
+/* back_midnight: тёмно-синяя рубашка, тонкая ромбовая сетка из градиентов, золотистая рамка и внутренний контур */
+[data-skin-card_back="back_midnight"] {
+  --card-back-a: #0d1b33;
+  --card-back-b: #12264a;
+  --card-back-border: #b8943f;
+  --card-back-image:
+    repeating-linear-gradient(45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #12264a, #0a1730);
+  --card-back-image-hl:
+    repeating-linear-gradient(45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(-45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #12264a, #0a1730);
+  --card-back-outline: 1px solid rgba(184, 148, 63, 0.65);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+
+/* chip_ring: тёмная фишка с внутренним кольцом, номиналы различаются цветом кольца, цифра светлая */
+[data-skin-chip="chip_ring"] {
+  --chip-bg: #121a26;
+  --chip-text: #eef3fb;
+  --chip-ring: #6f8fb8;
+  --chip-ring-10: #6f8fb8;
+  --chip-ring-50: #4fb0a8;
+  --chip-ring-100: #9b8bd6;
+  --chip-ring-500: #d4b05a;
+  --chip-inner: inset 0 0 0 3px #121a26, inset 0 0 0 4px rgba(238, 243, 251, 0.35);
+}
+
+/* table_blue: синее сукно; красный, чёрный и зелёный сектора различаются яркостью и подписью, колесо в холодном металле */
+[data-skin-table="table_blue"] {
+  --table-red: #d1494f;
+  --table-black: #08121f;
+  --table-green: #1c8a76;
+  --table-felt: #0c2340;
+  --wheel-rim-a: #1c3a5f;
+  --wheel-rim-b: #c3d1e6;
+  --wheel-rim-c: #5d7aa3;
+  --wheel-sector-line: rgba(195, 209, 230, 0.4);
+  --wheel-edge: #08121f;
+  --wheel-hub: #0b1a2e;
+  --wheel-hub-line: rgba(195, 209, 230, 0.55);
+}
+
+/* mine_star: звезда вместо самоцвета (набор SVG в script.js), мина остаётся колючим кругом; тёмно-синие плитки, золотая открытая плитка, тёмно-красная мина */
+[data-skin-mine_icons="mine_star"] {
+  --mines-cell-bg: #16233a;
+  --mines-cell-border: #3b5273;
+  --mines-cell-text: #aebdd6;
+  --mines-cell-active-bg: #1f3250;
+  --mines-safe-bg: #1a2a44;
+  --mines-safe-border: #c7a95a;
+  --mines-safe-text: #ecdba5;
+  --mines-safe-glow: rgba(236, 219, 165, 0.55);
+  --mines-bomb-bg: #7a1f2b;
+  --mines-bomb-text: #f5f5f2;
+  --mines-muted-bg: #16233a;
+  --mines-muted-text: #8394b0;
+  --mines-hit-border: #f5f5f2;
+  --mines-hit-ring: rgba(209, 73, 79, 0.45);
+  --mines-opening-a: #16233a;
+  --mines-opening-b: #24395c;
+}
+
+/* keno_hex: шестиугольники внутри того же квадрата; состояния различаются заливкой и свечением контура */
+[data-skin-keno_ball="keno_hex"] {
+  --keno-shape: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  --keno-bg: #14263d;
+  --keno-border: #4f6f9c;
+  --keno-text: #dfe9f7;
+  --keno-active-bg: #1d3555;
+  --keno-sel-text: #f5f8ff;
+  --keno-sel-bg: #2b4a78;
+  --keno-sel-border: #9cc4ff;
+  --keno-drawn-text: #f5f8ff;
+  --keno-hit-text: #06231f;
+  --keno-hit-bg: #4fd1b8;
+  --keno-fx: drop-shadow(0 0 0.6px #7da3d6) drop-shadow(0 0 0.6px #7da3d6);
+  --keno-sel-fx: drop-shadow(0 0 1px #bcd4f5) drop-shadow(0 0 4px #7da3d6);
+  --keno-drawn-fx: drop-shadow(0 0 1px #e8c76a) drop-shadow(0 0 3px #e8c76a);
+  --keno-hit-fx: drop-shadow(0 0 1px #d8fff6) drop-shadow(0 0 6px #5eead4);
+  --keno-miss-glow: none;
+}
+
+/* crash_neon: неоновая линия со свечением; выигрыш бирюзовый, крах малиновый, обычная линия лавандовая */
+[data-skin-crash="crash_neon"] {
+  --cr-bg: #0b0a14;
+  --cr-border: rgba(179, 136, 255, 0.35);
+  --cr-axis: rgba(179, 136, 255, 0.28);
+  --cr-line: #c9a0ff;
+  --cr-line-glow: drop-shadow(0 0 3px #b388ff) drop-shadow(0 0 8px rgba(179, 136, 255, 0.7));
+  --cr-win: #5eead4;
+  --cr-win-soft: rgba(94, 234, 212, 0.26);
+  --cr-win-glow: drop-shadow(0 0 3px #5eead4) drop-shadow(0 0 8px rgba(94, 234, 212, 0.7));
+  --cr-crash: #dc1b6f;
+  --cr-crash-soft: rgba(220, 27, 111, 0.3);
+  --cr-crash-glow: drop-shadow(0 0 3px #dc1b6f) drop-shadow(0 0 8px rgba(220, 27, 111, 0.7));
+  --cr-label: #a99fc4;
+  --cr-history-text: #a99fc4;
+  --cr-history-border: rgba(179, 136, 255, 0.3);
+}
+
+/* frame_thin: тонкая двойная рамка (два кольца по 1 px с тёмным зазором), аватар того же размера */
+[data-skin-avatar_frame="frame_thin"] { --avatar-frame: 0 0 0 1px #cbd6e6, 0 0 0 3px #08080a, 0 0 0 4px #cbd6e6; }
+
+/* badge_spade: значок-пика (SVG в script.js) холодного серебристого цвета */
+[data-skin-badge="badge_spade"] { --badge-color: #b9c7e0; }
 
 * {
   box-sizing: border-box;
@@ -446,7 +587,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: var(--table-felt, var(--surface));
 }
 
 .cell {
@@ -666,6 +807,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   background: var(--chip-bg);
   border: 2px solid var(--chip-ring);
   border-radius: 50%;
+  box-shadow: var(--chip-inner, none);
   transition: transform 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
@@ -930,6 +1072,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   background: var(--surface-3);
   border: 1px solid var(--border-strong);
   border-radius: 50%;
+  box-shadow: var(--avatar-frame);
 }
 
 .profile-card {
@@ -1421,7 +1564,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 .mines-cell:active:not(:disabled) { transform: scale(0.96); background: var(--mines-cell-active-bg); }
 .mines-cell:disabled { opacity: 1; cursor: default; }
-.mines-cell.safe { background: var(--mines-safe-bg); border-color: var(--mines-safe-border); }
+.mines-cell.safe { color: var(--mines-safe-text, var(--mines-cell-text)); background: var(--mines-safe-bg); border-color: var(--mines-safe-border); }
 .mines-cell.safe svg { filter: drop-shadow(0 0 4px var(--mines-safe-glow)); }
 .mines-cell.mine { color: var(--mines-bomb-text); background: var(--mines-bomb-bg); border-color: transparent; }
 .mines-cell.mine.muted { background: var(--mines-muted-bg); color: var(--mines-muted-text); border-color: var(--mines-cell-border); }
@@ -1699,9 +1842,14 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   background: var(--keno-bg);
   border: 1px solid var(--keno-border);
   border-radius: 50%;
+  clip-path: var(--keno-shape, none);
   transition: background-color 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out, color 0.15s ease-out;
 }
 
+.keno-ball { filter: var(--keno-fx, none); }
+.keno-ball.sel { filter: var(--keno-sel-fx, var(--keno-fx, none)); }
+.keno-ball.drawn { filter: var(--keno-drawn-fx, var(--keno-fx, none)); }
+.keno-ball.hit { filter: var(--keno-hit-fx, var(--keno-fx, none)); }
 .keno-ball:active:not(:disabled) span { background: var(--keno-active-bg); }
 .keno-ball:disabled { opacity: 1; cursor: default; }
 .keno-board.locked .keno-ball:not(.sel):not(.drawn) { opacity: 0.6; }
@@ -1819,8 +1967,10 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .bj-card svg { align-self: end; justify-self: end; width: 22px; height: 22px; fill: currentColor; }
 .bj-card.red { color: var(--card-red); }
 .bj-card.back {
-  background: var(--card-back-bj);
+  background: var(--card-back-image, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 4px, var(--card-back-b) 4px, var(--card-back-b) 8px));
   border-color: var(--card-back-border);
+  outline: var(--card-back-outline, none);
+  outline-offset: var(--card-back-inset-bj, 0);
 }
 .bj-card.new { animation: bj-deal 0.22s ease-out; }
 @keyframes bj-deal { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
@@ -1861,7 +2011,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .cr-chart[hidden], .cr-history[hidden], .cr-banner[hidden], .cr-bets[hidden], .cr-actions[hidden] { display: none; }
 .cr-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; }
 .cr-axis { fill: none; stroke: var(--cr-axis); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.cr-curve { fill: none; stroke: var(--cr-line); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cr-curve { filter: var(--cr-line-glow, none); fill: none; stroke: var(--cr-line); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .cr-readout { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; text-align: center; pointer-events: none; }
 .cr-mult {
   font-family: var(--font-display);
@@ -1873,10 +2023,10 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 .cr-label { min-height: 18px; font-size: 14px; color: var(--cr-label); overflow-wrap: anywhere; padding: 0 var(--space-3); }
 .cr-chart[data-tone="crash"] { border-color: var(--cr-crash); background: radial-gradient(circle at 50% 50%, var(--cr-crash-soft), var(--cr-bg) 70%); }
-.cr-chart[data-tone="crash"] .cr-curve { stroke: var(--cr-crash); }
+.cr-chart[data-tone="crash"] .cr-curve { stroke: var(--cr-crash); filter: var(--cr-crash-glow, var(--cr-line-glow, none)); }
 .cr-chart[data-tone="crash"] .cr-mult { color: var(--cr-crash); }
 .cr-chart[data-tone="win"] { border-color: var(--cr-win); background: radial-gradient(circle at 50% 50%, var(--cr-win-soft), var(--cr-bg) 70%); }
-.cr-chart[data-tone="win"] .cr-curve { stroke: var(--cr-win); }
+.cr-chart[data-tone="win"] .cr-curve { stroke: var(--cr-win); filter: var(--cr-win-glow, var(--cr-line-glow, none)); }
 .cr-chart[data-tone="win"] .cr-mult { color: var(--cr-win); }
 .cr-chart[data-tone="crash"] .cr-label, .cr-chart[data-tone="win"] .cr-label { color: var(--cr-label-strong); font-weight: 600; }
 
@@ -1954,7 +2104,12 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .hl-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 38px; font-weight: 700; line-height: 1; }
 .hl-card svg { align-self: end; justify-self: end; width: 56px; height: 56px; fill: currentColor; }
 .hl-card.red { color: var(--card-red); }
-.hl-card.back { background: var(--card-back-hl); border-color: var(--card-back-border); }
+.hl-card.back {
+  background: var(--card-back-image-hl, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 6px, var(--card-back-b) 6px, var(--card-back-b) 12px));
+  border-color: var(--card-back-border);
+  outline: var(--card-back-outline, none);
+  outline-offset: var(--card-back-inset-hl, 0);
+}
 .hl-card.flip { animation: hl-flip 0.42s ease-out; }
 .hl-card.hit-win { animation: hl-flip 0.42s ease-out, hl-win 0.9s ease-out; }
 .hl-card.hit-lose { animation: hl-flip 0.42s ease-out, hl-lose 0.9s ease-out; }
@@ -2123,3 +2278,43 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 .transfer-new { width: 100%; }
 .transfer-new:disabled { opacity: 0.5; }
 
+/* ---------- гардероб: оформление, предпросмотр, рамка и значок ---------- */
+.rating-badge { flex: none; display: inline-flex; width: 14px; height: 14px; color: var(--badge-color); }
+.rating-badge[hidden] { display: none; }
+.rating-badge svg { width: 100%; height: 100%; fill: currentColor; }
+.wd-panel { height: min(86%, 560px); grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+.wd-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--space-2); }
+.wd-head strong { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.wd-head .transfer-change { justify-self: start; }
+.wd-tabs { display: flex; gap: 6px; padding-bottom: 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wd-tab { flex: none; min-height: 36px; padding: 0 var(--space-3); font-size: 13px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.wd-tab[aria-selected="true"] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.wd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.wd-card { display: grid; justify-items: center; gap: 6px; min-width: 0; padding: var(--space-2); text-align: center; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wd-card.dim { opacity: 0.55; }
+.wd-card.on { border-color: var(--border-strong); box-shadow: var(--glow); }
+.wd-card:active { background: var(--surface-3); }
+.wd-name { max-width: 100%; overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.wd-status { font-size: 12px; color: var(--text-muted); }
+.wd-card.on .wd-status { color: var(--text); }
+.wd-mini { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 68px; overflow: hidden; }
+.wd-scene { display: flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: 130px; padding: var(--space-3); overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wd-scene .chip, .wd-mini .chip { display: inline-flex; align-items: center; justify-content: center; }
+.wd-scene .cell, .wd-mini .cell { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; }
+.wd-mini .cell { width: 36px; height: 36px; font-size: 14px; }
+.wd-scene .mines-cell, .wd-mini .mines-cell { width: 44px; min-height: 0; height: 44px; aspect-ratio: auto; }
+.wd-mini .mines-cell { width: 40px; height: 40px; }
+.wd-scene .keno-ball, .wd-mini .keno-ball { width: 44px; height: 44px; }
+.wd-scene .cr-chart { flex: 1; min-height: 0; height: 96px; }
+.wd-mini .cr-chart { width: 100%; min-height: 0; height: 52px; }
+.wd-scene .cr-svg, .wd-mini .cr-svg { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); }
+.wd-demo-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.wd-desc { margin: 0; font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.wd-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); font-size: 13px; text-align: left; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.wd-switch-knob { flex: none; width: 36px; height: 20px; border-radius: 999px; background: var(--surface-3); border: 1px solid var(--border-strong); position: relative; }
+.wd-switch-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: transform 0.15s ease-out; }
+.wd-switch[aria-checked="true"] .wd-switch-knob { background: var(--accent); }
+.wd-switch[aria-checked="true"] .wd-switch-knob::after { transform: translateX(16px); background: var(--on-accent); }
+.wd-switch:disabled { opacity: 0.5; }
+.wd-toast { bottom: auto; top: 12px; z-index: 8; }
+.profile-wardrobe-btn { flex: none; width: auto; height: 36px; padding: 0 var(--space-3); font-size: 13px; }

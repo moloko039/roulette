@@ -29,12 +29,19 @@ SCARY = {
 }
 # переменные-составные (тень, градиент, прозрачности): переопределяются целиком и проверяются отдельно по содержимому
 SCARY_RAW = {
-    "--card-back-bj": "repeating-linear-gradient(45deg, #fe0001, #fe0001 4px, #01fe02 4px, #01fe02 8px)",
-    "--card-back-hl": "repeating-linear-gradient(45deg, #fd0001, #fd0001 6px, #01fd02 6px, #01fd02 12px)",
     "--chip-on-glow": "0 0 9px #fc0001", "--wheel-sector-line-x": "",
     "--mines-safe-glow": "#fb0001", "--mines-hit-ring": "#fa0001",
     "--keno-sel-glow": "0 0 7px #f90001", "--keno-drawn-ring": "0 0 0 3px #f80001", "--keno-hit-glow": "0 0 8px #f70001", "--keno-miss-glow": "0 0 5px #f60001",
     "--cr-win-soft": "#f50001", "--cr-crash-soft": "#f40001",
+}
+# необязательные хуки (на :root не объявлены, по умолчанию прежний вид): скин задаёт их целиком
+HOOKS = {
+    "--card-back-image": "linear-gradient(#e10001, #e10002)", "--card-back-image-hl": "linear-gradient(#e20001, #e20002)",
+    "--card-back-outline": "3px solid #e30001", "--card-back-inset-bj": "-5px", "--card-back-inset-hl": "-9px",
+    "--chip-inner": "inset 0 0 0 5px #e40001", "--table-felt": "#e50001", "--mines-safe-text": "#e60001",
+    "--keno-shape": "polygon(0 0, 100% 0, 50% 100%)", "--keno-fx": "drop-shadow(0 0 2px #e70001)", "--keno-sel-fx": "drop-shadow(0 0 3px #e80001)",
+    "--keno-drawn-fx": "drop-shadow(0 0 4px #e90001)", "--keno-hit-fx": "drop-shadow(0 0 5px #ea0001)",
+    "--cr-line-glow": "drop-shadow(0 0 2px #eb0001)", "--cr-win-glow": "drop-shadow(0 0 3px #ec0001)", "--cr-crash-glow": "drop-shadow(0 0 4px #ed0001)",
 }
 SCARY_RAW.pop("--wheel-sector-line-x")
 
@@ -61,6 +68,7 @@ PROBES = """
     <div class="cr-chart" id="p-c"><svg class="cr-svg"><path class="cr-curve"></path><path class="cr-axis"></path></svg><div class="cr-label"></div></div>
     <div class="cr-chart" data-tone="win" id="p-cw"><svg class="cr-svg"><path class="cr-curve"></path></svg></div>
     <div class="cr-chart" data-tone="crash" id="p-cc"><svg class="cr-svg"><path class="cr-curve"></path></svg></div>
+    <div class="table" id="p-tbl"></div>
     <div class="cell red" id="p-tr"></div><div class="cell black" id="p-tb"></div><div class="cell green" id="p-tg"></div>
     <div class="result-number green" id="p-rg"></div>`;
   document.body.appendChild(host);
@@ -86,6 +94,10 @@ READ = """
     kMiss: g('p-km', 'boxShadow', 'span'),
     cBg: g('p-c', 'backgroundColor'), cBorder: g('p-c', 'borderTopColor'), cAxis: g('p-c', 'stroke', '.cr-axis'), cLine: g('p-c', 'stroke', '.cr-curve'), cLabel: g('p-c', 'color', '.cr-label'),
     cWin: [g('p-cw', 'stroke', '.cr-curve'), g('p-cw', 'borderTopColor'), g('p-cw', 'backgroundImage')], cCrash: [g('p-cc', 'stroke', '.cr-curve'), g('p-cc', 'borderTopColor'), g('p-cc', 'backgroundImage')],
+    tbl: g('p-tbl', 'backgroundColor'), bjOutline: g('p-bjback', 'outline'), hlOutline: g('p-hlback', 'outline'), bjInset: g('p-bjback', 'outlineOffset'), hlInset: g('p-hlback', 'outlineOffset'),
+    chipInner: g('p-chip', 'boxShadow'), mSafeText: g('p-ms', 'color'),
+    kShape: g('p-k', 'clipPath', 'span'), kFx: [g('p-k', 'filter'), g('p-ks', 'filter'), g('p-kd', 'filter'), g('p-kh', 'filter'), g('p-km', 'filter')],
+    crGlow: [g('p-c', 'filter', '.cr-curve'), g('p-cw', 'filter', '.cr-curve'), g('p-cc', 'filter', '.cr-curve')],
     tr: g('p-tr', 'backgroundColor'), tb: g('p-tb', 'backgroundColor'), tg: g('p-tg', 'backgroundColor'), rg: g('p-rg', 'backgroundColor'),
     wheel: document.getElementById('wheel').toDataURL(),
     wheelColors: (() => { const c = document.getElementById('wheel'); const t = document.createElement('canvas'); t.width = c.width; t.height = c.height;
@@ -103,7 +115,7 @@ async def run(w):
     block = css[css.index("переменные скинов (косметика)"):css.index("* {\n  box-sizing")]
     declared = re.findall(r"^\s*(--(?:card|chip|table|wheel|mines|keno|cr)-[a-z0-9-]+):", block, re.M)
     check("переменных скинов объявлено не меньше 60", len(declared) >= 60, True)
-    covered = set(SCARY) | set(SCARY_RAW)
+    covered = set(SCARY) | set(SCARY_RAW) | set(HOOKS)
     # каждая объявленная переменная переопределяется сценарием и читается правилами или скриптом (мёртвых переменных нет)
     # (--wheel-* и --table-* читает drawWheel через getComputedStyle, остальные правила через var())
     missing = sorted(set(declared) - covered)
@@ -127,8 +139,8 @@ async def run(w):
     eq("фишка выбрана: фон", "chipOnBg", SCARY["--chip-on-bg"]); eq("фишка выбрана: кольцо", "chipOnRing", SCARY["--chip-on-ring"]); eq("фишка выбрана: текст", "chipOnText", SCARY["--chip-on-text"])
     assert "rgb(252, 0, 1)" in got["chipOnGlow"], got["chipOnGlow"]
     check("размер фишки не изменился", got["chipSize"], base["chipSize"])
-    assert "rgb(254, 0, 1)" in got["bjBack"] and "rgb(1, 254, 2)" in got["bjBack"], got["bjBack"]
-    assert "rgb(253, 0, 1)" in got["hlBack"] and "rgb(1, 253, 2)" in got["hlBack"], got["hlBack"]
+    for key in ("bjBack", "hlBack"):      # рубашка собирается из двух цветов в самом правиле (переменные читают и потомки превью)
+        assert rgb(SCARY["--card-back-a"]) in got[key] and rgb(SCARY["--card-back-b"]) in got[key], got[key]
     eq("рубашка: рамка", "bjBackBorder", SCARY["--card-back-border"]); eq("лицо карты", "face", SCARY["--card-face"]); eq("чернила карты", "ink", SCARY["--card-ink"]); eq("красная масть", "red", SCARY["--card-red"])
     check("размеры карт не изменились", [got["bjSize"], got["hlSize"]], [base["bjSize"], base["hlSize"]])
     eq("плитка мин: фон", "mBg", SCARY["--mines-cell-bg"]); eq("плитка мин: рамка", "mBorder", SCARY["--mines-cell-border"]); eq("плитка мин: значок", "mText", SCARY["--mines-cell-text"])
@@ -159,7 +171,24 @@ async def run(w):
     for old in ("179,38,43", "23,23,27", "30,158,74"):
         assert colors.get(old, 0) == 0, "на колесе остался стартовый цвет %s" % old
 
-    await p.ev("document.getElementById('e2e-skin').remove(); drawWheel(); true")
+    # второй этап: необязательные хуки (в первом они не заданы, поэтому рубашка собрана из двух цветов a и b)
+    hooks = "".join("%s: %s !important;" % (k, v) for k, v in HOOKS.items())
+    await p.ev("(() => { const s = document.createElement('style'); s.id = 'e2e-skin2'; s.textContent = ':root { %s }'; document.head.appendChild(s); return true; })()" % hooks)
+    await p.ev("E.sleep(700)")
+    got2 = await p.ev(READ)
+    got = dict(got, **{k: v for k, v in got2.items() if k in ("tbl", "bjOutline", "hlOutline", "bjInset", "hlInset", "chipInner", "mSafeText", "kShape", "kFx", "crGlow")})
+    assert "rgb(225, 0, 1)" in got2["bjBack"] and "rgb(226, 0, 1)" in got2["hlBack"], (got2["bjBack"], got2["hlBack"])
+    check("хук: сукно стола", got["tbl"], rgb("#e50001"))
+    assert "rgb(227, 0, 1)" in got["bjOutline"] and "rgb(227, 0, 1)" in got["hlOutline"], (got["bjOutline"], got["hlOutline"])
+    check("хук: смещение контура рубашки", [got["bjInset"], got["hlInset"]], ["-5px", "-9px"])
+    assert "rgb(228, 0, 1)" in got["chipInner"], got["chipInner"]
+    eq("хук: значок на открытой плитке", "mSafeText", "#e60001")
+    assert "polygon" in got["kShape"], got["kShape"]
+    for f, tag in zip(got["kFx"][:4], ("e70001", "e80001", "e90001", "ea0001")):
+        n = int(tag[:2], 16)
+        assert "rgb(%d, 0, 1)" % n in f, (tag, f)
+    assert "rgb(236, 0, 1)" in got["crGlow"][1] and "rgb(237, 0, 1)" in got["crGlow"][2] and "rgb(235, 0, 1)" in got["crGlow"][0], got["crGlow"]
+    await p.ev("document.getElementById('e2e-skin2').remove(); document.getElementById('e2e-skin').remove(); drawWheel(); true")
     await p.ev("E.sleep(700)")
     back = await p.ev(READ)
     check("после снятия переопределения вид вернулся к исходному (в том числе пиксели колеса)", back, base)

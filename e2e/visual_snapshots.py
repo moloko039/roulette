@@ -179,6 +179,31 @@ async def scenario(w, shooter):
     await p.ev("(() => { const i = document.getElementById('picker-search'); i.value = 'bob'; i.dispatchEvent(new Event('input')); })()")
     await p.wait("document.querySelectorAll('#picker-list li').length === 1", 10, "поиск по имени")
     await shot("picker")
+    # гардероб и рейтинг с рамкой и значком (новые снимки добавлены в конец: номера прежних снимков не меняются)
+    import time
+    now = int(time.time())
+    me, bob = w.users["me"].id, w.users["bob"].id
+    for uid, rows in ((me, (("card_back", "back_midnight"), ("chip", "chip_ring"), ("avatar_frame", "frame_thin"), ("badge", "badge_spade"))),
+                      (bob, (("avatar_frame", "frame_thin"), ("badge", "badge_spade")))):
+        for slot, code in rows:
+            w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'owner_gift', ?)", (uid, code, now))
+            w.sql("INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, ?, ?)", (uid, slot, code))
+    await w.reload()
+    await p.tap(tab_js("profile"))
+    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
+    await p.tap("#wardrobe-open")
+    await p.wait("!document.getElementById('wd-sheet').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await shot("wardrobe-list")
+    await p.tap("#wd-grid .wd-card:nth-child(2)")
+    await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
+    await shot("wardrobe-preview")
+    await p.tap("#wd-prev-close")
+    await p.tap("#wd-tabs .wd-tab:nth-child(7)")
+    await shot("wardrobe-frames")
+    await p.tap("#wd-back")
+    await p.tap(tab_js("rating"))
+    await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && document.querySelector('#rating-list .rating-badge')", 15, "рейтинг с рамкой и значком")
+    await shot("rating-cosmetics")
 
 
 async def run_width(harness, chrome, width, folder):

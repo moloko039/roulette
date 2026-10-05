@@ -37,6 +37,7 @@ const API_URL = 'https://roulette-production-4b93.up.railway.app';
 //   Переводы
 //   Выбор получателя
 //   История переводов
+//   Гардероб
 //   Лобби, меню игр и вкладки
 //   Запуск
 
@@ -162,8 +163,8 @@ let BJ_SUIT_SVG = BJ_SUIT_SETS.default;      // набор мастей зави
 
 // Тост поверх нижней панели (общий для «Скоро», «Отправлено», «Вам перевели»)
 let toastTimer = null;
-function showToast(text) {
-  const el = document.getElementById('soon-toast');
+function showToast(text, id = 'soon-toast') {
+  const el = document.getElementById(id);
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(toastTimer);
@@ -1534,6 +1535,7 @@ async function loadServer(reason) {
     srv.incomingUnseen = iu && isCount(iu.count) && isCount(iu.total) ? iu : null;
     srv.activeGame = ['mines', 'blackjack', 'crash', 'hilo'].includes(d.active_game) ? d.active_game : null;
     applySkins(d.cosmetics && d.cosmetics.equipped);       // внешний вид по надетому (только оформление)
+    setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
       && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
@@ -1631,6 +1633,7 @@ function showRating(d) {
   ratingEls.code.textContent = '';
   ratingEls.retry.hidden = true;
   ratingHasData = true;
+  ratingLast = d;
   srv.noChat = d.scope === 'none';
   renderTransferEntry();
   if (d.scope === 'none') {
@@ -1656,12 +1659,16 @@ function showRating(d) {
     avatar.className = 'avatar';
     avatar.setAttribute('aria-hidden', 'true');
     avatar.textContent = initialOf(e.name);
+    const pub = e.is_me ? ownEquipped : publicOf(e.cosmetics);   // у себя своё надетое, у других только публичное из рейтинга
+    decorateAvatar(avatar, pub.avatar_frame);
     const name = document.createElement('span');
     name.className = 'rating-name';
     name.textContent = e.name;
     const who = document.createElement('span');
     who.className = 'rating-who';
     who.appendChild(name);
+    const badge = badgeEl(pub.badge);
+    if (badge) who.appendChild(badge);
     if (isCount(e.level)) who.appendChild(levelBadge(e.level)); // без поля level подписи нет
     const bal = document.createElement('span');
     bal.className = 'rating-bal';
@@ -1696,12 +1703,15 @@ function showRating(d) {
   myAvatar.setAttribute('aria-hidden', 'true');
   const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
   myAvatar.textContent = initialOf(tgUser && tgUser.first_name ? tgUser.first_name : 'Я');
+  decorateAvatar(myAvatar, ownEquipped.avatar_frame);
   const myName = document.createElement('span');
   myName.className = 'rating-name';
   myName.textContent = 'Вы';
   const myWho = document.createElement('span');
   myWho.className = 'rating-who';
   myWho.appendChild(myName);
+  const myBadge = badgeEl(ownEquipped.badge);
+  if (myBadge) myWho.appendChild(myBadge);
   if (isCount(d.me.level)) myWho.appendChild(levelBadge(d.me.level));
   const myBal = document.createElement('span');
   myBal.className = 'rating-bal';
@@ -2180,7 +2190,16 @@ const MINES_BET_MAX = 1000000000;
 const MINES_COUNT_MIN = 1;
 const MINES_COUNT_MAX = 24;
 const MINES_CELLS = 25;
-const MINES_ICON_SETS = { default: { gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>', mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>' } };
+const MINES_ICON_SETS = {
+  default: {
+    gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
+    mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>'
+  },
+  mine_star: {
+    gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6.1L12 16.6 6.6 19.6l1.2-6.1-4.5-4.2 6.1-.7z"/></svg>',
+    mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>'
+  }
+};
 let minesIcons = MINES_ICON_SETS.default;   // набор иконок зависит от скина «значки мин» (applySkins)
 
 const minesEls = {
@@ -4833,6 +4852,385 @@ function notifyIncoming() {
   showToast('Вам перевели ' + formatNumber(inc.total) + ' фишек');
   loadTransfers('toast');
 }
+
+// #endregion
+
+// #region Гардероб
+// Оформление (косметика, только внешний вид): рамка и значок у себя и в рейтинге, экран «Гардероб» с предпросмотром.
+// Коды с сервера проверяются по белому списку SKIN_CODES: неизвестные игнорируются; тексты каталога выводятся только через textContent,
+// разметка (SVG) берётся из констант клиента по проверенному коду. Покупок и цен нет: предметы выдаёт владелец.
+const WD_SLOTS = [
+  { slot: 'card_back', label: 'Рубашка карт' }, { slot: 'chip', label: 'Фишки' }, { slot: 'table', label: 'Стол' },
+  { slot: 'mine_icons', label: 'Иконки мин' }, { slot: 'keno_ball', label: 'Шарики кено' }, { slot: 'crash', label: 'Краш' },
+  { slot: 'avatar_frame', label: 'Рамка аватара' }, { slot: 'badge', label: 'Значок' }
+];
+// первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
+const SKIN_CODES = {
+  card_back: ['back_classic', 'back_midnight', 'back_ember'], chip: ['chip_plain', 'chip_ring', 'chip_gold'],
+  table: ['table_green', 'table_blue', 'table_violet'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem'],
+  keno_ball: ['keno_round', 'keno_hex'], crash: ['crash_line', 'crash_neon'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame']
+};
+const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
+const skinStarter = (slot) => SKIN_CODES[slot][0];
+// публичные слоты: только нестартовые известные коды (стартовые «ничего не рисуют»)
+const publicSkin = (slot, code) => ((slot === 'avatar_frame' || slot === 'badge') && skinKnown(slot, code) && code !== skinStarter(slot) ? code : null);
+const BADGE_SVG = {
+  badge_spade: BJ_SUIT_SETS.default.S,
+  badge_flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>'
+};
+const CR_SAMPLE_SVG = '<svg class="cr-svg" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path class="cr-axis" d="M0 149H300M1 0V150"/><path class="cr-curve" d="M0 149L60 140L120 118L180 80L240 30L300 2"/></svg>';
+
+// рамка и значок самого игрока (из cosmetics.equipped в /api/me и после смены в гардеробе)
+let ownEquipped = { avatar_frame: null, badge: null };
+let ratingLast = null;   // последний ответ рейтинга: перерисовывается при смене своих рамки и значка
+
+function decorateAvatar(el, frame) {
+  if (frame) el.setAttribute('data-skin-avatar_frame', frame);
+  else el.removeAttribute('data-skin-avatar_frame');
+}
+
+// Значок рядом с именем; null, если значка нет. Разметка из констант клиента по проверенному коду.
+function badgeEl(code) {
+  const svg = code ? BADGE_SVG[code] : null;
+  if (!svg) return null;
+  const el = document.createElement('span');
+  el.className = 'rating-badge';
+  el.setAttribute('data-skin-badge', code);
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = svg;
+  return el;
+}
+
+// Публичные слоты участника из ответа рейтинга ({слот: код}); неизвестное игнорируется
+function publicOf(c) {
+  const src = c && typeof c === 'object' ? c : {};
+  return { avatar_frame: publicSkin('avatar_frame', src.avatar_frame), badge: publicSkin('badge', src.badge) };
+}
+
+function renderOwnCosmetics() {
+  decorateAvatar(profileEls.avatar, ownEquipped.avatar_frame);
+  const holder = document.getElementById('profile-badge');
+  const code = ownEquipped.badge;
+  holder.hidden = !(code && BADGE_SVG[code]);
+  holder.textContent = '';
+  if (!holder.hidden) {
+    holder.setAttribute('data-skin-badge', code);
+    holder.innerHTML = BADGE_SVG[code];
+  } else {
+    holder.removeAttribute('data-skin-badge');
+  }
+  if (ratingLast && ratingLast.scope === 'chat') showRating(ratingLast);
+}
+
+function setOwnCosmetics(c) {
+  const eq = c && c.equipped && typeof c.equipped === 'object' ? c.equipped : {};
+  const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), badge: publicSkin('badge', eq.badge) };
+  if (next.avatar_frame === ownEquipped.avatar_frame && next.badge === ownEquipped.badge) return;
+  ownEquipped = next;
+  renderOwnCosmetics();
+}
+
+// ----- экран «Гардероб» -----
+const wdEls = {
+  open: document.getElementById('wardrobe-open'),
+  sheet: document.getElementById('wd-sheet'), dim: document.getElementById('wd-dim'), back: document.getElementById('wd-back'),
+  tabs: document.getElementById('wd-tabs'), grid: document.getElementById('wd-grid'), vis: document.getElementById('wd-vis'),
+  msg: document.getElementById('wd-msg'),
+  pSheet: document.getElementById('wd-prev-sheet'), pDim: document.getElementById('wd-prev-dim'), pTitle: document.getElementById('wd-prev-title'),
+  pStatus: document.getElementById('wd-prev-status'), pScene: document.getElementById('wd-prev-scene'), pDesc: document.getElementById('wd-prev-desc'),
+  pMsg: document.getElementById('wd-prev-msg'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act')
+};
+const wd = { catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null };
+
+const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
+const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
+const validWdEquip = (d) => !!d && typeof d.slot === 'string' && !!d.equipped && typeof d.equipped === 'object';
+const validWdVisibility = (d) => !!d && typeof d.show_in_rating === 'boolean';
+
+// Каталог: только известные коды своего слота; тексты ограничены по длине (выводятся через textContent)
+function wdNormalizeCatalog(d) {
+  const items = [];
+  d.items.forEach((i) => {
+    if (!i || typeof i !== 'object' || !skinKnown(i.slot, i.code) || typeof i.name !== 'string') return;
+    items.push({
+      code: i.code, slot: i.slot, name: i.name.slice(0, 40), description: typeof i.description === 'string' ? i.description.slice(0, 140) : '',
+      starter: i.code === skinStarter(i.slot), available: i.available === true
+    });
+  });
+  return items;
+}
+
+function wdNormalizeEquipped(eq) {
+  const out = {};
+  WD_SLOTS.forEach(({ slot }) => { out[slot] = skinKnown(slot, eq[slot]) ? eq[slot] : skinStarter(slot); });
+  return out;
+}
+
+function wdNormalizeMine(d) {
+  const owned = new Set();
+  d.owned.forEach((o) => { if (o && typeof o.code === 'string') owned.add(o.code); });
+  return { owned, equipped: wdNormalizeEquipped(d.equipped), showInRating: d.show_in_rating };
+}
+
+const wdOwns = (item) => item.starter || (wd.mine && wd.mine.owned.has(item.code));
+const wdWorn = (item) => !!wd.mine && wd.mine.equipped[item.slot] === item.code;
+const wdCanEquip = (item) => item.available && wdOwns(item);
+function wdStatus(item) {
+  if (wdWorn(item)) return 'Надето';
+  if (!item.available) return 'Скоро';
+  return wdOwns(item) ? 'Есть' : 'Не получено';
+}
+
+// Образец слота: код скина стоит на САМОМ элементе (не на корне), поэтому предпросмотр не меняет остальное приложение
+function wdScene(slot, code, mini) {
+  const box = document.createElement('div');
+  box.className = mini ? 'wd-mini' : 'wd-scene';
+  box.setAttribute('data-skin-' + slot, code);
+  const add = (cls, text, tag) => {
+    const e = document.createElement(tag || 'div');
+    e.className = cls;
+    if (text) e.textContent = text;
+    box.appendChild(e);
+    return e;
+  };
+  if (slot === 'chip') {
+    (mini ? ['100'] : ['10', '100']).forEach((t) => add('chip', t, 'span').setAttribute('data-amount', t));
+    if (!mini) add('chip', '500', 'span').setAttribute('aria-pressed', 'true');
+  } else if (slot === 'card_back') {
+    add('bj-card back');
+    if (!mini) {
+      const face = add('bj-card red');
+      face.innerHTML = '<span class="rank">A</span>' + BJ_SUIT_SVG.H;
+    }
+  } else if (slot === 'table') {
+    add('cell red', '7', 'span'); add('cell black', '8', 'span');
+    if (!mini) add('cell green', '0', 'span');
+  } else if (slot === 'mine_icons') {
+    const icons = Object.prototype.hasOwnProperty.call(MINES_ICON_SETS, code) ? MINES_ICON_SETS[code] : MINES_ICON_SETS.default;   // набор предмета, а не надетый
+    if (!mini) add('mines-cell', '', 'span');
+    add('mines-cell safe', '', 'span').innerHTML = icons.gem;
+    if (!mini) add('mines-cell mine', '', 'span').innerHTML = icons.mine;
+  } else if (slot === 'keno_ball') {
+    if (!mini) { add('keno-ball sel', '', 'span').appendChild(document.createElement('span')).textContent = '7'; add('keno-ball drawn', '', 'span').appendChild(document.createElement('span')).textContent = '12'; }
+    add('keno-ball hit', '', 'span').appendChild(document.createElement('span')).textContent = '21';
+  } else if (slot === 'crash') {
+    const chart = add('cr-chart');
+    chart.setAttribute('data-tone', 'idle');
+    chart.innerHTML = CR_SAMPLE_SVG;
+  } else if (slot === 'avatar_frame') {
+    add('avatar', 'И', 'span');
+  } else if (slot === 'badge') {
+    const who = add('wd-demo-name', '', 'span');
+    if (!mini) who.appendChild(document.createTextNode('Игрок'));
+    const b = badgeEl(BADGE_SVG[code] ? code : null);
+    if (b) who.appendChild(b);
+    else who.appendChild(document.createTextNode('без значка'));
+  }
+  return box;
+}
+
+function setWdMsg(text) { wdEls.msg.textContent = text; }
+const wdToast = (text) => showToast(text, wdEls.pSheet.hidden ? 'wd-toast' : 'wd-prev-toast');
+
+function renderWardrobe() {
+  const tabsLeft = wdEls.tabs.scrollLeft;
+  const gridTop = wdEls.grid.scrollTop;
+  wdEls.tabs.textContent = '';
+  WD_SLOTS.forEach(({ slot, label }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'wd-tab';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(slot === wd.slot));
+    b.textContent = label;
+    b.addEventListener('click', () => { if (wd.slot !== slot) { wd.slot = slot; renderWardrobe(); } });
+    wdEls.tabs.appendChild(b);
+  });
+  wdEls.grid.textContent = '';
+  if (!wd.catalog || !wd.mine) {
+    if (!wd.loading) {
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'action';
+      retry.textContent = 'Повторить';
+      retry.addEventListener('click', loadWardrobe);
+      wdEls.grid.appendChild(retry);
+    }
+  } else {
+    wd.catalog.filter((i) => i.slot === wd.slot).forEach((item) => {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'wd-card' + (wdWorn(item) ? ' on' : '') + (wdOwns(item) && item.available ? '' : ' dim');
+      card.dataset.code = item.code;
+      const name = document.createElement('span');
+      name.className = 'wd-name';
+      name.textContent = item.name;
+      const status = document.createElement('span');
+      status.className = 'wd-status';
+      status.textContent = wdStatus(item);
+      card.append(wdScene(item.slot, item.code, true), name, status);
+      card.addEventListener('click', () => openWdPreview(item));
+      wdEls.grid.appendChild(card);
+    });
+  }
+  wdEls.tabs.scrollLeft = tabsLeft;
+  wdEls.grid.scrollTop = gridTop;
+  const on = !!wd.mine && wd.mine.showInRating;
+  wdEls.vis.setAttribute('aria-checked', String(on));
+  wdEls.vis.disabled = wd.busy || !wd.mine;
+  renderWdPreview();
+}
+
+function openWdPreview(item) {
+  wd.preview = item;
+  wdEls.pMsg.textContent = '';
+  wdEls.pSheet.hidden = false;
+  renderWdPreview();
+}
+
+function closeWdPreview() {
+  if (wd.busy) return;
+  wdEls.pSheet.hidden = true;
+  wd.preview = null;
+}
+
+function renderWdPreview() {
+  const item = wd.preview;
+  if (!item || wdEls.pSheet.hidden) return;
+  wdEls.pTitle.textContent = item.name;
+  wdEls.pStatus.textContent = wdStatus(item);
+  wdEls.pScene.replaceWith(wdScene(item.slot, item.code, false));
+  wdEls.pScene = wdEls.pSheet.querySelector('.wd-scene');
+  wdEls.pScene.id = 'wd-prev-scene';
+  wdEls.pDesc.textContent = item.description;
+  let act = '';
+  if (wdWorn(item)) act = item.starter ? '' : 'Снять';
+  else if (wdCanEquip(item)) act = 'Надеть';
+  else wdEls.pMsg.textContent = !item.available ? 'Этот предмет появится позже' : 'Этого предмета у вас пока нет';
+  wdEls.pAct.hidden = !act;
+  wdEls.pAct.textContent = act;
+  wdEls.pAct.disabled = wd.busy;
+  wdEls.pClose.disabled = wd.busy;
+}
+
+// тексты ошибок гардероба
+function wdErrorText(r) {
+  if (r.kind === 'fatal') return r.text;
+  if (r.kind === 'invalid') return 'Ответ сервера не распознан. Обновите экран';
+  const byDetail = {
+    not_owned: 'Этого предмета у вас нет', item_unavailable: 'Этот предмет пока недоступен', slot_mismatch: 'Предмет не подходит к этому слоту',
+    unknown_item: 'Такого предмета нет', request_conflict: 'Запрос уже обработан, обновите экран'
+  };
+  if (r.kind === 'conflict') return byDetail[r.detail] || 'Не удалось выполнить действие';
+  return 'Нет связи с сервером. Попробуйте ещё раз';
+}
+
+// Один POST гардероба. { kind: 'ok', data } | { kind: 'conflict', detail } | { kind: 'fatal', text } | { kind: 'retry' } | { kind: 'invalid' }
+async function wdPostOnce(path, payload, validate) {
+  try {
+    const res = await postJson(path, payload);
+    if (res.status === 401) return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
+    if (res.status === 429) return { kind: 'fatal', text: 'Слишком часто: подождите секунду и повторите' };
+    if (res.status === 404) return { kind: 'conflict', detail: 'unknown_item' };
+    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры' };
+    if (res.status === 409) {
+      let body = {};
+      try { body = await res.json(); } catch (e) { body = {}; }
+      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
+    }
+    if (!res.ok) return isServerError(res) ? { kind: 'retry' } : { kind: 'fatal', text: 'Не удалось выполнить действие' };
+    const body = await readJsonBody(res);
+    return body.ok && validate(body.data) ? { kind: 'ok', data: body.data } : { kind: 'invalid' };
+  } catch (e) {
+    return { kind: 'retry' };
+  }
+}
+
+// Действие гардероба: защита от повторного нажатия, один request_id на действие, до 3 попыток при сбоях сети и 5xx
+async function wdAct(path, body, validate, onOk) {
+  if (wd.busy) return;
+  if (!(tg && tg.initData)) { wdToast('Откройте игру через бота в Telegram'); return; }
+  const id = makeRequestId();
+  if (!id) { wdToast('Ошибка'); return; }
+  wd.busy = true;
+  renderWardrobe();
+  const result = await postWithRetries(() => wdPostOnce(path, { request_id: id, ...body }, validate));
+  wd.busy = false;
+  if (result && result.kind === 'ok') {
+    try { onOk(result.data); haptic('light'); } catch (e) { wdToast('Не удалось показать результат. Обновите экран'); }
+  } else {
+    wdToast(wdErrorText(result || { kind: 'retry' }));
+  }
+  renderWardrobe();
+}
+
+function wdApplyEquipped(equipped) {
+  wd.mine.equipped = wdNormalizeEquipped(equipped);
+  applySkins(wd.mine.equipped);
+  setOwnCosmetics({ equipped: wd.mine.equipped });
+}
+
+function wdEquip(item) {
+  wdAct('/api/cosmetics/equip', { slot: item.slot, code: item.code }, validWdEquip, (d) => wdApplyEquipped(d.equipped));
+}
+
+function wdUnequip(item) {
+  wdAct('/api/cosmetics/unequip', { slot: item.slot }, validWdEquip, (d) => wdApplyEquipped(d.equipped));
+}
+
+function wdToggleVisibility() {
+  if (!wd.mine) return;
+  wdAct('/api/cosmetics/visibility', { show_in_rating: !wd.mine.showInRating }, validWdVisibility, (d) => { wd.mine.showInRating = d.show_in_rating; });
+}
+
+async function loadWardrobe() {
+  if (wd.loading) return;
+  if (!(tg && tg.initData)) { setWdMsg('Откройте игру через бота в Telegram'); return; }
+  wd.loading = true;
+  setWdMsg('Загрузка…');
+  renderWardrobe();
+  try {
+    const [cat, mine] = await Promise.all([
+      fetchGameState('/api/cosmetics/catalog', validWdCatalog), fetchGameState('/api/cosmetics/mine', validWdMine)
+    ]);
+    wd.catalog = wdNormalizeCatalog(cat);
+    wd.mine = wdNormalizeMine(mine);
+    setWdMsg('');
+  } catch (e) {
+    setWdMsg(e && e.text ? e.text : 'Нет связи с сервером');
+  } finally {
+    wd.loading = false;
+    renderWardrobe();
+  }
+}
+
+function openWardrobe() {
+  wdEls.sheet.hidden = false;
+  wdEls.pSheet.hidden = true;
+  renderWardrobe();
+  loadWardrobe();
+  haptic('light');
+}
+
+function closeWardrobe() {
+  if (wd.busy) return;
+  wdEls.pSheet.hidden = true;
+  wd.preview = null;
+  wdEls.sheet.hidden = true;
+}
+
+wdEls.open.addEventListener('click', openWardrobe);
+wdEls.back.addEventListener('click', closeWardrobe);
+wdEls.vis.addEventListener('click', wdToggleVisibility);
+wdEls.pClose.addEventListener('click', closeWdPreview);
+wdEls.pAct.addEventListener('click', () => {
+  const item = wd.preview;
+  if (!item || wd.busy) return;
+  if (wdWorn(item)) wdUnequip(item); else wdEquip(item);
+});
+closeOnBackdropTap(wdEls.dim, closeWardrobe);
+closeOnBackdropTap(wdEls.pDim, closeWdPreview);
 
 // #endregion
 
