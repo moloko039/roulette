@@ -129,9 +129,6 @@ for u in cfg["users"]:
         (u["id"], u["balance"], u["rate"], now // 60 * 60, now - u["age_days"] * 86400, u["staked"], u["xp"]))
     conn.execute("INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES (?, ?, ?, ?, ?)",
                  (cfg["chat"], u["id"], u["name"], now - 86400, now))
-    if u.get("received"):    # уже получено за сутки (для проверки лимита получения): перевод от владельца без комиссии
-        conn.execute("INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (?, ?, ?, 0, ?, ?)",
-                     (cfg["owner_id"], u["id"], u["received"], now, "e2e-seed-%d" % u["id"]))
 conn.commit()
 conn.close()
 app = create_app(cfg["token"], [cfg["origin"]], db_path=cfg["db"], rate_limiter=ratelimit.RateLimiter(ratelimit.load_config({})))

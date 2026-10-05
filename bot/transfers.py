@@ -12,7 +12,6 @@ import secrets
 TRANSFER_MIN = 100
 TRANSFER_MAX = 500_000
 SEND_DAILY_LIMIT = 500_000        # сумма, списанная у отправителя (вместе с комиссией) за скользящие 24 часа
-RECEIVE_DAILY_LIMIT = 500_000     # сумма, полученная получателем «чистыми» (после комиссии) за скользящие 24 часа
 COOLDOWN_SECONDS = 10             # между двумя переводами одного отправителя
 SENDER_MIN_LEVEL = 3
 MIN_ACCOUNT_AGE_HOURS = 1         # с момента регистрации игрока

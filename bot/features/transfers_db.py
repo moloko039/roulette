@@ -36,12 +36,6 @@ def _transfer_daily_left(conn, telegram_id, now, owner_id=None):
     return max(0, transfers.SEND_DAILY_LIMIT - used)
 
 
-def _transfer_received_24h(conn, telegram_id, now):
-    """Сколько получатель получил «чистыми» (amount - fee) за скользящие 24 часа."""
-    return conn.execute("SELECT COALESCE(SUM(amount - fee), 0) FROM transfers WHERE recipient = ? AND created_at > ?",
-                        (telegram_id, now - transfers.DAY_SECONDS)).fetchone()[0]
-
-
 def _transfer_response(conn, sender, amount, fee, now, replayed, owner_id=None):
     pl = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (sender,)).fetchone()
     return {"amount": amount, "fee": fee, "received": amount - fee, "balance": pl["balance"], "level": profile_level(pl["xp"]),
@@ -54,7 +48,7 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
     сгорает). Отправитель-владелец комиссию не платит; получатель-владелец получает amount. total_staked, XP и уровень не
     меняются ни у кого. Повтор с теми же параметрами и request_id возвращает сохранённый перевод (balance текущий).
     Ошибки: transfers.TransferError (code: no_chat, self_transfer, not_in_chat, level_too_low, account_too_new, cooldown,
-    daily_limit, recipient_daily_limit, not_enough_staked, recipient_limit, request_conflict),
+    daily_limit, not_enough_staked, recipient_limit, request_conflict),
     wallet.InsufficientFunds. Получатель ищется до транзакции; внутри сначала дешёвые проверки отправителя, потом получателя."""
     if not transfers.valid_amount(amount) or not transfers.valid_member_ref(member_ref):
         raise ValueError("invalid transfer")
@@ -102,8 +96,6 @@ def transfer_send(sender, chat_instance, sender_name, member_ref, amount, reques
                 raise transfers.TransferError("not_in_chat")
             fee = 0 if sender == owner_id else transfers.fee_for(amount)
             to_recipient = amount if recipient == owner_id else amount - fee   # владелец-получатель получает всю сумму
-            if recipient != owner_id and _transfer_received_24h(conn, recipient, now) + to_recipient > transfers.RECEIVE_DAILY_LIMIT:
-                raise transfers.TransferError("recipient_daily_limit")
             if rec["balance"] + to_recipient > MAX_SAFE_INT:
                 raise transfers.TransferError("recipient_limit")
             burned = False
