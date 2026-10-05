@@ -20,7 +20,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
@@ -51,7 +51,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
@@ -82,7 +82,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
@@ -113,7 +113,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
@@ -144,7 +144,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 500000,
       "fee_percent": 5,
       "min_level": 3,
@@ -175,7 +175,7 @@
     },
     "transfer_limits": {
       "min": 100,
-      "max": 50000,
+      "max": 500000,
       "daily_left": 9007199254740991,
       "fee_percent": 0,
       "min_level": 3,
