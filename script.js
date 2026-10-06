@@ -5820,7 +5820,9 @@ function openEmbedded(id) {
   if (!game) return;
   closeEmbedded();
   const frame = document.createElement('iframe');
-  frame.src = game.url;
+  // index.html игры запрашивается свежим при каждом открытии: страница крошечная, а её кэш (Pages 10 минут, вебвью Telegram
+  // дольше) иначе показывал бы прошлую сборку; тяжёлые файлы сборки имеют хэш в имени и кэшируются как обычно
+  frame.src = game.url + (game.url.includes('?') ? '&' : '?') + 'ts=' + Date.now();
   frame.title = game.label;
   frame.setAttribute('allow', 'autoplay');
   frame.setAttribute('referrerpolicy', 'no-referrer');
