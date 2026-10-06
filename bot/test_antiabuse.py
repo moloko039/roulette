@@ -106,7 +106,7 @@ try:
     get_player(OTHER, now=T, db_path=path)
     other_before = counts(path, OTHER)
     res = delete_player_data(UID, db_path=path, now=T + 5)
-    check("счётчики прежнего вида (и покупки фермы)", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "player_best_win": 0})
+    check("счётчики прежнего вида (и покупки фермы)", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     rows = tombstones(path)
     check("одна запись", len(rows), 1)
     h, deleted_at = rows[0]
@@ -121,10 +121,10 @@ try:
     assert antiabuse.key_hash(UID, b"another") != h
 
     # без существующего игрока tombstone не создаётся
-    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "player_best_win": 0})
+    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     check("tombstone не создан", len(tombstones(path)), 1)
     # повторное удаление сразу ничего не меняет и не добавляет записей
-    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "player_best_win": 0})
+    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     check("запись прежняя", tombstones(path), [(h, T + 5)])
 
     # ---------- регистрация в период защиты: баланс 0 и скорость 100 ----------
@@ -283,7 +283,7 @@ try:
             "начисляться по 100 в час. Для защиты от злоупотреблений на это время сохраняется обезличенный "
             "идентификатор, через 30 дней он удаляется.") in t, t
     assert "будет создан новый игрок с 1000 фишек" not in t
-    assert t.startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, история игр в мины, история раундов кено, история раздач блэкджека, история раундов краша, история переводов (отправленных и полученных), незавершённая игра в мины (вместе со ставкой), незавершённая раздача блэкджека (вместе со ставкой), незавершённый раунд краша (вместе со ставкой), а также участие в рейтингах. Это нельзя отменить. Данные на вашем устройстве")
+    assert t.startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, история игр в мины, история раундов кено, история раздач блэкджека, история раундов краша, история отправленных вами переводов (записи о полученных вами переводах не удаляются, а обезличиваются: ваш идентификатор заменяется, они остаются у отправителей до конца срока хранения), незавершённая игра в мины (вместе со ставкой), незавершённая раздача блэкджека (вместе со ставкой), незавершённый раунд краша (вместе со ставкой), а также участие в рейтингах. Это нельзя отменить. Данные на вашем устройстве")
     check("кнопки на месте", [b.text for b in u.replies[0]["reply_markup"].inline_keyboard[0]], ["Удалить всё", "Отмена"])
     # подтверждение с секретом удаляет и создаёт tombstone только у нажавшего
     q = FakeUpdate("private", user_id=X, chat_id=X, query_data="del:yes:%d" % int(time.time()))

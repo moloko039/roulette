@@ -87,7 +87,12 @@ def _settle_expired_in(conn, telegram_id, now):
 def settle_expired_mines(telegram_id, now=None, db_path=None):
     """Закрывает просроченную игру игрока отдельной транзакцией (идемпотентно). True, если закрыла."""
     now = now_or_clock(now)
-    return settle_expired(lambda conn: _settle_expired_in(conn, telegram_id, now), db_path)
+
+    def expired(conn):      # быстрая проверка чтением, без блокировки записи: есть ли просроченная активная игра (как у хило и краша)
+        game = _active_game(conn, telegram_id)
+        return game is not None and now - game["updated_at"] >= mines.MINES_IDLE_SECONDS
+
+    return settle_expired(lambda conn: _settle_expired_in(conn, telegram_id, now), db_path, precheck=expired)
 
 
 MINES_CLOSE_BATCH = CLOSE_BATCH

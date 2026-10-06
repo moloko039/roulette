@@ -193,7 +193,7 @@ try:
         # ================= /deletemydata =================
         u = run(bot.deletemydata, FakeUpdate("private", user_id=ME))
         r = u.replies[0]
-        assert r["text"].startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, история игр в мины, история раундов кено, история раздач блэкджека, история раундов краша, история переводов (отправленных и полученных), незавершённая игра в мины (вместе со ставкой), незавершённая раздача блэкджека (вместе со ставкой), незавершённый раунд краша (вместе со ставкой), а также участие в рейтингах. Это нельзя отменить.")
+        assert r["text"].startswith("Будут удалены ваш баланс, уровни улучшений, история раундов и покупок, история игр в мины, история раундов кено, история раздач блэкджека, история раундов краша, история отправленных вами переводов (записи о полученных вами переводах не удаляются, а обезличиваются: ваш идентификатор заменяется, они остаются у отправителей до конца срока хранения), незавершённая игра в мины (вместе со ставкой), незавершённая раздача блэкджека (вместе со ставкой), незавершённый раунд краша (вместе со ставкой), а также участие в рейтингах. Это нельзя отменить.")
         assert "уровни улучшений" in r["text"] and "история раундов и покупок" in r["text"], r["text"]
         assert "1000 фишек" in r["text"] and "очисткой кэша Telegram" in r["text"]
         buttons = r["reply_markup"].inline_keyboard[0]
@@ -264,8 +264,8 @@ try:
     # ================= db: удаление =================
     seed(path)
     init_db(path)
-    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "player_best_win": 1})
-    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "player_best_win": 0})
+    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 1})
+    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     check("другие не затронуты", counts(path, ME)[0], 1)
 
     # ================= логи =================

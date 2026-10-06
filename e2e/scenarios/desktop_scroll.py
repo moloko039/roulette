@@ -8,13 +8,13 @@ import asyncio
 from harness import check
 
 NAME = "desktop_scroll"
-CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
+CLOCK_MOD = 1      # минутная граница начисления далеко (59 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = dict({"me": {"rate": 0}, "bob": {"balance": 5000, "rate": 0}}, **{"игрок %d" % i: {"balance": 1000 + i, "rate": 0} for i in range(12)})
 SIZES = [(320, 568), (380, 640), (450, 750)]
 TABS = ["rating", "style", "play", "farm", "profile"]
 READY = {
     "rating": "document.querySelectorAll('#rating-list li').length >= 10 && !document.getElementById('best-card').hidden",
-    "style": "!document.querySelector('[data-screen=style]').hidden",
+    "style": "!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0",
     "play": "!document.querySelector('.lobby').classList.contains('booting') && !document.querySelector('[data-screen=lobby]').hidden",
     "farm": "!document.getElementById('farm-body').hidden",
     "profile": "!document.getElementById('profile-data').hidden",

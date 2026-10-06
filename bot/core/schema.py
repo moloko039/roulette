@@ -258,6 +258,9 @@ def init_db(db_path=None):
         )
         # выборка последних активных участников беседы (список «Кому перевести», поиск получателя перевода)
         conn.execute("CREATE INDEX IF NOT EXISTS chat_members_recent ON chat_members (chat_instance, last_seen)")
+        # поиск записей участника по игроку (имя второй стороны в истории переводов, выгрузка и удаление данных): первичный ключ начинается с беседы и
+        # не помогает; без индекса каждый такой запрос читал всю таблицу. last_seen вторым столбцом: «последняя запись игрока» без сортировки
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_members_telegram ON chat_members (telegram_id, last_seen)")
         # «надгробия» после удаления данных: только хэш идентификатора и дата удаления
         conn.execute(
             """

@@ -75,16 +75,23 @@
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/farm",
+"GET /api/me",
+"GET /api/transfers",
+"GET /api/me",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
 "GET /api/farm",
 "GET /api/transfers",
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
-"GET /api/farm",
-"GET /api/transfers",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
 "GET /api/farm",
 "GET /api/transfers",
 "GET /api/me",
@@ -139,6 +146,13 @@
 "POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
 "POST /api/mines/reveal {\"cell\":0,\"request_id\":\"<rid:36>\"}"
 ],
+"post_body_abort": [
+"GET /api/me",
+"GET /api/keno/paytable",
+"POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
+"GET /api/me",
+"GET /api/me"
+],
 "resume": [
 "GET /api/me",
 "GET /api/mines/state",
@@ -189,6 +203,19 @@
 "skin_vars": [
 "GET /api/me"
 ],
+"style_tab": [
+"GET /api/me",
+"GET /api/transfers",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/me",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine"
+],
 "transfers_ui": [
 "GET /api/me",
 "GET /api/me",
@@ -213,7 +240,6 @@
 ],
 "wardrobe_buy_chips": [
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "POST /api/cosmetics/buy {\"item_code\":\"badge_spade\",\"request_id\":\"<rid:36>\"}",
@@ -225,12 +251,10 @@
 "POST /api/cosmetics/buy {\"item_code\":\"back_ember\",\"request_id\":\"<rid:36>\"}"
 ],
 "wardrobe_buy_safety": [
-"GET /api/me",
-"GET /api/transfers"
+"GET /api/me"
 ],
 "wardrobe_buy_stars": [
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "POST /api/cosmetics/invoice {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
@@ -264,7 +288,6 @@
 "wardrobe_flow": [
 "GET /api/me",
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "POST /api/cosmetics/equip {\"code\":\"back_midnight\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
@@ -274,6 +297,8 @@
 "POST /api/cosmetics/equip {\"code\":\"back_ember\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":false}",
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":true}",
+"GET /api/me",
+"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine"
 ],
@@ -288,7 +313,6 @@
 ],
 "wardrobe_safety": [
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/chat/best-wins"
 ]
 }

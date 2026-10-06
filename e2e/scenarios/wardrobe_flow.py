@@ -1,5 +1,5 @@
-"""Гардероб: вход из профиля, слоты, карточки и статусы, предпросмотр (скин только на самом превью), надеть и снять, защита от повторного
-нажатия, ошибки (не получено, недоступно, 429, сеть, 503), переключатель показа в рейтинге, закрытие по «Назад» и по тапу вне."""
+"""Гардероб (вкладка «Стиль»): вход из нижней панели, слоты, карточки и статусы, предпросмотр (скин только на самом превью), надеть и снять, защита от повторного
+нажатия, ошибки (не получено, недоступно, 429, сеть, 503), переключатель показа в рейтинге, уход со вкладки и возврат, закрытие предпросмотра по тапу вне."""
 import time
 
 from harness import check
@@ -39,11 +39,8 @@ async def run(w):
     for code in ("back_midnight", "chip_ring", "back_ember"):
         w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'owner_gift', ?)", (uid, code, now))
     await w.reload()
-    await p.tap(".tab[data-tab=profile]")
-    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль загружен")
-    check("кнопка «Гардероб» в профиле", await p.ev("document.getElementById('wardrobe-open').textContent.trim()"), "Гардероб")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб открыт")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб открыт")
     check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent, c.classList.contains('dim')])"
     check("слот «Рубашка карт»: надето, есть, скоро", await p.ev(cards), [["Классика", "Надето", False], ["Полночь", "Есть", False], ["Уголь", "Скоро", True]])
@@ -114,7 +111,7 @@ async def run(w):
         await p.ev("wdUnequip({ slot: 'card_back' })")
         await p.wait("!wd.busy", 30, "запрос завершён (%s)" % mode)
         check("тост при ответе %s" % mode, (await toast_text(p)).strip("|"), text)
-        check("экран не сломан после %s" % mode, await p.ev("[document.getElementById('wd-sheet').hidden, document.querySelectorAll('#wd-grid .wd-card').length > 0, %s.getAttribute('data-skin-card_back')]" % ROOT),
+        check("экран не сломан после %s" % mode, await p.ev("[document.querySelector('[data-screen=style]').hidden, document.querySelectorAll('#wd-grid .wd-card').length > 0, %s.getAttribute('data-skin-card_back')]" % ROOT),
               [False, True, "back_midnight"])
     await p.ev("window.__wdMode = ''")
     # переключатель показа в рейтинге
@@ -127,18 +124,19 @@ async def run(w):
     await p.ev("E.sleep(1100)")
     await p.tap("#wd-vis")
     await p.wait("document.getElementById('wd-vis').getAttribute('aria-checked') === 'true'", 10, "показ включён")
-    # закрытие: «Назад» и тап вне
-    await p.tap("#wd-back")
-    await p.wait("document.getElementById('wd-sheet').hidden", 5, "закрыт по «Назад»")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden", 5, "открыт снова")
+    # уход со вкладки и возврат, тап вне листа предпросмотра
+    await p.tap(".tab[data-tab=profile]")
+    await p.wait("document.querySelector('[data-screen=style]').hidden && !document.querySelector('[data-screen=profile]').hidden", 5, "вкладка «Стиль» закрыта уходом на профиль")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 5, "вкладка открыта снова")
     await p.ev("E.sleep(500)")
     await p.tap("#wd-grid .wd-card:nth-child(1)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.ev("E.sleep(500)")
     await p.tap({"x": 195, "y": 30})
     await p.wait("document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр закрыт тапом вне")
-    check("лист гардероба остался открытым (тап не прошёл сквозь)", await p.ev("document.getElementById('wd-sheet').hidden"), False)
-    await p.tap({"x": 195, "y": 30})
-    await p.wait("document.getElementById('wd-sheet').hidden", 5, "гардероб закрыт тапом вне")
-    check("профиль под листом цел", await p.ev("!document.querySelector('[data-screen=profile]').hidden"), True)
+    check("вкладка «Стиль» осталась открытой (тап не прошёл сквозь)", await p.ev("document.querySelector('[data-screen=style]').hidden"), False)
+    await p.tap("#wd-grid .wd-card:nth-child(1)")
+    await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр снова")
+    await p.ev("showTab('profile')")      # уход со вкладки программно: лист поверх навигации нажатием не обойти
+    check("уход со вкладки с открытым предпросмотром закрывает его и сбрасывает состояние", await p.ev("[document.getElementById('wd-prev-sheet').hidden, wd.preview, wd.open, wd.confirm]"), [True, None, False, False])
