@@ -23,9 +23,9 @@ A, B, C = 900000001, 900000002, 900000003
 
 # фикстура -> таблицы, которых в той версии ещё не было (их должна добавить миграция)
 NEW_TABLES = {
-    "dbc9242": {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win"},
-    "1e602d6": {"cosmetic_purchases", "player_best_win"},
-    "981d2c0": {"player_best_win"},
+    "dbc9242": {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds"},
+    "1e602d6": {"cosmetic_purchases", "player_best_win", "slot_rounds"},
+    "981d2c0": {"player_best_win", "slot_rounds"},
 }
 BALANCES = {A: 12345, B: 1_000_000, C: 0}
 

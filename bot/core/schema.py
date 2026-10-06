@@ -64,6 +64,24 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_keno_created ON keno_rounds(created_at)")
+        # раунды Western Slot (встроенный слот на фишках приложения): весь раунд в round_json; ключ (игрок, request_id) против повторного списания
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS slot_rounds (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                request_id  TEXT    NOT NULL,
+                coin        INTEGER NOT NULL,
+                bought      INTEGER NOT NULL,
+                cost        INTEGER NOT NULL,
+                payout      INTEGER NOT NULL,
+                round_json  TEXT    NOT NULL,
+                created_at  INTEGER NOT NULL,
+                UNIQUE (telegram_id, request_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_slot_created ON slot_rounds(created_at)")
         # покупки улучшений фермы: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
         conn.execute(
             """

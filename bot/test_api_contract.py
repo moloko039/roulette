@@ -105,6 +105,11 @@ M_REVEAL_SAFE = {"result": str, "game": GAME, "balance": int, "replayed": bool} 
 M_REVEAL_END = {"result": str, "game": type(None), "last": LAST, "balance": int, "replayed": bool}
 M_CASHOUT = {"last": LAST, "balance": int, "replayed": bool}
 M_STATE = {"game": OPT(GAME), "last": OPT(LAST), "balance": int}
+SLOT_STEP = {"board": str, "wins": [{"sym": str, "length": int, "ways": int, "pay": int}], "multiplier": int, "stepWin": int,
+             "exploded": [{"reel": int, "row": int}], "toWild": [{"reel": int, "row": int}], "refilled": [{"reel": int, "cells": str}], "boardAfter": str}
+SLOT_SPIN = {"mode": str, "steps": [SLOT_STEP], "scatters": int, "freeSpinsAwarded": int, "totalWin": int, "capped": bool}
+SLOT_ROUND = {"base": SLOT_SPIN, "freeSpins": [SLOT_SPIN], "freeSpinsLeftAfter": [int], "totalWin": int, "bonusWin": int, "capped": bool, "bought": bool}
+SLOT = {"coin": int, "bought": bool, "cost": int, "payout": int, "round": SLOT_ROUND, "balance": int, "level": int, "xp": int, "replayed": bool}
 
 
 class FixedRng:
@@ -364,6 +369,28 @@ try:
     for name in ("start", "reveal", "cashout"):
         r = client.post("/api/mines/" + name, json={"request_id": rid(140)})
         assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
+
+    # ================= POST /api/slot/spin =================
+    body = {"request_id": rid(60), "coin": 10, "buy": False}
+    r = client.post("/api/slot/spin", headers=auth(U), json=body)
+    assert r.status_code == 200, r.text
+    contract("slot spin 200", r.json(), SLOT)
+    assert r.json()["replayed"] is False and r.json()["bought"] is False and r.json()["cost"] == 200
+    r = client.post("/api/slot/spin", headers=auth(U), json=body)
+    contract("slot spin replayed", r.json(), SLOT)
+    assert r.json()["replayed"] is True
+    r = client.post("/api/slot/spin", headers=auth(U), json={"request_id": rid(61), "coin": 1, "buy": True})
+    assert r.status_code == 200, r.text
+    contract("slot buy 200", r.json(), SLOT)
+    assert r.json()["bought"] is True and r.json()["cost"] == 1500 and r.json()["round"]["bought"] is True
+    r = client.post("/api/slot/spin", headers=auth(U), json={"request_id": rid(60), "coin": 25, "buy": False})
+    assert (r.status_code, r.json()) == (409, {"detail": "request_conflict"})
+    r = client.post("/api/slot/spin", headers=auth(U), json={"request_id": rid(62), "coin": 3, "buy": False})
+    assert (r.status_code, r.json()) == (400, {"detail": "invalid_request"})
+    r = client.post("/api/slot/spin", headers=auth(U), json={"request_id": rid(63), "coin": 50000, "buy": True})
+    assert (r.status_code, r.json()) == (409, {"detail": "insufficient_funds"})
+    r = client.post("/api/slot/spin", json=body)
+    assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
 
     # ================= 429: общий формат =================
     clock = [1000.0]

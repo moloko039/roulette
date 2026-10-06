@@ -1,0 +1,558 @@
+{
+  "_comment": "Примеры ответов POST /api/slot/spin (Western Slot; значения-заглушки, раунды настоящие, от движка с фиксированным сидом). Серверный тест test_slot.py сверяет с ними форму настоящих ответов. Поля в текстовой записи: барабаны через «|», ячейки сверху вниз, «*» после символа = золотая рамка.",
+  "spin_win": {
+    "coin": 10,
+    "bought": false,
+    "cost": 200,
+    "payout": 180,
+    "round": {
+      "base": {
+        "mode": "base",
+        "steps": [
+          {
+            "board": "V K R | V J Q J | K R V A Q | B* K B V Q | Q A H B | A K K",
+            "wins": [
+              {
+                "sym": "V",
+                "length": 4,
+                "ways": 1,
+                "pay": 10
+              }
+            ],
+            "multiplier": 1,
+            "stepWin": 10,
+            "exploded": [
+              {
+                "reel": 0,
+                "row": 0
+              },
+              {
+                "reel": 1,
+                "row": 0
+              },
+              {
+                "reel": 2,
+                "row": 2
+              },
+              {
+                "reel": 3,
+                "row": 3
+              }
+            ],
+            "toWild": [],
+            "refilled": [
+              {
+                "reel": 0,
+                "cells": "R"
+              },
+              {
+                "reel": 1,
+                "cells": "K"
+              },
+              {
+                "reel": 2,
+                "cells": "A*"
+              },
+              {
+                "reel": 3,
+                "cells": "J"
+              }
+            ],
+            "boardAfter": "R K R | K J Q J | A* K R A Q | J B* K B Q | Q A H B | A K K"
+          },
+          {
+            "board": "R K R | K J Q J | A* K R A Q | J B* K B Q | Q A H B | A K K",
+            "wins": [
+              {
+                "sym": "K",
+                "length": 4,
+                "ways": 1,
+                "pay": 4
+              }
+            ],
+            "multiplier": 2,
+            "stepWin": 8,
+            "exploded": [
+              {
+                "reel": 0,
+                "row": 1
+              },
+              {
+                "reel": 1,
+                "row": 0
+              },
+              {
+                "reel": 2,
+                "row": 1
+              },
+              {
+                "reel": 3,
+                "row": 2
+              }
+            ],
+            "toWild": [],
+            "refilled": [
+              {
+                "reel": 0,
+                "cells": "A"
+              },
+              {
+                "reel": 1,
+                "cells": "V"
+              },
+              {
+                "reel": 2,
+                "cells": "R"
+              },
+              {
+                "reel": 3,
+                "cells": "J"
+              }
+            ],
+            "boardAfter": "A R R | V J Q J | R A* R A Q | J J B* B Q | Q A H B | A K K"
+          },
+          {
+            "board": "A R R | V J Q J | R A* R A Q | J J B* B Q | Q A H B | A K K",
+            "wins": [],
+            "multiplier": 4,
+            "stepWin": 0,
+            "exploded": [],
+            "toWild": [],
+            "refilled": [],
+            "boardAfter": "A R R | V J Q J | R A* R A Q | J J B* B Q | Q A H B | A K K"
+          }
+        ],
+        "scatters": 0,
+        "freeSpinsAwarded": 0,
+        "totalWin": 18,
+        "capped": false
+      },
+      "freeSpins": [],
+      "freeSpinsLeftAfter": [],
+      "totalWin": 18,
+      "bonusWin": 0,
+      "capped": false,
+      "bought": false
+    },
+    "balance": 123436,
+    "level": 1,
+    "xp": 777,
+    "replayed": false
+  },
+  "spin_loss": {
+    "coin": 10,
+    "bought": false,
+    "cost": 200,
+    "payout": 0,
+    "round": {
+      "base": {
+        "mode": "base",
+        "steps": [
+          {
+            "board": "B K V | A H H Q | B Q S K* Q | S J A B A | J H R J | H K V",
+            "wins": [],
+            "multiplier": 1,
+            "stepWin": 0,
+            "exploded": [],
+            "toWild": [],
+            "refilled": [],
+            "boardAfter": "B K V | A H H Q | B Q S K* Q | S J A B A | J H R J | H K V"
+          }
+        ],
+        "scatters": 2,
+        "freeSpinsAwarded": 0,
+        "totalWin": 0,
+        "capped": false
+      },
+      "freeSpins": [],
+      "freeSpinsLeftAfter": [],
+      "totalWin": 0,
+      "bonusWin": 0,
+      "capped": false,
+      "bought": false
+    },
+    "balance": 123256,
+    "level": 1,
+    "xp": 777,
+    "replayed": false
+  },
+  "buy": {
+    "coin": 10,
+    "bought": true,
+    "cost": 15000,
+    "payout": 1040,
+    "round": {
+      "base": {
+        "mode": "base",
+        "steps": [
+          {
+            "board": "A H Q | B S K V | J K* B V B | A H V A B* | Q B H S | R K S",
+            "wins": [],
+            "multiplier": 1,
+            "stepWin": 0,
+            "exploded": [],
+            "toWild": [],
+            "refilled": [],
+            "boardAfter": "A H Q | B S K V | J K* B V B | A H V A B* | Q B H S | R K S"
+          }
+        ],
+        "scatters": 3,
+        "freeSpinsAwarded": 10,
+        "totalWin": 0,
+        "capped": false
+      },
+      "freeSpins": [
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "V J K | A H K Q | R Q B* A J | B A* A V K | R V A J | Q J A",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "V J K | A H K Q | R Q B* A J | B A* A V K | R V A J | Q J A"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "Q B K | V K R H | V A H A* B* | B* Q* H J R* | H K R K | A Q J",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "Q B K | V K R H | V A H A* B* | B* Q* H J R* | H K R K | A Q J"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "H A V | J H B K | B V* J Q J | A J R J B | V K R V | H R R",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "H A V | J H B K | B V* J Q J | A J R J B | V K R V | H R R"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "B B K | H V A H | A K R* J B | K H H* A K | V H V J | J Q H",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "B B K | H V A H | A K R* J B | K H H* A K | V H V J | J Q H"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "K R V | J B H K | V B V A Q | K V H R* B | V A A B | H Q K",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "K R V | J B H K | V B V A Q | K V H R* B | V A A B | H Q K"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "A V H | J B K J | Q V K J R | Q* H R J Q | Q R A K | Q J B",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "A V H | J B K J | Q V K J R | Q* H R J Q | Q R A K | Q J B"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "Q Q J | Q J V K | H* V* R J V* | R K B R Q* | H A H A | Q Q K",
+              "wins": [
+                {
+                  "sym": "J",
+                  "length": 3,
+                  "ways": 1,
+                  "pay": 1
+                }
+              ],
+              "multiplier": 8,
+              "stepWin": 8,
+              "exploded": [
+                {
+                  "reel": 0,
+                  "row": 2
+                },
+                {
+                  "reel": 1,
+                  "row": 1
+                },
+                {
+                  "reel": 2,
+                  "row": 3
+                }
+              ],
+              "toWild": [],
+              "refilled": [
+                {
+                  "reel": 0,
+                  "cells": "R"
+                },
+                {
+                  "reel": 1,
+                  "cells": "A"
+                },
+                {
+                  "reel": 2,
+                  "cells": "A"
+                }
+              ],
+              "boardAfter": "R Q Q | A Q V K | A H* V* R V* | R K B R Q* | H A H A | Q Q K"
+            },
+            {
+              "board": "R Q Q | A Q V K | A H* V* R V* | R K B R Q* | H A H A | Q Q K",
+              "wins": [],
+              "multiplier": 16,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "R Q Q | A Q V K | A H* V* R V* | R K B R Q* | H A H A | Q Q K"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 8,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "V B A | Q V H V | A J H R* K | A R J V A | A Q V B | Q J Q",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "V B A | Q V H V | A J H R* K | A R J V A | A Q V B | Q J Q"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "A V A | K K R Q | K H J R H | K* Q* V K B | Q J V J | A H K",
+              "wins": [],
+              "multiplier": 8,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "A V A | K K R Q | K H J R H | K* Q* V K B | Q J V J | A H K"
+            }
+          ],
+          "scatters": 0,
+          "freeSpinsAwarded": 0,
+          "totalWin": 0,
+          "capped": false
+        },
+        {
+          "mode": "fs",
+          "steps": [
+            {
+              "board": "B H K | K V A J | K J V* B A | Q B* J J* S | A B J V | V R V",
+              "wins": [
+                {
+                  "sym": "K",
+                  "length": 3,
+                  "ways": 1,
+                  "pay": 2
+                }
+              ],
+              "multiplier": 8,
+              "stepWin": 16,
+              "exploded": [
+                {
+                  "reel": 0,
+                  "row": 2
+                },
+                {
+                  "reel": 1,
+                  "row": 0
+                },
+                {
+                  "reel": 2,
+                  "row": 0
+                }
+              ],
+              "toWild": [],
+              "refilled": [
+                {
+                  "reel": 0,
+                  "cells": "V"
+                },
+                {
+                  "reel": 1,
+                  "cells": "Q"
+                },
+                {
+                  "reel": 2,
+                  "cells": "H*"
+                }
+              ],
+              "boardAfter": "V B H | Q V A J | H* J V* B A | Q B* J J* S | A B J V | V R V"
+            },
+            {
+              "board": "V B H | Q V A J | H* J V* B A | Q B* J J* S | A B J V | V R V",
+              "wins": [
+                {
+                  "sym": "V",
+                  "length": 3,
+                  "ways": 1,
+                  "pay": 5
+                }
+              ],
+              "multiplier": 16,
+              "stepWin": 80,
+              "exploded": [
+                {
+                  "reel": 0,
+                  "row": 0
+                },
+                {
+                  "reel": 1,
+                  "row": 1
+                }
+              ],
+              "toWild": [
+                {
+                  "reel": 2,
+                  "row": 2
+                }
+              ],
+              "refilled": [
+                {
+                  "reel": 0,
+                  "cells": "H"
+                },
+                {
+                  "reel": 1,
+                  "cells": "V"
+                }
+              ],
+              "boardAfter": "H B H | V Q A J | H* J W B A | Q B* J J* S | A B J V | V R V"
+            },
+            {
+              "board": "H B H | V Q A J | H* J W B A | Q B* J J* S | A B J V | V R V",
+              "wins": [],
+              "multiplier": 32,
+              "stepWin": 0,
+              "exploded": [],
+              "toWild": [],
+              "refilled": [],
+              "boardAfter": "H B H | V Q A J | H* J W B A | Q B* J J* S | A B J V | V R V"
+            }
+          ],
+          "scatters": 1,
+          "freeSpinsAwarded": 0,
+          "totalWin": 96,
+          "capped": false
+        }
+      ],
+      "freeSpinsLeftAfter": [
+        9,
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1,
+        0
+      ],
+      "totalWin": 104,
+      "bonusWin": 104,
+      "capped": false,
+      "bought": true
+    },
+    "balance": 109496,
+    "level": 1,
+    "xp": 777,
+    "replayed": false
+  },
+  "errors": {
+    "invalid_request": {
+      "detail": "invalid_request"
+    },
+    "insufficient_funds": {
+      "detail": "insufficient_funds"
+    },
+    "request_conflict": {
+      "detail": "request_conflict"
+    },
+    "balance_limit": {
+      "detail": "balance_limit"
+    }
+  }
+}

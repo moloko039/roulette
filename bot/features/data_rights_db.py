@@ -48,6 +48,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
                 (telegram_id, rounds_limit),
             ).fetchall()
+            slot_rounds = conn.execute(
+                "SELECT created_at, coin, bought, cost, payout, round_json FROM slot_rounds "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
             bj_games = conn.execute(
                 "SELECT created_at, bet, wager, player_json, dealer_json, result, payout, finished_at FROM blackjack_games "
                 "WHERE telegram_id = ? AND status = 'finished' ORDER BY created_at DESC, id DESC LIMIT ?",
@@ -99,7 +104,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -154,6 +159,12 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}
             for k in keno_rounds
+        ],
+        # раунд слота целиком (поля, каскады, бесплатные вращения) в формате ответа API: это и хранится
+        "slot_rounds": [
+            {"time": s["created_at"], "coin": s["coin"], "bought": bool(s["bought"]), "cost": s["cost"], "payout": s["payout"],
+             "round": json.loads(s["round_json"])}
+            for s in slot_rounds
         ],
         "farm_purchases": [
             {"time": p["created_at"], "kind": p["kind"], "level": p["level_after"], "cost": p["cost"]}
@@ -211,6 +222,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                 "UPDATE transfers SET recipient = ? WHERE recipient = ?", (transfers.ANONYMOUS_ID, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
+            counts["slot_rounds"] = conn.execute(
+                "DELETE FROM slot_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             counts["player_best_win"] = conn.execute("DELETE FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).rowcount
             for table in ("cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"):   # косметика удаляется вместе с игроком
                 conn.execute("DELETE FROM " + table + " WHERE telegram_id = ?", (telegram_id,))

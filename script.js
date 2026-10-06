@@ -1601,7 +1601,7 @@ const bestEls = {
   empty: document.getElementById('best-empty'),
   me: document.getElementById('best-me')
 };
-const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило' };
+const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило', slot: 'Western Slot' };
 let bestLast = null;          // последний ответ (перерисовывается при смене своих рамки и значка)
 let bestInFlight = false;
 
@@ -5628,7 +5628,9 @@ const GAMES = [
   { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' },
   { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', desc: 'Открывай клетки и забирай выигрыш', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
   { id: 'hilo',      label: 'Хило',      hint: 'Выше или ниже?', desc: 'Угадай: выше или ниже карта', ready: true,  icon: '<rect x="3" y="4" width="8" height="12" rx="2"/><rect x="13" y="8" width="8" height="12" rx="2"/><path d="M7 7.5v5M5.2 9.3 7 7.5l1.8 1.8M17 11.5v5M15.2 14.7 17 16.5l1.8-1.8"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' }
+  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  // раздел встроенных игр на фишках приложения: список внутри строится из EMBEDDED_GAMES
+  { id: 'arcade',    label: 'Не слоты',  hint: 'Другие игры', desc: 'Western Slot и другие игры', ready: true, icon: '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10v4M6 12h4M15 11h.01M17.5 13h.01"/>' }
 ];
 // Пока игра не выбрана (currentGame = 'lobby'), вкладка «Играть» показывает титульный экран. После выбора он не возвращается
 // до следующего запуска; выбранная игра хранится только в памяти.
@@ -5737,6 +5739,162 @@ function showSoon() {
 GAMES.forEach((game, i) => {
   const tile = document.createElement('button');
   tile.type = 'button';
+// #endregion
+
+// #region Не слоты (встроенные игры)
+// Встроенные игры: отдельные статические приложения в games/<id>/, открываются в iframe во весь экран.
+// Игра с полем bridge играет на фишки приложения: сама она денег не считает и к API не ходит; раунд она запрашивает у этого скрипта
+// сообщением postMessage, скрипт делает обычный POST (сервер считает раунд и расплачивается, bot/slot.py) и возвращает игре итог и баланс.
+// Баланс у игры только тот, что прислал сервер: wallet, лимит частоты, рекорды и /api/me общие с остальными играми.
+// Чтобы добавить игру: положить её сборку в games/<id>/ (вход index.html, пути относительные) и добавить запись сюда; игре на фишках
+// приложения нужен серверный эндпоинт по образцу /api/slot/spin и свой мост по образцу slot ниже.
+const EMBEDDED_GAMES = [
+  { id: 'western-slot', label: 'Western Slot', hint: 'Каскадный слот, 3600 способов, бонус с множителями', url: 'games/western-slot/index.html?host=depnaya', bridge: 'slot' }
+];
+const arcadeEls = {
+  grid: document.getElementById('arcade-grid'),
+  switchBtn: document.getElementById('arcade-switch'),
+  view: document.getElementById('embed-view'),
+  frame: document.getElementById('embed-frame'),
+  title: document.getElementById('embed-title'),
+  back: document.getElementById('embed-back')
+};
+const getEmbedded = (id) => EMBEDDED_GAMES.find((g) => g.id === id);
+
+// Открытая игра: один iframe, создаётся при открытии и удаляется при закрытии (звук и анимации останавливаются)
+function openEmbedded(id) {
+  const game = getEmbedded(id);
+  if (!game) return;
+  closeEmbedded();
+  const frame = document.createElement('iframe');
+  frame.src = game.url;
+  frame.title = game.label;
+  frame.setAttribute('allow', 'autoplay');
+  frame.setAttribute('referrerpolicy', 'no-referrer');
+  arcadeEls.frame.appendChild(frame);
+  arcadeEls.title.textContent = game.label;
+  arcadeEls.view.hidden = false;
+  document.body.classList.add('embed-open');
+  if (game.bridge === 'slot') {
+    sl.frame = frame;
+    if (!srv.loaded) loadServer('open');   // баланс для игры: без него она не даст крутить
+  }
+  haptic('light');
+}
+
+function closeEmbedded() {
+  sl.frame = null;   // ответ на запрос, ушедший до закрытия, обновит баланс приложения, игре уже не отправится
+  arcadeEls.frame.textContent = '';
+  arcadeEls.view.hidden = true;
+  document.body.classList.remove('embed-open');
+}
+
+// ---------- мост Western Slot ----------
+// Сообщения игры (iframe → приложение): slot:hello; slot:spin {id, coin, buy}; slot:haptic {kind}.
+// Ответы (приложение → iframe): slot:ready {balance}; slot:balance {balance} (после начислений, через реестр игр);
+// slot:result {id, round, cost, payout, balance}; slot:error {id, code, text, balance}. Принимаются только сообщения из открытого iframe.
+// Форма ответа сервера: docs/API.md (POST /api/slot/spin); игра сама проверяет раунд перед показом.
+const SLOT_COINS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 2500, 10000, 25000, 50000];
+const SLOT_HAPTICS = ['light', 'medium', 'heavy', 'success', 'error'];
+const SLOT_NOTES = {
+  insufficient_funds: 'Не хватает фишек',
+  balance_limit: 'Достигнут потолок баланса',
+  request_conflict: 'Повтор запроса с другими параметрами'
+};
+const sl = { balance: null, busy: false, frame: null };
+// render: реестр игр подтягивает баланс игры к серверному после начисления; игре он уходит сообщением
+registerGame({ id: 'slot', state: sl, render: () => slotPost({ type: 'slot:balance', balance: srv.balance }), busy: () => sl.busy });
+
+function slotPost(msg) {
+  const win = sl.frame && sl.frame.contentWindow;
+  if (!win) return;
+  try {
+    win.postMessage(msg, window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*');
+  } catch (e) { /* iframe уже закрыт */ }
+}
+
+// Ответ сервера: нужны деньги и каркас раунда; поля и шаги игра проверяет сама и при ошибке показывает только итог
+function validSlotRound(d) {
+  return !!d && isCount(d.balance) && isCount(d.cost) && isCount(d.payout) && typeof d.bought === 'boolean'
+    && SLOT_COINS.includes(d.coin) && !!d.round && typeof d.round === 'object' && !!d.round.base
+    && Array.isArray(d.round.base.steps) && Array.isArray(d.round.freeSpins) && isCount(d.round.totalWin)
+    && d.payout === d.round.totalWin * d.coin;
+}
+
+function slotFailure(result) {
+  if (!result) return { code: 'network', text: 'Нет связи с сервером', reload: true };
+  if (result.kind === 'conflict') {
+    const known = Object.prototype.hasOwnProperty.call(SLOT_NOTES, result.detail);
+    return { code: result.detail || 'conflict', text: known ? SLOT_NOTES[result.detail] : 'Сервер отклонил спин', reload: true };
+  }
+  if (result.kind === 'fatal') return { code: 'fatal', text: result.text, reload: false };
+  return { code: result.kind, text: 'Ответ сервера не распознан', reload: true };
+}
+
+async function slotSpin(msg) {
+  const id = typeof msg.id === 'string' ? msg.id.slice(0, 64) : '';
+  const coin = msg.coin;
+  const buy = msg.buy === true;
+  if (!id || !SLOT_COINS.includes(coin) || sl.busy) {
+    slotPost({ type: 'slot:error', id, code: 'bad_request', text: 'Неверные параметры', balance: srv.balance });
+    return;
+  }
+  const requestId = makeRequestId();
+  if (!requestId) {
+    slotPost({ type: 'slot:error', id, code: 'no_request_id', text: 'Не удалось создать запрос', balance: srv.balance });
+    return;
+  }
+  sl.busy = true;
+  let result = null;
+  try {
+    result = await postWithRetries(() => postMinesOnce('/api/slot/spin', { request_id: requestId, coin, buy }, validSlotRound));
+  } finally {
+    sl.busy = false;
+  }
+  if (result && result.kind === 'ok') {
+    const d = result.data;
+    srv.balance = d.balance;   // баланс приложения сразу: игра показывает свой ход раунда, остальные экраны закрыты iframe
+    srv.loaded = true;
+    srv.error = null;
+    sl.balance = d.balance;
+    renderBalance();
+    slotPost({ type: 'slot:result', id, round: d.round, cost: d.cost, payout: d.payout, balance: d.balance });
+    return;
+  }
+  const failure = slotFailure(result);
+  slotPost({ type: 'slot:error', id, code: failure.code, text: failure.text, balance: srv.loaded ? srv.balance : null });
+  if (failure.reload) loadServer('after');
+}
+
+window.addEventListener('message', (e) => {
+  const win = sl.frame && sl.frame.contentWindow;
+  if (!win || e.source !== win) return;   // только из открытого iframe игры
+  const msg = e.data;
+  if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
+  if (msg.type === 'slot:hello') {
+    sl.balance = srv.loaded ? srv.balance : null;
+    slotPost({ type: 'slot:ready', balance: sl.balance });
+  } else if (msg.type === 'slot:spin') {
+    slotSpin(msg);
+  } else if (msg.type === 'slot:haptic') {
+    haptic(SLOT_HAPTICS.includes(msg.kind) ? msg.kind : 'light');
+  }
+});
+
+EMBEDDED_GAMES.forEach((game) => {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'arcade-card';
+  card.dataset.embedded = game.id;
+  card.setAttribute('role', 'menuitem');
+  card.innerHTML = '<span class="arcade-name"></span><span class="arcade-hint"></span>';
+  card.querySelector('.arcade-name').textContent = game.label;
+  card.querySelector('.arcade-hint').textContent = game.hint || '';
+  card.addEventListener('click', () => openEmbedded(game.id));
+  arcadeEls.grid.appendChild(card);
+});
+arcadeEls.back.addEventListener('click', closeEmbedded);
+arcadeEls.switchBtn.addEventListener('click', toggleGameMenu);
   tile.className = 'tile';
   tile.dataset.game = game.id;
   tile.style.setProperty('--i', i);

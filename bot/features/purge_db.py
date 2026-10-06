@@ -25,7 +25,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "keno_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "hilo_games": 0, "hilo_actions": 0,
+               "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "hilo_games": 0, "hilo_actions": 0,
                "transfers": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
@@ -70,6 +70,10 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
         if "keno_rounds" in present:  # тот же срок хранения, что у раундов рулетки
             deleted["keno_rounds"] = batches(
                 "DELETE FROM keno_rounds WHERE id IN (SELECT id FROM keno_rounds WHERE created_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
+        if "slot_rounds" in present:  # тот же срок хранения, что у раундов рулетки
+            deleted["slot_rounds"] = batches(
+                "DELETE FROM slot_rounds WHERE id IN (SELECT id FROM slot_rounds WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
         if "blackjack_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
             deleted["blackjack_games"] = batches(
@@ -127,9 +131,9 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 (COOLDOWN_SECONDS, now, batch))
     finally:
         conn.close()
-    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d блэкджек=%d краш=%d хило=%d переводы=%d",
+    logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d слот=%d блэкджек=%d краш=%d хило=%d переводы=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
-                deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"],
+                deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"], deleted["slot_rounds"],
                 deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"],
                 deleted["hilo_games"] + deleted["hilo_actions"], deleted["transfers"])
     return deleted
