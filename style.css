@@ -2399,8 +2399,8 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  min-height: 40px;
-  padding: calc(var(--inset-top) + 6px) var(--space-3) 6px;
+  min-height: 36px;
+  padding: calc(var(--inset-top) + 4px) var(--space-3) 4px;
 }
 .embed-back { flex: none; }
 .embed-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; }
