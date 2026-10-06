@@ -1,3 +1,5 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
+import balance_guard
 import glob
 import os
 import re
@@ -8,6 +10,7 @@ import threading
 
 import db
 import wallet
+from core.db_conn import _connect
 from roulette import MAX_SAFE_INT, BalanceLimit, InsufficientFunds
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -185,26 +188,62 @@ try:
           10_000_000 - stakes + payouts)
     check("total_staked = сумма ставок", one(path, "SELECT total_staked FROM players")[0][0], stakes)
 
-    # ================= прямые изменения balance в коде =================
-    # игровые списания и выплаты только через wallet; допускается только разовая миграция начисления (вместе с last_accrual) в db.py:
-    # обычное поминутное начисление идёт через wallet.credit
-    found = []
-    # код базы разложен по слоям core/, features/, games/ (фасад db.py): сканируются они тоже
-    sources = glob.glob(os.path.join(HERE, "*.py"))
-    for layer in ("core", "features", "games"):
-        sources += glob.glob(os.path.join(HERE, layer, "*.py"))
-    for src in sorted(sources):
-        name = os.path.relpath(src, HERE)
-        if name.startswith("test_") or name in ("stubs.py", "tg_testutil.py"):
-            continue
-        for number, line in enumerate(open(src, encoding="utf-8"), 1):
-            if re.search(r"SET\s+balance|balance\s*=\s*balance", line):
-                found.append((name, number, line.strip()))
-    for name, number, line in found:
-        ok = name == "wallet.py" or (name == os.path.join("core", "migrations.py") and "last_accrual" in line)
-        assert ok, "прямое изменение баланса вне wallet: %s:%d" % (name, number)
-    check("wallet меняет баланс", sorted({n for n, _, _ in found}), [os.path.join("core", "migrations.py"), "wallet.py"])
-    check("прямая правка баланса вне wallet: только миграция начисления", len([1 for n, _, _ in found if n == os.path.join("core", "migrations.py")]), 1)
+    # ================= баланс меняется только через wallet =================
+    # Слой 1 (balance_guard.violations): разбор исходников через ast, не поиск по строкам; разрешены ровно четыре записи с точным текстом:
+    # списание и начисление в wallet.py, регистрация игрока с стартовым балансом в core/kernel.py, разовая миграция начисления в core/migrations.py.
+    check("запись баланса только в разрешённых местах", balance_guard.violations(), [])
+    # сам сканер ловит обходы прежней проверки (по строкам): многострочный SQL, другой порядок столбцов, склейка, f-строка, REPLACE, ON CONFLICT,
+    # триггер, executescript, executemany, прямое подключение, импорт connect
+    bypasses = {
+        "многострочный UPDATE": 'def f(c):\n    c.execute("UPDATE players\\n SET\\n  balance = 5 WHERE 1")\n',
+        "balance не первым в SET": 'def f(c):\n    c.execute("UPDATE players SET xp = xp + 1, balance = ? WHERE telegram_id = ?")\n',
+        "склейка строк": 'def f(c):\n    c.execute("UPDATE players " + "SET bal" "ance = 1")\n',
+        "split через круглые скобки": 'def f(c):\n    c.execute(("UPDATE players "\n               "SET balance = 0"))\n',
+        "f-строка": 'def f(c, col):\n    c.execute(f"UPDATE players SET {col} = 1")\n',
+        "format": 'def f(c, col):\n    c.execute("UPDATE players SET {} = 1".format(col))\n',
+        "REPLACE INTO": 'def f(c):\n    c.execute("REPLACE INTO players (telegram_id, balance) VALUES (1, 1)")\n',
+        "INSERT OR REPLACE": 'def f(c):\n    c.execute("INSERT OR REPLACE INTO players (telegram_id, balance) VALUES (1, 1)")\n',
+        "ON CONFLICT": 'def f(c):\n    c.execute("INSERT INTO t VALUES (1) ON CONFLICT(id) DO UPDATE SET balance = 1")\n',
+        "триггер": 'def f(c):\n    c.execute("CREATE TRIGGER x AFTER INSERT ON t BEGIN UPDATE players SET balance = 0; END")\n',
+        "executescript": 'def f(c):\n    c.executescript("SELECT 1")\n',
+        "executemany": 'def f(c):\n    c.executemany("SELECT ?", [(1,)])\n',
+        "прямое подключение": 'import sqlite3\n\ndef f(p):\n    sqlite3.connect(p)\n',
+        "импорт connect": 'from sqlite3 import connect\n',
+    }
+    for name, code in bypasses.items():
+        check("сканер ловит обход: " + name, bool(balance_guard.scan_text("rogue.py", code)), True)
+    harmless = {
+        "условие по balance в WHERE": 'def f(c):\n    c.execute("UPDATE players SET xp = xp + 1 WHERE balance > 0")\n',
+        "чтение баланса": 'def f(c):\n    return c.execute("SELECT balance FROM players")\n',
+        "документация": 'def f():\n    """UPDATE players SET balance = 1"""\n',
+        "другая таблица": 'def f(c):\n    c.execute("UPDATE farm_purchases SET cost = 1")\n',
+        "создание таблицы": 'def f(c):\n    c.execute("CREATE TABLE players (balance INTEGER)")\n',
+    }
+    for name, code in harmless.items():
+        check("сканер не ругается: " + name, balance_guard.scan_text("ok.py", code), [])
+    # подмена: лишняя запись баланса в копии модуля и потеря разрешённой записи тоже видны
+    real = open(os.path.join(HERE, "wallet.py"), encoding="utf-8").read()
+    rogue = real + "\n\ndef _rogue(conn):\n    conn.execute(\"UPDATE players SET rate = 1,\\n balance = 1\")\n"
+    check("лишняя запись в wallet.py заметна", len([f for f in balance_guard.scan_text("wallet.py", rogue) if f[3] not in (balance_guard.DEBIT, balance_guard.CREDIT)]), 1)
+    # Слой 2 (время выполнения): testenv подключил защиту к соединениям проекта во всех тестах; запись баланса вне разрешённых запросов роняет тест
+    conn = _connect(path)
+    try:
+        for bad_sql in ("UPDATE players SET balance = 1", "UPDATE players SET xp = 1, balance = 2 WHERE telegram_id = 1", "REPLACE INTO players (telegram_id, balance) VALUES (1, 1)"):
+            try:
+                conn.execute(bad_sql)
+            except balance_guard.BalanceGuardError:
+                pass
+            else:
+                raise AssertionError("защита времени выполнения не сработала: " + bad_sql)
+        try:
+            conn.executescript("SELECT 1")
+        except balance_guard.BalanceGuardError:
+            raise AssertionError("безобидный скрипт не должен падать")
+        except Exception:
+            pass
+        check("чтение и обычные запросы проходят", conn.execute("SELECT COUNT(*) FROM players").fetchone()[0] >= 0, True)
+    finally:
+        conn.close()
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

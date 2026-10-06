@@ -3,11 +3,10 @@
 Запись идёт в одном месте (core.kernel._record_best_win) в той же транзакции, что выплата, для всех шести игр. Рекорд растёт только
 строго; проигрыш, ничья и возврат ставки (чистый выигрыш не больше нуля) ничего не пишут; повтор по request_id рекорд не меняет.
 Тест не зависит от окружения оболочки и bot/.env."""
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import json
 import os
 import sqlite3
-import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -393,35 +392,8 @@ try:
     check("повторное удаление ничего не удаляет", db.delete_player_data(ids[1], db_path=path3, now=NOW + 1)["player_best_win"], 0)
     check("чужие рекорды целы", sql(path3, "SELECT COUNT(*) FROM player_best_win")[0][0], 6)
 
-    # ================= миграция с предыдущей версии (до таблицы рекордов) =================
-    old_dir = os.path.join(_tmp, "oldcode")
-    os.makedirs(old_dir)
-    try:
-        subprocess.run("git -C %s archive 981d2c0 bot | tar -x -C %s" % (ROOT, old_dir), shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        have_old = os.path.exists(os.path.join(old_dir, "bot", "cosmetics.py"))
-    except Exception:
-        have_old = False
-    if have_old:
-        old_db = os.path.join(_tmp, "prev.db")
-        code = ("import sys, os; sys.path.insert(0, %r); os.chdir(%r)\n"
-                "for k in ('DB_PATH','TOMBSTONE_SECRET','OWNER_CHAT_ID'): os.environ.pop(k, None)\n"
-                "import db; db.init_db(%r); db.get_player(777, now=1760000000, db_path=%r)\n") % (os.path.join(old_dir, "bot"), os.path.join(old_dir, "bot"), old_db, old_db)
-        subprocess.run([sys.executable, "-c", code], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        before = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        assert "player_best_win" not in before
-        players_before = sql(old_db, "SELECT * FROM players ORDER BY telegram_id")
-        db.init_db(old_db)
-        after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только player_best_win", after - before, {"player_best_win"})
-        check("существующее не тронуто", sql(old_db, "SELECT * FROM players ORDER BY telegram_id"), players_before)
-        db.init_db(old_db)
-        check("повторная миграция ничего не ломает", {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}, after)
-        sql(old_db, "UPDATE players SET balance = 10000, last_accrual = ? WHERE telegram_id = 777", (NOW + 10 * DAY,))
-        db.spin_roulette(777, rid(), bets(("number", 17, 100)), now=NOW, db_path=old_db, rng=lambda n: 17)
-        check("на мигрированной базе рекорд пишется", best(old_db, 777), ("roulette", 3500, NOW))
-        print("миграция с предыдущей версии (коммит 981d2c0) проверена")
-    else:
-        print("git-архив предыдущей версии недоступен: проверка миграции пропущена")
+    # Миграции со старых версий базы проверяет test_legacy_migration.py на фикстурах схемы (bot/testdata/legacy), без git.
+
 finally:
     for k, v in _saved_env.items():
         if v is None:

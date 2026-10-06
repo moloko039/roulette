@@ -1,3 +1,4 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import os
 import shutil
 import subprocess
@@ -50,6 +51,50 @@ check("разрешённая строка", check_repo.token_lines(FAKE_TOKEN, 
 check("разрешена только точная", check_repo.token_lines(OTHER_TOKEN, (FAKE_TOKEN,)), [1])
 check("список по умолчанию пуст или точный", all(isinstance(t, str) for t in check_repo.ALLOWED_FAKE_TOKENS), True)
 
+# ---------- токен в любом контексте (в том числе в ссылке api.telegram.org/bot<id>:<токен>) ----------
+BODY = "Zq9" * 11 + "Zq"          # 35 знаков, случайно-подобное тело токена без слов-заглушек
+TID = "1234567890"
+positives = {
+    "ссылка бота (буквы bot перед числом)": "https://api.telegram.org/bot%s:%s/getMe" % (TID, BODY),
+    "ссылка с файлом": "curl https://api.telegram.org/file/bot%s:%s/photos/x.jpg" % (TID, BODY),
+    "ссылка с закодированным двоеточием": "https://api.telegram.org/bot%s%%3A%s/sendMessage" % (TID, BODY),
+    "заголовок": "X-Telegram-Bot-Token: %s:%s" % (TID, BODY),
+    "переменная окружения": "export BOT_TOKEN=%s:%s" % (TID, BODY),
+    "JSON": '{"token": "%s:%s"}' % (TID, BODY),
+    "комментарий": "# рабочий токен %s:%s не коммитить" % (TID, BODY),
+    "после слова без разделителя": "bot%s:%s" % (TID, BODY),
+    "в скобках": "(%s:%s)" % (TID, BODY),
+    "шестизначный номер": "123456:%s" % BODY,
+}
+for name, line in positives.items():
+    check("находится: " + name, check_repo.token_lines(line), [1])
+negatives = {
+    "документация Telegram (точный пример)": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+    "то же в ссылке": "https://api.telegram.org/bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11/getMe",
+    "шаблон без цифр": "https://api.telegram.org/bot<TOKEN>/getMe",
+    "шаблон ТОКЕН": "bot<ТОКЕН>:",
+    "многоточие": "123456:ABC-DEF...",
+    "слово example": "1234567890:EXAMPLE_TOKEN_DO_NOT_USE_0000000",
+    "слово placeholder": "1234567890:placeholder_placeholder_placeholder",
+    "слово not-real": "1234567890:token-not-real-token-not-real-12345",
+    "слово fake": "1234567890:fake_fake_fake_fake_fake_fake_fake_1",
+    "короткое тестовое": "123456:TEST-TOKEN-not-real",
+    "время": "2026-10-06T12:30:45+03:00 и 12:30:45.123456",
+    "строка без токена": "api.telegram.org/bot",
+    "UUID": "123e4567-e89b-12d3-a456-426614174000",
+}
+for name, line in negatives.items():
+    check("не находится: " + name, check_repo.token_lines(line), [])
+check("цифры перед числом не считаются началом токена", check_repo.token_lines("a" + "12345:" + BODY), [])
+# явные заглушки: слово-заглушка только в теле, не в идентификаторе; настоящее тело без таких слов находится всегда
+check("заглушка не маскирует настоящий токен в соседней позиции", check_repo.token_lines("example %s:%s" % (TID, BODY)), [1])
+# другие ключи
+for name, line in (("закрытый ключ PEM", "-----BEGIN " + "RSA PRIVATE KEY-----"), ("закрытый ключ OpenSSH", "-----BEGIN " + "OPENSSH PRIVATE KEY-----"),
+                   ("токен GitHub", "t = 'gh" + "p_" + "a1B2" * 9 + "'"), ("ключ AWS", "AKIA" + "ABCDEFGHIJKLMNOP"),
+                   ("закрытый ключ копий", "BACKUP_PRIVATE_KEY=" + "A1b2" * 10 + "abc" + "=")):
+    check("находится: " + name, check_repo.token_lines(line), [1])
+check("имя переменной без значения не находится", check_repo.token_lines("BACKUP_PRIVATE_KEY=<значение>\nBACKUP_PUBLIC_KEY=пусто"), [])
+
 # ---------- find_problems на файлах: значение не попадает в результат ----------
 tmp = tempfile.mkdtemp()
 try:
@@ -94,6 +139,60 @@ try:
     git("rm", "-q", "--cached", ".env")
     code, _ = run_script()
     check("после удаления из индекса: код 0", code, 0)
+    # ---------- режим --staged: проверяется содержимое ИНДЕКСА, а не рабочей папки ----------
+    def run_mode(mode):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "check_repo.py"), mode, tmp],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        return r.returncode, r.stdout
+
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "t")
+    git("commit", "-q", "-m", "base")
+    code, out = run_mode("--staged")
+    check("--staged: ничего не добавлено: код 0", code, 0)
+    with open(os.path.join(tmp, "src", "new.py"), "w") as f:
+        f.write("url = 'https://api.telegram.org/bot%s:%s/getMe'\n" % (TID, BODY))
+    git("add", "src/new.py")
+    code, out = run_mode("--staged")
+    check("--staged: токен в индексе: код 1", code, 1)
+    assert "src/new.py:1" in out and BODY not in out, out
+    with open(os.path.join(tmp, "src", "new.py"), "w") as f:
+        f.write("url = 'clean'\n")          # в рабочей папке чисто, а в индексе токен: всё равно ошибка
+    code, _ = run_mode("--staged")
+    check("--staged: смотрит индекс, а не рабочую папку", code, 1)
+    git("add", "src/new.py")
+    code, _ = run_mode("--staged")
+    check("--staged: после исправления и добавления: код 0", code, 0)
+    with open(os.path.join(tmp, "src", "new.py"), "w") as f:
+        f.write("url = 'https://api.telegram.org/bot%s:%s/getMe'\n" % (TID, BODY))   # токен только в рабочей папке, не в индексе
+    code, _ = run_mode("--staged")
+    check("--staged: токен вне индекса не мешает коммиту", code, 0)
+    git("checkout", "--", "src/new.py")
+    # ---------- хук .githooks/pre-commit: настоящий git commit блокируется ----------
+    hook_dir = os.path.join(ROOT, ".githooks")
+    assert os.access(os.path.join(hook_dir, "pre-commit"), os.X_OK), "хук не исполняемый"
+    git("config", "core.hooksPath", hook_dir)
+    with open(os.path.join(tmp, "src", "leak.py"), "w") as f:
+        f.write("T = '%s:%s'\n" % (TID, BODY))
+    git("add", "src/leak.py")
+    r = subprocess.run(["git", "commit", "-m", "x"], cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    check("хук блокирует коммит с токеном", r.returncode != 0, True)
+    assert "src/leak.py:1" in r.stdout and BODY not in r.stdout, r.stdout
+    git("rm", "-q", "--cached", "src/leak.py")
+    r = subprocess.run(["git", "commit", "-q", "-m", "y", "--allow-empty"], cwd=tmp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    check("хук пропускает чистый коммит", r.returncode, 0)
+    # ---------- режим --history: токен, удалённый из рабочей папки, остаётся в истории ----------
+    code, out = run_mode("--history")
+    check("--history: чистая история: код 0", code, 0)
+    git("add", "-f", "src/leak.py")
+    git("commit", "-q", "--no-verify", "-m", "leak")
+    git("rm", "-q", "src/leak.py")
+    git("commit", "-q", "--no-verify", "-m", "fix")
+    code, out = run_mode("--history")
+    check("--history: токен в старом коммите найден: код 1", code, 1)
+    assert "src/leak.py:1" in out and BODY not in out, out
+    code, _ = run_script()
+    check("а индекс при этом чист", code, 0)
     # не репозиторий: код 1, без падения
     notrepo = tempfile.mkdtemp()
     try:

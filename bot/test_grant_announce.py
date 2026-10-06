@@ -1,4 +1,5 @@
 """Объявление в группах после /grantall: мок-бот, настоящий Telegram не используется."""
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import asyncio
 import logging
 import os

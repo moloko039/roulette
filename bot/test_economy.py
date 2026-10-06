@@ -1,3 +1,4 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 from economy import accrue, HOUR
 
 T = 1_000_000  # произвольное "время последнего начисления"

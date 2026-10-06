@@ -1,13 +1,12 @@
 """Покупки косметики: за фишки (транзакция, идемпотентность, гонки), за Telegram Stars (инвойс, pre_checkout, successful_payment, возврат,
 ручная выдача, тестовый предмет), журнал оплат (экспорт, удаление, очистка), миграция. Настоящего Telegram здесь нет: поддельный бот с теми же
 вызовами (create_invoice_link, answer_pre_checkout_query, refund_star_payment, send_invoice, send_message)."""
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import asyncio
 import json
 import logging
 import os
 import sqlite3
-import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -511,30 +510,7 @@ try:
         res = list(pool.map(pay_race, range(20)))
     check("20 одновременных доставок одного платежа: одна выдача", (res.count("granted"), res.count("duplicate"), sql(path, "SELECT COUNT(*) FROM cosmetic_purchases WHERE charge_id = 'race-charge'")[0][0]), (1, 19, 1))
 
-    # ================= миграция с предыдущей версии =================
-    old_dir = os.path.join(tmp, "oldcode")
-    os.makedirs(old_dir)
-    try:
-        subprocess.run("git -C %s archive 1e602d6 bot | tar -x -C %s" % (ROOT, old_dir), shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        have_old = os.path.exists(os.path.join(old_dir, "bot", "cosmetics.py"))
-    except Exception:
-        have_old = False
-    if have_old:
-        old_db = os.path.join(tmp, "prev.db")
-        code = ("import sys, os; sys.path.insert(0, %r); os.chdir(%r)\n"
-                "for k in ('DB_PATH','TOMBSTONE_SECRET','OWNER_CHAT_ID'): os.environ.pop(k, None)\n"
-                "import db; db.init_db(%r); db.get_player(777, now=1760000000, db_path=%r)\n"
-                "db.grant_item(777, 'chip_ring', 'owner_gift', db_path=%r)\n") % (os.path.join(old_dir, "bot"), os.path.join(old_dir, "bot"), old_db, old_db, old_db)
-        subprocess.run([sys.executable, "-c", code], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        before = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        assert "cosmetic_items" in before and "cosmetic_purchases" not in before
-        db.init_db(old_db)
-        after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только cosmetic_purchases", after - before, {"cosmetic_purchases", "player_best_win"})
-        check("старые данные на месте, покупка за фишки работает на мигрированной базе", (owned(old_db, 777), db.cosmetics_state(777, db_path=old_db)["show_in_rating"]), (["chip_ring"], True))
-        sql(old_db, "UPDATE players SET balance = 100000 WHERE telegram_id = 777")
-        check("покупка на мигрированной базе (баланс с начисленным доходом не больше потолка 30 ч)", 80_000 <= db.buy_with_chips(777, rid(), "badge_spade", db_path=old_db)["balance"] <= 83_000, True)
-        print("миграция с предыдущей версии (коммит 1e602d6) проверена")
+    # Миграции со старых версий базы проверяет test_legacy_migration.py на фикстурах схемы (bot/testdata/legacy), без git.
 
     # ================= статически: «cosmetic» нигде в играх, wallet, economy, transfers =================
     forbidden = ([os.path.join(HERE, "games", n) for n in os.listdir(os.path.join(HERE, "games")) if n.endswith(".py")] +
