@@ -5739,6 +5739,59 @@ function showSoon() {
 GAMES.forEach((game, i) => {
   const tile = document.createElement('button');
   tile.type = 'button';
+  tile.className = 'tile';
+  tile.dataset.game = game.id;
+  tile.style.setProperty('--i', i);
+  tile.setAttribute('role', 'menuitem');
+  tile.dataset.soon = String(!game.ready);
+  tile.innerHTML = `${iconSvg(game.icon)}<span class="tile-name">${game.label}</span><span class="tile-hint">${game.hint || ''}</span>`;
+  tile.addEventListener('click', () => selectGame(game.id));
+  gameGrid.appendChild(tile);
+
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'lobby-card';
+  card.dataset.game = game.id;
+  card.dataset.soon = String(!game.ready);
+  card.setAttribute('role', 'menuitem');
+  card.innerHTML = `${iconSvg(game.icon)}<span class="lobby-name"></span><span class="lobby-desc"></span>`;
+  card.querySelector('.lobby-name').textContent = game.label;
+  card.querySelector('.lobby-desc').textContent = game.desc || '';
+  card.addEventListener('click', () => selectGame(game.id));
+  lobbyEls.grid.appendChild(card);
+});
+renderLobby();
+
+gameMenu.addEventListener('click', (e) => {
+  if (e.target === gameMenu) closeGameMenu(); // нажатие по затемнению
+});
+gameSwitchEl.addEventListener('click', toggleGameMenu);
+
+// Шторка закрывается свайпом вниз
+(() => {
+  let startY = null;
+  let dy = 0;
+  gamePanel.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    dy = 0;
+  }, { passive: true });
+  gamePanel.addEventListener('touchmove', (e) => {
+    if (startY === null) return;
+    dy = Math.max(0, e.touches[0].clientY - startY);
+    gamePanel.classList.add('dragging');
+    gamePanel.style.transform = `translateY(${dy}px)`;
+  }, { passive: true });
+  const end = () => {
+    if (startY === null) return;
+    const far = dy > 80;
+    startY = null;
+    gamePanel.classList.remove('dragging');
+    gamePanel.style.transform = '';
+    if (far) closeGameMenu();
+  };
+  gamePanel.addEventListener('touchend', end);
+  gamePanel.addEventListener('touchcancel', end);
+})();
 // #endregion
 
 // #region Не слоты (встроенные игры)
@@ -5895,33 +5948,6 @@ EMBEDDED_GAMES.forEach((game) => {
 });
 arcadeEls.back.addEventListener('click', closeEmbedded);
 arcadeEls.switchBtn.addEventListener('click', toggleGameMenu);
-  tile.className = 'tile';
-  tile.dataset.game = game.id;
-  tile.style.setProperty('--i', i);
-  tile.setAttribute('role', 'menuitem');
-  tile.dataset.soon = String(!game.ready);
-  tile.innerHTML = `${iconSvg(game.icon)}<span class="tile-name">${game.label}</span><span class="tile-hint">${game.hint || ''}</span>`;
-  tile.addEventListener('click', () => selectGame(game.id));
-  gameGrid.appendChild(tile);
-
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'lobby-card';
-  card.dataset.game = game.id;
-  card.dataset.soon = String(!game.ready);
-  card.setAttribute('role', 'menuitem');
-  card.innerHTML = `${iconSvg(game.icon)}<span class="lobby-name"></span><span class="lobby-desc"></span>`;
-  card.querySelector('.lobby-name').textContent = game.label;
-  card.querySelector('.lobby-desc').textContent = game.desc || '';
-  card.addEventListener('click', () => selectGame(game.id));
-  lobbyEls.grid.appendChild(card);
-});
-renderLobby();
-
-gameMenu.addEventListener('click', (e) => {
-  if (e.target === gameMenu) closeGameMenu(); // нажатие по затемнению
-});
-gameSwitchEl.addEventListener('click', toggleGameMenu);
 
 // Шторка закрывается свайпом вниз
 (() => {
