@@ -39,10 +39,8 @@ BAD_PRICES = [{"currency": "stars", "amount": -5}, {"currency": "stars", "amount
 async def run(w):
     p = w.page
     await p.ev(OVERRIDE % json.dumps(EVIL))
-    await p.tap(".tab[data-tab=profile]")
-    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden && wd.catalog !== null && wd.mine !== null", 10, "гардероб")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && wd.catalog !== null && wd.mine !== null", 10, "гардероб")
     await p.tap("#wd-tabs .wd-tab:nth-child(8)")
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.dataset.code, c.querySelector('.wd-status').textContent.replace(/\\s/g, ' ')])"
     check("карточки: у стартового и «Скоро» цены нет, у «Пики» цена, неизвестный код пропущен", await p.ev(cards),

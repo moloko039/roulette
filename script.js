@@ -218,19 +218,25 @@ async function readJsonBody(res) {
   }
 }
 
+// Таймаут действует на весь запрос, в том числе на чтение тела ответа: тело читается здесь целиком, пока таймер не снят (раньше таймер снимался
+// после заголовков, и сервер, отдавший заголовки и замолчавший, оставлял интерфейс в состоянии «отправка» навсегда). Обрыв или таймаут при чтении
+// тела бросают исключение, как сбой сети до заголовков: вызывающий код повторяет запрос с тем же request_id (сервер повтор не выполнит дважды).
+// Возвращается объект с теми же status, ok, headers и json(), text() по уже прочитанному телу.
 async function postJson(path, payload) {
   for (;;) {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
     let res;
     try {
-      res = await fetch(API_URL + path, {
+      const raw = await fetch(API_URL + path, {
         method: 'POST',
         headers: { Authorization: 'tma ' + tg.initData, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         cache: 'no-store',
         signal: ctrl.signal
       });
+      const text = await raw.text();
+      res = { status: raw.status, ok: raw.ok, headers: raw.headers, text: async () => text, json: async () => JSON.parse(text) };
     } finally {
       clearTimeout(timeout);
     }
@@ -3682,7 +3688,8 @@ const cr = {
   raf: 0,
   iv: 0,
   pollTimer: 0,
-  polling: false
+  polling: false,
+  resync: false         // после возврата на экран ждём ответ сервера: кадры не рисуются (иначе мелькнёт множитель сверх краха)
 };
 registerGame({ id: 'crash', state: cr, render: renderCrash, busy: () => cr.busy || cr.animating, keepBalance: () => cr.view === 'play' });
 
@@ -3763,7 +3770,7 @@ function crShowMult(x100) {
 
 // Отрисовка одного кадра: множитель, кривая и «Забрать N» (N = ставка × текущий множитель)
 function crDraw() {
-  if (cr.view !== 'play' || !cr.game) return;
+  if (cr.view !== 'play' || !cr.game || cr.resync) return;
   const e = crElapsed();
   const x100 = crM100(e);
   crShowMult(x100);
@@ -3802,7 +3809,8 @@ function crSchedulePoll() {
 // Опрос состояния во время полёта: крах и итог берутся из ответа сервера
 async function crPoll() {
   cr.pollTimer = 0;
-  if (cr.view !== 'play' || activeTab !== 'play' || currentGame !== 'crash') return;
+  if (cr.view !== 'play') return;
+  if (activeTab !== 'play' || currentGame !== 'crash') { crPause(); return; }   // ушли с экрана: ни кадров, ни опроса, пока не вернёмся (crResume)
   if (cr.busy || cr.polling || document.visibilityState !== 'visible') { crSchedulePoll(); return; }
   cr.polling = true;
   try {
@@ -3812,8 +3820,24 @@ async function crPoll() {
     // сбой опроса не прерывает полёт: следующая попытка через интервал (429 тоже)
   } finally {
     cr.polling = false;
+    cr.resync = false;
   }
   if (cr.view === 'play') crSchedulePoll();
+}
+
+// Уход с экрана краша (другая вкладка или игра) или скрытие приложения во время полёта: раньше цепочка опроса обрывалась, а кадры продолжали идти
+// по часам, и после возврата множитель бежал, хотя раунд уже закончился. Теперь на уходе кадры и опрос останавливаются, на возврате (crResume) сервер
+// спрашивается сразу, минуя интервал между запросами; до ответа новые кадры не рисуются.
+function crPause() {
+  crStopLoop();
+}
+
+function crResume() {
+  if (cr.view !== 'play' || activeTab !== 'play' || currentGame !== 'crash') return;
+  cr.resync = true;
+  if (!cr.raf && !cr.iv) crStartLoop();
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = setTimeout(crPoll, 0);
 }
 
 // Живой ответ: активный раунд пересинхронизирует время, завершённый показывает итог (крах)
@@ -4169,7 +4193,10 @@ crEls.cash.addEventListener('click', crCash);
 crEls.retry.addEventListener('click', () => loadCrash('manual'));
 crEls.switchBtn.addEventListener('click', toggleGameMenu);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') loadCrash('visible');
+  if (document.visibilityState === 'visible') {
+    crResume();
+    loadCrash('visible');
+  }
 });
 
 // #endregion
@@ -4988,7 +5015,7 @@ function notifyIncoming() {
 // #endregion
 
 // #region Гардероб
-// Оформление (косметика, только внешний вид): рамка и значок у себя и в рейтинге, экран «Гардероб» с предпросмотром.
+// Оформление (косметика, только внешний вид): рамка и значок у себя и в рейтинге, вкладка «Стиль» (гардероб) с предпросмотром.
 // Коды с сервера проверяются по белому списку SKIN_CODES: неизвестные игнорируются; тексты каталога выводятся только через textContent,
 // разметка (SVG) берётся из констант клиента по проверенному коду. Покупок и цен нет: предметы выдаёт владелец.
 const WD_SLOTS = [
@@ -5064,10 +5091,8 @@ function setOwnCosmetics(c) {
   renderOwnCosmetics();
 }
 
-// ----- экран «Гардероб» -----
+// ----- вкладка «Стиль» (гардероб) -----
 const wdEls = {
-  open: document.getElementById('wardrobe-open'),
-  sheet: document.getElementById('wd-sheet'), dim: document.getElementById('wd-dim'), back: document.getElementById('wd-back'),
   tabs: document.getElementById('wd-tabs'), grid: document.getElementById('wd-grid'), vis: document.getElementById('wd-vis'),
   msg: document.getElementById('wd-msg'),
   pSheet: document.getElementById('wd-prev-sheet'), pDim: document.getElementById('wd-prev-dim'), pTitle: document.getElementById('wd-prev-title'),
@@ -5075,7 +5100,7 @@ const wdEls = {
   pMsg: document.getElementById('wd-prev-msg'), pNote: document.getElementById('wd-prev-note'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act'),
   terms: document.getElementById('wd-terms')
 };
-const wd = { catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, paying: false, payCode: null, prevMsg: '', pollGen: 0 };
+const wd = { open: false, catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, paying: false, payCode: null, prevMsg: '', pollGen: 0 };
 
 const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
 const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
@@ -5530,26 +5555,26 @@ async function loadWardrobe() {
   }
 }
 
+// Вкладка «Стиль»: данные гардероба берутся с сервера при каждом открытии вкладки (при старте приложения их нет). Выбранный слот (wd.slot) живёт
+// в памяти страницы всю сессию и не пишется в localStorage. Лист предпросмотра остаётся листом поверх вкладки.
 function openWardrobe() {
-  wdEls.sheet.hidden = false;
+  wd.open = true;
   wdEls.pSheet.hidden = true;
   renderWardrobe();
   loadWardrobe();
-  haptic('light');
 }
 
+// Уход с вкладки: опрос оплаты и открытый предпросмотр закрываются (раньше это делала кнопка «Назад» листа)
 function closeWardrobe() {
-  if (wd.busy) return;
+  if (!wd.open) return;
+  wd.open = false;
   wdStopPoll();
   wd.confirm = false;
   wd.prevMsg = '';
   wdEls.pSheet.hidden = true;
   wd.preview = null;
-  wdEls.sheet.hidden = true;
 }
 
-wdEls.open.addEventListener('click', openWardrobe);
-wdEls.back.addEventListener('click', closeWardrobe);
 wdEls.vis.addEventListener('click', wdToggleVisibility);
 wdEls.pClose.addEventListener('click', () => {
   if (wd.confirm) { wd.confirm = false; renderWdPreview(); return; }      // «Отмена» в подтверждении покупки
@@ -5564,7 +5589,6 @@ wdEls.pAct.addEventListener('click', () => {
   else if (kind === 'buy') wdBuy(item);
 });
 wdEls.terms.addEventListener('click', openTerms);
-closeOnBackdropTap(wdEls.dim, closeWardrobe);
 closeOnBackdropTap(wdEls.pDim, closeWdPreview);
 
 // #endregion
@@ -5637,6 +5661,9 @@ function showTab(id) {
   const screen = id === 'play' ? currentGame : id;
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
+  if (screen === 'style') { if (started) openWardrobe(); } else closeWardrobe();
+  if (screen === 'crash') crResume();
+  else crPause();
   if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');
   if (started && screen === 'profile') loadTransfers('open');
   if (started && screen === 'rating') loadRating('open');

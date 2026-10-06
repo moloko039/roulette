@@ -42,10 +42,8 @@ async def run(w):
     import json
     p = w.page
     await p.ev(OVERRIDE % json.dumps(EVIL))
-    await p.tap(".tab[data-tab=profile]")
-    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     check("в карточках нет разметки из ответа сервера", await p.ev("[document.querySelectorAll('#wd-grid img, #wd-grid b, #wd-grid script').length, window.__pwn || 0]"), [0, 0])
     check("название выведено текстом", await p.ev("document.querySelector('#wd-grid .wd-card .wd-name').textContent"), EVIL[:40])
     check("неизвестные коды и предметы чужого слота пропущены", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].map(c => c.dataset.code)"), ["back_classic", "back_midnight"])
@@ -53,7 +51,6 @@ async def run(w):
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     check("описание в предпросмотре текстом, без элементов", await p.ev("[document.querySelectorAll('#wd-prev-sheet img, #wd-prev-sheet b, #wd-prev-sheet script').length, document.getElementById('wd-prev-desc').textContent === %s, window.__pwn || 0]" % json.dumps(EVIL)), [0, True, 0])
     await p.tap("#wd-prev-close")
-    await p.tap("#wd-back")
     await p.tap(".tab[data-tab=rating]")
     await p.wait("document.querySelectorAll('#rating-list li').length === 3", 15, "рейтинг")
     check("в рейтинге нет разметки из имён и публичных слотов", await p.ev("[document.querySelectorAll('#rating-list img, #rating-list b, #rating-list script').length, window.__pwn || 0]"), [0, 0])

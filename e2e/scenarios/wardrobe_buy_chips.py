@@ -39,10 +39,8 @@ async def msg(p):
 async def run(w):
     p = w.page
     uid = w.users["me"].id
-    await p.tap(".tab[data-tab=profile]")
-    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     await p.ev(OVERRIDE)
     n = NBSP
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, (%s)(c.querySelector('.wd-status').textContent), c.getBoundingClientRect().height])" % n
@@ -125,4 +123,4 @@ async def run(w):
     check("429", await direct(item, "429"), "Слишком часто: подождите секунду и повторите")
     check("503 после повторов", await direct(item, "503"), "Покупки сейчас недоступны. Попробуйте позже")
     check("нет сети после повторов", await direct(item, "net"), "Нет связи с сервером. Попробуйте ещё раз")
-    check("экран цел, баланс прежний", await p.ev("[document.getElementById('wd-sheet').hidden, srv.balance, wd.busy]"), [False, 40000, False])
+    check("экран цел, баланс прежний", await p.ev("[document.querySelector('[data-screen=style]').hidden, srv.balance, wd.busy]"), [False, 40000, False])

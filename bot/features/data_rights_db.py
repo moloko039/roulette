@@ -8,6 +8,7 @@ from antiabuse import COOLDOWN_SECONDS
 from antiabuse import TombstoneUnavailable
 import hilo
 import mines
+import transfers
 
 from core.db_conn import _connect
 from core.members import _member_name
@@ -202,8 +203,12 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["hilo_games"] = conn.execute(
                 "DELETE FROM hilo_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённая вместе со ставкой
             conn.execute("DELETE FROM hilo_actions WHERE telegram_id = ?", (telegram_id,))
-            counts["transfers"] = conn.execute(
-                "DELETE FROM transfers WHERE sender = ? OR recipient = ?", (telegram_id, telegram_id)).rowcount
+            # Переводы: собственные отправленные записи удаляются; записи, где удаляющий получатель, НЕ удаляются, а обезличиваются (его идентификатор
+            # заменяется на transfers.ANONYMOUS_ID). Иначе отправитель вместе с сообщником, который получил перевод и удалил данные, обнулял бы себе
+            # суточный лимит отправки (он считается по записям отправителя) и учёт комиссии. Обезличенные записи уходят по общему сроку хранения.
+            counts["transfers"] = conn.execute("DELETE FROM transfers WHERE sender = ?", (telegram_id,)).rowcount
+            counts["transfers_anonymized"] = conn.execute(
+                "UPDATE transfers SET recipient = ? WHERE recipient = ?", (transfers.ANONYMOUS_ID, telegram_id)).rowcount
             counts["keno_rounds"] = conn.execute(
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             counts["player_best_win"] = conn.execute("DELETE FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).rowcount

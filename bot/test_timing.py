@@ -72,7 +72,7 @@ try:
     assert m, line
     check("метод, шаблон, код", (m.group(1), m.group(2), m.group(3)), ("GET", "/api/me", "200"))
     check("уровень INFO", level, logging.INFO)
-    assert m.group(5), "у запроса с транзакциями есть db_ms: " + line
+    # /api/me без активных игр и без начисления не открывает транзакцию записи (быстрая проверка просроченных игр): db_ms в строке может не быть
     assert "secret-query" not in line, "параметры запроса в логе"
 
     cap.records.clear()
@@ -96,6 +96,9 @@ try:
           ["/api/roulette/spin", "/api/mines/reveal", "/api/farm/buy", "/api/chat/top", "/api/farm", "/api/mines/state"])
     check("коды ответов", [LINE.match(l).group(3) for _, l in cap.records], ["400", "409", "200", "200", "200", "200"])
     assert LINE.match(cap.records[0][1]).group(5), "и у запроса с ошибкой формы есть db_ms (POST /api/*)"
+    cap.records.clear()
+    client.get("/api/transfers", headers=auth())          # история переводов всегда открывает транзакцию (отметка просмотра): GET с транзакцией пишет db_ms
+    assert LINE.match(cap.records[0][1]).group(5), "у GET с транзакцией записи есть db_ms: " + cap.records[0][1]
     # без подписи: 401 тоже записывается
     cap.records.clear()
     client.get("/api/me")

@@ -3,7 +3,10 @@
 таблиц (хэш дампа каждой затронутой таблицы), число SQL-операций по видам и хэш всей последовательности SQL с параметрами
 (порядок денежных операций тоже зафиксирован). Эталон записан на коде ДО рефакторинга шаблона партии.
 
-Запись заново (только осознанно, при намеренном изменении поведения): python test_game_golden.py --record"""
+Запись заново (только осознанно, при намеренном изменении поведения): python test_game_golden.py --record
+Точечное обновление журнала SQL (намеренное изменение запросов без изменения ответов, например быстрая проверка чтением вместо блокировки записи):
+python test_game_golden.py --update-sql. Меняет в эталоне ТОЛЬКО поля sql и seq у операций, у которых ответ (res) и состояние таблиц (tbl) совпали;
+если у какой-то операции разошлось что-то ещё, обновление отменяется (эталон не трогается)."""
 import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import hashlib
 import json
@@ -548,6 +551,21 @@ def main():
         return
     with open(GOLDEN, encoding="utf-8") as f:
         golden = json.load(f)
+    if "--update-sql" in sys.argv:
+        assert set(golden) == set(result), "наборы сценариев разошлись"
+        changed = {}
+        for name in sorted(result):
+            assert len(golden[name]) == len(result[name]), "%s: число операций изменилось" % name
+            for i, (got, want) in enumerate(zip(result[name], golden[name])):
+                other = [k for k in sorted(set(got) | set(want)) if k not in ("sql", "seq") and got.get(k) != want.get(k)]
+                assert not other, "%s #%d «%s»: разошлось не только SQL: %s (обновление отменено, эталон не тронут)" % (name, i, want["op"], other)
+                if got != want:
+                    want["sql"], want["seq"] = got["sql"], got["seq"]
+                    changed[name] = changed.get(name, 0) + 1
+        with open(GOLDEN, "w", encoding="utf-8") as f:
+            json.dump(golden, f, ensure_ascii=False, sort_keys=True, indent=None, separators=(",", ":"))
+        print("Журнал SQL обновлён у %d операций (ответы и состояние таблиц не менялись): %s" % (sum(changed.values()), dict(sorted(changed.items()))))
+        return
     assert set(golden) == set(result), "наборы сценариев разошлись: %s" % (set(golden) ^ set(result))
     bad = []
     for name in sorted(result):

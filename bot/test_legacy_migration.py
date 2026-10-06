@@ -78,6 +78,11 @@ try:
         db.init_db(path)
         conn = sqlite3.connect(path)
         check("%s: повторная миграция ничего не меняет" % commit, snapshot(conn, old_tables), before)
+        check("%s: индекс chat_members(telegram_id) создан миграцией старой базы" % commit,
+              [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'chat_members' AND name = 'idx_chat_members_telegram'")], ["idx_chat_members_telegram"])
+        check("%s: индекс по столбцам (telegram_id, last_seen)" % commit, [r[2] for r in conn.execute("PRAGMA index_info(idx_chat_members_telegram)")], ["telegram_id", "last_seen"])
+        plan = " ".join(r[3] for r in conn.execute("EXPLAIN QUERY PLAN SELECT first_name FROM chat_members WHERE telegram_id = ? ORDER BY last_seen DESC LIMIT 1", (A,)))
+        assert "idx_chat_members_telegram" in plan and "SCAN" not in plan.replace("SEARCH", ""), "запрос имени идёт без индекса: " + plan
         conn.close()
 
         # игры и чтение на мигрированной базе (доход выключен: last_accrual в фикстуре далеко впереди)
@@ -100,6 +105,13 @@ try:
             before_balance = sql(path, "SELECT balance FROM players WHERE telegram_id = ?", (B,))[0][0]
             bought = db.buy_with_chips(B, "legacy-buy-0001", "badge_spade", now=NOW, db_path=path)
             check("%s: покупка за фишки на старой базе: списано 20000" % commit, (bought["balance"], before_balance - bought["balance"]), (before_balance - 20000, 20000))
+        # переводы на мигрированной базе: удаление данных получателя обезличивает записи, лимит отправителя сохраняется
+        sql(path, "INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (?, ?, 40000, 2000, ?, ?)", (B, A, NOW, "legacy-tr-0001"))
+        sql(path, "INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (?, ?, 1000, 50, ?, ?)", (A, B, NOW, "legacy-tr-0002"))
+        deleted = db.delete_player_data(A, db_path=path, now=NOW + 10)
+        check("%s: удаление: отправленный перевод удалён, полученный обезличен" % commit, (deleted["transfers"], deleted["transfers_anonymized"]), (1, 1))
+        check("%s: запись отправителя B осталась без идентификатора получателя" % commit, sql(path, "SELECT sender, recipient, amount, fee FROM transfers"), [(B, 0, 40000, 2000)])
+        check("%s: суточный остаток отправителя B учитывает перевод" % commit, db.transfer_status(B, owner_id=None, now=NOW + 20, db_path=path)[0]["daily_left"], 500_000 - 40000)
         print("миграция со схемы коммита %s проверена" % commit)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)

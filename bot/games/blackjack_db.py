@@ -63,7 +63,12 @@ def _bj_settle_expired_in(conn, telegram_id, now):
 def settle_expired_blackjack(telegram_id, now=None, db_path=None):
     """Закрывает просроченную раздачу игрока отдельной транзакцией (идемпотентно). True, если закрыла."""
     now = now_or_clock(now)
-    return settle_expired(lambda conn: _bj_settle_expired_in(conn, telegram_id, now), db_path)
+
+    def expired(conn):      # быстрая проверка чтением, без блокировки записи: есть ли просроченная активная раздача (как у хило и краша)
+        row = _bj_active(conn, telegram_id)
+        return row is not None and now - row["updated_at"] >= blackjack.BLACKJACK_IDLE_SECONDS
+
+    return settle_expired(lambda conn: _bj_settle_expired_in(conn, telegram_id, now), db_path, precheck=expired)
 
 
 BLACKJACK_CLOSE_BATCH = CLOSE_BATCH

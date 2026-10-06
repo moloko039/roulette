@@ -44,10 +44,8 @@ async def run(w):
     p = w.page
     uid = w.users["me"].id
     now = int(time.time())
-    await p.tap(".tab[data-tab=profile]")
-    await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
-    await p.tap("#wardrobe-open")
-    await p.wait("!document.getElementById('wd-sheet').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=style]")
+    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     await p.ev(OVERRIDE)
     clean = "(s) => s.replace(/\\s/g, ' ')"
     # цена и кнопка из каталога
@@ -106,7 +104,7 @@ async def run(w):
     mine = await p.ev("E.count('/api/cosmetics/mine')")
     await p.tap("#wd-prev-close")
     await p.ev("E.sleep(3500)")
-    check("закрытие во время ожидания: опрос остановлен, экран цел", await p.ev("[E.count('/api/cosmetics/mine') - %d, wd.paying, document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-sheet').hidden]" % mine), [await p.ev("E.count('/api/cosmetics/mine') - %d" % mine), False, True, False])
+    check("закрытие во время ожидания: опрос остановлен, экран цел", await p.ev("[E.count('/api/cosmetics/mine') - %d, wd.paying, document.getElementById('wd-prev-sheet').hidden, document.querySelector('[data-screen=style]').hidden]" % mine), [await p.ev("E.count('/api/cosmetics/mine') - %d" % mine), False, True, False])
     # нет openInvoice (вне Telegram)
     await open_item(p, 6, 2)
     await p.ev("window.Telegram.WebApp.__oi = window.Telegram.WebApp.openInvoice; delete window.Telegram.WebApp.openInvoice; window.__invoices = []")

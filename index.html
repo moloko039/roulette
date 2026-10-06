@@ -90,9 +90,15 @@
     <small class="profile-code" id="rating-code"></small>
     <button type="button" class="action profile-retry" id="rating-retry" hidden>Повторить</button>
   </section>
-  <section class="screen stub" data-screen="style" hidden>
+  <section class="screen style-screen" data-screen="style" hidden>
     <h2>Стиль</h2>
-    <span>Скоро: украшения и стили</span>
+    <div class="wd-body">
+      <div class="wd-tabs" id="wd-tabs" role="tablist" aria-label="Слоты оформления"></div>
+      <div class="wd-grid" id="wd-grid"></div>
+      <button type="button" class="wd-switch" id="wd-vis" role="switch" aria-checked="true"><span class="wd-switch-text">Показывать мои рамку и значок в рейтинге</span><span class="wd-switch-knob" aria-hidden="true"></span></button>
+      <div class="wd-foot"><button type="button" class="transfer-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру. Фишки за Stars не продаются.</span></div>
+      <p class="transfer-msg" id="wd-msg" aria-live="polite"></p>
+    </div>
   </section>
   <section class="screen farm" data-screen="farm" hidden>
     <h2>Ферма</h2>
@@ -460,7 +466,6 @@
       <span class="avatar" id="profile-avatar" aria-hidden="true"></span>
       <span class="profile-name" id="profile-name"></span>
       <span class="rating-badge" id="profile-badge" hidden aria-hidden="true"></span>
-      <button type="button" class="action profile-wardrobe-btn" id="wardrobe-open">Гардероб</button>
     </div>
     <div class="profile-card" id="profile-data" hidden>
       <div class="stat"><span class="stat-label">Баланс на сервере</span><strong id="profile-balance"></strong></div>
@@ -539,18 +544,7 @@
       </div>
     </section>
   </div>
-  <div class="transfer-sheet" id="wd-sheet" hidden>
-    <div class="transfer-dim" id="wd-dim"></div>
-    <section class="transfer-panel wd-panel" role="dialog" aria-label="Гардероб">
-      <div class="wd-head"><button type="button" class="transfer-change" id="wd-back">Назад</button><strong>Гардероб</strong><span class="wd-head-gap" aria-hidden="true"></span></div>
-      <div class="wd-tabs" id="wd-tabs" role="tablist" aria-label="Слоты оформления"></div>
-      <div class="wd-grid" id="wd-grid"></div>
-      <button type="button" class="wd-switch" id="wd-vis" role="switch" aria-checked="true"><span class="wd-switch-text">Показывать мои рамку и значок в рейтинге</span><span class="wd-switch-knob" aria-hidden="true"></span></button>
-      <div class="wd-foot"><button type="button" class="transfer-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру. Фишки за Stars не продаются.</span></div>
-      <p class="transfer-msg" id="wd-msg" aria-live="polite"></p>
-      <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
-    </section>
-  </div>
+  <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
   <div class="transfer-sheet" id="wd-prev-sheet" hidden>
     <div class="transfer-dim" id="wd-prev-dim"></div>
     <section class="transfer-panel wd-prev-panel" role="dialog" aria-label="Предпросмотр">

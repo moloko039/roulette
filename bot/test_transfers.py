@@ -514,13 +514,52 @@ try:
     others = sql(path, "SELECT COUNT(*) FROM transfers WHERE sender != ? AND recipient != ?", (A, A))[0][0]
     send(path, B, C, 100, n=3, now=NOW + 40)
     others = sql(path, "SELECT COUNT(*) FROM transfers WHERE sender != ? AND recipient != ?", (A, A))[0][0]
+    before_rows = sql(path, "SELECT id, sender, recipient, amount, fee, created_at, request_id FROM transfers ORDER BY id")
     counts = db.delete_player_data(A, db_path=path, now=NOW)
-    check("удалены переводы, где игрок отправитель или получатель", counts["transfers"], 2)
-    check("чужие переводы целы", sql(path, "SELECT COUNT(*) FROM transfers")[0][0], others)
+    check("удалены только собственные отправленные переводы, полученные обезличены", (counts["transfers"], counts["transfers_anonymized"]), (1, 1))
+    after_rows = sql(path, "SELECT id, sender, recipient, amount, fee, created_at, request_id FROM transfers ORDER BY id")
+    check("записей не стало меньше, чем чужих + обезличенных", len(after_rows), others + 1)
+    anon = [r for r in after_rows if r[2] == transfers.ANONYMOUS_ID]
+    check("обезличена ровно запись «получил A»: получатель заменён, сумма, комиссия, время и отправитель прежние", [(r[1], r[3], r[4], r[5]) for r in anon],
+          [(r[1], r[3], r[4], r[5]) for r in before_rows if r[2] == A])
+    check("идентификатор удалившего не остался ни в одной записи переводов", [r for r in after_rows if A in (r[1], r[2])], [])
+    check("остальные записи не изменились", [r for r in after_rows if r[2] != transfers.ANONYMOUS_ID], [r for r in before_rows if A not in (r[1], r[2])])
+    # выгрузка второй стороны: имя обезличенного получателя нейтральное
+    c_export = db.get_player_export(C, db_path=path)
+    check("выгрузка отправителя: перевод есть, имя получателя нейтральное", [(t["direction"], t["amount"], t["name"]) for t in c_export["transfers"] if t["direction"] == "out" and t["name"] == "Игрок"][:1], [("out", 500, "Игрок")])
+
+    # ---- обход суточного лимита через удаление данных сообщником больше не работает
+    path_x = new_db()
+    X, Y = 6001, 6002
+    add_player(path_x, X, 2_000_000)
+    add_player(path_x, Y, 1000)
+    send(path_x, X, Y, 50000, n=1, now=NOW)
+    for i in range(2, 11):
+        send(path_x, X, Y, 50000, n=i, now=NOW + 10 * i)          # 10 переводов по 50 000: лимит 500 000 за сутки исчерпан
+    check("лимит исчерпан", db.transfer_status(X, owner_id=OWNER, now=NOW + 200, db_path=path_x)[0]["daily_left"], 0)
+    e = raises(transfers.TransferError, send, path_x, X, Y, 100, n=11, now=NOW + 300)
+    check("отправка сверх лимита отклонена", e.code, "daily_limit")
+    dc = db.delete_player_data(Y, db_path=path_x, now=NOW + 400)            # сообщник-получатель удаляет свои данные
+    check("получатель удалил данные: 10 записей обезличены, ни одна не удалена", (dc["transfers"], dc["transfers_anonymized"], sql(path_x, "SELECT COUNT(*) FROM transfers")[0][0]), (0, 10, 10))
+    check("суточный лимит отправителя сохранился (остаток 0)", db.transfer_status(X, owner_id=OWNER, now=NOW + 500, db_path=path_x)[0]["daily_left"], 0)
+    add_player(path_x, Y, 1000)                                             # сообщник вернулся новым игроком
+    e = raises(transfers.TransferError, send, path_x, X, Y, 100, n=12, now=NOW + 600)
+    check("после удаления сообщником отправка сверх лимита по-прежнему отклонена", e.code, "daily_limit")
+    check("комиссия учтена в записях: 10 x 2500", sql(path_x, "SELECT SUM(fee) FROM transfers WHERE sender = ?", (X,))[0][0], 25000)
+    # обезличенные записи уходят по общему сроку хранения (30 дней), как и остальные
+    purged = db.purge_old_data(now=NOW + 31 * DAY, db_path=path_x, rounds_days=30)
+    check("очистка по сроку удаляет и обезличенные записи", (purged["transfers"], sql(path_x, "SELECT COUNT(*) FROM transfers")[0][0]), (10, 0))
+    # удаляющий как отправитель: его записи удаляются, у получателя остаётся его история без записи об этом переводе
+    path_s = new_db()
+    add_player(path_s, X, 1_000_000)
+    add_player(path_s, Y, 1000)
+    send(path_s, X, Y, 1000, n=1, now=NOW)
+    ds = db.delete_player_data(X, db_path=path_s, now=NOW + 5)
+    check("отправитель удалил данные: его записи удалены, обезличивать нечего", (ds["transfers"], ds["transfers_anonymized"], sql(path_s, "SELECT COUNT(*) FROM transfers")[0][0]), (1, 0, 0))
     add_player(path, 900, 5000)
     sql(path, "INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (900, ?, 100, 5, ?, 'wipe-0001')", (B, NOW))
     asyncio.run(bot.deletemydata(FakeUpdate("private", user_id=900), type("C", (), {})()))
-    assert "история переводов (отправленных и полученных)" in bot.DELETE_WARNING, bot.DELETE_WARNING
+    assert "история отправленных вами переводов (записи о полученных вами переводах не удаляются, а обезличиваются" in bot.DELETE_WARNING, bot.DELETE_WARNING
     with mock.patch("time.time", lambda: float(NOW)):      # управляемые часы: метка подтверждения и проверка свежести берут одно время
         q = FakeUpdate("private", user_id=900, query_data="del:yes:%d" % int(time.time()))
         asyncio.run(bot.delete_callback(q, type("C", (), {})()))
@@ -634,6 +673,23 @@ try:
     assert set(h.json()) == {"items"} and set(h.json()["items"][0]) == set(examples["history"]["items"][0]), h.json()
     check("история: направление и имя", [(i["direction"], i["name"], i["amount"], i["fee"]) for i in h.json()["items"]], [("in", "Аня", 1000, 50)])
     assert not any(str(u) in h.text for u in (A, B, C, OWNER))
+    # история переводов ищет имя второй стороны по игроку: запрос идёт по индексу chat_members(telegram_id), а не читает всю таблицу
+    seen_sql = []
+    real_execute = db._connect(path).__class__.execute
+
+    def spy(self, query, *args):
+        if isinstance(query, str) and "FROM chat_members" in query and "telegram_id = ?" in query and "chat_instance" not in query:
+            seen_sql.append((query, args[0] if args else ()))
+        return real_execute(self, query, *args)
+
+    with mock.patch.object(db._connect(path).__class__, "execute", spy):
+        db.transfer_history(B, mark_seen=False, db_path=path)
+    check("история переводов делает запрос имени по игроку", len(seen_sql) >= 1, True)
+    pc = sqlite3.connect(path)
+    for query, params in seen_sql:
+        plan = " ".join(r[3] for r in pc.execute("EXPLAIN QUERY PLAN " + query, params))
+        assert "idx_chat_members_telegram" in plan and "SCAN" not in plan, "запрос имени идёт без индекса: " + plan
+    pc.close()
     check("после просмотра непросмотренных нет", client.get("/api/me", headers=auth(B, "Борис")).json()["incoming_unseen"], {"count": 0, "total": 0})
     check("история пустого", client.get("/api/transfers", headers=auth(C, "Вера")).json(), examples["history_empty"])
     # нехватка фишек, уровень
