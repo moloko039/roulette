@@ -75,13 +75,13 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Сервер в bot/: api.py (маршруты), bot.py (команды бота), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
   blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
-- Тесты: bot/test_*.py (общие заглушки: bot/stubs.py, bot/tg_testutil.py).
-- GitHub Actions (.github/workflows/tests.yml): тесты на Python 3.9 и 3.12 и scripts/check_repo.py (запрещённые файлы и токены
-  в индексе git; локально `python scripts/check_repo.py`).
+- Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
+- GitHub Actions (tests.yml): тесты на Python 3.9 и 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
+  сделать блокирующим после 10 зелёных запусков на main подряд. Секреты до коммита: `git config core.hooksPath .githooks` (хук pre-commit = check_repo --staged).
 - Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. Журнал: docs/JOURNAL.md.
 
 ## Тесты
-Из папки bot: `.venv/bin/python run_tests.py` (запускает все test_*.py, код выхода 1 при сбое).
+Из папки bot: `.venv/bin/python run_tests.py` (все test_*.py, код выхода 1 при сбое; `--hostile-env` с реалистичными значениями переменных проекта).
 Один файл: `.venv/bin/python test_db.py` (успех: последняя строка «Все проверки прошли»).
 Клиент: `python e2e/run_e2e.py` (Chrome + настоящий сервер, зависимости e2e/requirements.txt; без Chrome пропуск; сверяет запросы клиента с e2e/golden_net.json); хуков в боевом коде нет.
 

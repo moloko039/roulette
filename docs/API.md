@@ -344,8 +344,9 @@
 
 ## Косметика
 Только внешний вид; не влияет на шансы, выплаты, множители, XP, лимиты, ферму и экономику. Каталог в коде (`bot/cosmetics.py`): 8 слотов (`card_back`, `chip`, `table`, `mine_icons`, `keno_ball`, `crash`,
-`avatar_frame`, `badge`), в каждом один стартовый предмет (в базе не хранится: если для слота нет записи, действует стартовый). Предметы не передаются между игроками. Платежей нет: предметы выдаёт владелец командой `/giveitem`
-(источник `owner_gift`) или покупка за фишки (`chips`) и за Telegram Stars (`stars`); внутренний `payment_ref` (идентификатор платежа) в API не отдаётся. Примеры: `docs/examples/cosmetics.json`.
+`avatar_frame`, `badge`), в каждом один стартовый предмет (в базе не хранится: если для слота нет записи, действует стартовый). Предметы не передаются между игроками. Предмет попадает к игроку одним из способов (поле `source`): выдача владельцем командой `/giveitem` (`owner_gift`), покупка за фишки (`chips`, `POST /api/cosmetics/buy`) или покупка за Telegram Stars (`stars`).
+**Платежи Telegram Stars есть, но только за косметику** (фишки за Stars не продаются и не обмениваются): клиент запрашивает ссылку на оплату `POST /api/cosmetics/invoice` и открывает её в Telegram (`openInvoice`); саму оплату принимает и обрабатывает Telegram, сервер платёжных данных не получает и подтверждение платежа (`successful_payment`) принимает в боте, а не через эти маршруты. Выдача по платежу идёт один раз на `charge_id`.
+Внутренние `payment_ref` и `charge_id` (идентификатор платежа) в API не отдаются. Примеры: `docs/examples/cosmetics.json`.
 
 ### GET /api/cosmetics/catalog
 Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price" ({"currency": "stars"|"chips", "amount": int} или null), "starter bool", "available bool"}]}`.

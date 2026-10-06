@@ -1,3 +1,4 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import asyncio
 import io
 import logging
@@ -126,33 +127,25 @@ try:
     assert 0 < len(written) and counts["players"] <= len(written), (counts, len(written))
     check("основная база цела", sql("PRAGMA integrity_check", path=big), [("ok",)])
 
-    # постоянная запись с перезапусками копирования: лимит времени, а не зависание
-    stop2 = threading.Event()
+    # лимит времени копирования, а не зависание: детерминированно, на управляемых часах (прежняя проверка гоняла настоящую запись в потоке и зависела от
+    # скорости машины: под нагрузкой копия успевала завершиться). Часы модуля backup идут на 0,4 с за каждое обращение, лимит 1 с: копия 30 000 строк по
+    # 50 страниц за шаг не успевает и обязана оборваться по лимиту, не оставив временных файлов.
+    real_time, real_sleep = time.time, time.sleep
 
-    def hammer():
-        c = sqlite3.connect(big, timeout=30)
-        n = 0
-        while not stop2.is_set():
-            c.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, 1, 1, 1, 1)", (900_000 + n, ))
-            c.commit()
-            n += 1
-            time.sleep(0.001)
+    class SlowClock:
+        def __init__(self):
+            self.t = 0.0
 
-    th2 = threading.Thread(target=hammer)
-    th2.start()
-    try:
-        with mock.patch.object(backup, "MAX_COPY_SECONDS", 1), mock.patch.object(backup, "PAGES_PER_STEP", 50):
-            started = time.monotonic()
-            snap2 = backup.create_snapshot(big, os.path.join(tmp, "bbig2"), now=T + 5)
-            if sql("PRAGMA journal_mode", path=big)[0][0] == "wal":
-                # в режиме WAL запись не блокирует чтение, копирование может успеть: тогда копия должна быть целой
-                assert snap2 is None or backup.inspect_database(snap2)["roulette_rounds"] == 30000, "копия из WAL повреждена"
-            else:
-                check("постоянная запись: копия не сделана", snap2, None)
-            assert time.monotonic() - started < 20, "копирование зависло"
-    finally:
-        stop2.set()
-        th2.join()
+        def monotonic(self):
+            self.t += 0.4
+            return self.t
+
+        time = staticmethod(real_time)
+        sleep = staticmethod(real_sleep)
+
+    with mock.patch.object(backup, "MAX_COPY_SECONDS", 1), mock.patch.object(backup, "PAGES_PER_STEP", 50), mock.patch.object(backup, "time", SlowClock()):
+        snap2 = backup.create_snapshot(big, os.path.join(tmp, "bbig2"), now=T + 5)
+    check("лимит времени: копия не сделана, зависания нет", snap2, None)
     check("после срыва нет временных файлов", [n for n in os.listdir(os.path.join(tmp, "bbig2")) if n.endswith(".tmp")], [])
 
     # ================= сбои =================

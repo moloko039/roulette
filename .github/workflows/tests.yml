@@ -45,8 +45,8 @@ jobs:
         working-directory: bot
         run: python run_tests.py
 
-  repo-check:
-    name: Проверка репозитория (секреты и базы)
+  hostile-env:
+    name: Тесты во враждебном окружении (Python 3.12)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -56,13 +56,37 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: bot/requirements.txt
+      - name: Установка зависимостей
+        working-directory: bot
+        run: pip install -r requirements.txt
+      - name: Все тесты с реалистичными значениями переменных проекта (результаты не должны меняться)
+        working-directory: bot
+        run: python run_tests.py --hostile-env
+
+  repo-check:
+    name: Проверка репозитория (секреты и базы)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0          # для скана всей истории
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
       - name: Поиск секретов и файлов базы в индексе git
         run: python scripts/check_repo.py
+      - name: Скан всей истории git на токены и ключи
+        run: python scripts/check_repo.py --history
 
   e2e:
     name: e2e в Chrome (Python 3.12, не блокирует)
     runs-on: ubuntu-24.04
-    # первый этап: результат e2e не делает общий результат красным; после стабилизации сделать обязательным (журнал)
+    # первый этап: результат e2e не делает общий результат красным. Сделать блокирующим (убрать continue-on-error), когда 10 запусков подряд на main
+    # прошли без падений и без повторного запуска (условие записано в CLAUDE.md и журнале)
     continue-on-error: true
     timeout-minutes: 15
     steps:
@@ -81,4 +105,17 @@ jobs:
       - name: Chrome из образа runner
         run: google-chrome --version
       - name: Запуск e2e
-        run: python e2e/run_e2e.py
+        run: |
+          set -o pipefail
+          python e2e/run_e2e.py 2>&1 | tee e2e.log
+      - name: Сводка e2e (сколько сценариев прошло и упало)
+        if: always()
+        run: |
+          ok=$(grep -c '^ОК ' e2e.log || true)
+          failed=$(grep -c '^ПАДЕНИЕ ' e2e.log || true)
+          echo "Сводка e2e: прошло $ok, упало $failed"
+          {
+            echo "### e2e в Chrome: прошло $ok, упало $failed"
+            if [ "$failed" != "0" ]; then echo; echo "Упавшие сценарии:"; grep '^ПАДЕНИЕ ' e2e.log | sed 's/^/- /'; fi
+            grep -q 'Chrome не найден' e2e.log && echo && echo "Chrome не найден: e2e пропущены"
+          } >> "$GITHUB_STEP_SUMMARY"

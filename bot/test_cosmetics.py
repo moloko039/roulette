@@ -1,5 +1,6 @@
 """Косметика: каталог, выдача, надевание, API, рейтинг (публичные слоты), независимость от экономики, /giveitem, экспорт, удаление,
 очистка, бэкап, миграция со старой базой, контракт (docs/examples/cosmetics.json)."""
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import asyncio
 import glob
 import json
@@ -8,8 +9,6 @@ import os
 import random
 import re
 import sqlite3
-import subprocess
-import sys
 import tempfile
 import threading
 import time
@@ -495,29 +494,8 @@ try:
     db.init_db(restored)    # восстановленная база открывается кодом без потерь
     check("восстановление: надетое на месте", db.cosmetics_state(A, db_path=restored)["equipped"]["card_back"], "back_midnight")
 
-    # ================= миграция: база старого кода (коммит dbc9242, до косметики) открывается новым =================
-    old_dir = os.path.join(tmp, "oldcode")
-    os.makedirs(old_dir)
-    try:
-        subprocess.run("git -C %s archive dbc9242 bot | tar -x -C %s" % (ROOT, old_dir), shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        have_old = True
-    except Exception:
-        have_old = False
-    if have_old and os.path.isdir(os.path.join(old_dir, "bot")) and not os.path.exists(os.path.join(old_dir, "bot", "cosmetics.py")):
-        old_db = os.path.join(tmp, "old.db")
-        code = ("import sys, os; sys.path.insert(0, %r); os.chdir(%r)\n"
-                "for k in ('DB_PATH','TOMBSTONE_SECRET','OWNER_CHAT_ID'): os.environ.pop(k, None)\n"
-                "import db; db.init_db(%r); db.get_player(777, now=1760000000, db_path=%r)\n") % (os.path.join(old_dir, "bot"), os.path.join(old_dir, "bot"), old_db, old_db)
-        subprocess.run([sys.executable, "-c", code], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        before = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        assert "cosmetic_items" not in before
-        balance = sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0]
-        db.init_db(old_db)
-        after = {r[0] for r in sql(old_db, "SELECT name FROM sqlite_master WHERE type = 'table'")}
-        check("миграция добавила только новые таблицы", after - before, {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win"})
-        check("старые данные на месте", sql(old_db, "SELECT balance FROM players WHERE telegram_id = 777")[0][0], balance)
-        check("игрок со старой базы получает стартовые предметы", db.cosmetics_state(777, db_path=old_db)["equipped"], cosmetics.STARTERS)
-        print("миграция со старой базой (коммит dbc9242) проверена")
+    # Миграции со старых версий базы проверяет test_legacy_migration.py на фикстурах схемы (bot/testdata/legacy), без git.
+
     print("Все проверки прошли")
 finally:
     for k, v in _saved_env.items():

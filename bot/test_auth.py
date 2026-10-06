@@ -1,3 +1,4 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 from auth import MAX_AGE, InvalidInitData, validate_init_data, validate_init_data_full
 from tg_testutil import make_init_data
 

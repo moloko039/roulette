@@ -1,3 +1,4 @@
+import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import asyncio
 import json
 import logging
@@ -22,12 +23,12 @@ from roulette import MAX_SAFE_INT, InsufficientFunds
 from stubs import FakeUpdate
 from tg_testutil import make_init_data
 
-FUT_ACCRUAL = __import__("time").time().__int__() + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
+NOW = 1_760_000_000
+FUT_ACCRUAL = NOW + 10 * 86400   # старые базы в тестах миграции: метка в будущем, начисления нет
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TOKEN = "123456:TEST-TOKEN-not-real"
-NOW = 1_760_000_000
 DAY = 86400
 A, B, C, OWNER, D = 424242421, 424242422, 424242423, 424242499, 424242424
 CHAT, OTHER_CHAT = "chat-room-1", "chat-room-2"
@@ -520,8 +521,9 @@ try:
     sql(path, "INSERT INTO transfers (sender, recipient, amount, fee, created_at, request_id) VALUES (900, ?, 100, 5, ?, 'wipe-0001')", (B, NOW))
     asyncio.run(bot.deletemydata(FakeUpdate("private", user_id=900), type("C", (), {})()))
     assert "история переводов (отправленных и полученных)" in bot.DELETE_WARNING, bot.DELETE_WARNING
-    q = FakeUpdate("private", user_id=900, query_data="del:yes:%d" % int(time.time()))
-    asyncio.run(bot.delete_callback(q, type("C", (), {})()))
+    with mock.patch("time.time", lambda: float(NOW)):      # управляемые часы: метка подтверждения и проверка свежести берут одно время
+        q = FakeUpdate("private", user_id=900, query_data="del:yes:%d" % int(time.time()))
+        asyncio.run(bot.delete_callback(q, type("C", (), {})()))
     assert "переводы — 1" in q.callback_query.edits[-1]["text"], q.callback_query.edits
     os.environ.pop("DB_PATH", None)
     path = new_db()
@@ -542,8 +544,9 @@ try:
     conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (1, 500, 100, %d, 0)" % FUT_ACCRUAL)
     conn.commit()
     conn.close()
-    db.init_db(path)
-    db.init_db(path)
+    with mock.patch("time.time", lambda: float(NOW)):      # миграция начисления берёт время из часов: управляемые, метка FUT_ACCRUAL остаётся в будущем
+        db.init_db(path)
+        db.init_db(path)
     check("существующий игрок: seen = 0, баланс цел", sql(path, "SELECT balance, transfers_seen_at FROM players WHERE telegram_id = 1")[0], (500, 0))
     check("колонка и индексы есть", ("transfers_seen_at" in [r[1] for r in sql(path, "PRAGMA table_info(players)")],
                                      sorted(r[1] for r in sql(path, "SELECT * FROM sqlite_master WHERE type = 'index' AND tbl_name = 'transfers' AND name LIKE 'idx_%'"))),
@@ -553,7 +556,12 @@ try:
     # ================= API =================
     path = new_db()
     os.environ["OWNER_CHAT_ID"] = str(OWNER)
-    now_real = int(time.time())
+    # Управляемые часы: время сервера и подпись initData берут одно значение, которое двигает сам тест (реального времени и пауз нет: кулдаун,
+    # возраст аккаунта и суточное окно не зависят от скорости прогона и нагрузки на машину)
+    frozen = [NOW + 100]
+    clock_patch = mock.patch("time.time", lambda: float(frozen[0]))
+    clock_patch.start()
+    now_real = frozen[0]
     for uid, name in ((A, "Аня"), (B, "Борис"), (C, "Вера")):
         sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, total_staked, xp, income_level, storage_level) "
                   "VALUES (?, 100000, 100, ?, ?, 20000, ?, 0, 0)", (uid, now_real + 3 * DAY, now_real - 5 * DAY, XP3 + 100))
@@ -611,7 +619,10 @@ try:
     check("повтор: replayed, ничего не списано", (rep.status_code, rep.json()["replayed"], row(path, A)[0], row(path, OWNER)[0]), (200, True, 99_000, 1050))
     check("request_conflict", (post(dict(good, amount=2000)).status_code, post(dict(good, amount=2000)).json()), (409, {"detail": "request_conflict"}))
     cool = post(dict(good, request_id="api-req-00002"))
-    check("cooldown с остатком", (cool.status_code, cool.json()["detail"], 1 <= cool.json()["seconds"] <= 10), (409, "cooldown", True))
+    check("cooldown: остаток ровно 10 с (время не двигалось)", (cool.status_code, cool.json()["detail"], cool.json()["seconds"]), (409, "cooldown", 10))
+    frozen[0] += 4
+    check("cooldown: через 4 с остаток 6", post(dict(good, request_id="api-req-00002")).json()["seconds"], 6)
+    frozen[0] += 6
     for k, v in examples["errors"].items():
         check("пример ошибки " + k, v, {"detail": k})
     check("пример cooldown", set(examples["cooldown"]), {"detail", "seconds"})
@@ -641,6 +652,7 @@ try:
     check("429 тело", (r.status_code, r.json(), int(r.headers["Retry-After"]) >= 1), (429, {"error": "too_many_requests"}, True))
     check("read: третий 429", [c2.get("/api/transfers", headers=auth(B, "Борис")).status_code for _ in range(3)], [200, 200, 429])
     os.environ.pop("OWNER_CHAT_ID")
+    clock_patch.stop()
 
     # ================= большая беседа: поиск получателя не держит блокировку записи =================
     path = new_db()
@@ -654,16 +666,37 @@ try:
     conn.commit()
     conn.close()
     fake_ref = "0" * 32
-    t0 = time.perf_counter()
-    e = raises(transfers.TransferError, send, path, A, fake_ref, 100, n=1)
-    spent = time.perf_counter() - t0
+    # Поиск получателя не держит блокировку записи и ограничен первой тысячей участников. Проверяется структурой, а не временем (замеры плавают под
+    # нагрузкой): при каждом вычислении метки второе соединение с нулевым ожиданием берёт блокировку записи (получится, только если перевод её не держит),
+    # а число вычислений не больше MAX_CHAT_MEMBERS.
+    lock_ok, calls = [], [0]
+    real_ref = transfers.member_ref
+
+    def probing_ref(chat, uid):
+        calls[0] += 1
+        if calls[0] % 97 == 1:       # проба на каждой 97-й метке и на первой
+            probe = sqlite3.connect(path, timeout=0)
+            try:
+                probe.execute("BEGIN IMMEDIATE")
+                probe.execute("ROLLBACK")
+                lock_ok.append(True)
+            except sqlite3.OperationalError:
+                lock_ok.append(False)
+            finally:
+                probe.close()
+        return real_ref(chat, uid)
+
+    with mock.patch.object(transfers, "member_ref", probing_ref):
+        e = raises(transfers.TransferError, send, path, A, fake_ref, 100, n=1)
     check("перевод с несуществующей меткой в беседе на 50 000 участников: not_in_chat", e.code, "not_in_chat")
-    assert spent < 0.05, "поиск получателя слишком долгий: %.3f с" % spent
+    check("поиск получателя не держит блокировку записи", (len(lock_ok) >= 5, all(lock_ok)), (True, True))
+    check("вычислений метки не больше первой тысячи участников", calls[0] <= 1000, True)
     # метка участника из первой тысячи находится, из хвоста за пределами тысячи нет (как и в списке «Кому перевести»)
     check("метка из первой тысячи работает", send(path, A, B, 100, n=2, now=NOW + 20)["amount"], 100)
     e = raises(transfers.TransferError, send, path, A, 10_000_000 + 49_999, 100, n=3, now=NOW + 40)
     check("участник за пределами тысячи не находится", e.code, "not_in_chat")
-    # пока идут переводы с несуществующими метками, запись другого игрока не ждёт дольше 100 мс
+    # пока идут переводы с несуществующими метками (в потоках), запись другого игрока не ждёт: пробное соединение с нулевым ожиданием
+    # берёт блокировку записи, когда её никто не держит; перевод держит её только в транзакции, которой при ненайденной метке нет
     import threading
     stop = threading.Event()
 
@@ -680,23 +713,19 @@ try:
     for t in th:
         t.start()
     try:
-        waits = []
+        taken = 0
         for i in range(20):
             wc = db._connect(path)
-            t0 = time.perf_counter()
-            wc.execute("BEGIN IMMEDIATE")      # ожидание блокировки записи; перебор HMAC её не держит
-            waits.append(time.perf_counter() - t0)
+            wc.execute("BEGIN IMMEDIATE")      # ожидание блокировки записи (до 10 с); перебор меток её не держит
             wallet.credit(wc, C, 1)
             wc.execute("COMMIT")
             wc.close()
+            taken += 1
     finally:
         stop.set()
         for t in th:
             t.join()
-    waits.sort()
-    # перебор HMAC не держит блокировку: обычное ожидание записи другого игрока короткое (медиана), редкие выбросы от
-    # повтора SQLite при занятости (до 100 мс на шаг) и от загрузки машины допустимы, но не секунды
-    assert waits[len(waits) // 2] < 0.1 and waits[-1] < 0.5, "запись другого игрока ждала: медиана %.3f с, максимум %.3f с" % (waits[len(waits) // 2], waits[-1])
+    check("двадцать записей другого игрока прошли во время перебора меток в четырёх потоках", taken, 20)
     # ================= документы и политика =================
     privacy = open(os.path.join(ROOT, "privacy.html"), encoding="utf-8").read()
     assert "историю ваших переводов" in privacy and "История переводов хранится 30 дней" in privacy and "видят имя друг друга в истории переводов" in privacy

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Проверка секретов и файлов базы перед коммитом: запускает scripts/check_repo.py --staged (только добавленные и изменённые файлы, содержимое из индекса).
+# Включение одной командой (по желанию, без установки пакетов): git config core.hooksPath .githooks
+# Выключение: git config --unset core.hooksPath. Обход разовый: git commit --no-verify (CI всё равно проверит индекс).
+root=$(git rev-parse --show-toplevel) || exit 0
+here=$(cd "$(dirname "$0")" && pwd)
+script="$here/../scripts/check_repo.py"
+if [ ! -f "$script" ]; then
+  echo "pre-commit: нет scripts/check_repo.py, проверка пропущена" >&2
+  exit 0
+fi
+for py in python3 python; do
+  if command -v "$py" >/dev/null 2>&1; then
+    "$py" "$script" --staged "$root"
+    exit $?
+  fi
+done
+echo "pre-commit: Python не найден, проверка секретов пропущена" >&2
+exit 0
