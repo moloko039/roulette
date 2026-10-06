@@ -32,7 +32,8 @@ import cosmetics
 import farm
 import keno
 import mines
-from db import (chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, chat_best_wins, farm_status, get_player, init_db, mines_cashout, mines_reveal,
+import slot
+from db import (play_slot, chat_members_page, transfer_history, transfer_send, transfer_status, active_game_of, hilo_cashout, hilo_guess, hilo_start, hilo_state, settle_expired_hilo, crash_cashout, crash_start, crash_state, settle_expired_crash, blackjack_action, blackjack_start, blackjack_state, buy_upgrade, chat_top, chat_best_wins, farm_status, get_player, init_db, mines_cashout, mines_reveal,
                 mines_start, play_keno, mines_state, settle_expired_blackjack, settle_expired_mines, spin_roulette, touch_chat_member,
                 cosmetics_state, cosmetics_mine, equip_item, unequip_item, set_visibility, buy_with_chips, stars_offer)
 import economy
@@ -580,7 +581,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError, hilo.HiloError) as exc:
+        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError, hilo.HiloError, slot.SlotError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
@@ -637,6 +638,18 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
         if limited is not None:
             return limited
         return {"paytable": keno.paytable_text()}
+
+    # ---------- Western Slot (встроенный слот раздела «Не слоты», фишки приложения) ----------
+    # Весь раунд (поле, каскады, бесплатные вращения) считает сервер и сразу расплачивается; клиент только показывает присланное
+
+    @app.post("/api/slot/spin")
+    async def slot_spin_endpoint(request: Request):
+        def prepare(user_id, request_id, data):
+            coin, buy = data["coin"], data["buy"]
+            if type(coin) is not int or coin not in slot.COIN_VALUES or type(buy) is not bool:
+                raise ValueError()
+            return lambda: play_slot(user_id, request_id, coin, buy, db_path=db_path)
+        return await _mines_post(request, {"request_id", "coin", "buy"}, prepare)
 
     # ---------- блэкджек ----------
     # Колода и скрытая карта дилера активной раздачи не попадают ни в один ответ

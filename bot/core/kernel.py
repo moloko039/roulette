@@ -105,7 +105,7 @@ def _credit_capped(conn, telegram_id, amount):
     return 0
 
 
-BEST_WIN_GAMES = ("roulette", "mines", "keno", "blackjack", "crash", "hilo")   # закрытый список кодов игр в рекордах
+BEST_WIN_GAMES = ("roulette", "mines", "keno", "blackjack", "crash", "hilo", "slot")   # закрытый список кодов игр в рекордах
 
 
 def _record_best_win(conn, telegram_id, game, stake, paid, now):

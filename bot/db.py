@@ -63,6 +63,7 @@ from features.data_rights_db import get_player_export, delete_player_data
 from features.purge_db import PURGE_BATCH, purge_old_data
 from games.roulette_db import _round_result, spin_roulette
 from games.keno_db import _keno_result, play_keno
+from games.slot_db import _slot_result, play_slot
 from games.blackjack_db import (
     _bj_active, _bj_state, _bj_save, _bj_finish, _bj_response, _bj_settle_expired_in, settle_expired_blackjack,
     BLACKJACK_CLOSE_BATCH, close_expired_blackjack, _run_blackjack_action, blackjack_start, blackjack_action, blackjack_state,

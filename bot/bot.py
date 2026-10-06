@@ -396,6 +396,7 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "farm_purchases": export["farm_purchases"],
         "mines_games": export["mines_games"],
         "keno_rounds": export["keno_rounds"],
+        "slot_rounds": export["slot_rounds"],
         "blackjack_games": export["blackjack_games"],
         "blackjack_active": export["blackjack_active"],
         "crash_games": export["crash_games"],
@@ -971,10 +972,10 @@ async def delete_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # edit_message_text без reply_markup убирает кнопки
     await query.edit_message_text(
         "Готово: ваши данные удалены. Удалено записей: игрок — %d, раунды рулетки — %d, участие в рейтингах — %d, "
-        "покупки улучшений — %d, игры в мины — %d, раунды кено — %d, раздачи блэкджека — %d, раунды краша — %d, партии хило — %d, отправленные переводы — %d. "
+        "покупки улучшений — %d, игры в мины — %d, раунды кено — %d, раунды слота — %d, раздачи блэкджека — %d, раунды краша — %d, партии хило — %d, отправленные переводы — %d. "
         "Записи о полученных вами переводах не удалены, а обезличены (ваш идентификатор заменён), они остаются у отправителей до конца срока хранения: %d"
         % (counts["players"], counts["roulette_rounds"], counts["chat_members"], counts["farm_purchases"],
-           counts["mines_games"], counts["keno_rounds"], counts["blackjack_games"], counts["crash_games"], counts["hilo_games"], counts["transfers"], counts["transfers_anonymized"])
+           counts["mines_games"], counts["keno_rounds"], counts["slot_rounds"], counts["blackjack_games"], counts["crash_games"], counts["hilo_games"], counts["transfers"], counts["transfers_anonymized"])
     )
 
 

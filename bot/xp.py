@@ -12,6 +12,7 @@ from blackjack import xp_for
 from crash import xp_for as crash_xp_for
 from hilo import xp_for as hilo_xp_for
 from keno import TOTAL_DRAWS, lose_combinations
+from slot import lose_x1000 as slot_lose_x1000
 
 ROULETTE_OUTCOMES = 37   # исходы 0..36
 FIELD_CELLS = 25         # поле мин 5 на 5
@@ -66,3 +67,11 @@ def mines_xp(bet, mines, opened, lost):
     if opened == 0:
         return 0
     return bet * (comb(FIELD_CELLS, opened) - comb(FIELD_CELLS - mines, opened)) // comb(FIELD_CELLS, opened)
+
+
+def slot_xp(cost, bought):
+    """Опыт раунда Western Slot: cost * P(потерять всю ставку) в тысячных (slot.SPIN_LOSE_X1000 для спина, BUY_LOSE_X1000 для покупки бонуса).
+    cost: списанное за раунд (ставка или цена бонуса)."""
+    if type(cost) is not int or cost < 0:
+        raise ValueError("cost must be a non-negative integer")
+    return cost * slot_lose_x1000(bought) // 1000

@@ -106,7 +106,7 @@ try:
     get_player(OTHER, now=T, db_path=path)
     other_before = counts(path, OTHER)
     res = delete_player_data(UID, db_path=path, now=T + 5)
-    check("счётчики прежнего вида (и покупки фермы)", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
+    check("счётчики прежнего вида (и покупки фермы)", res, {"players": 1, "roulette_rounds": 1, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     rows = tombstones(path)
     check("одна запись", len(rows), 1)
     h, deleted_at = rows[0]
@@ -121,10 +121,10 @@ try:
     assert antiabuse.key_hash(UID, b"another") != h
 
     # без существующего игрока tombstone не создаётся
-    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
+    check("нет игрока", delete_player_data(424242, db_path=path, now=T + 6), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     check("tombstone не создан", len(tombstones(path)), 1)
     # повторное удаление сразу ничего не меняет и не добавляет записей
-    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
+    check("повторное удаление", delete_player_data(UID, db_path=path, now=T + 7), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0})
     check("запись прежняя", tombstones(path), [(h, T + 5)])
 
     # ---------- регистрация в период защиты: баланс 0 и скорость 100 ----------

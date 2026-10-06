@@ -460,6 +460,19 @@
       </div>
     </section>
   </section>
+  <!-- «Не слоты»: встроенные игры (games/<id>/) на фишках приложения; карточки строятся в script.js из EMBEDDED_GAMES -->
+  <section class="screen mines arcade" data-screen="arcade" hidden>
+    <header class="top">
+      <h2 class="arcade-title">Не слоты</h2>
+      <button type="button" class="game-switch" id="arcade-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Не слоты</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice arcade-note">Игры этого раздела идут на тех же фишках, что и всё приложение: баланс один на все игры.</p>
+    <div class="arcade-grid" id="arcade-grid" role="menu" aria-label="Игры раздела"></div>
+  </section>
   <section class="screen profile" data-screen="profile" hidden>
     <h2>Профиль</h2>
     <div class="profile-head">
@@ -561,6 +574,14 @@
     </section>
   </div>
   <div class="soon-toast" id="soon-toast" role="status" aria-live="polite">Скоро</div>
+  <!-- открытая встроенная игра: во весь экран поверх приложения, iframe создаётся в script.js -->
+  <div class="embed-view" id="embed-view" hidden>
+    <header class="embed-head">
+      <button type="button" class="action embed-back" id="embed-back">Назад</button>
+      <strong class="embed-title" id="embed-title"></strong>
+    </header>
+    <div class="embed-frame" id="embed-frame"></div>
+  </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
   <script src="script.js"></script>
