@@ -1,0 +1,214 @@
+/* ---------- мины: весь экран партии помещается без прокрутки ----------
+   Колонка: шапка, строка «В игре / осталось», крупные множители, поле (занимает всё свободное место, квадрат подгоняет скрипт
+   по ширине и высоте), кнопка «Забрать». Снизу отступ на выступающую центральную кнопку навигации (--nav-lift). */
+.mines-screen { gap: var(--space-2); padding-bottom: calc(var(--nav-lift) + var(--space-3)); }
+.mines-screen > .mines-board { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.mines-screen > .mines-board[hidden], .mines-mults[hidden], .mines-meta[hidden] { display: none; }
+.mines-screen .mines-grid { flex: none; gap: var(--mines-gap, 6px); grid-template-rows: repeat(5, minmax(0, 1fr)); }
+.mines-screen .mines-cell { aspect-ratio: auto; min-height: 0; }
+.mines-meta { display: flex; justify-content: space-between; gap: var(--space-2); font-size: 13px; color: var(--text-muted); }
+.mines-meta > span { min-width: 0; overflow-wrap: anywhere; }
+.mines-mults { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
+.mines-mult-now { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: clamp(26px, 8.6vw, 38px); font-weight: 700; line-height: 1.05; }
+.mines-arrow { flex: none; width: 28px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.mines-arrow[hidden], .mines-mult-next[hidden] { display: none; }
+.mines-mult-next { display: grid; justify-items: center; line-height: 1.1; }
+.mines-mult-next strong { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: clamp(20px, 6.4vw, 28px); font-weight: 600; color: var(--text-muted); }
+.mines-mult-next small { max-width: 110px; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; text-align: center; }
+.mines-mult-now.pulse { animation: mines-pulse 0.35s ease-out; }
+@keyframes mines-pulse { 0% { transform: scale(1.14); } 100% { transform: none; } }
+.mines-screen > .mines-panel { padding: 0; gap: 4px; border: none; background: none; }
+@media (max-height: 660px) {
+  .mines-screen { gap: 6px; }
+  .mines-screen .mines-grid { --mines-gap: 4px; }
+  .mines-screen .mines-expiry { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mines-mult-now.pulse { animation: none; } }
+
+/* ---------- скелетоны вместо спиннеров ---------- */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  color: transparent;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--white-soft), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease-out infinite;
+}
+
+.balance strong.skeleton { display: inline-block; width: 96px; height: 31px; }
+
+.skeleton-card {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 340px;
+}
+
+.skeleton-card .skeleton { height: 56px; }
+.skeleton-card .skeleton.tall { height: 132px; }
+
+/* ---------- колесо поверх стола во время вращения ---------- */
+
+.wheel-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease-out, visibility 0.25s;
+}
+
+.wheel-layer.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.wheel-box {
+  position: relative;
+  flex: 0 0 auto;
+  width: min(288px, 80vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--glow);
+  /* вращающийся квадратный canvas иначе торчит углами за круг и растягивает страницу */
+  overflow: hidden;
+}
+
+#wheel {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* шарик: положение задаёт скрипт */
+.ball {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(245, 245, 242, 0.8), 0 1px 3px var(--bg);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.layer-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  opacity: 0;
+}
+
+.layer-result.red   { background: var(--table-red); border-color: transparent; opacity: 1; }
+.layer-result.black { background: var(--table-black); opacity: 1; }
+.layer-result.green { background: var(--table-green); border-color: transparent; opacity: 1; }
+
+/* всплывающий итог раунда */
+.layer-win {
+  min-height: 28px;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0;
+}
+
+.layer-win.win  { color: var(--green); animation: win-pop 0.5s ease-out forwards; }
+.layer-win.lose { color: var(--text-muted); animation: win-pop 0.5s ease-out forwards; }
+
+/* ---------- подсветка выигрыша и проигрыша ---------- */
+
+.app.win  ~ .wheel-layer .wheel-box { animation: glow-win 1.6s ease-out; }
+.app.lose ~ .wheel-layer .wheel-box { animation: glow-lose 1.6s ease-out; }
+
+@keyframes glow-win {
+  0%, 40% { box-shadow: 0 0 40px 8px var(--green-soft), 0 0 0 2px var(--green); }
+  100%    { box-shadow: var(--glow); }
+}
+
+@keyframes glow-lose {
+  0%, 40% { box-shadow: 0 0 40px 8px var(--red-soft), 0 0 0 2px var(--red); }
+  100%    { box-shadow: var(--glow); }
+}
+
+@keyframes balance-win {
+  0%        { background: var(--text); border-color: var(--text); }
+  25%, 45%  { background: var(--green-soft); border-color: var(--green); }
+  100%      { background: var(--surface); border-color: var(--border); }
+}
+
+@keyframes balance-lose {
+  0%, 45% { background: var(--red-soft); border-color: var(--red); }
+  100%    { background: var(--surface); border-color: var(--border); }
+}
+
+@keyframes chip-drop {
+  from { transform: translate(-50%, -50%) scale(1.5); opacity: 0.4; }
+  to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes toast-life {
+  0%   { opacity: 0; transform: translateY(6px); }
+  8%   { opacity: 1; transform: none; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes win-pop {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+
+@media (max-width: 340px) {
+  .action { padding: 0 var(--space-2); }
+  .action svg { display: none; }
+}
+
+/* меньше движения: без анимаций и переходов (само вращение колеса считает скрипт) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+

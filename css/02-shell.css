@@ -1,0 +1,190 @@
+/* ---------- каркас: экран сверху, навигация снизу ---------- */
+
+.shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: var(--tg-viewport-stable-height, 100dvh);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.screen {
+  grid-row: 1;
+  min-height: 0;
+}
+
+/* GameShell: шапка, лента истории, сцена игры, панель ставки. Каждая игра использует эти же блоки */
+.app {
+  /* колонка: шапка, лента, стол полного размера (ячейка не ниже 40 px), панель ставок.
+     Если не влезает, экран прокручивается, а панель закреплена внизу (sticky работает только в flex-колонке,
+     в grid её область равна ей самой). min-width: 0 у детей: длинная лента истории не растягивает экран */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: calc(var(--inset-top) + 6px) var(--space-3) 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.top, .strip, .table, .bets {
+  min-width: 0;
+  flex: none;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 40px;
+}
+
+.balance {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1px var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: background-color 0.25s ease-out, border-color 0.25s ease-out;
+}
+
+.balance-label {
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--text-muted);
+}
+
+.balance strong {
+  min-width: 40px;
+  overflow-wrap: break-word;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.balance.win  { animation: balance-win 1.2s ease-out; }
+.balance.lose { animation: balance-lose 1.2s ease-out; }
+
+.game-switch {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 44px;
+  overflow: hidden;
+  white-space: nowrap;
+  height: 40px;
+  padding: 0 var(--space-3);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  transition: background-color 0.15s ease-out;
+}
+
+.game-switch:active:not(:disabled) { background: var(--white-soft); }
+.game-switch svg { flex: none; width: 20px; height: 20px; }
+#game-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.game-switch .chevron { width: 16px; height: 16px; color: var(--text-muted); }
+
+/* длинные числа не выталкивают соседей: чем длиннее запись, тем мельче шрифт */
+.balance strong[data-len="m"] { font-size: 20px; }
+#profile-balance[data-len="m"] { font-size: 22px; }
+.balance strong[data-len="s"] { font-size: 17px; }
+#profile-balance[data-len="s"] { font-size: 18px; }
+.balance strong[data-len="xs"], #profile-balance[data-len="xs"] { font-size: 15px; }
+
+/* лента истории: результат последнего раунда; старые числа справа обрезаются с затуханием */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+}
+
+/* последний результат объявляется скринридеру, на экране его показывает первый кружок ленты */
+.result {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.result-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.result-number.red   { background: var(--table-red); border-color: transparent; }
+.result-number.black { background: var(--table-black); }
+.result-number.green { background: var(--table-green); border-color: transparent; }
+
+.history-list {
+  display: flex;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+.history-list li {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.history-list li.red   { background: var(--table-red); border-color: transparent; }
+.history-list li.black { background: var(--table-black); }
+.history-list li.green { background: var(--table-green); border-color: transparent; }
+.history-list li:first-child { border-color: var(--border-strong); }
+
+.history-list li.history-empty {
+  width: auto;
+  height: auto;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 0;
+}
+

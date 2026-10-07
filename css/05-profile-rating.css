@@ -1,0 +1,589 @@
+/* ---------- заглушки игр, профиль, рейтинг ---------- */
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
+  text-align: center;
+  overflow-y: auto;
+}
+
+/* Вертикальное центрирование, когда содержимое короче окна, без потери верха, когда оно выше. С justify-content: center переполнение делилось
+   поровну вверх и вниз, а верхняя часть лежит выше начала прокрутки: до шапки (кнопка «Гардероб») нельзя было долистать (Telegram Desktop, окно ~380x640).
+   Две распорки с нулевой базой делят только свободное место; отрицательный отступ гасит gap рядом с ними (при переполнении распорки равны нулю). */
+.profile::before, .profile::after { content: ""; flex: 1 1 0; min-height: 0; }
+.profile::before { margin-bottom: calc(-1 * var(--space-3)); }
+.profile::after { margin-top: calc(-1 * var(--space-3)); }
+.profile.rating::before, .profile.rating::after { display: none; }   /* рейтинг прижат к верху */
+
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.profile-name {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* аватар без картинок: круг с первой буквой имени */
+.avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  box-shadow: var(--avatar-frame);
+}
+
+.profile-card {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 340px;
+  padding: var(--space-4);
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.stat-label { font-size: 13px; color: var(--text-muted); }
+
+.stat strong {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 600;
+}
+
+#profile-balance { min-width: 0; font-size: 28px; overflow-wrap: anywhere; }
+
+/* кольцо до следующего начисления: белое на тусклой дорожке, таймер внутри */
+.ring-wrap {
+  position: relative;
+  justify-self: center;
+  width: 132px;
+  height: 132px;
+}
+
+.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 6; }
+.ring-track { stroke: var(--border); }
+.ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s linear;
+}
+
+.ring-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-inner strong { font-size: 26px; }
+.ring-inner small { font-size: 11px; color: var(--text-muted); }
+
+.profile-msg {
+  max-width: 300px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.profile-msg:empty { display: none; }
+
+.profile-code {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.profile-code:empty { display: none; }
+
+.profile .profile-retry { flex: none; min-width: 140px; }
+
+/* рейтинг: список основного рейтинга прокручивается внутри карточки, весь экран по вертикали тоже (под рейтингом блок «Рекорды выигрыша») */
+.rating {
+  min-height: 0;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.rating-card {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 360px;
+  min-height: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.rating-list {
+  min-height: 0;
+  max-height: min(340px, 50vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.best-list { max-height: none; overflow: visible; }
+
+/* рекорды выигрыша: строки как в рейтинге; сумма не переносится (высота строки не плывёт), длинное имя усекается */
+.best-title { margin: 0; padding: 2px var(--space-2); font-size: 13px; font-weight: 600; text-align: left; color: var(--text-muted); }
+.best-empty { margin: 0; padding: var(--space-3) var(--space-2); font-size: 13px; text-align: center; color: var(--text-muted); }
+.best-amount { white-space: nowrap; }
+
+.rating-list li,
+.rating-me {
+  display: grid;
+  grid-template-columns: 24px 36px minmax(0, 1fr) auto;
+  gap: 2px var(--space-2);
+  align-items: center;
+  padding: 6px var(--space-2);
+  font-size: 14px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.rating-list li.me,
+.rating-me {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+/* призёры отличаются яркостью обводки, без цветных медалей */
+.rating-list li.top1 { border-color: var(--border-strong); box-shadow: var(--glow); }
+.rating-list li.top2 { border-color: rgba(245, 245, 242, 0.22); }
+.rating-list li.top3 { border-color: rgba(245, 245, 242, 0.12); }
+
+.rating-rank {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rating-rank svg { width: 18px; height: 18px; color: var(--text); }
+.rating-list li .avatar, .rating-me .avatar { grid-row: 1 / span 2; width: 36px; height: 36px; font-size: 15px; }
+
+.rating-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rating-bal {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 600;
+}
+
+/* сумма ставок: вторая строка под именем, переносится, а не растягивает строку на узком экране */
+.rating-staked {
+  grid-column: 3 / -1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.rating-total {
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.rating-me { flex: none; }
+.rating-me:empty { display: none; }
+
+/* уровень рядом с именем: имя сокращается многоточием, «Ур. N» остаётся */
+.rating-who {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.rating-who .rating-name { flex: 0 1 auto; }
+
+.rating-lvl {
+  flex: none;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* сокращённые числа: по нажатию показывается полное значение (полное значение есть и в title) */
+.num-tap { cursor: pointer; text-decoration: underline dotted var(--text-dim); text-underline-offset: 3px; }
+.rating-bal, .farm-balance b, .farm-cost b, .farm-progress b { overflow-wrap: anywhere; }
+
+/* ферма */
+.farm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
+  text-align: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.farm-body {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+}
+
+.farm-profile, .farm-card {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.farm-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.farm-level { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.farm-balance { font-size: 13px; color: var(--text-muted); min-width: 0; }
+.farm-balance b { color: var(--text); font-size: 15px; font-weight: 600; }
+
+.farm-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.farm-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s ease-out;
+}
+
+.farm-progress, .farm-slots { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-progress b { color: var(--text); font-weight: 600; }
+
+/* строка опыта и кнопка-подсказка (область нажатия 44 px, видимый кружок меньше) */
+.farm-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.farm-progress-row .farm-progress { flex: 1 1 auto; min-width: 0; }
+
+.farm-hint-btn {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -12px -10px -12px 0;
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+}
+
+.farm-hint-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.farm-hint-btn[aria-expanded="true"] { color: var(--text); }
+.farm-hint-btn[aria-expanded="true"]::before { border-color: var(--text); }
+
+.farm-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.farm-staked { font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-staked:empty { display: none; }
+
+.farm-cards { display: grid; gap: var(--space-3); min-width: 0; }
+
+.farm-income[hidden] { display: none; }
+.farm-income-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.farm-income-row strong { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: 16px; font-weight: 600; }
+.farm-income-note { margin: 0; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* «+N» у баланса при приходе минутного начисления: поверх экрана, вёрстку не двигает, без звука */
+.accrual-pop {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  animation: accrual-pop 1.4s ease-out forwards;
+}
+@keyframes accrual-pop { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) {
+  .accrual-pop { animation: accrual-fade 1.4s linear forwards; }
+  @keyframes accrual-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+}
+
+.farm-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.farm-card h3 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.farm-lvl { font-size: 12px; color: var(--text-muted); }
+.farm-effect { font-size: 14px; overflow-wrap: anywhere; }
+.farm-cost { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-cost b { color: var(--text); font-weight: 600; }
+.farm-buy { flex: none; width: 100%; }
+.farm-reason { min-height: 16px; font-size: 12px; color: var(--text-muted); }
+.farm-note { min-height: 18px; margin: 0; font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+.farm-note.win  { color: var(--text); }
+.farm-note.lose { color: var(--text-muted); }
+
+/* мины */
+.mines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--space-3);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.mines > * { width: 100%; max-width: 360px; min-width: 0; flex: none; }
+.mines .top { align-self: center; }
+
+.mines-inplay {
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.mines-notice {
+  min-height: 0;
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.mines-notice:empty { display: none; }
+
+.mines-panel, .mines-result, .mines-last, .mines-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+/* экран старта: две карточки («Ставка», «Мины») и крупная «Начать» внизу; свободное место делится между ними */
+.mines > .mines-start { flex: 1 0 auto; display: flex; flex-direction: column; gap: var(--space-3); }
+.mines-start[hidden] { display: none; }
+.mines-start > .mines-card:first-child { margin-top: auto; }
+.mines-start > .mines-primary { margin-top: auto; min-height: 56px; }
+.mines-card { position: relative; gap: 6px; }
+.mines-label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-muted); }
+.mines-count-card { gap: var(--space-2); }
+
+.mines-count-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mines-step { flex: none; width: 52px; height: 48px; padding: 0; font-size: 24px; }
+
+.mines-count {
+  flex: 1;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 32px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* быстрые значения: пять равных колонок */
+.mines-quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.mines-quick .chip { width: 100%; height: 40px; border-radius: var(--radius-md); }
+
+.mines-primary {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--space-3);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--on-accent);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glow);
+  overflow-wrap: anywhere;
+  transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.mines-primary:active:not(:disabled) { transform: scale(0.98); }
+.mines-primary:disabled { box-shadow: none; }
+
+/* поле 5 на 5: клетки не меньше 44 px, ширина делится поровну */
+.mines-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.mines-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  color: var(--mines-cell-text);
+  background: var(--mines-cell-bg);
+  border: 1px solid var(--mines-cell-border);
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.15s ease-out;
+}
+
+.mines-cell svg {
+  width: 55%;
+  height: 55%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mines-cell:active:not(:disabled) { transform: scale(0.96); background: var(--mines-cell-active-bg); }
+.mines-cell:disabled { opacity: 1; cursor: default; }
+.mines-cell.safe { color: var(--mines-safe-text, var(--mines-cell-text)); background: var(--mines-safe-bg); border-color: var(--mines-safe-border); }
+.mines-cell.safe svg { filter: drop-shadow(0 0 4px var(--mines-safe-glow)); }
+.mines-cell.mine { color: var(--mines-bomb-text); background: var(--mines-bomb-bg); border-color: transparent; }
+.mines-cell.mine.muted { background: var(--mines-muted-bg); color: var(--mines-muted-text); border-color: var(--mines-cell-border); }
+.mines-cell.mine.hit { background: var(--mines-bomb-bg); color: var(--mines-bomb-text); border-color: var(--mines-hit-border); box-shadow: 0 0 0 2px var(--mines-hit-ring); }
+.mines-board.locked .mines-cell:not(.safe):not(.mine) { opacity: 0.6; }
+/* клетка, которую открывают сейчас: лёгкое мерцание, пока идёт запрос */
+.mines-board.locked .mines-cell.opening { opacity: 1; border-color: var(--border-strong); animation: mines-opening 0.8s ease-in-out infinite; }
+
+@keyframes mines-opening {
+  0%, 100% { background: var(--mines-opening-a); transform: scale(1); }
+  50%      { background: var(--mines-opening-b); transform: scale(0.94); }
+}
+
+.mines-stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.mines-stat strong { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.mines-line { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.mines-expiry { font-size: 11px; text-align: center; color: var(--text-muted); }
+
+.mines-result { text-align: center; }
+.mines-result-title { font-family: var(--font-display); font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.mines-result-detail { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.mines-result.win { border-color: var(--green); }
+.mines-result.lose { border-color: var(--red); }
+.mines-last { font-size: 12px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+

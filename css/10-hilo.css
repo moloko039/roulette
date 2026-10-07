@@ -1,0 +1,93 @@
+/* ---------- хило: большая карта, лента прошлых карт, ходы выше/ниже ---------- */
+.hl-table {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.hl-table[hidden], .hl-banner[hidden], .hl-bets[hidden], .hl-actions[hidden] { display: none; }
+.hl-history { display: flex; gap: 3px; margin: 0; padding: 0; list-style: none; min-height: 40px; overflow: hidden; }
+.hl-mini {
+  flex: 1 1 0;
+  max-width: 30px;
+  min-width: 0;
+  height: 38px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  padding: 3px 0 2px;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--on-accent);
+  background: var(--text);
+  border: 2px solid transparent;
+  border-radius: 5px;
+}
+.hl-mini svg { align-self: end; width: 11px; height: 11px; fill: currentColor; }
+.hl-mini.red { color: var(--red); }
+.hl-mini.win { border-color: var(--green); }
+.hl-mini.tie { border-color: var(--text-muted); border-style: double; border-width: 3px; }
+.hl-mini.skip { opacity: 0.45; }
+.hl-mini.lose { border-color: var(--red); }
+.hl-stage { display: grid; place-items: center; min-height: 176px; perspective: 700px; }
+.hl-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: start;
+  width: 118px;
+  height: 164px;
+  padding: 8px 10px;
+  color: var(--card-ink);
+  background: var(--card-face);
+  border: 2px solid rgba(10, 10, 11, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+.hl-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 38px; font-weight: 700; line-height: 1; }
+.hl-card svg { align-self: end; justify-self: end; width: 56px; height: 56px; fill: currentColor; }
+.hl-card.red { color: var(--card-red); }
+.hl-card.back {
+  background: var(--card-back-image-hl, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 6px, var(--card-back-b) 6px, var(--card-back-b) 12px));
+  border-color: var(--card-back-border);
+  outline: var(--card-back-outline, none);
+  outline-offset: var(--card-back-inset-hl, 0);
+}
+.hl-card.flip { animation: hl-flip 0.42s ease-out; }
+.hl-card.hit-win { animation: hl-flip 0.42s ease-out, hl-win 0.9s ease-out; }
+.hl-card.hit-lose { animation: hl-flip 0.42s ease-out, hl-lose 0.9s ease-out; }
+.hl-card.lost { border-color: var(--red); }
+@keyframes hl-flip { from { transform: rotateY(90deg); opacity: 0.2; } to { transform: none; opacity: 1; } }
+@keyframes hl-win { 0% { box-shadow: 0 0 0 0 var(--green); } 40% { box-shadow: 0 0 0 8px var(--green-soft), 0 0 24px var(--green); } 100% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); } }
+@keyframes hl-lose { 0% { box-shadow: 0 0 0 0 var(--red); } 40% { box-shadow: 0 0 0 8px var(--red-soft), 0 0 24px var(--red); } 100% { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); } }
+.hl-stats { display: flex; justify-content: space-between; gap: var(--space-2); font-size: 12px; color: var(--text-muted); }
+.hl-stats span { min-width: 0; overflow-wrap: anywhere; }
+.hl-stats strong { display: block; font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: 16px; font-weight: 600; color: var(--text); }
+.hl-actions { gap: 6px; }
+.hl-moves, .hl-extra { display: flex; gap: 4px; }
+.hl-move { flex: 1 1 0; min-width: 0; height: auto; min-height: 58px; padding: 6px 4px; display: grid; gap: 2px; align-content: center; justify-items: center; text-align: center; }
+.hl-move-title { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.hl-move-title svg { display: block; flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.hl-move-sub { font-size: 12px; font-weight: 400; color: var(--text-muted); overflow-wrap: anywhere; }
+.hl-move:disabled { opacity: 0.5; }
+.hl-extra .action, .hl-extra .keno-play { flex: 1 1 0; min-width: 0; height: 48px; }
+.hl-extra .action:disabled, .hl-cash:disabled { opacity: 0.5; }
+.hl-rules { font-size: 13px; color: var(--text-muted); }
+.hl-rules summary { cursor: pointer; padding: var(--space-1) 0; }
+.hl-rules ul { margin: var(--space-1) 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.hl-bets, .hl-actions { margin-top: auto; }
+@media (max-height: 640px) {
+  .hl-stage { min-height: 132px; }
+  .hl-card { width: 90px; height: 126px; }
+  .hl-card .rank { font-size: 30px; }
+  .hl-card svg { width: 42px; height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hl-card.flip, .hl-card.hit-win, .hl-card.hit-lose { animation: none; }
+}
+
