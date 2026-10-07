@@ -32,6 +32,17 @@ def collapse(seq):
     return out
 
 
+def drop_background_me(seq):
+    """Фоновый GET /api/me (минутный тик, повтор после раунда) приходит между действиями в момент, зависящий от скорости машины:
+    его позиция не предмет проверки. Остаётся только первый запрос сценария."""
+    return [line for i, line in enumerate(seq) if not (i > 0 and line == "GET /api/me")]
+
+
+def prep(seq, name):
+    seq = drop_background_me(seq)
+    return collapse(seq) if name in POLL_COLLAPSE else seq
+
+
 def net_diff(want, got):
     """Первое расхождение двух последовательностей запросов (для сообщения о падении)."""
     for i in range(max(len(want), len(got))):
@@ -106,8 +117,8 @@ async def run_all(harness, chrome_path, names, repeat, record_net=False):
                         recorded.setdefault(name, net)
                         if recorded[name] != net:
                             raise harness.E2EError("запись сетевого эталона неповторима: " + net_diff(recorded[name], net))
-                    elif name in golden and (collapse(golden[name]) if name in POLL_COLLAPSE else golden[name]) != (collapse(net) if name in POLL_COLLAPSE else net):
-                        want, got = (collapse(golden[name]), collapse(net)) if name in POLL_COLLAPSE else (golden[name], net)
+                    elif name in golden and prep(golden[name], name) != prep(net, name):
+                        want, got = prep(golden[name], name), prep(net, name)
                         raise harness.E2EError("последовательность запросов не совпала с golden_net.json: " + net_diff(want, got))
                 except Exception as exc:  # noqa: BLE001
                     error = "%s: %s" % (type(exc).__name__, exc)
