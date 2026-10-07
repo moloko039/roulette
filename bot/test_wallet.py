@@ -224,7 +224,7 @@ try:
     # подмена: лишняя запись баланса в копии модуля и потеря разрешённой записи тоже видны
     real = open(os.path.join(HERE, "wallet.py"), encoding="utf-8").read()
     rogue = real + "\n\ndef _rogue(conn):\n    conn.execute(\"UPDATE players SET rate = 1,\\n balance = 1\")\n"
-    check("лишняя запись в wallet.py заметна", len([f for f in balance_guard.scan_text("wallet.py", rogue) if f[3] not in (balance_guard.DEBIT, balance_guard.CREDIT)]), 1)
+    check("лишняя запись в wallet.py заметна", len([f for f in balance_guard.scan_text("wallet.py", rogue) if f[3] not in (balance_guard.DEBIT, balance_guard.CREDIT, balance_guard.GEM_LEDGER_INSERT, balance_guard.GEM_BALANCE_UPSERT, balance_guard.GEM_BALANCE_DEBIT)]), 1)
     # Слой 2 (время выполнения): testenv подключил защиту к соединениям проекта во всех тестах; запись баланса вне разрешённых запросов роняет тест
     conn = _connect(path)
     try:

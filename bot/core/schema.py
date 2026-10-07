@@ -407,6 +407,45 @@ def init_db(db_path=None):
             )
             """
         )
+        # кристаллы (план экономики, E2): журнал только дописывается, баланс-кэш пишет только wallet, баланс всегда равен сумме журнала
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gems_ledger (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                delta       INTEGER NOT NULL,
+                reason      TEXT    NOT NULL,
+                ref         TEXT,
+                created_at  INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gems_ledger_player ON gems_ledger(telegram_id, id)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_gems_ledger_ref ON gems_ledger(telegram_id, reason, ref) WHERE ref IS NOT NULL")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gem_balances (
+                telegram_id INTEGER PRIMARY KEY,
+                gems        INTEGER NOT NULL CHECK (gems >= 0)
+            )
+            """
+        )
+        # оплаты пакетов кристаллов Stars: charge_id уникален (повторная доставка платежа ничего не создаёт); хранится 365 дней, как журнал оплат косметики
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gem_purchases (
+                charge_id    TEXT    PRIMARY KEY,
+                telegram_id  INTEGER NOT NULL,
+                pack_code    TEXT    NOT NULL,
+                amount_stars INTEGER NOT NULL,
+                gems         INTEGER NOT NULL,
+                status       TEXT    NOT NULL,
+                created_at   INTEGER NOT NULL,
+                refunded_at  INTEGER
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gem_purchases_player ON gem_purchases(telegram_id, created_at)")
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)

@@ -17,13 +17,19 @@ DEBIT = "UPDATE players SET balance = balance - ? WHERE telegram_id = ? AND bala
 CREDIT = "UPDATE players SET balance = balance + ? WHERE telegram_id = ? AND balance <= ?"
 REGISTER = "INSERT OR IGNORE INTO players (telegram_id, balance, rate, last_accrual, created_at) VALUES (?, ?, ?, ?, ?)"
 MIGRATION = "UPDATE players SET balance = balance + ?, last_accrual = ?, accrual_acc = ? WHERE telegram_id = ?"
+GEM_LEDGER_INSERT = "INSERT INTO gems_ledger (telegram_id, delta, reason, ref, created_at) VALUES (?, ?, ?, ?, ?)"
+GEM_BALANCE_UPSERT = ("INSERT INTO gem_balances (telegram_id, gems) VALUES (?, ?) ON CONFLICT(telegram_id) DO UPDATE SET gems = gems + excluded.gems")
+GEM_BALANCE_DEBIT = "UPDATE gem_balances SET gems = gems - ? WHERE telegram_id = ? AND gems >= ?"
 ALLOWED = {
+    ("wallet.py", GEM_LEDGER_INSERT): 2,           # кристаллы: журнал (начисление и списание)
+    ("wallet.py", GEM_BALANCE_UPSERT): 1,          # кристаллы: начисление
+    ("wallet.py", GEM_BALANCE_DEBIT): 1,           # кристаллы: списание
     ("wallet.py", DEBIT): 1,                       # списание
     ("wallet.py", CREDIT): 1,                      # начисление (в том числе поминутный доход)
     (os.path.join("core", "kernel.py"), REGISTER): 1,       # регистрация игрока: стартовый баланс
     (os.path.join("core", "migrations.py"), MIGRATION): 1,  # разовая миграция поминутного начисления
 }
-RUNTIME_ALLOWED = {DEBIT, CREDIT, REGISTER, MIGRATION}
+RUNTIME_ALLOWED = {DEBIT, CREDIT, REGISTER, MIGRATION, GEM_LEDGER_INSERT, GEM_BALANCE_UPSERT, GEM_BALANCE_DEBIT}
 # модули, которым разрешено открывать базу напрямую (копии и проверка копий только читают, db_conn создаёт соединения проекта)
 CONNECT_ALLOWED = {"backup.py", "verify_backup.py", os.path.join("core", "db_conn.py")}
 
@@ -33,6 +39,9 @@ INSERT_RE = re.compile(r"\b(?:INSERT(?:\s+OR\s+\w+)?|REPLACE)\s+INTO\s+(?:\w+\.)
 CONFLICT_RE = re.compile(r"\bON\s+CONFLICT\b.*?\bDO\s+UPDATE\s+SET\b.*?\bbalance\b", re.I | re.S)
 OBJECT_RE = re.compile(r"\bCREATE\s+(?:TEMP\w*\s+)?(?:TRIGGER|VIEW)\b", re.I)
 DYNAMIC_RE = re.compile(r"\b(?:UPDATE|INSERT|REPLACE|ALTER|DELETE)\b", re.I)
+
+
+GEMS_WRITE_RE = re.compile(r"\b(?:INSERT(?:\s+OR\s+\w+)?|REPLACE)\s+INTO\s+(?:gems_ledger|gem_balances)\b|\bUPDATE\s+(?:OR\s+\w+\s+)?(?:gems_ledger|gem_balances)\b", re.I)
 
 
 def normalize(sql):
@@ -52,6 +61,8 @@ def balance_write_kinds(sql):
         kinds.append("ON CONFLICT DO UPDATE SET balance")
     if OBJECT_RE.search(text):
         kinds.append("CREATE TRIGGER/VIEW")
+    if GEMS_WRITE_RE.search(text):
+        kinds.append("запись кристаллов (gems_ledger, gem_balances)")
     return kinds
 
 

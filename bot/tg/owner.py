@@ -17,7 +17,7 @@ import backup
 import cosmetics
 import db as db_module
 from tg.common import _chat_type, _owner_private, _reply, _send_quiet, backupnow_limiter, game_link, logger
-from tg.payments import CHARGE_ID_RE, _refund_and_record
+from tg.payments import CHARGE_ID_RE, _refund_and_record, _refund_gems_and_record
 from tg import common
 
 
@@ -48,14 +48,31 @@ async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Скрытая команда владельца: /refund <charge_id> возвращает Stars, помечает платёж, убирает предмет у игрока. Повтор безопасен."""
+    """Скрытая команда владельца: /refund <charge_id> [force] возвращает Stars, помечает платёж, убирает предмет у игрока или кристаллы пакета.
+    Пакет кристаллов возвращается, только пока они не потрачены; потраченные возвращает только /refund <платёж> force (кристаллы списываются, сколько есть).
+    Повтор безопасен."""
     if not _owner_private(update):
         return
     args = list(context.args or [])
-    if len(args) != 1 or not CHARGE_ID_RE.fullmatch(args[0]):
-        await _reply(update, "Формат: /refund <идентификатор платежа>")
+    if len(args) not in (1, 2) or not CHARGE_ID_RE.fullmatch(args[0]) or (len(args) == 2 and args[1] != "force"):
+        await _reply(update, "Формат: /refund <идентификатор платежа> [force]")
         return
     charge_id = args[0]
+    gem_row = await asyncio.to_thread(db_module.gem_purchase_by_charge, charge_id)
+    if gem_row is not None:
+        if gem_row["status"] == "refunded":
+            await _reply(update, "Этот платёж уже возвращён")
+            return
+        check = await asyncio.to_thread(db_module.refund_check, charge_id)
+        if not check["ok"] and len(args) == 1:
+            await _reply(update, "Кристаллы этого платежа уже потрачены (или не хватает на балансе). Правило: возвращаем неиспользованные. Принудительный возврат: /refund %s force" % charge_id)
+            return
+        if not await _refund_gems_and_record(context, gem_row["telegram_id"], charge_id):
+            await _reply(update, "Возврат не выполнен (подробности в логах сервиса)")
+            return
+        await _send_quiet(context, gem_row["telegram_id"], "Платёж возвращён, кристаллы пакета списаны.")
+        await _reply(update, "Возврат выполнен, кристаллы пакета списаны")
+        return
     row = await asyncio.to_thread(db_module.purchase_by_charge, charge_id)
     if row is None:
         await _reply(update, "Платёж не найден в журнале")

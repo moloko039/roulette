@@ -27,7 +27,8 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   },
   "active_mines": {
     "balance": 900,
@@ -56,7 +57,8 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   },
   "active_blackjack": {
     "balance": 900,
@@ -85,7 +87,8 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   },
   "active_crash": {
     "balance": 900,
@@ -114,7 +117,8 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   },
   "incoming_transfer": {
     "balance": 1000,
@@ -143,7 +147,8 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   },
   "owner": {
     "balance": 1000,
@@ -172,6 +177,7 @@
         "badge": "badge_none"
       },
       "show_in_rating": true
-    }
+    },
+    "gems": 0
   }
 }

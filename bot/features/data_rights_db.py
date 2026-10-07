@@ -93,6 +93,10 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT item_code, amount_stars, created_at, status FROM cosmetic_purchases WHERE telegram_id = ? ORDER BY created_at, id", (telegram_id,)).fetchall()
             cosmetic_pref = conn.execute(
                 "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            gem_balance = conn.execute("SELECT gems FROM gem_balances WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            gem_ledger = conn.execute("SELECT created_at, delta, reason FROM gems_ledger WHERE telegram_id = ? ORDER BY id", (telegram_id,)).fetchall()
+            gem_purchase_rows = conn.execute(
+                "SELECT pack_code, amount_stars, gems, status, created_at FROM gem_purchases WHERE telegram_id = ? ORDER BY created_at", (telegram_id,)).fetchall()
             best_win = conn.execute(
                 "SELECT game, net_amount, achieved_at FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
@@ -152,6 +156,12 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             "show_in_rating": True if cosmetic_pref is None else bool(cosmetic_pref["show_in_rating"]),
             # покупки за Stars: без идентификатора платежа (он остаётся у владельца для споров и возвратов)
             "purchases": [{"item_code": r["item_code"], "amount_stars": r["amount_stars"], "time": r["created_at"], "status": r["status"]} for r in purchase_rows],
+        },
+        # кристаллы: баланс, журнал изменений (без идентификаторов платежей) и оплаты пакетов Stars
+        "gems": {
+            "balance": 0 if gem_balance is None else gem_balance["gems"],
+            "ledger": [{"time": r["created_at"], "delta": r["delta"], "reason": r["reason"]} for r in gem_ledger],
+            "purchases": [{"pack": r["pack_code"], "amount_stars": r["amount_stars"], "gems": r["gems"], "status": r["status"], "time": r["created_at"]} for r in gem_purchase_rows],
         },
         # личный рекорд (лучший чистый выигрыш за раунд); его видят участники бесед: имя, сумма и игра
         "best_win": None if best_win is None else {"game": best_win["game"], "net_amount": best_win["net_amount"], "achieved_at": best_win["achieved_at"]},
@@ -227,6 +237,9 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["player_best_win"] = conn.execute("DELETE FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).rowcount
             for table in ("cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"):   # косметика удаляется вместе с игроком
                 conn.execute("DELETE FROM " + table + " WHERE telegram_id = ?", (telegram_id,))
+            # кристаллы удаляются вместе с игроком без возмещения (как купленные предметы); запись об оплате Stars (gem_purchases) остаётся на срок хранения
+            conn.execute("DELETE FROM gems_ledger WHERE telegram_id = ?", (telegram_id,))
+            conn.execute("DELETE FROM gem_balances WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",
