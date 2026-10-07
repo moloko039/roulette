@@ -9,8 +9,8 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember'], chip: ['chip_plain', 'chip_ring', 'chip_gold'],
-  table: ['table_green', 'table_blue', 'table_violet'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem'],
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves'], chip: ['chip_plain', 'chip_ring', 'chip_gold'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn'],
   keno_ball: ['keno_round', 'keno_hex'], crash: ['crash_line', 'crash_neon'],
   avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame']
 };
@@ -78,7 +78,7 @@ function setOwnCosmetics(c) {
 // ----- раздел «Оформление» магазина (гардероб) -----
 const wdEls = {
   tabs: document.getElementById('wd-tabs'), grid: document.getElementById('wd-grid'), vis: document.getElementById('wd-vis'),
-  msg: document.getElementById('wd-msg'),
+  msg: document.getElementById('wd-msg'), collections: document.getElementById('wd-collections'),
   pSheet: document.getElementById('wd-prev-sheet'), pDim: document.getElementById('wd-prev-dim'), pTitle: document.getElementById('wd-prev-title'),
   pStatus: document.getElementById('wd-prev-status'), pScene: document.getElementById('wd-prev-scene'), pDesc: document.getElementById('wd-prev-desc'),
   pMsg: document.getElementById('wd-prev-msg'), pNote: document.getElementById('wd-prev-note'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act'),
@@ -123,8 +123,23 @@ function wdNormalizeEquipped(eq) {
 function wdNormalizeMine(d) {
   const owned = new Set();
   d.owned.forEach((o) => { if (o && typeof o.code === 'string') owned.add(o.code); });
-  return { owned, equipped: wdNormalizeEquipped(d.equipped), showInRating: d.show_in_rating };
+  return { owned, equipped: wdNormalizeEquipped(d.equipped), showInRating: d.show_in_rating, collections: wdNormalizeCollections(d.collections) };
 }
+
+// Коллекции (docs/COLLECTIONS.md): только известные поля, тексты ограничены по длине (выводятся через textContent); части это коды предметов своих слотов
+function wdNormalizeCollections(list) {
+  const out = [];
+  (Array.isArray(list) ? list : []).forEach((c) => {
+    if (!c || typeof c.code !== 'string' || typeof c.name !== 'string' || !Array.isArray(c.parts)) return;
+    if (!Number.isSafeInteger(c.owned) || !Number.isSafeInteger(c.total) || c.total < 1 || c.owned < 0 || c.owned > c.total) return;
+    out.push({ code: c.code.slice(0, 30), name: c.name.slice(0, 40), how: typeof c.how === 'string' ? c.how.slice(0, 160) : '',
+      parts: c.parts.filter((x) => typeof x === 'string').slice(0, 20), owned: c.owned, total: c.total, complete: c.owned === c.total });
+  });
+  return out;
+}
+
+// Коллекция, к которой относится предмет (только пока он не получен он помечается как часть коллекции)
+const wdCollectionOf = (item) => (wd.mine ? wd.mine.collections.find((c) => c.parts.includes(item.code)) || null : null);
 
 const wdOwns = (item) => item.starter || (wd.mine && wd.mine.owned.has(item.code));
 const wdWorn = (item) => !!wd.mine && wd.mine.equipped[item.slot] === item.code;
@@ -134,6 +149,7 @@ function wdStatus(item) {
   if (wdWorn(item)) return 'Надето';
   if (!item.available) return 'Скоро';
   if (wdOwns(item)) return 'Есть';
+  if (wdCollectionOf(item)) return 'Коллекция';
   return item.price ? wdPriceText(item.price) : 'Не получено';
 }
 // что делает главная кнопка листа: надеть, снять, купить или ничего
@@ -194,7 +210,33 @@ function wdScene(slot, code, mini) {
 function setWdMsg(text) { wdEls.msg.textContent = text; }
 const wdToast = (text) => showToast(text, wdEls.pSheet.hidden ? 'wd-toast' : 'wd-prev-toast');
 
+// Полоса коллекций над слотами: название, сколько частей собрано, как получить; собранная коллекция помечена
+function renderWdCollections() {
+  wdEls.collections.textContent = '';
+  const list = wd.mine ? wd.mine.collections : [];
+  list.forEach((c) => {
+    const box = document.createElement('div');
+    box.className = 'wd-collection' + (c.complete ? ' complete' : '');
+    box.dataset.code = c.code;
+    const head = document.createElement('strong');
+    head.textContent = c.name + ': ' + c.owned + ' из ' + c.total + (c.complete ? ' (собрана)' : '');
+    const how = document.createElement('small');
+    how.textContent = c.how;
+    box.append(head, how);
+    wdEls.collections.appendChild(box);
+  });
+  renderSetEffect();
+}
+
+// Эффект полного набора: все части собранной коллекции надеты, у корня появляется атрибут data-set-complete (лёгкое мерцание названия, только визуально, без бонусов)
+function renderSetEffect() {
+  const done = wd.mine ? wd.mine.collections.find((c) => c.complete && c.parts.every((code) => Object.values(wd.mine.equipped).includes(code))) : null;
+  if (done) document.documentElement.setAttribute('data-set-complete', done.code);
+  else document.documentElement.removeAttribute('data-set-complete');
+}
+
 function renderWardrobe() {
+  renderWdCollections();
   const tabsLeft = wdEls.tabs.scrollLeft;
   const gridTop = wdEls.grid.scrollTop;
   wdEls.tabs.textContent = '';
@@ -280,7 +322,7 @@ function renderWdPreview() {
   else if (kind === 'buy') act = confirming ? 'Потратить' : 'Купить за ' + wdPriceText(item.price);
   let hint = '';
   if (confirming) hint = 'Потратить ' + wdPriceText(item.price) + '? Вернуть предмет нельзя';
-  else if (!act) hint = !item.available ? 'Этот предмет появится позже' : 'Этого предмета у вас пока нет';
+  else if (!act) hint = !item.available ? 'Этот предмет появится позже' : (wdCollectionOf(item) ? 'Часть коллекции «' + wdCollectionOf(item).name + '»: ' + wdCollectionOf(item).how : 'Этого предмета у вас пока нет');
   wdEls.pMsg.textContent = wd.prevMsg || hint;
   wdEls.pNote.hidden = kind !== 'buy';
   wdEls.pAct.hidden = !act;

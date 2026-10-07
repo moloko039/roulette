@@ -82,7 +82,26 @@
       "avatar_frame": "frame_plain",
       "badge": "badge_none"
     },
-    "show_in_rating": true
+    "show_in_rating": true,
+    "collections": [
+      {
+        "code": "leaves",
+        "name": "Листопад",
+        "how": "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре",
+        "season": [
+          "2026-10-01",
+          "2026-10-31"
+        ],
+        "parts": [
+          "back_leaves",
+          "table_autumn",
+          "mine_acorn"
+        ],
+        "owned": 1,
+        "total": 3,
+        "complete": false
+      }
+    ]
   },
   "equip": {
     "slot": "card_back",

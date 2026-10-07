@@ -18,13 +18,14 @@ WIDTHS = [360, 390]
 HEIGHT = 700
 USERS = {"me": {"rate": 0}, "bob": {"balance": 5000, "rate": 0}}
 SLOT_OF = {"back_midnight": "card_back", "chip_ring": "chip", "table_blue": "table", "mine_star": "mine_icons", "keno_hex": "keno_ball",
-           "crash_neon": "crash", "frame_thin": "avatar_frame", "badge_spade": "badge"}
+           "crash_neon": "crash", "frame_thin": "avatar_frame", "badge_spade": "badge",
+           "back_leaves": "card_back", "table_autumn": "table", "mine_acorn": "mine_icons"}      # три последних части коллекции «Листопад»
 
 
 async def steps(w, skin, shot):
     from harness import open_game, set_bet
     p = w.page
-    if skin == "table_blue":
+    if skin in ("table_blue", "table_autumn"):
         w.server.script(spin=[17])
         await open_game(p, "roulette")
         await shot("roulette-table")
@@ -43,7 +44,7 @@ async def steps(w, skin, shot):
         await open_game(p, "mines")
         await p.wait("document.getElementById('mines-begin') && !document.getElementById('mines-begin').disabled", 10, "форма мин")
         await shot("mines-chips")
-    elif skin == "back_midnight":
+    elif skin in ("back_midnight", "back_leaves"):
         w.server.script(shoe=[["10S", "9H", "10D", "8C"]], hilo=[[7, "H"], [7, "S"]])
         await open_game(p, "blackjack")
         await set_bet(p, "bj-bet", 100)
@@ -57,7 +58,7 @@ async def steps(w, skin, shot):
         await p.wait("!document.getElementById('hl-actions').hidden && !document.getElementById('hl-skip').disabled", 10, "партия")
         await p.ev("document.getElementById('hl-card').classList.add('back')")
         await shot("hilo-back")
-    elif skin == "mine_star":
+    elif skin in ("mine_star", "mine_acorn"):
         w.server.script(mines=[[0, 1, 2], [0, 1, 2]])
         await open_game(p, "mines")
         await p.wait("document.getElementById('mines-begin') && !document.getElementById('mines-begin').disabled", 10, "форма мин")
@@ -108,7 +109,7 @@ async def steps(w, skin, shot):
 async def run_one(harness, chrome, skin, width, folder):
     from visual_snapshots import Shooter
     os.makedirs(folder, exist_ok=True)
-    w = harness.World(chrome, users=USERS, viewport=(width, HEIGHT), clock_mod=30)
+    w = harness.World(chrome, users=USERS, viewport=(width, HEIGHT), clock_mod=30, bypass_csp=True)   # снимки внедряют <style> заморозки анимаций
     w.owner.rate = 0
     try:
         await w.start()

@@ -44,13 +44,13 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб открыт")
     check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent, c.classList.contains('dim')])"
-    check("слот «Рубашка карт»: надето, есть, скоро", await p.ev(cards), [["Классика", "Надето", False], ["Полночь", "Есть", False], ["Уголь", "Скоро", True]])
+    check("слот «Рубашка карт»: надето, есть, скоро", await p.ev(cards), [["Классика", "Надето", False], ["Полночь", "Есть", False], ["Уголь", "Скоро", True], ["Листопад", "Коллекция", True]])
     await p.tap("#wd-tabs .wd-tab:nth-child(3)")
     check("слот «Стол»: стартовый надет, у недостающего цена из каталога, у «Скоро» цены нет", await p.ev(
         "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent.replace(/\\s/g, ' '), c.classList.contains('dim')])"),
-        [["Сукно", "Надето", False], ["Лагуна", "150 кристаллов", True], ["Сумерки", "Скоро", True]])
+        [["Сукно", "Надето", False], ["Лагуна", "150 кристаллов", True], ["Сумерки", "Скоро", True], ["Октябрь", "Коллекция", True]])
     check("в сетке карточек нет кнопок покупки (покупка только в листе предпросмотра)", await p.ev("/Купить/.test(document.getElementById('wd-grid').textContent)"), False)
-    check("мини-превью несут скин на самом элементе", await p.ev("[...document.querySelectorAll('#wd-grid .wd-mini')].map(m => m.getAttribute('data-skin-table'))"), ["table_green", "table_blue", "table_violet"])
+    check("мини-превью несут скин на самом элементе", await p.ev("[...document.querySelectorAll('#wd-grid .wd-mini')].map(m => m.getAttribute('data-skin-table'))"), ["table_green", "table_blue", "table_violet", "table_autumn"])
     # предпросмотр: не получено / скоро — без кнопки «Надеть»
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")

@@ -7,6 +7,7 @@
 import json
 import time
 
+import cosmetic_sets
 import cosmetics
 import wallet
 from roulette import InsufficientFunds
@@ -53,6 +54,7 @@ def cosmetics_mine(telegram_id, db_path=None):
             owned.append(entry)
         state = {"equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id)),
                  "show_in_rating": _show_in_rating(conn, telegram_id)}
+        state["collections"] = cosmetic_sets.progress([o["code"] for o in owned])
         return dict({"owned": owned}, **state)
     finally:
         conn.close()

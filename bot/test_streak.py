@@ -136,7 +136,7 @@ try:
     r = client.get("/api/streak", headers=auth())
     check("карточка: ключи", (r.status_code, sorted(r.json())), (200, ["claimed_today", "cycle", "reward", "seconds_to_next_day", "streak_day", "week"]))
     r = client.post("/api/streak/claim", headers=auth(), json={})
-    check("сбор через API", (r.status_code, sorted(r.json()), r.json()["chips"], r.json()["replayed"]), (200, ["balance", "chips", "cycle", "gems", "gems_balance", "gems_capped", "replayed", "streak_day"], 300, False))
+    check("сбор через API", (r.status_code, sorted(r.json()), r.json()["chips"], r.json()["replayed"]), (200, ["balance", "chips", "collection_part", "cycle", "gems", "gems_balance", "gems_capped", "replayed", "streak_day"], 300, False))
     check("повтор: replayed", client.post("/api/streak/claim", headers=auth(), json={}).json()["replayed"], True)
     check("лишние поля в теле: 400", client.post("/api/streak/claim", headers=auth(), json={"x": 1}).status_code, 400)
     check("новый игрок без профиля: сбор создаёт профиль и платит", client.post("/api/streak/claim", headers=auth(B), json={}).json()["chips"], 300)
