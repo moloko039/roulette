@@ -310,7 +310,7 @@ try:
     payload = call["payload"]
     assert len(payload.encode()) <= 128 and str(A) not in payload, payload
     check("метка: подпись связана с игроком, предмет читается", (cosmetics.parse_payload(payload, A, now=int(time.time())), cosmetics.parse_payload(payload, B, now=int(time.time()))), ("table_blue", None))
-    check("метка не принимается позже суток и с испорченной подписью", (cosmetics.parse_payload(payload, A, now=int(time.time()) + 90_000), cosmetics.parse_payload(payload[:-1] + "0", A, now=int(time.time()))), (None, None))
+    check("метка не принимается позже суток и с испорченной подписью", (cosmetics.parse_payload(payload, A, now=int(time.time()) + 90_000), cosmetics.parse_payload(payload[:-1] + ("1" if payload[-1] == "0" else "0"), A, now=int(time.time()))), (None, None))
     check("повтор того же request_id: та же ссылка", post(A, "invoice", body).json(), {"invoice_url": "https://t.me/$fake-link-1", "replayed": True})
     r = post(A, "invoice", {"request_id": "api-inv-000002", "item_code": "table_blue"})
     check("не чаще одной ссылки на игрока и предмет за 10 секунд: 429", (r.status_code, r.json(), r.headers.get("Retry-After") is not None), (429, {"error": "too_many_requests"}, True))
@@ -359,7 +359,7 @@ try:
     payload = cosmetics.make_payload(A, "table_blue", int(time.time()))
     cap.lines.clear()
     paid(fake, A, payload, "chg-0001")
-    check("оплата: предмет в гардеробе и сообщение", (owned(path, A), fake.texts(A)), (["table_blue"], ["Предмет добавлен в гардероб"]))
+    check("оплата: предмет в гардеробе и сообщение", (owned(path, A), fake.texts(A)), (["table_blue"], ["Предмет добавлен во вкладку «Стиль»"]))
     check("журнал: запись paid без лишнего", sql(path, "SELECT charge_id, telegram_id, item_code, amount_stars, status, refunded_at FROM cosmetic_purchases"), [("chg-0001", A, "table_blue", 150, "paid", None)])
     check("предмет связан с платежом", sql(path, "SELECT source, payment_ref FROM cosmetic_items"), [("stars", "chg-0001")])
     paid(fake, A, payload, "chg-0001")
@@ -386,7 +386,7 @@ try:
         with mock.patch.object(db, "record_stars_payment", side_effect=flaky):
             pay_b = cosmetics.make_payload(B, "crash_neon", int(time.time()))
             paid(fake, B, pay_b, "chg-0004", amount=100)
-        check("сбой дважды, на третьей попытке записано", (len(calls), owned(path, B), fake.texts(B)[-1]), (3, ["crash_neon"], "Предмет добавлен в гардероб"))
+        check("сбой дважды, на третьей попытке записано", (len(calls), owned(path, B), fake.texts(B)[-1]), (3, ["crash_neon"], "Предмет добавлен во вкладку «Стиль»"))
         cap.lines.clear()
         with mock.patch.object(db, "record_stars_payment", side_effect=sqlite3.OperationalError("диск")):
             paid(fake, B, cosmetics.make_payload(B, "keno_hex", int(time.time())), "chg-0005", amount=75)
@@ -423,7 +423,7 @@ try:
     check("refund: возврат выполнен", (out, fake.refunds), (["Возврат выполнен, предмет убран у игрока"], [(A, "chg-0001")]))
     check("предмет убран и снят, статус refunded", (owned(path, A), sql(path, "SELECT COUNT(*) FROM cosmetic_equipped WHERE telegram_id = ?", (A,))[0][0],
                                                    sql(path, "SELECT status, refunded_at IS NOT NULL FROM cosmetic_purchases WHERE charge_id = 'chg-0001'")), ([], 0, [("refunded", 1)]))
-    check("игроку сообщение", fake.texts(A)[-1], "Платёж возвращён, предмет убран из гардероба.")
+    check("игроку сообщение", fake.texts(A)[-1], "Платёж возвращён, предмет убран из вкладки «Стиль».")
     check("refund: повтор безопасен", (command(bot.refund, fake, ["chg-0001"]), len(fake.refunds)), (["Этот платёж уже возвращён"], 1))
     fake.refund_error = "Bad Request: CHARGE_ALREADY_REFUNDED"
     sql(path, "INSERT INTO cosmetic_purchases (charge_id, telegram_id, item_code, amount_stars, status, created_at) VALUES ('chg-9', ?, 'crash_neon', 100, 'paid', ?)", (A, NOW))

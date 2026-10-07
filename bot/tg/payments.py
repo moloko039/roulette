@@ -136,7 +136,7 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await _send_quiet(context, user_id, "Этот предмет у вас уже был. Возврат оформит владелец, подробности: /paysupport")
             await _notify_owner(context, "Автоматический возврат не удался (предмет уже был). Платёж: %s. Вернуть: /refund %s" % (charge_id, charge_id))
         return
-    await _send_quiet(context, user_id, "Предмет добавлен в гардероб")
+    await _send_quiet(context, user_id, "Предмет добавлен во вкладку «Стиль»")
 
 
 async def _refund_and_record_unknown(context, user_id, charge_id):
