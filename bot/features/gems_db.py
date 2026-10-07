@@ -10,6 +10,7 @@ import wallet
 
 from core.db_conn import _connect
 from core.kernel import _register_player
+from features.give_db import PlayerMissing
 
 
 class GemsError(Exception):
@@ -144,7 +145,7 @@ def finish_gem_refund(charge_id, now=None, db_path=None):
         conn.close()
 
 
-def owner_grant_gems(telegram_id, amount, ref, now=None, db_path=None):
+def owner_grant_gems(telegram_id, amount, ref, now=None, db_path=None, must_exist=False):
     """Выдача кристаллов владельцем (reason owner_grant); ref уникален на игрока (повтор с тем же ref не начисляет второй раз: {"result": "duplicate"}).
     Игрока без записи в players нет смысла создавать: PlayerMissing не нужен, кристаллы привязаны к Telegram id."""
     if now is None:
@@ -153,7 +154,11 @@ def owner_grant_gems(telegram_id, amount, ref, now=None, db_path=None):
     try:
         conn.execute("BEGIN IMMEDIATE")
         try:
-            _register_player(conn, telegram_id, now)
+            if must_exist:
+                if conn.execute("SELECT 1 FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone() is None:
+                    raise PlayerMissing()
+            else:
+                _register_player(conn, telegram_id, now)
             try:
                 balance = wallet.gems_credit(conn, telegram_id, amount, "owner_grant", ref, now)
             except sqlite3.IntegrityError:

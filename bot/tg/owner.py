@@ -1,6 +1,7 @@
 """Скрытые команды владельца: /backupnow, /refund, /regrant, /teststars, /give, /giveitem, /grantall и объявление о начислении."""
 import asyncio
 import re
+import secrets
 
 from telegram import InlineKeyboardButton
 from telegram import InlineKeyboardMarkup
@@ -16,6 +17,8 @@ from notify import load_owner_id
 import backup
 import cosmetics
 import db as db_module
+import economy_config
+import wallet
 from tg.common import _chat_type, _owner_private, _reply, _send_quiet, backupnow_limiter, game_link, logger
 from tg.payments import CHARGE_ID_RE, _refund_and_record, _refund_gems_and_record
 from tg import common
@@ -166,6 +169,36 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Начислено %d. Баланс: %d" % (given, balance_now))
     else:
         await _reply(update, "Баланс у потолка: начислено %d из %d. Баланс: %d" % (given, amount, balance_now))
+
+
+async def givegems(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): /givegems <сумма> начисляет кристаллы ТОЛЬКО самому владельцу (для проверок магазина без оплаты Stars).
+    Причина в журнале owner_grant. Все остальные (и любой чат, кроме личного) не получают ответа."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    args = list(context.args or [])
+    if len(args) != 1 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= economy_config.GEMS_GIVE_MAX:
+        await _reply(update, "Формат: /givegems <сумма>, целое от 1 до %d" % economy_config.GEMS_GIVE_MAX)
+        return
+    amount = int(args[0])
+    ref = "cmd-%d-%s" % (common._wall(), secrets.token_hex(4))
+    try:
+        result = await asyncio.to_thread(db_module.owner_grant_gems, user.id, amount, ref, None, None, True)
+    except db_module.PlayerMissing:
+        await _reply(update, "Вас ещё нет в базе: откройте игру один раз и повторите команду")
+        return
+    except wallet.GemsLimitExceeded:
+        await _reply(update, "Баланс кристаллов у потолка, начисление отменено")
+        return
+    except Exception as exc:
+        logger.error("Начисление кристаллов владельцу не выполнено: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выполнить начисление (подробности в логах сервиса)")
+        return
+    await _reply(update, "Начислено кристаллов: %d. Баланс кристаллов: %d" % (amount, result["balance"]))
 
 
 async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):

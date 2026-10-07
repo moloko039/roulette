@@ -320,6 +320,26 @@ try:
     cat = client.get("/api/cosmetics/catalog", headers=auth_h(A)).json()
     check("каталог: валюты цен только gems и chips", sorted({i["price"]["currency"] for i in cat["items"] if i["price"]}), ["chips", "gems"])
 
+    # ================= /givegems: кристаллы владельцу самому себе =================
+    path = new_db()
+    fake = FakeBot()
+    in_tx(path, lambda c: db._register_player(c, OWNER, NOW))
+    in_tx(path, lambda c: db._register_player(c, A, NOW))
+    out = command(bot.givegems, fake, ["500"], uid=OWNER)
+    check("владелец: начислено 500, баланс 500", (out, db.gems_state(OWNER, path)["gems"]), (["Начислено кристаллов: 500. Баланс кристаллов: 500"], 500))
+    check("в журнале причина owner_grant", sql(path, "SELECT delta, reason FROM gems_ledger WHERE telegram_id = ?", (OWNER,)), [(500, "owner_grant")])
+    out = command(bot.givegems, fake, ["500"], uid=OWNER)
+    check("повторная команда начисляет ещё раз (каждая команда отдельное начисление)", db.gems_state(OWNER, path)["gems"], 1000)
+    check("не владелец: молчание и ничего не начислено", (command(bot.givegems, fake, ["500"], uid=A), db.gems_state(A, path)["gems"]), ([], 0))
+    check("в группе молчание", (lambda u: (run(bot.givegems(u, ctx(fake, ["500"]))), u.replies)[1])(FakeUpdate("group", user_id=OWNER)), [])
+    for bad in ([], ["0"], ["-5"], ["abc"], ["500", "x"], [str(economy_config.GEMS_GIVE_MAX + 1)], ["1" * 10]):
+        out = command(bot.givegems, fake, bad, uid=OWNER)
+        check("формат %r: подсказка, ничего не начислено" % (bad,), (out[0].startswith("Формат: /givegems"), db.gems_state(OWNER, path)["gems"]), (True, 1000))
+    path2 = new_db()
+    out = command(bot.givegems, fake, ["5"], uid=OWNER)
+    check("владельца нет в базе: просьба открыть игру, профиль не создан", (out, sql(path2, "SELECT COUNT(*) FROM players")[0][0]), (["Вас ещё нет в базе: откройте игру один раз и повторите команду"], 0))
+    check("статически чисто и после команды", balance_guard.violations(), [])
+
     # ================= /mydata, /deletemydata, очистка =================
     path = new_db()
     fake = FakeBot()
