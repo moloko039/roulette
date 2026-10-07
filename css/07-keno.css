@@ -1,0 +1,112 @@
+/* ---------- кено: поле 40 шариков, таблица выплат, панель ставок как в рулетке ---------- */
+.keno-board {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0;
+}
+
+/* кнопка занимает всю ячейку (зона касания не меньше 40 px по высоте), шарик внутри не меньше 36 px */
+.keno-ball {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.keno-ball span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 40px);
+  aspect-ratio: 1;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--keno-text);
+  background-color: var(--keno-bg);
+  border: 1px solid var(--keno-border);
+  border-radius: 50%;
+  background-image: var(--keno-img, none);
+  background-size: 100% 100%;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out, color 0.15s ease-out;
+}
+
+.keno-ball.sel span { background-image: var(--keno-img-sel, var(--keno-img, none)); }
+.keno-ball.drawn span { background-image: var(--keno-img-drawn, var(--keno-img, none)); }
+.keno-ball.hit span { background-image: var(--keno-img-hit, var(--keno-img, none)); }
+.keno-ball:active:not(:disabled) span { background-color: var(--keno-active-bg); }
+.keno-ball:disabled { opacity: 1; cursor: default; }
+.keno-board.locked .keno-ball:not(.sel):not(.drawn) { opacity: 0.6; }
+
+/* выбранный: мягкое белое свечение */
+.keno-ball.sel span {
+  color: var(--keno-sel-text);
+  background-color: var(--keno-sel-bg);
+  border-color: var(--keno-sel-border);
+  box-shadow: var(--keno-sel-glow);
+}
+
+/* выпал, но не выбран: светлое кольцо */
+.keno-ball.drawn span { color: var(--keno-drawn-text); box-shadow: var(--keno-drawn-ring); }
+
+/* выпал и выбран: зелёный со свечением */
+.keno-ball.hit span {
+  color: var(--keno-hit-text);
+  background-color: var(--keno-hit-bg);
+  border-color: transparent;
+  box-shadow: var(--keno-hit-glow);
+}
+
+/* выбран, но не выпал (после раунда): то же свечение, приглушённое */
+.keno-ball.miss span { opacity: 0.5; box-shadow: var(--keno-miss-glow); }
+.keno-ball.pop span { animation: keno-pop 0.25s ease-out; }
+@keyframes keno-pop { from { transform: scale(0.8); } 60% { transform: scale(1.14); } to { transform: scale(1); } }
+
+.keno-meta { display: flex; align-items: center; gap: 6px; }
+.keno-count { flex: 1; min-width: 0; font-size: 12px; color: var(--text-muted); }
+.keno-small { height: 40px; padding: 0 var(--space-3); }
+
+/* итог раунда: место зарезервировано, чтобы экран не прыгал */
+.keno-result {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  align-content: center;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.keno-result strong { font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.keno-result span { font-size: 13px; color: var(--text-muted); }
+.keno-result.win strong { color: var(--text); }
+.keno-result.win span { color: var(--green); }
+
+.keno-pay { display: grid; gap: 6px; }
+.keno-pay-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.keno-pay-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.keno-pay-list li span { color: var(--text-muted); }
+.keno-pay-list li b { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-weight: 600; }
+.keno-pay-list li.won { background: var(--green-soft); border-color: var(--green); }
+.keno-pay-list li.won span { color: var(--text); }
+.keno-pay-note { min-height: 16px; font-size: 12px; color: var(--text-muted); }
+.keno-pay-note:empty { display: none; }
+

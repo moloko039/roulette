@@ -53,7 +53,7 @@ def starter_blocks(css):
 
 async def run(w):
     p = w.page
-    css = open(os.path.join(harness.CLIENT_ROOT, "style.css"), encoding="utf-8").read()
+    css = harness.client_css()
     blocks = starter_blocks(css)
     starters = {"card_back": "back_classic", "chip": "chip_plain", "table": "table_green", "mine_icons": "mine_classic", "keno_ball": "keno_round",
                 "crash": "crash_line", "avatar_frame": "frame_plain", "badge": "badge_none"}

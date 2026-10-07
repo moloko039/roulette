@@ -1,14 +1,14 @@
 """Метка версии клиента: ?v=<хэш содержимого> у js/*.js и css/*.css в index.html.
 
 GitHub Pages кэширует файлы отдельно, а клиент теперь из нескольких файлов: без метки браузер мог бы собрать страницу из старых и новых частей.
-Запускай после любой правки js/, css/, style.css: `python scripts/stamp_client.py` (код 0, если менять нечего; `--check` только проверяет, код 1 при расхождении)."""
+Запускай после любой правки js/, css/: `python scripts/stamp_client.py` (код 0, если менять нечего; `--check` только проверяет, код 1 при расхождении)."""
 import hashlib
 import os
 import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css)/[^"?]+|style\.css))(?:\?v=[0-9a-f]+)?(")')
+TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css)/[^"?]+))(?:\?v=[0-9a-f]+)?(")')
 
 
 def stamp(html):

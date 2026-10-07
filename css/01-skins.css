@@ -1,0 +1,313 @@
+/* ---------- переменные скинов (косметика) ----------
+   Значения по умолчанию = стартовый вид. Скин переопределяет переменные внутри [data-skin-<слот>="<код>"] { ... } на корне
+   (атрибуты ставит applySkins в script.js). Скин меняет только цвет, градиент и форму внутри того же размера: размеры, отступы,
+   раскладка и логика не переменные. Пары, которые нельзя сливать по цвету: см. docs/ARCHITECTURE.md (раздел «Клиент», правила скинов). */
+/* Стартовый вид каждого слота = значения по умолчанию на :root и на элементе с атрибутом стартового кода (образец стартового предмета в гардеробе
+   не наследует переменные надетого скина с корня). Это касается и необязательных хуков: каждый хук, который задаёт хоть один скин, объявлен здесь
+   как «initial» (var(--хук, запасное) тогда берёт запасное). Без этого образец стартового предмета наследовал бы хук надетого скина с корня. */
+:root,
+[data-skin-card_back="back_classic"] {
+  /* card_back: рубашка карт (блэкджек, хило) и лицо карты */
+  --card-back-a: #17171b;
+  --card-back-b: #24242a;
+  --card-back-border: var(--border-strong);
+  --card-face: var(--text);
+  --card-ink: var(--on-accent);
+  --card-red: var(--red);
+  --card-back-image: initial;
+  --card-back-image-hl: initial;
+  --card-back-outline: initial;
+  --card-back-inset-bj: initial;
+  --card-back-inset-hl: initial;
+}
+
+:root,
+[data-skin-chip="chip_plain"] {
+  /* chip: фишки ставок (и кнопки-фишки с тем же видом) */
+  --chip-bg: var(--surface-2);
+  --chip-text: var(--text);
+  --chip-ring: rgba(245, 245, 242, 0.3);
+  --chip-ring-10: rgba(245, 245, 242, 0.28);
+  --chip-ring-50: rgba(245, 245, 242, 0.5);
+  --chip-ring-100: rgba(245, 245, 242, 0.72);
+  --chip-ring-500: rgba(245, 245, 242, 0.94);
+  --chip-on-bg: var(--accent);
+  --chip-on-text: var(--on-accent);
+  --chip-on-ring: var(--accent);
+  --chip-on-glow: var(--glow);
+  --chip-inner: initial;
+}
+
+:root,
+[data-skin-table="table_green"] {
+  /* table: стол, история и колесо рулетки */
+  --table-red: var(--red);
+  --table-black: var(--surface-2);
+  --table-green: var(--green);
+  --wheel-rim-a: #55555B;
+  --wheel-rim-b: #F5F5F2;
+  --wheel-rim-c: #8A8A90;
+  --wheel-sector-line: rgba(245, 245, 242, 0.35);
+  --wheel-text: #F5F5F2;
+  --wheel-edge: #050506;
+  --wheel-hub: #0F0F12;
+  --wheel-hub-line: rgba(245, 245, 242, 0.5);
+  --table-felt: initial;
+}
+
+:root,
+[data-skin-mine_icons="mine_classic"] {
+  /* mine_icons / плитки мин */
+  --mines-cell-bg: var(--surface-2);
+  --mines-cell-border: var(--border);
+  --mines-cell-text: var(--text);
+  --mines-cell-active-bg: var(--surface-3);
+  --mines-safe-bg: var(--surface);
+  --mines-safe-border: var(--border-strong);
+  --mines-safe-glow: rgba(245, 245, 242, 0.5);
+  --mines-bomb-bg: var(--red);
+  --mines-bomb-text: var(--text);
+  --mines-muted-bg: var(--surface-2);
+  --mines-muted-text: var(--text-muted);
+  --mines-hit-border: var(--text);
+  --mines-hit-ring: var(--red-soft);
+  --mines-opening-a: var(--surface-2);
+  --mines-opening-b: var(--surface-3);
+  --mines-safe-text: initial;
+}
+
+:root,
+[data-skin-keno_ball="keno_round"] {
+  /* keno_ball: шарики кено */
+  --keno-bg: var(--surface-2);
+  --keno-border: var(--border);
+  --keno-text: var(--text-muted);
+  --keno-active-bg: var(--surface-3);
+  --keno-sel-text: var(--text);
+  --keno-sel-bg: var(--white-soft);
+  --keno-sel-border: var(--text);
+  --keno-sel-glow: 0 0 10px rgba(255, 255, 255, 0.5), inset 0 0 6px rgba(255, 255, 255, 0.2);
+  --keno-drawn-text: var(--text);
+  --keno-drawn-ring: 0 0 0 2px rgba(245, 245, 242, 0.75);
+  --keno-hit-text: var(--text);
+  --keno-hit-bg: var(--green);
+  --keno-hit-glow: 0 0 14px rgba(30, 158, 74, 0.95), 0 0 0 2px rgba(245, 245, 242, 0.55);
+  --keno-miss-glow: 0 0 6px rgba(255, 255, 255, 0.3);
+  --keno-img: initial;
+  --keno-img-sel: initial;
+  --keno-img-drawn: initial;
+  --keno-img-hit: initial;
+}
+
+:root,
+[data-skin-crash="crash_line"] {
+  /* crash: график краша */
+  --cr-bg: var(--surface);
+  --cr-border: var(--border);
+  --cr-axis: var(--border);
+  --cr-line: var(--text);
+  --cr-win: var(--green);
+  --cr-win-soft: var(--green-soft);
+  --cr-crash: var(--red);
+  --cr-crash-soft: var(--red-soft);
+  --cr-label: var(--text-muted);
+  --cr-label-strong: var(--text);
+  --cr-history-text: var(--text-muted);
+  --cr-history-border: var(--border);
+  --cr-line-glow: initial;
+  --cr-win-glow: initial;
+  --cr-crash-glow: initial;
+}
+
+:root,
+[data-skin-avatar_frame="frame_plain"] {
+  /* avatar_frame и badge: рамка аватара (тень вокруг, размер не меняется) и цвет значка рядом с именем */
+  --avatar-frame: none;
+}
+
+:root,
+[data-skin-badge="badge_none"] {
+  --badge-color: var(--text-muted);
+}
+
+/* Скины. Селекторы пишутся БЕЗ привязки к html: атрибут data-skin-<слот> стоит на корне (надетое) или на самом элементе образца/аватара,
+   переменные читают потомки. Скин меняет только цвет, градиент, форму (clip-path) и SVG внутри тех же размеров. Необязательные хуки
+   (--card-back-image, --card-back-outline, --chip-inner, --table-felt, --mines-safe-text, --keno-img*, --cr-line-glow и др.) объявлены
+   в стартовых группах как «initial»: прежний вид даёт запасное значение в var(). Единый стиль набора: тёмный синий, холодный металл, сдержанное золото. */
+
+/* back_midnight: тёмно-синяя рубашка, тонкая ромбовая сетка из градиентов, золотистая рамка и внутренний контур */
+[data-skin-card_back="back_midnight"] {
+  --card-back-a: #0d1b33;
+  --card-back-b: #12264a;
+  --card-back-border: #b8943f;
+  --card-back-image:
+    repeating-linear-gradient(45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #12264a, #0a1730);
+  --card-back-image-hl:
+    repeating-linear-gradient(45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 14px),
+    repeating-linear-gradient(-45deg, rgba(184, 148, 63, 0.22) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #12264a, #0a1730);
+  --card-back-outline: 1px solid rgba(184, 148, 63, 0.65);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+
+/* chip_ring: тёмная фишка с внутренним кольцом, номиналы различаются цветом кольца, цифра светлая */
+[data-skin-chip="chip_ring"] {
+  --chip-bg: #121a26;
+  --chip-text: #eef3fb;
+  --chip-ring: #6f8fb8;
+  --chip-ring-10: #6f8fb8;
+  --chip-ring-50: #4fb0a8;
+  --chip-ring-100: #9b8bd6;
+  --chip-ring-500: #d4b05a;
+  --chip-inner: inset 0 0 0 3px #121a26, inset 0 0 0 4px rgba(238, 243, 251, 0.35);
+}
+
+/* table_blue: синее сукно; красный, чёрный и зелёный сектора различаются яркостью и подписью, колесо в холодном металле */
+[data-skin-table="table_blue"] {
+  --table-red: #d1494f;
+  --table-black: #08121f;
+  --table-green: #1c8a76;
+  --table-felt: #0c2340;
+  --wheel-rim-a: #1c3a5f;
+  --wheel-rim-b: #c3d1e6;
+  --wheel-rim-c: #5d7aa3;
+  --wheel-sector-line: rgba(195, 209, 230, 0.4);
+  --wheel-edge: #08121f;
+  --wheel-hub: #0b1a2e;
+  --wheel-hub-line: rgba(195, 209, 230, 0.55);
+}
+
+/* mine_star: звезда вместо самоцвета (набор SVG в script.js), мина остаётся колючим кругом; тёмно-синие плитки, золотая открытая плитка, тёмно-красная мина */
+[data-skin-mine_icons="mine_star"] {
+  --mines-cell-bg: #16233a;
+  --mines-cell-border: #3b5273;
+  --mines-cell-text: #aebdd6;
+  --mines-cell-active-bg: #1f3250;
+  --mines-safe-bg: #1a2a44;
+  --mines-safe-border: #c7a95a;
+  --mines-safe-text: #ecdba5;
+  --mines-safe-glow: rgba(236, 219, 165, 0.55);
+  --mines-bomb-bg: #7a1f2b;
+  --mines-bomb-text: #f5f5f2;
+  --mines-muted-bg: #16233a;
+  --mines-muted-text: #8394b0;
+  --mines-hit-border: #f5f5f2;
+  --mines-hit-ring: rgba(209, 73, 79, 0.45);
+  --mines-opening-a: #16233a;
+  --mines-opening-b: #24395c;
+}
+
+/* keno_hex: шестиугольник нарисован фоном-SVG (одна простая форма на шарик, без clip-path и filter: десятки таких слоёв вешали WebKit на iPhone);
+   состояния различаются заливкой и контуром, собственные заливка и рамка шарика прозрачны */
+[data-skin-keno_ball="keno_hex"] {
+  --keno-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%2314263d' stroke='%234f6f9c' stroke-width='1.5'/%3E%3C/svg%3E");
+  --keno-img-sel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%232b4a78' stroke='%239cc4ff' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-img-drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%2314263d' stroke='%23e8c76a' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-img-hit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpolygon points='20,1 37,10.5 37,29.5 20,39 3,29.5 3,10.5' fill='%234fd1b8' stroke='%23d8fff6' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-bg: transparent;
+  --keno-border: transparent;
+  --keno-text: #dfe9f7;
+  --keno-active-bg: transparent;
+  --keno-sel-text: #f5f8ff;
+  --keno-sel-bg: transparent;
+  --keno-sel-border: transparent;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #f5f8ff;
+  --keno-drawn-ring: none;
+  --keno-hit-text: #06231f;
+  --keno-hit-bg: transparent;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+
+/* crash_neon: неоновая линия со свечением; выигрыш бирюзовый, крах малиновый, обычная линия лавандовая */
+[data-skin-crash="crash_neon"] {
+  --cr-bg: #0b0a14;
+  --cr-border: rgba(179, 136, 255, 0.35);
+  --cr-axis: rgba(179, 136, 255, 0.28);
+  --cr-line: #c9a0ff;
+  --cr-line-glow: drop-shadow(0 0 3px #b388ff) drop-shadow(0 0 8px rgba(179, 136, 255, 0.7));
+  --cr-win: #5eead4;
+  --cr-win-soft: rgba(94, 234, 212, 0.26);
+  --cr-win-glow: drop-shadow(0 0 3px #5eead4) drop-shadow(0 0 8px rgba(94, 234, 212, 0.7));
+  --cr-crash: #dc1b6f;
+  --cr-crash-soft: rgba(220, 27, 111, 0.3);
+  --cr-crash-glow: drop-shadow(0 0 3px #dc1b6f) drop-shadow(0 0 8px rgba(220, 27, 111, 0.7));
+  --cr-label: #a99fc4;
+  --cr-history-text: #a99fc4;
+  --cr-history-border: rgba(179, 136, 255, 0.3);
+}
+
+/* frame_thin: тонкая двойная рамка (два кольца по 1 px с тёмным зазором), аватар того же размера */
+[data-skin-avatar_frame="frame_thin"] { --avatar-frame: 0 0 0 1px #cbd6e6, 0 0 0 3px #08080a, 0 0 0 4px #cbd6e6; }
+
+/* badge_spade: значок-пика (SVG в script.js) холодного серебристого цвета */
+[data-skin-badge="badge_spade"] { --badge-color: #b9c7e0; }
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.35;
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+button, input {
+  font-family: inherit;
+}
+
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[hidden] { display: none !important; }
+
+h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+

@@ -21,7 +21,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   и честно напиши, что не проверено.
 - Если меняется то, что хранится о людях или что видят другие игроки, в той же задаче обнови
   privacy.html (по указанным владельцем фразам) и дату.
-- Перед правкой index.html, style.css, js/*.js читай их актуальное состояние (владелец мог править дизайн).
+- Перед правкой index.html, css/*.css, js/*.js читай их актуальное состояние (владелец мог править дизайн).
 - Если видишь проблему в постановке, скажи, но не усложняй без согласия владельца.
 - В конце каждой задачи добавь запись в docs/JOURNAL.md.
 
@@ -74,7 +74,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Сроки хранения (раунды, участники бесед, копии, защита от повторной регистрации): журнал и bot/DEPLOY.md.
 
 ## Где что лежит
-- Клиент в корне: index.html, style.css, js/*.js (метки версий: python scripts/stamp_client.py), privacy.html; шрифты локально в fonts/ (лицензия OFL).
+- Клиент в корне: index.html, css/*.css, js/*.js (метки версий: python scripts/stamp_client.py), privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: api.py (маршруты), bot.py (команды бота), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
   blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.

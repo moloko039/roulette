@@ -1,0 +1,147 @@
+/* ---------- нижняя панель навигации ---------- */
+
+.nav {
+  grid-row: 2;
+  z-index: 3; /* выше меню игр, чтобы центральная кнопка оставалась нажимаемой */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: var(--nav-h);
+  height: calc(var(--nav-h) + var(--inset-bottom));
+  padding-bottom: var(--inset-bottom);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  height: var(--nav-h);
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  transition: color 0.15s ease-out;
+}
+
+.tab[aria-current="page"] { color: var(--text); }
+
+/* центральная кнопка: приподнята, тонкая белая обводка, свечение только у активной вкладки */
+.tab.main {
+  justify-self: center;
+  align-self: start;
+  width: 64px;
+  height: 64px;
+  margin-top: calc(-1 * var(--nav-lift));
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.tab.main svg { width: 26px; height: 26px; }
+.tab.main span { display: none; }
+
+.tab.main[aria-current="page"] {
+  border-color: var(--accent);
+  box-shadow: var(--glow);
+}
+
+/* ---------- выбор игры: нижняя шторка ---------- */
+
+.game-menu {
+  position: absolute;
+  inset: 0 0 calc(var(--nav-h) + var(--inset-bottom)) 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--scrim);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease-out, visibility 0.2s;
+}
+
+.game-menu.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.game-panel {
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-2) var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface);
+  transform: translateY(24px);
+  transition: transform 0.22s ease-out;
+  touch-action: pan-x;
+}
+
+.game-menu.open .game-panel { transform: none; }
+.game-panel.dragging { transition: none; }
+
+.sheet-grabber {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto var(--space-3);
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.sheet-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 88px;
+  padding: var(--space-3);
+  text-align: left;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out, border-color 0.15s ease-out;
+  transition-delay: calc(var(--i) * 25ms);
+}
+
+.tile svg { width: 24px; height: 24px; }
+.tile .tile-name { font-size: 15px; font-weight: 600; }
+.tile .tile-hint { font-size: 12px; color: var(--text-muted); }
+.tile[data-soon="true"] .tile-hint::after { content: ' · скоро'; }
+
+.game-menu.open .tile {
+  opacity: 1;
+  transform: none;
+}
+
+.tile[aria-current="true"] { border-color: var(--accent); }
+.game-menu.open .tile[data-soon="true"] { opacity: 0.55; }
+.tile:active { background: var(--surface-3); }
+
