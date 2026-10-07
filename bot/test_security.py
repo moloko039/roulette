@@ -204,7 +204,7 @@ try:
     check("«locked» и «busy» распознаются", (db.is_busy_error(sqlite3.OperationalError("database is locked")),
                                            db.is_busy_error(sqlite3.OperationalError("database table is locked"))), (True, True))
     # прочие ошибки SQLite не превращаются в 503
-    with mock.patch("api.get_player", side_effect=sqlite3.OperationalError("no such table: players")):
+    with mock.patch("web.routes_account.get_player", side_effect=sqlite3.OperationalError("no such table: players")):
         r = client.get("/api/me", headers=auth(5))
     check("прочая ошибка SQLite: 500, не 503", r.status_code, 500)
 finally:

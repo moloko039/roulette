@@ -12,6 +12,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import api
+import web.http
 import db
 from api import create_app
 from tg_testutil import make_init_data
@@ -118,19 +119,19 @@ try:
         return clock["t"]
 
     cap.records.clear()
-    with mock.patch.object(api, "_perf", fake_perf):
+    with mock.patch.object(web.http, "_perf", fake_perf):
         client.get("/api/me", headers=auth())
     level, line = cap.records[0]
     check("медленный: WARNING", level, logging.WARNING)
     assert re.match(r"^GET /api/me 200 \d{3,}ms", line) and " 6" in line, line
     ticks = iter([0.0, 0.1])
     cap.records.clear()
-    with mock.patch.object(api, "_perf", lambda: next(ticks)):
+    with mock.patch.object(web.http, "_perf", lambda: next(ticks)):
         client.get("/api/me", headers=auth())
     check("быстрый (100 мс): INFO", (cap.records[0][0], LINE.match(cap.records[0][1]).group(4)), (logging.INFO, "100"))
     ticks = iter([0.0, 0.5])
     cap.records.clear()
-    with mock.patch.object(api, "_perf", lambda: next(ticks)):
+    with mock.patch.object(web.http, "_perf", lambda: next(ticks)):
         client.get("/api/me", headers=auth())
     check("ровно 500 мс: ещё INFO", cap.records[0][0], logging.INFO)
 

@@ -91,7 +91,7 @@ try:
     check("first_seen не менялся", row[2], t0)
 
     # ошибка записи не ломает /api/me
-    with mock.patch("api.touch_chat_member", side_effect=RuntimeError("boom")):
+    with mock.patch("web.routes_account.touch_chat_member", side_effect=RuntimeError("boom")):
         r = me(1, chat_type="group")
     check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "incoming_unseen", "transfer_limits", "cosmetics"}))
 

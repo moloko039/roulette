@@ -1,6 +1,5 @@
 """Краш: раунды, серверное время, автозакрытие брошенных (правила в crash.py)."""
 
-import json
 import time
 
 import crash

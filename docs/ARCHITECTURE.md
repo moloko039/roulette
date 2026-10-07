@@ -9,7 +9,8 @@
 ## 2. Сервер (`bot/`)
 | Модуль | За что отвечает | Зависит от |
 |---|---|---|
-| `api.py` | FastAPI: маршруты, middleware (время, заголовки безопасности, лимит тела 64 КБ), фоновая задача, webhook | db, auth, ratelimit, правила игр, backup |
+| `api.py` | сборка FastAPI: middleware, CORS, подключение маршрутов, настройки из окружения (`load_settings`, `create_app_from_env`) | web, db, ratelimit, backup |
+| `web/` | HTTP-слой: `http.py` (лимит тела 64 КБ, замеры времени, заголовки безопасности), `context.py` (`Ctx`: проверка подписи `auth`/`auth_full`, `throttled`), `lifespan.py` (бот, фоновая задача), `routes_*.py` (`register(app, ctx)`: account, chat, farm, cosmetics, games, transfers, webhook) | db, auth, правила игр |
 | `auth.py` | проверка подписи `initData` (HMAC), chat_instance, имя | – |
 | `db.py` | **фасад**: реэкспортирует все имена слоёв ниже (`db.get_player`, `db._connect`, `db.BUSY_TIMEOUT_SECONDS` и т.д.), присваивание константы через фасад доходит до модулей (тесты патчат `db.<имя>`) | core, features, games |
 | `core/` | подключение и журнал SQLite (`db_conn`), схема (`schema`), миграции (`migrations`), ядро (`kernel`: поминутное начисление, регистрация, `_credit_capped`, `_add_xp`), участники бесед (`members`), `get_player` (`players`) | wallet, economy, farm, levels |
