@@ -95,6 +95,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
             gem_balance = conn.execute("SELECT gems FROM gem_balances WHERE telegram_id = ?", (telegram_id,)).fetchone()
             gem_ledger = conn.execute("SELECT created_at, delta, reason FROM gems_ledger WHERE telegram_id = ? ORDER BY id", (telegram_id,)).fetchall()
+            streak_rows = conn.execute("SELECT day, streak_day, cycle, chips, gems FROM streak_claims WHERE telegram_id = ? ORDER BY day", (telegram_id,)).fetchall()
             chip_purchase_rows = conn.execute(
                 "SELECT pack_code, gems, chips, created_at FROM chip_purchases WHERE telegram_id = ? ORDER BY id", (telegram_id,)).fetchall()
             gem_purchase_rows = conn.execute(
@@ -159,6 +160,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             # покупки за Stars: без идентификатора платежа (он остаётся у владельца для споров и возвратов)
             "purchases": [{"item_code": r["item_code"], "amount_stars": r["amount_stars"], "time": r["created_at"], "status": r["status"]} for r in purchase_rows],
         },
+        # серия входов: день (московская дата как число), день цикла, цикл, фишки и кристаллы награды
+        "streak": [{"day": r["day"], "streak_day": r["streak_day"], "cycle": r["cycle"], "chips": r["chips"], "gems": r["gems"]} for r in streak_rows],
         # кристаллы: баланс, журнал изменений (без идентификаторов платежей) и оплаты пакетов Stars
         "gems": {
             "balance": 0 if gem_balance is None else gem_balance["gems"],
@@ -244,6 +247,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             conn.execute("DELETE FROM gems_ledger WHERE telegram_id = ?", (telegram_id,))
             conn.execute("DELETE FROM gem_balances WHERE telegram_id = ?", (telegram_id,))
             conn.execute("DELETE FROM chip_purchases WHERE telegram_id = ?", (telegram_id,))
+            conn.execute("DELETE FROM streak_claims WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",

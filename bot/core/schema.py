@@ -462,6 +462,21 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chip_purchases_player ON chip_purchases(telegram_id, created_at)")
+        # награды серии входов: одна строка на игрока и «день» (московская дата), по ней же состояние серии; (игрок, день) уникален, повтор запроса отдаёт то же
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS streak_claims (
+                telegram_id INTEGER NOT NULL,
+                day         INTEGER NOT NULL,
+                streak_day  INTEGER NOT NULL,
+                cycle       INTEGER NOT NULL,
+                chips       INTEGER NOT NULL,
+                gems        INTEGER NOT NULL,
+                created_at  INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, day)
+            )
+            """
+        )
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)

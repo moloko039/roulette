@@ -1,43 +1,53 @@
 {
 "accrual_tick": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me",
 "GET /api/farm",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me"
 ],
 "best_wins_board": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/keno/paytable",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins"
 ],
 "best_wins_safety": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/top",
 "GET /api/chat/top",
 "GET /api/chat/top"
 ],
 "betpanel_keyboard": [
-"GET /api/me"
+"GET /api/me",
+"GET /api/streak"
 ],
 "blackjack": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/blackjack/state",
 "POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "POST /api/blackjack/action {\"action\":\"stand\",\"request_id\":\"<rid:36>\"}"
 ],
 "blackjack_auto_stand": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/blackjack/state",
 "POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
@@ -54,11 +64,13 @@
 "GET /api/me",
 "POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/blackjack/state",
 "POST /api/blackjack/action {\"action\":\"stand\",\"request_id\":\"<rid:36>\"}"
 ],
 "crash": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/crash/state",
 "POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\",\"target_x100\":200}",
 "GET /api/crash/state",
@@ -102,42 +114,52 @@
 ],
 "desktop_scroll": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
+"GET /api/streak",
 "GET /api/farm",
 "GET /api/me",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
+"GET /api/streak",
 "GET /api/farm",
 "GET /api/me",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
+"GET /api/streak",
 "GET /api/farm",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/farm"
 ],
 "hilo": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/hilo/state",
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}",
@@ -151,12 +173,15 @@
 ],
 "keno": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/keno/paytable",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}"
 ],
 "keno_hex_play": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/keno/paytable",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
@@ -166,12 +191,15 @@
 ],
 "lobby": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/hilo/state",
 "GET /api/keno/paytable",
-"GET /api/me"
+"GET /api/me",
+"GET /api/streak"
 ],
 "mines": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/mines/state",
 "POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
 "POST /api/mines/reveal {\"cell\":12,\"request_id\":\"<rid:36>\"}",
@@ -181,6 +209,7 @@
 ],
 "post_body_abort": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/keno/paytable",
 "POST /api/keno/play {\"bet\":100,\"picks\":[1,2,3],\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
@@ -188,30 +217,37 @@
 ],
 "resume": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/mines/state",
 "POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/mines/state",
 "GET /api/blackjack/state",
 "POST /api/blackjack/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/blackjack/state",
 "GET /api/hilo/state",
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/hilo/state",
 "GET /api/crash/state",
 "POST /api/crash/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/crash/state"
 ],
 "roulette": [
 "GET /api/me",
+"GET /api/streak",
 "POST /api/roulette/spin {\"bets\":[{\"amount\":10,\"type\":\"number\",\"value\":17}],\"request_id\":\"<rid:36>\"}",
 "GET /api/me"
 ],
 "shared_core": [
 "GET /api/me",
+"GET /api/streak",
 "POST /api/roulette/spin {\"bets\":[{\"amount\":10,\"type\":\"number\",\"value\":17}],\"request_id\":\"<rid:36>\"}",
 "GET /api/me",
 "GET /api/me",
@@ -222,10 +258,12 @@
 "POST /api/crash/cashout {\"request_id\":\"<rid:36>\"}",
 "GET /api/hilo/state",
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
-"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}"
+"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me"
 ],
 "shop_chips": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -236,6 +274,7 @@
 ],
 "shop_gems": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -249,20 +288,34 @@
 ],
 "skin_apply": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me"
 ],
 "skin_contrast": [
-"GET /api/me"
+"GET /api/me",
+"GET /api/streak"
 ],
 "skin_preview_isolation": [
-"GET /api/me"
+"GET /api/me",
+"GET /api/streak"
 ],
 "skin_vars": [
-"GET /api/me"
+"GET /api/me",
+"GET /api/streak"
+],
+"streak_card": [
+"GET /api/me",
+"GET /api/streak",
+"POST /api/streak/claim {}",
+"GET /api/streak",
+"GET /api/me",
+"GET /api/streak"
 ],
 "style_tab": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -274,6 +327,7 @@
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -281,6 +335,7 @@
 ],
 "wardrobe_buy_chips": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -295,6 +350,7 @@
 ],
 "wardrobe_buy_gems": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -304,12 +360,15 @@
 ],
 "wardrobe_buy_safety": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/gems/packs",
 "GET /api/chips/packs"
 ],
 "wardrobe_flow": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -329,14 +388,17 @@
 ],
 "wardrobe_rating": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/me",
+"GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins"
 ],
 "wardrobe_safety": [
 "GET /api/me",
+"GET /api/streak",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/chat/best-wins"

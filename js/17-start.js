@@ -43,5 +43,6 @@ if (document.fonts && document.fonts.load) {
 started = true;
 renderAll();
 loadServer('open');
+if (activeTab === 'play' && currentGame === 'lobby') loadStreak();      // титульный экран открыт при запуске: карточка награды дня
 
 // #endregion

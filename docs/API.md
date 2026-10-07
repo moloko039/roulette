@@ -406,3 +406,15 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Группа write. Тело: `{"request_id", "pack_code"}`. 200: `{"pack_code", "gems_spent", "chips", "balance" (фишки после покупки), "gems" (кристаллы после покупки), "daily_left", "replayed"}`.
 Одна транзакция: повтор по `(игрок, request_id)`, суточный лимит, начисление дохода, `wallet.gems_debit` (причина `chip_purchase`), `wallet.credit`, запись в `chip_purchases` (365 дней). Повтор того же `request_id` отдаёт то же без списания.
 Ошибки: 400 `invalid_request`; 404 `unknown_pack`; 409 `insufficient_gems`, `daily_limit`, `balance_limit` (фишки не поместились бы под потолок баланса, кристаллы не списываются), `request_conflict`; 429. Примеры: `docs/examples/chips.json`.
+
+## Серия входов
+Ежедневная награда (`docs/ECONOMY_ADDITIONS.md`, п. 3). «День» по московскому времени (UTC+3, `economy_config.STREAK_UTC_OFFSET_HOURS`). Дни 1-6 цикла: фишки по нарастающей (300, 400, 500, 600, 800, 1000), день 7: те же 1000 фишек и 5 кристаллов; следующий цикл щедрее на 25 % (потолок x2, кристаллов до 8).
+Пропуск дня откатывает на день 1 текущего цикла (если неделя была закончена, начинается следующий цикл). Бесплатные кристаллы не больше 100 за календарный месяц (`FREE_GEMS_MONTHLY_CAP`), сверх этого кристаллы урезаются (`gems_capped`). Опыт и ставки не меняются.
+
+### GET /api/streak
+Группа read. 200: `{"claimed_today" bool, "streak_day" int (1..7: день цикла, который даст ближайший сбор; после сегодняшнего сбора это завтрашний), "cycle" int, "reward": {"chips" int, "gems" int}, "week": [{"day", "chips", "gems"}] (семь дней текущего цикла), "seconds_to_next_day" int}`.
+
+### POST /api/streak/claim
+Группа write. Тело пустое: `{}`. 200: `{"streak_day", "cycle", "chips", "gems", "gems_capped" bool, "balance" (фишки после), "gems_balance" (кристаллы после), "replayed" bool}`. Один раз в «день» (запись `streak_claims` с ключом игрок и день); повтор в тот же день отдаёт то же с `replayed: true` и ничего не начисляет.
+Ошибки: 400 `invalid_request` (непустое тело); 429. Примеры: `docs/examples/streak.json`.
+
