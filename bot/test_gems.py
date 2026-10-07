@@ -114,6 +114,10 @@ class FakeBot:
         return [t for c, t in self.sent if c == chat_id]
 
 
+def auth_h(uid):
+    return {"Authorization": "tma " + make_init_data(TOKEN, user_id=uid, auth_date=int(time.time()), first_name="Игрок")}
+
+
 def ctx(fake, args=None):
     return SimpleNamespace(bot=fake, args=args or [], application=SimpleNamespace(bot=fake, bot_data={}))
 
@@ -278,6 +282,43 @@ try:
     check("без подписи: 401", client.post("/api/gems/invoice", json=body).status_code, 401)
     client.app.state.application = None
     check("бот не запущен: 503", client.post("/api/gems/invoice", headers=auth(B), json=dict(body, request_id="gems-req-000004")).status_code, 503)
+
+    # ================= покупка предметов за кристаллы =================
+    path = new_db()
+    in_tx(path, lambda c: db._register_player(c, A, NOW))
+    sql(path, "UPDATE players SET balance = 500000 WHERE telegram_id = ?", (A,))
+    check("цены 4 предметов в кристаллах, остальные за фишки", {c: v for c, v in cosmetics.PRICES.items() if v[0] == "gems"}, {"table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75)})
+    raises(cosmetics.InsufficientGems, db.buy_with_gems, A, "gem-buy-000001", "table_blue", now=NOW, db_path=path)
+    check("нехватка: ничего не списано, предмета нет", (db.gems_state(A, path)["gems"], sql(path, "SELECT COUNT(*) FROM cosmetic_items")[0][0]), (0, 0))
+    db.owner_grant_gems(A, 400, "dev-buy", now=NOW, db_path=path)
+    r = db.buy_with_gems(A, "gem-buy-000002", "table_blue", now=NOW + 1, db_path=path)
+    check("покупка: кристаллы списаны, фишки целы, предмет выдан (источник gems)", (r["gems"], r["balance"], r["price"], sql(path, "SELECT item_code, source FROM cosmetic_items"), db.gems_state(A, path)["gems"]),
+          (250, 500000, {"currency": "gems", "amount": 150}, [("table_blue", "gems")], 250))
+    check("журнал: строка списания с причиной и кодом предмета", sql(path, "SELECT delta, reason, ref FROM gems_ledger ORDER BY id"), [(400, "owner_grant", "dev-buy"), (-150, "cosmetic_purchase", "table_blue")])
+    check("повтор того же request_id: тот же ответ, второго списания нет", (db.buy_with_gems(A, "gem-buy-000002", "table_blue", now=NOW + 2, db_path=path)["replayed"], db.gems_state(A, path)["gems"]), (True, 250))
+    raises(cosmetics.AlreadyOwned, db.buy_with_gems, A, "gem-buy-000003", "table_blue", now=NOW + 3, db_path=path)
+    raises(cosmetics.NotForGems, db.buy_with_gems, A, "gem-buy-000004", "chip_ring", now=NOW + 3, db_path=path)           # этот предмет за фишки
+    raises(cosmetics.NotForChips, db.buy_with_chips, A, "gem-buy-000005", "crash_neon", now=NOW + 3, db_path=path)       # а этот за кристаллы
+    raises(cosmetics.ItemUnavailable, db.buy_with_gems, A, "gem-buy-000006", "back_ember", now=NOW + 3, db_path=path)
+    raises(cosmetics.UnknownItem, db.buy_with_gems, A, "gem-buy-000007", "nope", now=NOW + 3, db_path=path)
+    raises(cosmetics.UnknownItem, db.buy_with_gems, A, "gem-buy-000008", "test_1star", now=NOW + 3, db_path=path)
+    check("отказы ничего не списали, инвариант цел", (db.gems_state(A, path)["gems"], ledger_sum_ok(path)), (250, True))
+    r = db.buy_item(A, "gem-buy-000009", "chip_ring", now=NOW + 4, db_path=path)
+    check("buy_item: предмет за фишки идёт через фишки, кристаллы не тронуты", (r["balance"], r["gems"], r["price"]["currency"]), (460000, 250, "chips"))
+    r = db.buy_item(A, "gem-buy-000010", "crash_neon", now=NOW + 5, db_path=path)
+    check("buy_item: предмет за кристаллы идёт через кристаллы", (r["balance"], r["gems"], r["price"]["currency"]), (460000, 150, "gems"))
+    # охранник: кристаллы пишет только wallet (покупка предмета идёт через него)
+    check("статически чисто и после покупок", balance_guard.violations(), [])
+    # API
+    client = TestClient(create_app(TOKEN, [], db_path=path))
+    r = client.post("/api/cosmetics/buy", headers=auth_h(A), json={"request_id": "gem-api-000001", "item_code": "keno_hex"})
+    check("API: покупка за кристаллы", (r.status_code, sorted(r.json()), r.json()["gems"], r.json()["price"]), (200, ["balance", "gems", "item_code", "price", "replayed"], 75, {"currency": "gems", "amount": 75}))
+    r = client.post("/api/cosmetics/buy", headers=auth_h(B), json={"request_id": "gem-api-000002", "item_code": "back_midnight"})
+    check("API: игрок без кристаллов", (r.status_code, r.json()), (409, {"detail": "insufficient_gems"}))
+    r = client.post("/api/cosmetics/invoice", headers=auth_h(A), json={"request_id": "gem-api-000003", "item_code": "back_midnight"})
+    check("API: счёт на предмет за Stars больше не создаётся", (r.status_code, r.json()), (410, {"detail": "gone"}))
+    cat = client.get("/api/cosmetics/catalog", headers=auth_h(A)).json()
+    check("каталог: валюты цен только gems и chips", sorted({i["price"]["currency"] for i in cat["items"] if i["price"]}), ["chips", "gems"])
 
     # ================= /mydata, /deletemydata, очистка =================
     path = new_db()

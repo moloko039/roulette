@@ -211,22 +211,64 @@ def buy_with_chips(telegram_id, request_id, item_code, now=None, db_path=None):
         except InsufficientFunds:
             raise cosmetics.InsufficientChips()
         _grant_in(conn, telegram_id, item_code, "chips", None, now)
-        return {"item_code": item_code, "price": dict(price), "balance": wallet.get_balance(conn, telegram_id)}
+        return {"item_code": item_code, "price": dict(price), "balance": wallet.get_balance(conn, telegram_id), "gems": wallet.gems_balance(conn, telegram_id)}
 
     return _run_action(telegram_id, request_id, "buy", {"item_code": item_code}, body, now, db_path, throttle=False)
 
 
+def buy_with_gems(telegram_id, request_id, item_code, now=None, db_path=None):
+    """Покупка предмета за кристаллы одной транзакцией BEGIN IMMEDIATE (так же, как за фишки): предмет в каталоге, доступен, не стартовый и продаётся за кристаллы;
+    «уже есть» проверяется ДО списания; затем wallet.gems_debit (reason cosmetic_purchase, ref код предмета) и выдача (источник gems). Баланс фишек, опыт и
+    ставки не меняются. Идемпотентно по (игрок, request_id). Ошибки: UnknownItem, ItemUnavailable, NotForGems, AlreadyOwned, InsufficientGems, RequestConflict."""
+    if type(item_code) is not str:
+        raise ValueError("invalid")
+    if now is None:
+        now = int(time.time())
+
+    def body(conn):
+        it = cosmetics.item(item_code)
+        if it is None:
+            raise cosmetics.UnknownItem()
+        if not it["available"] or it["starter"]:
+            raise cosmetics.ItemUnavailable()
+        price = it["price"]
+        if price is None:
+            raise cosmetics.ItemUnavailable()
+        if price["currency"] != cosmetics.GEMS:
+            raise cosmetics.NotForGems()
+        if _owns(conn, telegram_id, item_code):
+            raise cosmetics.AlreadyOwned()           # до списания
+        try:
+            gems = wallet.gems_debit(conn, telegram_id, price["amount"], "cosmetic_purchase", item_code, now)
+        except wallet.InsufficientGems:
+            raise cosmetics.InsufficientGems()
+        _grant_in(conn, telegram_id, item_code, "gems", None, now)
+        return {"item_code": item_code, "price": dict(price), "balance": wallet.get_balance(conn, telegram_id), "gems": gems}
+
+    return _run_action(telegram_id, request_id, "buy", {"item_code": item_code}, body, now, db_path, throttle=False)
+
+
+def buy_item(telegram_id, request_id, item_code, now=None, db_path=None):
+    """Покупка предмета: за кристаллы или за фишки, как указано в каталоге."""
+    it = cosmetics.item(item_code) if type(item_code) is str else None
+    if it is not None and it["price"] is not None and it["price"]["currency"] == cosmetics.GEMS:
+        return buy_with_gems(telegram_id, request_id, item_code, now=now, db_path=db_path)
+    return buy_with_chips(telegram_id, request_id, item_code, now=now, db_path=db_path)
+
+
 # ---------- оплата Telegram Stars ----------
 def stars_offer(telegram_id, item_code, db_path=None):
-    """Проверка перед созданием инвойса и в pre_checkout_query (только чтение): предмет продаётся за Stars, доступен и у игрока его ещё нет.
-    Возвращает предмет (с ценой). Ошибки: UnknownItem, ItemUnavailable, NotForStars, AlreadyOwned."""
+    """Проверка в pre_checkout_query по старому счёту (только чтение): за Stars предмет принимается только по прежней цене (cosmetics.stars_price), он доступен и у игрока
+    его ещё нет. Возвращает предмет с ценой в Stars. Ошибки: UnknownItem, ItemUnavailable, NotForStars, AlreadyOwned."""
     it = cosmetics.sellable(item_code)
     if it is None:
         raise cosmetics.UnknownItem()
-    if not it["available"] or it["starter"] or it["price"] is None:
+    if not it["available"] or it["starter"]:
         raise cosmetics.ItemUnavailable()
-    if it["price"]["currency"] != cosmetics.STARS:
+    stars = cosmetics.stars_price(item_code)
+    if stars is None:
         raise cosmetics.NotForStars()
+    it = dict(it, price={"currency": cosmetics.STARS, "amount": stars})
     conn = _connect(db_path)
     try:
         if _owns(conn, telegram_id, item_code):

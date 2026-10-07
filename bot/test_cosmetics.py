@@ -116,13 +116,13 @@ try:
           sorted(["back_midnight", "chip_ring", "table_blue", "mine_star", "keno_hex", "crash_neon", "frame_thin", "badge_spade"]))
     check("цена есть ровно у восьми доступных нестартовых предметов (одна цена), у остальных нет", sorted(i["code"] for i in cosmetics.CATALOG if i["price"] is not None),
           sorted(c for c, _ in cosmetics.PRICES.items()))
-    check("цены в одном месте: валюта и целая положительная сумма", all(v[0] in ("stars", "chips") and type(v[1]) is int and v[1] > 0 for v in cosmetics.PRICES.values()), True)
-    check("цены из задания", {k: tuple(v) for k, v in cosmetics.PRICES.items()}, {"table_blue": ("stars", 150), "crash_neon": ("stars", 100), "back_midnight": ("stars", 100), "keno_hex": ("stars", 75),
+    check("цены в одном месте: валюта и целая положительная сумма", all(v[0] in ("gems", "chips") and type(v[1]) is int and v[1] > 0 for v in cosmetics.PRICES.values()), True)
+    check("цены из задания", {k: tuple(v) for k, v in cosmetics.PRICES.items()}, {"table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75),
                                                                            "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000)})
     check("недоступные и стартовые без цены", all(i["price"] is None for i in cosmetics.CATALOG if i["starter"] or not i["available"]), True)
     check("скрытого тестового предмета нет в каталоге для клиента", ("test_1star" in codes, cosmetics.item("test_1star"), cosmetics.sellable("test_1star")["price"]), (False, None, {"currency": "stars", "amount": 1}))
     check("публичные слоты", cosmetics.PUBLIC_SLOTS, ("avatar_frame", "badge"))
-    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars", "chips"))
+    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars", "chips", "gems"))
 
     # ================= статически: экономика и игры косметику не читают =================
     guarded = (glob.glob(os.path.join(HERE, "games", "*.py")) + glob.glob(os.path.join(HERE, "core", "kernel.py")) +

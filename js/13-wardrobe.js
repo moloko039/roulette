@@ -84,7 +84,7 @@ const wdEls = {
   pMsg: document.getElementById('wd-prev-msg'), pNote: document.getElementById('wd-prev-note'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act'),
   terms: document.getElementById('wd-terms')
 };
-const wd = { open: false, catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, paying: false, payCode: null, prevMsg: '', pollGen: 0 };
+const wd = { open: false, catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, prevMsg: '' };
 
 const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
 const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
@@ -106,13 +106,13 @@ function wdNormalizeCatalog(d) {
   return items;
 }
 
-// Цена из каталога: валюта stars или chips и разумная целая сумма, иначе null (предмет не продаётся)
+// Цена из каталога: валюта gems или chips и разумная целая сумма, иначе null (предмет не продаётся)
 function wdPrice(p) {
-  if (!p || typeof p !== 'object' || (p.currency !== 'stars' && p.currency !== 'chips')) return null;
+  if (!p || typeof p !== 'object' || (p.currency !== 'gems' && p.currency !== 'chips')) return null;
   if (!Number.isSafeInteger(p.amount) || p.amount < 1 || p.amount > 1e12) return null;
   return { currency: p.currency, amount: p.amount };
 }
-const wdPriceText = (p) => formatNumber(p.amount) + (p.currency === 'stars' ? ' Stars' : ' фишек');
+const wdPriceText = (p) => formatNumber(p.amount) + (p.currency === 'gems' ? ' кристаллов' : ' фишек');
 
 function wdNormalizeEquipped(eq) {
   const out = {};
@@ -247,7 +247,7 @@ function renderWardrobe() {
 function openWdPreview(item) {
   wd.preview = item;
   wd.confirm = false;
-  if (!(wd.paying && wd.payCode === item.code)) wd.prevMsg = '';       // сообщение об оплате относится только к её предмету
+  wd.prevMsg = '';
   wdEls.pMsg.textContent = '';
   wdEls.pSheet.hidden = false;
   renderWdPreview();
@@ -255,7 +255,6 @@ function openWdPreview(item) {
 
 function closeWdPreview() {
   if (wd.busy) return;
-  wdStopPoll();                      // закрытие во время ожидания оплаты: опрос останавливается, состояние при следующем открытии берётся с сервера
   wdEls.pSheet.hidden = true;
   wd.preview = null;
   wd.confirm = false;
@@ -272,8 +271,7 @@ function renderWdPreview() {
   wdEls.pScene.id = 'wd-prev-scene';
   wdEls.pDesc.textContent = item.description;
   const kind = wdActKind(item);
-  const chips = kind === 'buy' && item.price.currency === 'chips';
-  const confirming = wd.confirm && chips;
+  const confirming = wd.confirm && kind === 'buy';
   let act = '';
   if (kind === 'unequip') act = 'Снять';
   else if (kind === 'equip') act = 'Надеть';
@@ -282,10 +280,10 @@ function renderWdPreview() {
   if (confirming) hint = 'Потратить ' + wdPriceText(item.price) + '? Вернуть предмет нельзя';
   else if (!act) hint = !item.available ? 'Этот предмет появится позже' : 'Этого предмета у вас пока нет';
   wdEls.pMsg.textContent = wd.prevMsg || hint;
-  wdEls.pNote.hidden = !(kind === 'buy' || wd.paying);
+  wdEls.pNote.hidden = kind !== 'buy';
   wdEls.pAct.hidden = !act;
   wdEls.pAct.textContent = act;
-  wdEls.pAct.disabled = wd.busy || wd.paying;
+  wdEls.pAct.disabled = wd.busy;
   wdEls.pClose.textContent = confirming ? 'Отмена' : 'Закрыть';
   wdEls.pClose.disabled = wd.busy;
 }
@@ -362,8 +360,6 @@ function wdToggleVisibility() {
 }
 
 // ----- покупка -----
-const WD_POLL_MS = 1500;           // опрос списка предметов после оплаты Stars
-const WD_POLL_TOTAL_MS = 20000;    // и сколько ждать появления предмета
 const wdValidBuy = (d) => !!d && typeof d.item_code === 'string' && isCount(d.balance);
 const wdValidInvoice = (d) => !!d && typeof d.invoice_url === 'string';
 
@@ -383,15 +379,16 @@ function wdBuyErrorText(r, item, status) {
       const lack = item.price && srv.loaded ? item.price.amount - srv.balance : 0;
       return lack > 0 ? 'Не хватает ' + formatNumber(lack) + ' фишек' : 'Не хватает фишек';
     }
+    if (r.detail === 'insufficient_gems') {
+      const lack = item.price && shop.gems !== null ? item.price.amount - shop.gems : 0;
+      return (lack > 0 ? 'Не хватает ' + formatNumber(lack) + ' кристаллов' : 'Не хватает кристаллов') + '. Их можно купить на странице «Кристаллы»';
+    }
     return ({
-      already_owned: 'Этот предмет уже у вас', item_unavailable: 'Этот предмет пока недоступен', not_for_chips: 'Этот предмет продаётся за Stars',
-      not_for_stars: 'Этот предмет продаётся за фишки', request_conflict: 'Запрос уже обработан, обновите экран', unknown_item: 'Такого предмета нет'
+      already_owned: 'Этот предмет уже у вас', item_unavailable: 'Этот предмет пока недоступен', not_for_chips: 'Этот предмет продаётся за кристаллы',
+      not_for_gems: 'Этот предмет продаётся за фишки', request_conflict: 'Запрос уже обработан, обновите экран', unknown_item: 'Такого предмета нет'
     })[r.detail] || 'Не удалось выполнить покупку';
   }
-  if (r.kind === 'retry') {
-    if (status === 502) return 'Не удалось создать счёт. Попробуйте позже';
-    if (status === 503) return 'Покупки сейчас недоступны. Попробуйте позже';
-  }
+  if (r.kind === 'retry' && status === 503) return 'Покупки сейчас недоступны. Попробуйте позже';
   return wdErrorText(r);
 }
 
@@ -423,91 +420,24 @@ function wdApplyBalance(balance) {
 
 function wdBuy(item) {
   if (!wdBuyable(item)) return;
-  if (item.price.currency === 'chips') {
-    if (!wd.confirm) { wd.confirm = true; wd.prevMsg = ''; renderWdPreview(); return; }
-    wdBuyChips(item);
-  } else {
-    wdBuyStars(item);
-  }
+  if (!wd.confirm) { wd.confirm = true; wd.prevMsg = ''; renderWdPreview(); return; }
+  wdBuyDirect(item);
 }
 
-async function wdBuyChips(item) {
-  if (wd.busy || wd.paying) return;
+async function wdBuyDirect(item) {
+  if (wd.busy) return;
   const sent = await wdBuyRequest('/api/cosmetics/buy', item, wdValidBuy);
   wd.confirm = false;
   if (!sent) return;
   if (sent.result.kind === 'ok') {
     wd.mine.owned.add(item.code);
     wdApplyBalance(sent.result.data.balance);
+    if (Number.isSafeInteger(sent.result.data.gems)) { shop.gems = sent.result.data.gems; renderShop(); }      // кристаллы после покупки за кристаллы
     wd.prevMsg = 'Предмет куплен: ' + wdPriceText(item.price);
     haptic('success');
   } else {
     wd.prevMsg = wdBuyErrorText(sent.result, item, sent.status);
   }
-  renderWardrobe();
-}
-
-function wdStopPoll() {
-  wd.pollGen += 1;                   // устаревшие опросы и ответы openInvoice больше ничего не меняют
-  wd.paying = false;
-}
-
-async function wdBuyStars(item) {
-  if (wd.busy || wd.paying) return;
-  if (!(tg && typeof tg.openInvoice === 'function')) {
-    wd.prevMsg = 'Оплата Stars работает только внутри Telegram. Откройте игру через бота';
-    renderWardrobe();
-    return;
-  }
-  const sent = await wdBuyRequest('/api/cosmetics/invoice', item, wdValidInvoice);
-  if (!sent) return;
-  if (sent.result.kind !== 'ok') { wd.prevMsg = wdBuyErrorText(sent.result, item, sent.status); renderWardrobe(); return; }
-  const url = wdSafeInvoiceUrl(sent.result.data.invoice_url);
-  if (!url) { wd.prevMsg = 'Некорректная ссылка на оплату. Попробуйте позже'; renderWardrobe(); return; }
-  const gen = ++wd.pollGen;
-  wd.paying = true;
-  wd.payCode = item.code;
-  wd.prevMsg = 'Ожидаем оплату в Telegram…';
-  renderWardrobe();
-  const done = (text) => { if (gen === wd.pollGen) { wd.paying = false; wd.prevMsg = text; renderWardrobe(); } };
-  try {
-    tg.openInvoice(url, (status) => {
-      if (gen !== wd.pollGen) return;
-      if (status === 'paid' || status === 'pending') wdPollAfterPayment(item, gen);
-      else if (status === 'cancelled') done('');
-      else done('Оплата не прошла');
-    });
-  } catch (e) {
-    done('Не удалось открыть оплату. Попробуйте позже');
-  }
-}
-
-// После оплаты предмет появляется на сервере не мгновенно: опрос списка раз в 1,5 с до 20 с
-async function wdPollAfterPayment(item, gen) {
-  wd.prevMsg = 'Оплата обрабатывается…';
-  renderWardrobe();
-  const started = performance.now();
-  while (gen === wd.pollGen) {
-    try {
-      const mine = wdNormalizeMine(await fetchGameState('/api/cosmetics/mine', validWdMine));
-      if (gen !== wd.pollGen) return;
-      if (mine.owned.has(item.code)) {
-        wd.mine = mine;
-        wd.paying = false;
-        wd.prevMsg = 'Предмет добавлен в раздел «Оформление»';
-        haptic('success');
-        renderWardrobe();
-        return;
-      }
-    } catch (e) {
-      // временный сбой опроса: пробуем дальше до конца срока
-    }
-    if (performance.now() - started >= WD_POLL_TOTAL_MS) break;
-    await sleep(WD_POLL_MS);
-  }
-  if (gen !== wd.pollGen) return;
-  wd.paying = false;
-  wd.prevMsg = 'Платёж получен, предмет скоро появится. Если нет, напишите в /paysupport в боте';
   renderWardrobe();
 }
 
@@ -552,7 +482,6 @@ function openWardrobe() {
 function closeWardrobe() {
   if (!wd.open) return;
   wd.open = false;
-  wdStopPoll();
   wd.confirm = false;
   wd.prevMsg = '';
   wdEls.pSheet.hidden = true;
@@ -566,7 +495,7 @@ wdEls.pClose.addEventListener('click', () => {
 });
 wdEls.pAct.addEventListener('click', () => {
   const item = wd.preview;
-  if (!item || wd.busy || wd.paying) return;
+  if (!item || wd.busy) return;
   const kind = wdActKind(item);
   if (kind === 'unequip') wdUnequip(item);
   else if (kind === 'equip') wdEquip(item);

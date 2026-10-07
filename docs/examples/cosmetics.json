@@ -169,7 +169,8 @@
       "amount": 40000
     },
     "balance": 60000,
-    "replayed": false
+    "replayed": false,
+    "gems": 0
   },
   "invoice": {
     "invoice_url": "https://t.me/$example",

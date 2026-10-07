@@ -1,0 +1,27 @@
+{
+  "_comment": "Ответы кристаллов. packs: GET /api/gems/packs; invoice: POST /api/gems/invoice.",
+  "packs": {
+    "packs": [
+      {
+        "code": "gems_50",
+        "stars": 50,
+        "gems": 50
+      },
+      {
+        "code": "gems_250",
+        "stars": 250,
+        "gems": 275
+      },
+      {
+        "code": "gems_1000",
+        "stars": 1000,
+        "gems": 1200
+      }
+    ],
+    "gems": 0
+  },
+  "invoice": {
+    "invoice_url": "https://t.me/$example-link",
+    "replayed": false
+  }
+}

@@ -20,7 +20,6 @@ from web.context import Ctx
 from web.http import (MAX_BODY_BYTES, WEBHOOK_PATH, BodyTooLarge, SecurityHeadersMiddleware,  # noqa: F401 (реэкспорт для тестов)
                       TimingMiddleware, read_body_limited)
 from web.lifespan import make_lifespan
-from web.routes_cosmetics import INVOICE_INTERVAL  # noqa: F401
 from web.routes_webhook import SECRET_HEADER  # noqa: F401
 
 HOST = "127.0.0.1"  # локально только так; на Railway адрес и порт задаёт команда запуска
