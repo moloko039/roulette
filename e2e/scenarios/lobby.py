@@ -2,7 +2,7 @@
 from harness import check
 
 NAME = "lobby"
-ORDER = ["crash", "roulette", "keno", "mines", "hilo", "blackjack"]
+ORDER = ["crash", "roulette", "keno", "mines", "hilo", "blackjack", "arcade"]
 
 
 async def run(w):

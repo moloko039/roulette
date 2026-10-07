@@ -452,6 +452,7 @@ try:
     path = new_db()
     now_real = int(time.time())
     add_player(path, SECRET_ID, balance=SECRET_BALANCE, last_accrual=now_real)
+    sql(path, "UPDATE players SET rate = 0 WHERE telegram_id = ?", (SECRET_ID,))   # без дохода: граница минуты в середине теста не меняет баланс
     clock = [1000.0]
     lim = ratelimit.RateLimiter(ratelimit.load_config({"WRITE_RATE_PER_SEC": "1", "WRITE_RATE_BURST": "60",
                                                        "READ_RATE_PER_SEC": "1", "READ_RATE_BURST": "60"}),
