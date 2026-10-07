@@ -9,6 +9,10 @@ import tempfile
 from unittest import mock
 
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 from db import (delete_player_data, get_player, get_player_export, init_db, spin_roulette,
                 touch_chat_member)
 from stubs import FakeUpdate
@@ -66,8 +70,8 @@ def reset():
 class Clock:
     def __init__(self, mono=1000.0, wall=1_700_000_000):
         self.mono, self.wall = mono, wall
-        self.patches = [mock.patch.object(bot, "_clock", lambda: self.mono),
-                        mock.patch.object(bot, "_wall", lambda: self.wall)]
+        self.patches = [mock.patch.object(tg.common, "_clock", lambda: self.mono),
+                        mock.patch.object(tg.common, "_wall", lambda: self.wall)]
 
     def __enter__(self):
         for p in self.patches:
@@ -279,7 +283,7 @@ try:
                 reset()
         run(bot.delete_callback, FakeUpdate("private", user_id=ME, chat_id=ME, query_data="del:yes:1700000000"))
         wrapped = bot.guarded(bot.balance)
-        with mock.patch.object(bot, "get_player", side_effect=RuntimeError("balance=7654321 id=%d" % ME)):
+        with mock.patch.object(tg.user, "get_player", side_effect=RuntimeError("balance=7654321 id=%d" % ME)):
             asyncio.run(wrapped(FakeUpdate("private", user_id=ME), None))
         asyncio.run(bot.on_error(None, type("C", (), {"error": ValueError("СекретноеИмя %d" % ME)})()))
     assert cap.lines, "логи не перехвачены, проверка бессмысленна"

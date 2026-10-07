@@ -9,6 +9,10 @@ import tempfile
 from unittest import mock
 
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 from db import init_db
 from stubs import FakeChat, FakeUpdate, StubApplication
 
@@ -103,7 +107,7 @@ def reset():
 class Clock:
     def __init__(self, t=1000.0):
         self.t = t
-        self.patch = mock.patch.object(bot, "_clock", lambda: self.t)
+        self.patch = mock.patch.object(tg.common, "_clock", lambda: self.t)
 
     def __enter__(self):
         self.patch.start()
@@ -126,7 +130,7 @@ os.environ["DB_PATH"] = path
 os.environ["TOMBSTONE_SECRET"] = "test-secret-not-real"  # без него бот предупреждает при старте
 try:
     init_db()
-    with mock.patch.object(bot, "WEBAPP_URL", WEBAPP), env(**FULL):
+    with mock.patch.object(tg.common, "WEBAPP_URL", WEBAPP), env(**FULL):
         reset()
 
         # ---------- /start и /play ----------
@@ -242,12 +246,12 @@ try:
         # «до следующего начисления» это секунды до ближайшей минутной границы (1..60), как seconds_to_next в /api/me
         T_MIN = 1_760_000_040    # граница минуты
         for offset, seconds, uid in ((0, 60, 7001), (1, 59, 7002), (30, 30, 7003), (59, 1, 7004)):
-            with mock.patch.object(bot, "_wall", return_value=T_MIN + offset):
+            with mock.patch.object(tg.common, "_wall", return_value=T_MIN + offset):
                 u = run(bot.balance, FakeUpdate("private", user_id=uid))
             check("до следующего начисления, секунда %d минуты" % offset, u.replies[0]["text"],
                   "Баланс: 1000 фишек\nДо следующего начисления: %d сек." % seconds)
         for now in range(T_MIN, T_MIN + 61):
-            with mock.patch.object(bot, "_wall", return_value=now):
+            with mock.patch.object(tg.common, "_wall", return_value=now):
                 text = bot._balance_text(7001)
             n = int(text.rsplit(": ", 1)[1].split(" ")[0])
             assert 1 <= n <= 60 and n == bot.next_tick_in(now), (now, text)
@@ -406,7 +410,7 @@ try:
 
     # ---------- настройки не заданы или неверны ----------
     UN = "Эта функция пока недоступна"
-    with mock.patch.object(bot, "WEBAPP_URL", WEBAPP):
+    with mock.patch.object(tg.common, "WEBAPP_URL", WEBAPP):
         with env():
             reset()
             check("/play без GAME_LINK", run(bot.play, FakeUpdate("group", chat_id=-10)).replies[0]["text"], UN)
@@ -427,7 +431,7 @@ try:
             reset()
             u = run(bot.play, FakeUpdate("group", chat_id=-12))
             check("с пробелами по краям", (u.sent[0]["link_preview_options"].url, u.replies), (LINK, []))
-    with mock.patch.object(bot, "WEBAPP_URL", None), env(**FULL):
+    with mock.patch.object(tg.common, "WEBAPP_URL", None), env(**FULL):
         check("/start без WEBAPP_URL", run(bot.start, FakeUpdate("private")).replies[0]["text"], UN)
     reset()
 
@@ -522,7 +526,7 @@ try:
     try:
         wrapped = [h for h in real.handlers[0] if getattr(h, "commands", None) and "balance" in h.commands][0].callback
         u = FakeUpdate("private", user_id=1234567891)
-        with mock.patch.object(bot, "get_player", side_effect=RuntimeError("balance=7654321 name=Секрет")):
+        with mock.patch.object(tg.user, "get_player", side_effect=RuntimeError("balance=7654321 name=Секрет")):
             asyncio.run(wrapped(u, None))  # исключение не вылетает
         check("ответа нет", u.replies, [])
 

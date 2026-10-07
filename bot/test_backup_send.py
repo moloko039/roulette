@@ -20,6 +20,10 @@ import backup
 import backup_crypto
 import backup_send
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 import db
 import notify
 import verify_backup
@@ -346,7 +350,7 @@ try:
         with mock.patch.dict(os.environ, {"OWNER_CHAT_ID": str(OWNER)}):
             bot.backupnow_limiter.last.clear()
             clock = [1000.0]
-            with mock.patch.object(bot, "_clock", lambda: clock[0]):
+            with mock.patch.object(tg.common, "_clock", lambda: clock[0]):
                 u = call(FakeUpdate("private", user_id=OWNER), sender, bot_stub)
                 check("владелец: ответ", [r["text"] for r in u.replies], ["Отправляю"])
                 check("владелец: файл отправлен", len(bot_stub.documents), 1)

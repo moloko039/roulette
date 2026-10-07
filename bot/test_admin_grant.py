@@ -12,6 +12,10 @@ from unittest import mock
 
 import backup
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 import db
 import wallet
 from roulette import MAX_SAFE_INT
@@ -191,13 +195,13 @@ try:
     check("неверный id сбрасывает ожидание и ничего не начисляет", (balances(path), store.get("grant_pending")), ({1: 1000}, None))
     say(["100", "oct4"], store=store)
     t0 = store["grant_pending"]["at"]
-    with mock.patch.object(bot, "_wall", return_value=t0 + 301):
+    with mock.patch.object(tg.common, "_wall", return_value=t0 + 301):
         out = say(["confirm", "oct4"], store=store)
     assert "время вышло" in out[0], out
     check("через 5 минут 1 секунду: нет начисления", (balances(path), sql(path, "SELECT COUNT(*) FROM admin_grants")[0][0]), ({1: 1000}, 0))
     say(["100", "oct4"], store=store)
     t0 = store["grant_pending"]["at"]
-    with mock.patch.object(bot, "_wall", return_value=t0 + 300):
+    with mock.patch.object(tg.common, "_wall", return_value=t0 + 300):
         out = say(["confirm", "oct4"], store=store)
     check("ровно через 5 минут ещё действует", (out[0].startswith("Начисление выполнено"), balances(path)), (True, {1: 1100}))
     # новый /grantall заменяет ожидающее
