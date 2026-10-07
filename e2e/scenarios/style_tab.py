@@ -12,7 +12,7 @@ NAME = "style_tab"
 CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = {"me": {"rate": 0}}
 LABELS = ["Рубашка карт", "Фишки", "Стол", "Иконки мин", "Шарики кено", "Краш", "Рамка аватара", "Значок"]
-READY = "!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0"
+READY = "!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0"
 
 
 async def run(w):
@@ -29,20 +29,21 @@ async def run(w):
     check("шапка профиля: аватар и имя, по центру, пустого хвоста справа нет", [head["kids"], head["centered"], head["right"] - head["last"] <= 1], [2, True, True])
     check("при открытии профиля гардероб не запрашивался", await p.ev("E.count('/api/cosmetics/catalog')"), 0)
 
-    # --- открытие вкладки «Стиль»: данные с сервера при открытии
-    await p.tap(".tab[data-tab=style]")
-    await p.wait(READY, 15, "вкладка «Стиль» открыта")
+    # --- открытие раздела «Оформление» магазина: данные с сервера при открытии
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait(READY, 15, "раздел «Оформление» магазина открыта")
     check("после открытия по одному запросу каталога и «моего»", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [1, 1])
-    check("заголовок и подпись вкладки", await p.ev("[document.querySelector('[data-screen=style] h2').textContent.trim(), document.querySelector('.tab[data-tab=style]').getAttribute('aria-current')]"), ["Стиль", "page"])
+    check("заголовок и подпись вкладки", await p.ev("[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.querySelector('.tab[data-tab=shop]').getAttribute('aria-current')]"), ["Магазин", "page"])
     check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     check("переключатель показа, «Условия покупки» и строка про игру и Stars на месте", await p.ev(
         "[document.getElementById('wd-vis').textContent.trim(), document.getElementById('wd-terms').textContent.trim(), document.querySelector('.wd-foot-note').textContent.trim()]"),
-        ["Показывать мои рамку и значок в рейтинге", "Условия покупки", "Предметы не влияют на игру. Фишки за Stars не продаются."])
+        ["Показывать мои рамку и значок в рейтинге", "Условия покупки", "Предметы не влияют на игру."])
     check("сетка не прокручивается внутри себя", await p.ev("(() => { const g = document.getElementById('wd-grid'); return [getComputedStyle(g).overflowY, g.scrollHeight - g.clientHeight]; })()"), ["visible", 0])
     check("лист предпросмотра не открыт, он остаётся листом поверх вкладки", await p.ev("[document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-prev-sheet').classList.contains('dialog-sheet')]"), [True, True])
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр поверх вкладки")
-    check("вкладка осталась под листом", await p.ev("!document.querySelector('[data-screen=style]').hidden"), True)
+    check("вкладка осталась под листом", await p.ev("!document.querySelector('[data-screen=shop]').hidden"), True)
     await p.tap("#wd-prev-close")
 
     # --- слот помнится на сессию
@@ -50,7 +51,8 @@ async def run(w):
     check("выбран слот «Шарики кено»", await p.ev("[wd.slot, document.querySelector('#wd-tabs .wd-tab[aria-selected=true]').textContent]"), ["keno_ball", "Шарики кено"])
     await p.tap(".tab[data-tab=rating]")
     await p.wait("!document.querySelector('[data-screen=rating]').hidden", 5, "рейтинг")
-    await p.tap(".tab[data-tab=style]")
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
     await p.wait(READY, 15, "вкладка открыта снова")
     check("после ухода и возврата слот прежний", await p.ev("[wd.slot, document.querySelector('#wd-tabs .wd-tab[aria-selected=true]').textContent]"), ["keno_ball", "Шарики кено"])
     check("каждое открытие вкладки снова берёт данные с сервера", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [2, 2])
@@ -59,7 +61,8 @@ async def run(w):
     # --- узкое настольное окно: колесо, начало и конец, верх не обрезан
     await desktop(p, 320, 568)
     await w.reload()
-    await p.tap(".tab[data-tab=style]")
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
     await p.wait(READY, 15, "вкладка открыта в узком окне")
     await asyncio.sleep(0.4)
     m = await metrics(p)
@@ -67,7 +70,7 @@ async def run(w):
     check("содержимое выше окна (есть что листать)", m["max"] > 40, True)
     end = await to_end(p, 6, 190, 1)
     check("колесом доходит до самого низа, нижний край виден", [end["top"] >= end["max"] - 1, end["last"] >= -0.5], [True, True])
-    check("внизу видны «Условия покупки»", await p.ev("(() => { const r = document.getElementById('wd-terms').getBoundingClientRect(); const s = document.querySelector('[data-screen=style]').getBoundingClientRect(); return r.bottom <= s.bottom + 0.5 && r.top >= s.top; })()"), True)
+    check("внизу видны «Условия покупки»", await p.ev("(() => { const r = document.getElementById('wd-terms').getBoundingClientRect(); const s = document.querySelector('[data-screen=shop]').getBoundingClientRect(); return r.bottom <= s.bottom + 0.5 && r.top >= s.top; })()"), True)
     top = await to_end(p, 6, 190, -1)
     check("колесом возвращается к самому верху", [top["top"], top["first"] >= -0.5], [0, True])
     # колесо над сеткой карточек тоже листает страницу (сетка не ловит его)

@@ -182,8 +182,9 @@ async def scenario(w, shooter):
             w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'owner_gift', ?)", (uid, code, now))
             w.sql("INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, ?, ?)", (uid, slot, code))
     await w.reload()
-    await p.tap(tab_js("style"))
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "вкладка «Стиль»")
+    await p.tap(tab_js("shop"))
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "раздел «Оформление» магазина")
     await shot("wardrobe-list")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
@@ -195,8 +196,9 @@ async def scenario(w, shooter):
     await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && document.querySelector('#rating-list .rating-badge') && !document.getElementById('best-card').hidden", 15, "рейтинг с рамкой и значком")
     await shot("rating-cosmetics")
     # покупка в гардеробе: карточки с ценами, лист с кнопкой «Купить», подтверждение за фишки (снимки добавлены в конец)
-    await p.tap(tab_js("style"))
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && wd.catalog !== null && wd.mine !== null && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "вкладка «Стиль»")
+    await p.tap(tab_js("shop"))
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && wd.catalog !== null && wd.mine !== null && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "раздел «Оформление» магазина")
     await p.tap("#wd-tabs .wd-tab:nth-child(3)")
     await shot("wardrobe-priced")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
@@ -215,11 +217,12 @@ async def scenario(w, shooter):
     await p.wait("document.querySelectorAll('#best-list li').length >= 1 && document.querySelector('#best-list .rating-badge')", 15, "рекорды выигрыша")
     await p.ev("document.getElementById('best-card').scrollIntoView(true)")
     await shot("best-wins")
-    # вкладка «Стиль» целиком, слот по умолчанию, верх на месте (снимок добавлен в конец)
-    await p.tap(tab_js("style"))
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "вкладка «Стиль»")
+    # раздел «Оформление» магазина целиком, слот по умолчанию, верх на месте (снимок добавлен в конец)
+    await p.tap(tab_js("shop"))
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "раздел «Оформление» магазина")
     await p.tap("#wd-tabs .wd-tab:nth-child(1)")
-    await p.ev("document.querySelector('[data-screen=style]').scrollTop = 0")
+    await p.ev("document.querySelector('[data-screen=shop]').scrollTop = 0")
     await shot("style-tab")
 
 

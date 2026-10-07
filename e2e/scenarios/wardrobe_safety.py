@@ -42,8 +42,9 @@ async def run(w):
     import json
     p = w.page
     await p.ev(OVERRIDE % json.dumps(EVIL))
-    await p.tap(".tab[data-tab=style]")
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     check("в карточках нет разметки из ответа сервера", await p.ev("[document.querySelectorAll('#wd-grid img, #wd-grid b, #wd-grid script').length, window.__pwn || 0]"), [0, 0])
     check("название выведено текстом", await p.ev("document.querySelector('#wd-grid .wd-card .wd-name').textContent"), EVIL[:40])
     check("неизвестные коды и предметы чужого слота пропущены", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].map(c => c.dataset.code)"), ["back_classic", "back_midnight"])

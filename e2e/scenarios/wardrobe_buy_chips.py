@@ -9,7 +9,7 @@ USERS = {"me": {"rate": 0}}
 CLOCK_MOD = 2      # минутная граница начисления далеко: лишний /api/me по таймеру не вклинивается в сетевой эталон
 ALLOW_CONSOLE = (r"status of 409",)
 NBSP = "(s) => s.replace(/\\s/g, ' ')"
-NOTE = "Предметы не влияют на игру. Фишки за Stars не продаются."
+NOTE = "Предметы не влияют на игру."
 
 OVERRIDE = """
 (() => {
@@ -39,8 +39,9 @@ async def msg(p):
 async def run(w):
     p = w.page
     uid = w.users["me"].id
-    await p.tap(".tab[data-tab=style]")
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     await p.ev(OVERRIDE)
     n = NBSP
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, (%s)(c.querySelector('.wd-status').textContent), c.getBoundingClientRect().height])" % n
@@ -123,4 +124,4 @@ async def run(w):
     check("429", await direct(item, "429"), "Слишком часто: подождите секунду и повторите")
     check("503 после повторов", await direct(item, "503"), "Покупки сейчас недоступны. Попробуйте позже")
     check("нет сети после повторов", await direct(item, "net"), "Нет связи с сервером. Попробуйте ещё раз")
-    check("экран цел, баланс прежний", await p.ev("[document.querySelector('[data-screen=style]').hidden, srv.balance, wd.busy]"), [False, 40000, False])
+    check("экран цел, баланс прежний", await p.ev("[document.querySelector('[data-screen=shop]').hidden, srv.balance, wd.busy]"), [False, 40000, False])

@@ -1,5 +1,5 @@
 // #region Гардероб
-// Оформление (косметика, только внешний вид): рамка и значок у себя и в рейтинге, вкладка «Стиль» (гардероб) с предпросмотром.
+// Оформление (косметика, только внешний вид): рамка и значок у себя и в рейтинге, раздел «Оформление» магазина (гардероб) с предпросмотром.
 // Коды с сервера проверяются по белому списку SKIN_CODES: неизвестные игнорируются; тексты каталога выводятся только через textContent,
 // разметка (SVG) берётся из констант клиента по проверенному коду. Покупок и цен нет: предметы выдаёт владелец.
 const WD_SLOTS = [
@@ -75,7 +75,7 @@ function setOwnCosmetics(c) {
   renderOwnCosmetics();
 }
 
-// ----- вкладка «Стиль» (гардероб) -----
+// ----- раздел «Оформление» магазина (гардероб) -----
 const wdEls = {
   tabs: document.getElementById('wd-tabs'), grid: document.getElementById('wd-grid'), vis: document.getElementById('wd-vis'),
   msg: document.getElementById('wd-msg'),
@@ -494,7 +494,7 @@ async function wdPollAfterPayment(item, gen) {
       if (mine.owned.has(item.code)) {
         wd.mine = mine;
         wd.paying = false;
-        wd.prevMsg = 'Предмет добавлен во вкладку «Стиль»';
+        wd.prevMsg = 'Предмет добавлен в раздел «Оформление»';
         haptic('success');
         renderWardrobe();
         return;

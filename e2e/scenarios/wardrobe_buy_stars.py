@@ -8,7 +8,7 @@ NAME = "wardrobe_buy_stars"
 USERS = {"me": {"rate": 0}}
 CLOCK_MOD = 1
 ALLOW_CONSOLE = (r"status of 409", r"status of 502")
-NOTE = "Предметы не влияют на игру. Фишки за Stars не продаются."
+NOTE = "Предметы не влияют на игру."
 
 OVERRIDE = """
 (() => {
@@ -44,8 +44,9 @@ async def run(w):
     p = w.page
     uid = w.users["me"].id
     now = int(time.time())
-    await p.tap(".tab[data-tab=style]")
-    await p.wait("!document.querySelector('[data-screen=style]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
+    await p.tap(".tab[data-tab=shop]")
+    await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     await p.ev(OVERRIDE)
     clean = "(s) => s.replace(/\\s/g, ' ')"
     # цена и кнопка из каталога
@@ -65,7 +66,7 @@ async def run(w):
     await p.wait("document.getElementById('wd-prev-act').textContent === 'Надеть'", 10, "предмет появился")
     check("успех: сообщение, статус, кнопка разблокирована, сетка обновилась", await p.ev(
         "[document.getElementById('wd-prev-msg').textContent, document.getElementById('wd-prev-status').textContent, !document.getElementById('wd-prev-act').disabled, wd.paying, document.querySelector('#wd-grid .wd-card:nth-child(2) .wd-status').textContent]"),
-        ["Предмет добавлен во вкладку «Стиль»", "Есть", True, False, "Есть"])
+        ["Предмет добавлен в раздел «Оформление»", "Есть", True, False, "Есть"])
     await p.ev("E.sleep(1100)")
     await p.tap("#wd-prev-act")
     await p.wait("document.documentElement.getAttribute('data-skin-table') === 'table_blue'", 10, "куплено и надето")
@@ -104,7 +105,7 @@ async def run(w):
     mine = await p.ev("E.count('/api/cosmetics/mine')")
     await p.tap("#wd-prev-close")
     await p.ev("E.sleep(3500)")
-    check("закрытие во время ожидания: опрос остановлен, экран цел", await p.ev("[E.count('/api/cosmetics/mine') - %d, wd.paying, document.getElementById('wd-prev-sheet').hidden, document.querySelector('[data-screen=style]').hidden]" % mine), [await p.ev("E.count('/api/cosmetics/mine') - %d" % mine), False, True, False])
+    check("закрытие во время ожидания: опрос остановлен, экран цел", await p.ev("[E.count('/api/cosmetics/mine') - %d, wd.paying, document.getElementById('wd-prev-sheet').hidden, document.querySelector('[data-screen=shop]').hidden]" % mine), [await p.ev("E.count('/api/cosmetics/mine') - %d" % mine), False, True, False])
     # нет openInvoice (вне Telegram)
     await open_item(p, 6, 2)
     await p.ev("window.Telegram.WebApp.__oi = window.Telegram.WebApp.openInvoice; delete window.Telegram.WebApp.openInvoice; window.__invoices = []")

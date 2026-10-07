@@ -21,7 +21,8 @@
   <link rel="stylesheet" href="css/09-crash.css?v=4717fdb7">
   <link rel="stylesheet" href="css/10-hilo.css?v=4cf770b5">
   <link rel="stylesheet" href="css/11-lobby.css?v=55ece568">
-  <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=763a9ece">
+  <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=511f8c12">
+  <link rel="stylesheet" href="css/13-shop.css?v=e1f39294">
 </head>
 <body>
   <div class="shell">
@@ -104,13 +105,29 @@
     <small class="profile-code" id="rating-code"></small>
     <button type="button" class="action profile-retry" id="rating-retry" hidden>Повторить</button>
   </section>
-  <section class="screen style-screen" data-screen="style" hidden>
-    <h2>Стиль</h2>
-    <div class="wd-body">
+  <section class="screen shop-screen" data-screen="shop" hidden>
+    <h2>Магазин</h2>
+    <div class="shop-gems" aria-live="polite"><span class="shop-gems-icon" id="shop-gems-icon" aria-hidden="true"></span><span>Кристаллы: <strong id="shop-gems">…</strong></span></div>
+    <div class="shop-pages" id="shop-pages" role="tablist" aria-label="Разделы магазина">
+      <button type="button" class="wd-tab" role="tab" data-page="gems" aria-selected="true">Кристаллы</button>
+      <button type="button" class="wd-tab" role="tab" data-page="chips" aria-selected="false">Фишки</button>
+      <button type="button" class="wd-tab" role="tab" data-page="look" aria-selected="false">Оформление</button>
+    </div>
+    <div class="shop-page" id="shop-page-gems" role="tabpanel">
+      <p class="shop-lead">Кристаллы покупаются за Telegram Stars и тратятся на предметы оформления. На шансы в играх они не влияют.</p>
+      <ul class="gem-packs" id="gem-packs"></ul>
+      <p class="dialog-msg" id="gem-msg" aria-live="polite"></p>
+      <p class="shop-note">Пакет можно вернуть, пока его кристаллы не потрачены: напишите в /paysupport в боте. <button type="button" class="dialog-change" id="gem-terms">Условия покупки</button></p>
+    </div>
+    <div class="shop-page" id="shop-page-chips" role="tabpanel" hidden>
+      <p class="shop-lead">Покупка фишек за кристаллы скоро появится здесь.</p>
+      <p class="shop-note">Фишки можно только купить. Продать их или обменять на реальные деньги и Stars нельзя. <button type="button" class="dialog-change" id="chips-terms">Условия покупки</button></p>
+    </div>
+    <div class="shop-page wd-body" id="shop-page-look" role="tabpanel" hidden>
       <div class="wd-tabs" id="wd-tabs" role="tablist" aria-label="Слоты оформления"></div>
       <div class="wd-grid" id="wd-grid"></div>
       <button type="button" class="wd-switch" id="wd-vis" role="switch" aria-checked="true"><span class="wd-switch-text">Показывать мои рамку и значок в рейтинге</span><span class="wd-switch-knob" aria-hidden="true"></span></button>
-      <div class="wd-foot"><button type="button" class="dialog-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру. Фишки за Stars не продаются.</span></div>
+      <div class="wd-foot"><button type="button" class="dialog-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру.</span></div>
       <p class="dialog-msg" id="wd-msg" aria-live="polite"></p>
     </div>
   </section>
@@ -541,7 +558,7 @@
       <div class="dialog-head"><strong id="wd-prev-title"></strong><span class="wd-status" id="wd-prev-status"></span></div>
       <div class="wd-scene" id="wd-prev-scene"></div>
       <p class="wd-desc" id="wd-prev-desc"></p>
-      <p class="wd-desc" id="wd-prev-note" hidden>Предметы не влияют на игру. Фишки за Stars не продаются.</p>
+      <p class="wd-desc" id="wd-prev-note" hidden>Предметы не влияют на игру.</p>
       <p class="dialog-msg" id="wd-prev-msg" aria-live="polite"></p>
       <div class="row dialog-actions">
         <button type="button" class="action" id="wd-prev-close">Закрыть</button>
@@ -561,7 +578,7 @@
   </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
-  <script src="js/00-config.js?v=006cbb3a"></script>
+  <script src="js/00-config.js?v=2a60eca8"></script>
   <script src="js/01-core.js?v=d5a6594e"></script>
   <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
@@ -573,8 +590,9 @@
   <script src="js/09-blackjack.js?v=6d9fd117"></script>
   <script src="js/10-crash.js?v=8de486b3"></script>
   <script src="js/11-hilo.js?v=59039265"></script>
-  <script src="js/13-wardrobe.js?v=42bd4425"></script>
-  <script src="js/14-lobby.js?v=007b0796"></script>
+  <script src="js/12-shop.js?v=86a0d300"></script>
+  <script src="js/13-wardrobe.js?v=af8a8128"></script>
+  <script src="js/14-lobby.js?v=d727000a"></script>
   <script src="js/15-arcade.js?v=ca5ba0bc"></script>
   <script src="js/16-a11y.js?v=09029a73"></script>
   <script src="js/17-start.js?v=6b477d77"></script>

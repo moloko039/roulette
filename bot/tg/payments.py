@@ -63,7 +63,7 @@ async def terms(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if kind != "private":
         return
     url = terms_url()
-    await _reply(update, ("Условия покупки предметов: " + url) if url else UNAVAILABLE)
+    await _reply(update, ("Условия покупок: " + url) if url else UNAVAILABLE)
 
 
 async def pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -144,7 +144,7 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await _send_quiet(context, user_id, "Этот предмет у вас уже был. Возврат оформит владелец, подробности: /paysupport")
             await _notify_owner(context, "Автоматический возврат не удался (предмет уже был). Платёж: %s. Вернуть: /refund %s" % (charge_id, charge_id))
         return
-    await _send_quiet(context, user_id, "Предмет добавлен во вкладку «Стиль»")
+    await _send_quiet(context, user_id, "Предмет добавлен в раздел «Оформление»")
 
 
 async def _refund_and_record_unknown(context, user_id, charge_id):

@@ -32,7 +32,7 @@ PRIVATE_COMMANDS = [
     BotCommand("mydata", "Выгрузить мои данные"),
     BotCommand("deletemydata", "Удалить мои данные"),
     BotCommand("paysupport", "Помощь по оплате"),
-    BotCommand("terms", "Условия покупки предметов"),
+    BotCommand("terms", "Условия покупок"),
 ]
 
 
