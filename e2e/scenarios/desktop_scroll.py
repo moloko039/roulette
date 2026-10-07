@@ -158,9 +158,18 @@ async def run(w):
         if m["max"] <= 1:
             continue
         await p.send("Input.synthesizeScrollGesture", {"x": 8, "y": 300, "yDistance": -400, "gestureSourceType": "touch", "speed": 1200})
-        await asyncio.sleep(0.4)
         moved = await metrics(p)
+        for _ in range(20):                # жест на медленной машине (CI) доходит позже: ждём до 4 секунд, а не фиксированные 0,4
+            if moved["top"] > 0:
+                break
+            await asyncio.sleep(0.2)
+            moved = await metrics(p)
         check("тач: %s прокручивается пальцем вверх" % tab, moved["top"] > 0, True)
         await p.send("Input.synthesizeScrollGesture", {"x": 8, "y": 300, "yDistance": 1200, "gestureSourceType": "touch", "speed": 1200})
-        await asyncio.sleep(0.4)
-        check("тач: %s возвращается к началу пальцем вниз" % tab, (await metrics(p))["top"], 0)
+        back = await metrics(p)
+        for _ in range(20):
+            if back["top"] == 0:
+                break
+            await asyncio.sleep(0.2)
+            back = await metrics(p)
+        check("тач: %s возвращается к началу пальцем вниз" % tab, back["top"], 0)
