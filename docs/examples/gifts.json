@@ -1,0 +1,24 @@
+{
+  "_comment": "Подарки. recipients: GET /api/gifts/recipients; send: POST /api/gifts/send.",
+  "recipients": {
+    "recipients": [
+      {
+        "name": "Боб",
+        "ref": "0123456789abcdef0123456789abcdef"
+      }
+    ],
+    "daily_left": 5,
+    "gems": 400
+  },
+  "send": {
+    "item_code": "table_blue",
+    "price": {
+      "currency": "gems",
+      "amount": 150
+    },
+    "recipient": "Боб",
+    "gems": 250,
+    "daily_left": 4,
+    "replayed": false
+  }
+}

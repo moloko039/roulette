@@ -121,6 +121,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/streak",
@@ -132,6 +133,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/streak",
@@ -143,6 +145,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/streak",
@@ -156,6 +159,17 @@
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/farm"
+],
+"gift_send": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients",
+"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"3b67bf8bc8449b04d1dce9b1ed047646\",\"request_id\":\"<rid:36>\"}",
+"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"3b67bf8bc8449b04d1dce9b1ed047646\",\"request_id\":\"<rid:36>\"}"
 ],
 "hilo": [
 "GET /api/me",
@@ -258,8 +272,7 @@
 "POST /api/crash/cashout {\"request_id\":\"<rid:36>\"}",
 "GET /api/hilo/state",
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
-"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}",
-"GET /api/me"
+"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}"
 ],
 "shop_chips": [
 "GET /api/me",
@@ -268,6 +281,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "POST /api/chips/buy {\"pack_code\":\"chips_24h\",\"request_id\":\"<rid:36>\"}",
 "POST /api/chips/buy {\"pack_code\":\"chips_72h\",\"request_id\":\"<rid:36>\"}",
 "POST /api/chips/buy {\"pack_code\":\"chips_6h\",\"request_id\":\"<rid:36>\"}"
@@ -279,6 +293,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "POST /api/gems/invoice {\"pack_code\":\"gems_250\",\"request_id\":\"<rid:36>\"}",
 "POST /api/gems/invoice {\"pack_code\":\"gems_50\",\"request_id\":\"<rid:36>\"}",
 "POST /api/gems/invoice {\"pack_code\":\"gems_1000\",\"request_id\":\"<rid:36>\"}",
@@ -320,18 +335,21 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/me",
 "GET /api/streak",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
-"GET /api/chips/packs"
+"GET /api/chips/packs",
+"GET /api/gifts/recipients"
 ],
 "wardrobe_buy_chips": [
 "GET /api/me",
@@ -340,6 +358,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "POST /api/cosmetics/buy {\"item_code\":\"badge_spade\",\"request_id\":\"<rid:36>\"}",
 "POST /api/cosmetics/equip {\"code\":\"badge_spade\",\"request_id\":\"<rid:36>\",\"slot\":\"badge\"}",
 "POST /api/cosmetics/buy {\"item_code\":\"chip_ring\",\"request_id\":\"<rid:36>\"}",
@@ -355,6 +374,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "POST /api/cosmetics/buy {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
 "POST /api/cosmetics/buy {\"item_code\":\"crash_neon\",\"request_id\":\"<rid:36>\"}"
 ],
@@ -362,7 +382,8 @@
 "GET /api/me",
 "GET /api/streak",
 "GET /api/gems/packs",
-"GET /api/chips/packs"
+"GET /api/chips/packs",
+"GET /api/gifts/recipients"
 ],
 "wardrobe_flow": [
 "GET /api/me",
@@ -373,6 +394,7 @@
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "POST /api/cosmetics/equip {\"code\":\"back_midnight\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
 "POST /api/cosmetics/unequip {\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
 "POST /api/cosmetics/equip {\"code\":\"back_midnight\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}",
@@ -384,7 +406,8 @@
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
-"GET /api/chips/packs"
+"GET /api/chips/packs",
+"GET /api/gifts/recipients"
 ],
 "wardrobe_rating": [
 "GET /api/me",
@@ -401,6 +424,7 @@
 "GET /api/streak",
 "GET /api/gems/packs",
 "GET /api/chips/packs",
+"GET /api/gifts/recipients",
 "GET /api/chat/best-wins"
 ]
 }

@@ -14,7 +14,7 @@ import db
 import notify
 import ratelimit
 from db import init_db
-from web import (routes_account, routes_chat, routes_cosmetics, routes_chips, routes_farm, routes_games, routes_gems,
+from web import (routes_account, routes_chat, routes_cosmetics, routes_chips, routes_farm, routes_games, routes_gems, routes_gifts,
                  routes_streak, routes_transfers, routes_webhook)
 from web.context import Ctx
 from web.http import (MAX_BODY_BYTES, WEBHOOK_PATH, BodyTooLarge, SecurityHeadersMiddleware,  # noqa: F401 (реэкспорт для тестов)
@@ -61,7 +61,7 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
     app.add_middleware(SecurityHeadersMiddleware)  # внешний: заголовки есть и у 4xx/5xx, и у ответов CORS
 
     ctx = Ctx(bot_token, db_path, rate_limiter, webhook_secret)
-    for routes in (routes_account, routes_chat, routes_farm, routes_cosmetics, routes_gems, routes_chips, routes_streak, routes_games, routes_transfers, routes_webhook):
+    for routes in (routes_account, routes_chat, routes_farm, routes_cosmetics, routes_gems, routes_chips, routes_gifts, routes_streak, routes_games, routes_transfers, routes_webhook):
         routes.register(app, ctx)
     return app
 

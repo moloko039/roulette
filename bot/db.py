@@ -48,6 +48,7 @@ from core.players import get_player
 from features.give_db import GIVE_MAX_AMOUNT, PlayerMissing, give_owner
 from features.chat_db import TOP_SIZE, touch_chat_member, chat_top, chat_best_wins
 from features.active_game_db import active_game_of
+from features.gifts_db import GiftError, gift_recipients, send_gift
 from features.streak_db import StreakError, claim_streak, streak_status
 from features.stats_db import economy_stats, stats_text
 from features.chips_db import ChipsError, UnknownChipPack, DailyLimit, chips_in_pack, chip_packs_state, buy_chip_pack

@@ -41,9 +41,16 @@ def cosmetics_mine(telegram_id, db_path=None):
     """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге."""
     conn = _connect(db_path)
     try:
-        owned = [{"code": r["item_code"], "source": r["source"], "acquired_at": r["acquired_at"]} for r in conn.execute(
-            "SELECT item_code, source, acquired_at FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at, item_code",
-            (telegram_id,)) if cosmetics.item(r["item_code"]) is not None]
+        gift_names = {r["item_code"]: r["from_name"] for r in conn.execute("SELECT item_code, from_name FROM gifts WHERE to_user = ? ORDER BY id", (telegram_id,))} if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gifts'").fetchone() else {}
+        owned = []
+        for r in conn.execute("SELECT item_code, source, acquired_at FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at, item_code", (telegram_id,)):
+            if cosmetics.item(r["item_code"]) is None:
+                continue
+            entry = {"code": r["item_code"], "source": r["source"], "acquired_at": r["acquired_at"]}
+            if r["source"] == "gift":
+                entry["gift_from"] = gift_names.get(r["item_code"], "")     # имя дарителя на момент подарка (пусто, если даритель удалил данные)
+            owned.append(entry)
         state = {"equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id)),
                  "show_in_rating": _show_in_rating(conn, telegram_id)}
         return dict({"owned": owned}, **state)
