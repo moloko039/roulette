@@ -275,42 +275,17 @@
 "POST /api/cosmetics/buy {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
 "POST /api/cosmetics/buy {\"item_code\":\"back_ember\",\"request_id\":\"<rid:36>\"}"
 ],
-"wardrobe_buy_safety": [
-"GET /api/me",
-"GET /api/gems/packs"
-],
-"wardrobe_buy_stars": [
+"wardrobe_buy_gems": [
 "GET /api/me",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
-"POST /api/cosmetics/invoice {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"POST /api/cosmetics/equip {\"code\":\"table_blue\",\"request_id\":\"<rid:36>\",\"slot\":\"table\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"keno_hex\",\"request_id\":\"<rid:36>\"}",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"GET /api/cosmetics/mine",
-"POST /api/cosmetics/invoice {\"item_code\":\"back_midnight\",\"request_id\":\"<rid:36>\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"back_midnight\",\"request_id\":\"<rid:36>\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"back_midnight\",\"request_id\":\"<rid:36>\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"chip_ring\",\"request_id\":\"<rid:36>\"}",
-"POST /api/cosmetics/invoice {\"item_code\":\"back_ember\",\"request_id\":\"<rid:36>\"}"
+"POST /api/cosmetics/buy {\"item_code\":\"table_blue\",\"request_id\":\"<rid:36>\"}",
+"POST /api/cosmetics/buy {\"item_code\":\"crash_neon\",\"request_id\":\"<rid:36>\"}"
+],
+"wardrobe_buy_safety": [
+"GET /api/me",
+"GET /api/gems/packs"
 ],
 "wardrobe_flow": [
 "GET /api/me",

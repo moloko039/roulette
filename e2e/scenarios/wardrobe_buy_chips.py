@@ -53,7 +53,7 @@ async def run(w):
     # подтверждение
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
-    check("кнопка «Купить за …» и строка про игру и Stars", await p.ev("[(%s)(document.getElementById('wd-prev-act').textContent), document.getElementById('wd-prev-note').hidden, document.getElementById('wd-prev-note').textContent]" % n),
+    check("кнопка «Купить за …» и строка про игру", await p.ev("[(%s)(document.getElementById('wd-prev-act').textContent), document.getElementById('wd-prev-note').hidden, document.getElementById('wd-prev-note').textContent]" % n),
           ["Купить за 20 000 фишек", False, NOTE])
     base = await p.ev("E.count('/api/cosmetics/buy')")
     await p.tap("#wd-prev-act")
@@ -113,11 +113,11 @@ async def run(w):
     # остальные ошибки (прямой вызов запросов, текст в листе)
     async def direct(item, mode=None):
         await p.ev("window.__buyMode = %r" % (mode or ""))
-        await p.ev("wdBuyChips(%s)" % item)
+        await p.ev("wdBuyDirect(%s)" % item)
         await p.wait("!wd.busy", 40, "запрос завершён")
         await p.ev("window.__buyMode = ''")
         return await msg(p)
-    check("не за фишки", await direct("{ code: 'table_blue', slot: 'table', price: { currency: 'chips', amount: 5 } }"), "Этот предмет продаётся за Stars")
+    check("предмет за кристаллы без кристаллов: сервер берёт кристаллы, подсказка", await direct("{ code: 'table_blue', slot: 'table', price: { currency: 'chips', amount: 5 } }"), "Не хватает 5 кристаллов. Их можно купить на странице «Кристаллы»")
     check("недоступен", await direct("{ code: 'back_ember', slot: 'card_back', price: { currency: 'chips', amount: 5 } }"), "Этот предмет пока недоступен")
     item = "{ code: 'mine_star', slot: 'mine_icons', price: { currency: 'chips', amount: 60000 } }"
     check("конфликт запроса", await direct(item, "conflict"), "Запрос уже обработан, обновите экран")

@@ -13,7 +13,7 @@ SLOT_NAMES = {
 PUBLIC_SLOTS = ("avatar_frame", "badge")      # видны другим участникам беседы, только если игрок их надел и не скрыл
 RARITIES = ("starter", "common", "rare", "premium")    # редкость только визуальная
 PURCHASE_RETENTION_DAYS = 365   # журнал оплат Stars хранится столько дней после покупки (споры и возвраты), даже после удаления данных игрока
-SOURCES = ("free", "owner_gift", "stars", "chips")
+SOURCES = ("free", "owner_gift", "stars", "chips", "gems")
 
 
 class CosmeticsError(Exception):
@@ -62,6 +62,15 @@ class NotForChips(CosmeticsError):
     code = "not_for_chips"
 
 
+class InsufficientGems(CosmeticsError):
+    code = "insufficient_gems"
+
+
+class NotForGems(CosmeticsError):
+    """Предмет продаётся не за кристаллы (за фишки или за Stars)."""
+    code = "not_for_gems"
+
+
 class NotForStars(CosmeticsError):
     """Предмет продаётся за фишки, за Stars его купить нельзя."""
     code = "not_for_stars"
@@ -69,11 +78,15 @@ class NotForStars(CosmeticsError):
 
 # Цены (единственное место): код -> (валюта "stars"|"chips", сумма). Только у восьми доступных нестартовых предметов; у стартовых и недоступных цены нет.
 # Фишки не продаются за Stars и не обмениваются: за Stars продаётся только косметика.
+# С 2026-10-07 (план экономики, E2) за Stars продаются только кристаллы; предметы продаются за кристаллы или фишки (курс прежних цен в Stars 1 к 1).
 PRICES = {
-    "table_blue": ("stars", 150), "crash_neon": ("stars", 100), "back_midnight": ("stars", 100), "keno_hex": ("stars", 75),
+    "table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75),
     "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000),
 }
-STARS, CHIPS = "stars", "chips"
+STARS, CHIPS, GEMS = "stars", "chips", "gems"
+# Прежние цены в Stars: нужны только чтобы принять оплату по счетам, выставленным до перехода на кристаллы, и скрытому тестовому предмету (/teststars).
+# Новые счета на предметы не создаются (POST /api/cosmetics/invoice отвечает 410).
+LEGACY_STARS_PRICES = {"table_blue": 150, "crash_neon": 100, "back_midnight": 100, "keno_hex": 75}
 
 # (код, слот, название, описание, редкость, доступен ли). Стартовые: редкость starter.
 _ROWS = (
@@ -112,6 +125,15 @@ _BY_CODE = {i["code"]: i for i in CATALOG}
 # (item() его не знает), но покупается, хранится и возвращается как обычный платный предмет.
 TEST_ITEM = {"code": "test_1star", "slot": "badge", "name": "Тестовый предмет", "description": "Проверка оплаты: на игру не влияет",
              "rarity": "common", "price": {"currency": STARS, "amount": 1}, "starter": False, "available": True}
+
+
+def stars_price(code):
+    """Цена в Stars для приёма оплаты по старому счёту или тестовому предмету; None, если за Stars предмет не продаётся."""
+    if type(code) is not str:
+        return None
+    if code == TEST_ITEM["code"]:
+        return TEST_ITEM["price"]["amount"]
+    return LEGACY_STARS_PRICES.get(code)
 
 
 def sellable(code):

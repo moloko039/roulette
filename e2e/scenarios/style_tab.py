@@ -36,7 +36,7 @@ async def run(w):
     check("после открытия по одному запросу каталога и «моего»", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [1, 1])
     check("заголовок и подпись вкладки", await p.ev("[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.querySelector('.tab[data-tab=shop]').getAttribute('aria-current')]"), ["Магазин", "page"])
     check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
-    check("переключатель показа, «Условия покупки» и строка про игру и Stars на месте", await p.ev(
+    check("переключатель показа, «Условия покупки» и строка про игру на месте", await p.ev(
         "[document.getElementById('wd-vis').textContent.trim(), document.getElementById('wd-terms').textContent.trim(), document.querySelector('.wd-foot-note').textContent.trim()]"),
         ["Показывать мои рамку и значок в рейтинге", "Условия покупки", "Предметы не влияют на игру."])
     check("сетка не прокручивается внутри себя", await p.ev("(() => { const g = document.getElementById('wd-grid'); return [getComputedStyle(g).overflowY, g.scrollHeight - g.clientHeight]; })()"), ["visible", 0])

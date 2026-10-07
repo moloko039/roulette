@@ -17,7 +17,6 @@ from unittest import mock
 from fastapi.testclient import TestClient
 from telegram.error import TelegramError
 
-import web.routes_cosmetics as api  # INVOICE_INTERVAL живёт в модуле маршрутов косметики
 import bot
 import tg.common
 import tg.owner
@@ -276,13 +275,13 @@ try:
     cat = client.get("/api/cosmetics/catalog", headers=auth(A)).json()
     prices = {i["code"]: i["price"] for i in cat["items"] if i["price"]}
     check("каталог отдаёт цены восьми предметов", sorted(prices), sorted(cosmetics.PRICES))
-    check("форма цены", prices["table_blue"], {"currency": "stars", "amount": 150})
+    check("форма цены: предметы за кристаллы и за фишки", (prices["table_blue"], prices["chip_ring"]), ({"currency": "gems", "amount": 150}, {"currency": "chips", "amount": 40000}))
     check("в каталоге нет скрытого тестового предмета", "test_1star" in json.dumps(cat), False)
     r = post(A, "buy", {"request_id": "api-buy-000001", "item_code": "badge_spade"})
     check("API покупка", (r.status_code, sorted(r.json()), r.json()["balance"]), (200, sorted(examples["buy"]), 980_000))
     check("повтор через API", post(A, "buy", {"request_id": "api-buy-000001", "item_code": "badge_spade"}).json()["replayed"], True)
     errs = {}
-    for name, body, code in (("уже есть", {"request_id": rid(), "item_code": "badge_spade"}, "already_owned"), ("за Stars", {"request_id": rid(), "item_code": "table_blue"}, "not_for_chips"),
+    for name, body, code in (("уже есть", {"request_id": rid(), "item_code": "badge_spade"}, "already_owned"), ("за кристаллы, кристаллов нет", {"request_id": rid(), "item_code": "table_blue"}, "insufficient_gems"),
                              ("недоступен", {"request_id": rid(), "item_code": "back_ember"}, "item_unavailable"), ("конфликт", {"request_id": "api-buy-000001", "item_code": "chip_ring"}, "request_conflict")):
         r = post(A, "buy", body)
         check("API: " + name, (r.status_code, r.json()), (409, {"detail": code}))
@@ -295,39 +294,13 @@ try:
     check("без подписи", client.post("/api/cosmetics/buy", json={"request_id": rid(), "item_code": "chip_ring"}).status_code, 401)
     check("покупка видна в /mine и не меняет игровые поля /api/me", (client.get("/api/cosmetics/mine", headers=auth(A)).json()["owned"][0]["source"],
                                                                    client.get("/api/me", headers=auth(A)).json()["level"]), ("chips", 3))
-    # ---- инвойс ----
+    # ---- счета на предметы за Stars больше не создаются (E2): за Stars покупаются кристаллы ----
     body = {"request_id": "api-inv-000001", "item_code": "table_blue"}
-    check("без бота (нет приложения Telegram): 503", (lambda x: (x.status_code, x.json()))(post(A, "invoice", body)), (503, {"detail": "payments_unavailable"}))
+    check("счёт на предмет: 410 Gone", (lambda x: (x.status_code, x.json()))(post(A, "invoice", body)), (410, {"detail": "gone"}))
+    check("счёт на предмет без бота и без тела тоже 410", (post(A, "invoice", {}).status_code, client.post("/api/cosmetics/invoice").status_code), (410, 410))
     fake = FakeBot()
     application.state.application = SimpleNamespace(bot=fake)
-    r = post(A, "invoice", body)
-    check("инвойс: ссылка", (r.status_code, r.json()), (200, {"invoice_url": "https://t.me/$fake-link-1", "replayed": False}))
-    call = fake.links[0]
-    check("параметры Stars: XTR, пустой provider_token, одна цена 150", (call["currency"], call["provider_token"], [(p.label, p.amount) for p in call["prices"]]), ("XTR", "", [("Лагуна", 150)]))
-    text = (call["title"] + " " + call["description"]).lower()
-    assert not any(w in text for w in ("выигр", "удач", "шанс", "фортун")), text
-    assert len(call["title"]) <= 32 and len(call["description"]) <= 255
-    payload = call["payload"]
-    assert len(payload.encode()) <= 128 and str(A) not in payload, payload
-    check("метка: подпись связана с игроком, предмет читается", (cosmetics.parse_payload(payload, A, now=int(time.time())), cosmetics.parse_payload(payload, B, now=int(time.time()))), ("table_blue", None))
-    check("метка не принимается позже суток и с испорченной подписью", (cosmetics.parse_payload(payload, A, now=int(time.time()) + 90_000), cosmetics.parse_payload(payload[:-1] + ("1" if payload[-1] == "0" else "0"), A, now=int(time.time()))), (None, None))
-    check("повтор того же request_id: та же ссылка", post(A, "invoice", body).json(), {"invoice_url": "https://t.me/$fake-link-1", "replayed": True})
-    r = post(A, "invoice", {"request_id": "api-inv-000002", "item_code": "table_blue"})
-    check("не чаще одной ссылки на игрока и предмет за 10 секунд: 429", (r.status_code, r.json(), r.headers.get("Retry-After") is not None), (429, {"error": "too_many_requests"}, True))
-    check("другой предмет за Stars сразу", post(A, "invoice", {"request_id": "api-inv-000003", "item_code": "crash_neon"}).status_code, 200)
-    check("после интервала можно снова", (lambda: (setattr(api, "INVOICE_INTERVAL", 0), post(A, "invoice", {"request_id": "api-inv-000004", "item_code": "table_blue"}).status_code)[1])(), 200)
-    api.INVOICE_INTERVAL = 10
-    for name, item, status, code in (("за фишки", "chip_ring", 409, "not_for_stars"), ("недоступный", "frame_double", 409, "item_unavailable"), ("стартовый", "table_green", 409, "item_unavailable")):
-        r = post(A, "invoice", {"request_id": rid(), "item_code": item})
-        check("инвойс: " + name, (r.status_code, r.json()), (status, {"detail": code}))
-    check("инвойс: неизвестный предмет", post(A, "invoice", {"request_id": rid(), "item_code": "nope"}).status_code, 404)
-    check("инвойс: скрытый тестовый предмет через API недоступен", post(A, "invoice", {"request_id": rid(), "item_code": "test_1star"}).status_code, 404)
-    db.grant_item(B, "keno_hex", "owner_gift", db_path=path)
-    check("инвойс: предмет уже есть", (lambda x: (x.status_code, x.json()))(post(B, "invoice", {"request_id": rid(), "item_code": "keno_hex"})), (409, {"detail": "already_owned"}))
-    fake.link_error = "boom"
-    check("сбой Telegram при создании ссылки: 502", post(A, "invoice", {"request_id": rid(), "item_code": "back_midnight"}).status_code, 502)
-    fake.link_error = None
-    check("инвойс: 400 на неверное тело", post(A, "invoice", {"request_id": rid()}).status_code, 400)
+    check("и с ботом ссылка не создаётся", (post(A, "invoice", body).status_code, fake.links), (410, []))
 
     # ================= pre_checkout_query =================
     path = new_db()
