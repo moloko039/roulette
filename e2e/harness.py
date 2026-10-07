@@ -30,7 +30,7 @@ except ImportError:   # понятное сообщение вместо тре�
 E2E = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(E2E)
 BOT = os.path.join(ROOT, "bot")
-CLIENT_ROOT = ROOT      # откуда берутся index.html, style.css, script.js, fonts (run_e2e.py --client-dir подменяет: проверка «ловит ли набор поломку»)
+CLIENT_ROOT = ROOT      # откуда берутся index.html, style.css, js/*.js, fonts (run_e2e.py --client-dir подменяет: проверка «ловит ли набор поломку»)
 # Допустимые сообщения консоли (все остальные ошибки и предупреждения считаются падением). Сейчас допустимых нет.
 ALLOWED_CONSOLE = ()
 
@@ -98,14 +98,16 @@ window.fetch = async (u, o) => {
 
 def build_client(dst, api_url):
     """Копия клиента с подставленным адресом API и заглушкой Telegram; файлы репозитория не меняются."""
-    for name in ("index.html", "style.css", "script.js"):
+    for name in ("index.html", "style.css"):
         shutil.copy(os.path.join(CLIENT_ROOT, name), dst)
-    shutil.copytree(os.path.join(CLIENT_ROOT, "fonts"), os.path.join(dst, "fonts"), dirs_exist_ok=True)
-    js = open(os.path.join(dst, "script.js"), encoding="utf-8").read()
+    for folder in ("fonts", "js"):
+        shutil.copytree(os.path.join(CLIENT_ROOT, folder), os.path.join(dst, folder), dirs_exist_ok=True)
+    config = os.path.join(dst, "js", "00-config.js")
+    js = open(config, encoding="utf-8").read()
     js, n = re.subn(r"const API_URL = '[^']*';", "const API_URL = '%s';" % api_url, js, count=1)
     if n != 1:
-        raise E2EError("в script.js не найден const API_URL")
-    open(os.path.join(dst, "script.js"), "w", encoding="utf-8").write(js)
+        raise E2EError("в js/00-config.js не найден const API_URL")
+    open(config, "w", encoding="utf-8").write(js)
     html = open(os.path.join(dst, "index.html"), encoding="utf-8").read()
     tag = '<script src="https://telegram.org/js/telegram-web-app.js"></script>'
     if tag not in html:
@@ -550,3 +552,13 @@ async def open_game(page, game):
 
 async def set_bet(page, input_id, value):
     await page.ev("(() => { const i = document.getElementById(%s); i.value = %s; i.dispatchEvent(new Event('input')); })()" % (json.dumps(input_id), json.dumps(str(value))))
+
+
+def client_js(root=None):
+    """Весь код клиента одной строкой: js/*.js в порядке подключения (для проверок по исходному тексту)."""
+    folder = os.path.join(root or CLIENT_ROOT, "js")
+    parts = []
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".js"):
+            parts.append(open(os.path.join(folder, name), encoding="utf-8").read())
+    return "".join(parts)
