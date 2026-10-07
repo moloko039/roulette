@@ -126,6 +126,34 @@ async def check_tab(w, tab, size):
     return m
 
 
+async def swipe(p, y_distance, done):
+    """Палец по экрану на y_distance пикселей: сначала жест Chrome (synthesizeScrollGesture), если страница не сдвинулась за 2 с, то настоящие события
+    касания (Input.dispatchTouchEvent): на Linux-runner в CI жест иногда не прокручивает. Возвращает метрики после (ждёт до 4 с)."""
+    await p.send("Input.synthesizeScrollGesture", {"x": 8, "y": 300, "yDistance": y_distance, "gestureSourceType": "touch", "speed": 1200})
+    m = await metrics(p)
+    for _ in range(10):
+        if done(m):
+            return m
+        await asyncio.sleep(0.2)
+        m = await metrics(p)
+    y0 = 300
+    y1 = y0 + y_distance
+    await p.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": 8, "y": y0}]})
+    steps = 14
+    for k in range(1, steps + 1):
+        await p.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": 8, "y": int(y0 + (y1 - y0) * k / steps)}]})
+        await asyncio.sleep(0.016)
+    await p.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    for _ in range(10):
+        m = await metrics(p)
+        if done(m):
+            return m
+        await asyncio.sleep(0.2)
+    diag = await p.ev("JSON.stringify({touch: navigator.maxTouchPoints, w: innerWidth, h: innerHeight, ua: navigator.userAgent.slice(0, 60)})")
+    m["diag"] = diag
+    return m
+
+
 async def run(w):
     p = w.page
     for size in SIZES:
@@ -157,19 +185,7 @@ async def run(w):
         check("тач: %s открыта в начале" % tab, [m["top"], m["first"] >= -0.5], [0, True])
         if m["max"] <= 1:
             continue
-        await p.send("Input.synthesizeScrollGesture", {"x": 8, "y": 300, "yDistance": -400, "gestureSourceType": "touch", "speed": 1200})
-        moved = await metrics(p)
-        for _ in range(20):                # жест на медленной машине (CI) доходит позже: ждём до 4 секунд, а не фиксированные 0,4
-            if moved["top"] > 0:
-                break
-            await asyncio.sleep(0.2)
-            moved = await metrics(p)
-        check("тач: %s прокручивается пальцем вверх" % tab, moved["top"] > 0, True)
-        await p.send("Input.synthesizeScrollGesture", {"x": 8, "y": 300, "yDistance": 1200, "gestureSourceType": "touch", "speed": 1200})
-        back = await metrics(p)
-        for _ in range(20):
-            if back["top"] == 0:
-                break
-            await asyncio.sleep(0.2)
-            back = await metrics(p)
+        moved = await swipe(p, -400, lambda m: m["top"] > 0)
+        check("тач: %s прокручивается пальцем вверх (метрики %s)" % (tab, {k: v for k, v in moved.items() if k in ("top", "max", "diag")}), moved["top"] > 0, True)
+        back = await swipe(p, 1200, lambda m: m["top"] == 0)
         check("тач: %s возвращается к началу пальцем вниз" % tab, back["top"], 0)
