@@ -494,7 +494,7 @@ async function wdPollAfterPayment(item, gen) {
       if (mine.owned.has(item.code)) {
         wd.mine = mine;
         wd.paying = false;
-        wd.prevMsg = 'Предмет добавлен в гардероб';
+        wd.prevMsg = 'Предмет добавлен во вкладку «Стиль»';
         haptic('success');
         renderWardrobe();
         return;

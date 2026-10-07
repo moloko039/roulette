@@ -65,7 +65,7 @@ async def run(w):
     await p.wait("document.getElementById('wd-prev-act').textContent === 'Надеть'", 10, "предмет появился")
     check("успех: сообщение, статус, кнопка разблокирована, сетка обновилась", await p.ev(
         "[document.getElementById('wd-prev-msg').textContent, document.getElementById('wd-prev-status').textContent, !document.getElementById('wd-prev-act').disabled, wd.paying, document.querySelector('#wd-grid .wd-card:nth-child(2) .wd-status').textContent]"),
-        ["Предмет добавлен в гардероб", "Есть", True, False, "Есть"])
+        ["Предмет добавлен во вкладку «Стиль»", "Есть", True, False, "Есть"])
     await p.ev("E.sleep(1100)")
     await p.tap("#wd-prev-act")
     await p.wait("document.documentElement.getAttribute('data-skin-table') === 'table_blue'", 10, "куплено и надето")

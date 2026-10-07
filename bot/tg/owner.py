@@ -66,7 +66,7 @@ async def refund(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await _refund_and_record(context, row["telegram_id"], charge_id):
         await _reply(update, "Возврат не выполнен (подробности в логах сервиса)")
         return
-    await _send_quiet(context, row["telegram_id"], "Платёж возвращён, предмет убран из гардероба.")
+    await _send_quiet(context, row["telegram_id"], "Платёж возвращён, предмет убран из вкладки «Стиль».")
     await _reply(update, "Возврат выполнен, предмет убран у игрока")
 
 
@@ -99,7 +99,7 @@ async def regrant(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = {"granted": "Выдано", "already_has": "Предмет у игрока уже есть", "refunded": "Платёж уже возвращён, выдавать нечего",
             "missing": "Платёж не найден в журнале (используйте форму с идентификатором игрока, кодом и суммой)"}[res]
     if res == "granted" and user_id is not None:
-        await _send_quiet(context, user_id, "Предмет добавлен в гардероб")
+        await _send_quiet(context, user_id, "Предмет добавлен во вкладку «Стиль»")
     await _reply(update, text)
 
 
