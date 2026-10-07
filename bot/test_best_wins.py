@@ -243,10 +243,12 @@ try:
     C = IDS[8]
     player(path, C)
     T = NOW * 1000
-    db.crash_start(C, rid(), 1000, 200, now_ms=T, db_path=path, rng=crash_rng(110))        # цель 2.00x, краш на 1.10x: проигрыш
+    db.crash_start(C, rid(), 1000, 200, now_ms=T, db_path=path, rng=crash_rng(110))        # цель 2.00x, краш на 1.10x: раунд идёт до краха
+    db.settle_expired_crash(C, now_ms=T + 10000, db_path=path)                              # закрыт лениво: проигрыш
     check("краш: проигрыш не пишет", best(path, C), None)
-    out = db.crash_start(C, rid(), 1000, 200, now_ms=T + 1000, db_path=path, rng=crash_rng(500))
-    check("краш: авто-выигрыш: рекорд = выплата - ставка", (best(path, C), out["payout"]), (("crash", crash.payout(1000, 200) - 1000, NOW + 1), crash.payout(1000, 200)))
+    db.crash_start(C, rid(), 1000, 200, now_ms=T + 20000, db_path=path, rng=crash_rng(500))     # цель 2.00x достигается за 6,15 с
+    out = db.crash_state(C, now_ms=T + 30000, db_path=path)                                 # ленивое закрытие по цели
+    check("краш: авто-выигрыш по цели: рекорд = выплата - ставка", (best(path, C), out["payout"]), (("crash", crash.payout(1000, 200) - 1000, NOW + 30), crash.payout(1000, 200)))
     C2 = IDS[9]
     player(path, C2)
     db.crash_start(C2, rid(), 1000, None, now_ms=T, db_path=path, rng=crash_rng(100000))

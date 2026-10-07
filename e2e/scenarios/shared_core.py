@@ -30,13 +30,18 @@ async def run(w):
     await p.wait("!anyRoundBusy()", 15, "вращение закончилось")
     await p.wait("E.count('/api/me') > %d" % before, 10, "отложенный запрос баланса ушёл после раунда")
 
-    # 2. краш: автоматический раунд, анимация идёт до цели
+    # 2. краш: раунд с автовыводом летит до цели, ручной вывод идёт запросом (ответ задержан): пока запрос в пути, игра занята
     await open_game(p, "crash")
     await p.wait("!document.getElementById('cr-bets').hidden", 10, "панель ставки")
     await set_bet(p, "cr-bet", 100)
     await p.ev("(() => { const i = document.getElementById('cr-target'); i.value = '50'; i.dispatchEvent(new Event('input')); })()")
     await p.tap("#cr-start")
-    check("краш: раунд и анимация считаются занятостью", await p.ev("anyRoundBusy()"), True)
+    await p.wait("!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled", 15, "раунд идёт, кнопка «Забрать»")
+    check("краш: во время полёта без запроса игра не занята", await p.ev("anyRoundBusy()"), False)
+    await p.wait("parseFloat(document.getElementById('cr-mult').textContent.replace('×', '')) >= 1.05", 20, "множитель вырос")
+    await p.ev("window.fetch = ((orig) => (u, o) => String(u).includes('/api/crash/cashout') ? orig(u, o).then((r) => new Promise((res) => setTimeout(() => res(r), 1500))) : orig(u, o))(window.fetch)")
+    await p.tap("#cr-cash")
+    check("краш: пока запрос вывода в пути, игра считается занятой", await p.ev("anyRoundBusy()"), True)
     await p.wait("!anyRoundBusy()", 30, "раунд краша закончился")
 
     # 3. хило: защита от повторной загрузки и двойного действия, пока ход не завершён

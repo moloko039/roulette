@@ -4,6 +4,8 @@
 (порядок денежных операций тоже зафиксирован). Эталон записан на коде ДО рефакторинга шаблона партии.
 
 Запись заново (только осознанно, при намеренном изменении поведения): python test_game_golden.py --record
+Точечное обновление перечисленных операций целиком (намеренное изменение правил игры): python test_game_golden.py --update-ops "сценарий#номер,...";
+отказывается писать, если разошлась хоть одна не перечисленная операция.
 Точечное обновление журнала SQL (намеренное изменение запросов без изменения ответов, например быстрая проверка чтением вместо блокировки записи):
 python test_game_golden.py --update-sql. Меняет в эталоне ТОЛЬКО поля sql и seq у операций, у которых ответ (res) и состояние таблиц (tbl) совпали;
 если у какой-то операции разошлось что-то ещё, обновление отменяется (эталон не трогается)."""
@@ -313,15 +315,16 @@ def crash_scenarios():
     ms2 = ms + 20000
     r.op("старт 2", db.crash_start, A, rid(r, "s3"), 500, now_ms=ms2, db_path=r.path, rng=crash_rng(150))
     r.op("cashout после краха", db.crash_cashout, A, rid(r, "c3"), now_ms=ms2 + 12000, db_path=r.path)
-    # авто: выигрыш, проигрыш, минимальная цель, предельная цель
+    # авто (раунд с автовыводом остаётся активным до цели, краха или ручного вывода и закрывается лениво при следующем старте, поэтому старты
+    # разнесены по времени: цель ×2 достигается за 6,15 с, крах ×3 за 9,66 с, предел ×250 за 47,9 с): выигрыш, проигрыш, минимальная цель, предельная цель
     ms3 = ms + 40000
     r.op("авто выигрыш", db.crash_start, A, rid(r, "a1"), 400, 200, now_ms=ms3, db_path=r.path, rng=crash_rng(500))
-    r.op("авто проигрыш", db.crash_start, A, rid(r, "a2"), 400, 800, now_ms=ms3 + 10, db_path=r.path, rng=crash_rng(300))
-    r.op("авто минимальная цель", db.crash_start, A, rid(r, "a3"), 400, crash.MIN_TARGET_X100, now_ms=ms3 + 20, db_path=r.path, rng=crash_rng(101))
+    r.op("авто проигрыш", db.crash_start, A, rid(r, "a2"), 400, 800, now_ms=ms3 + 10000, db_path=r.path, rng=crash_rng(300))
+    r.op("авто минимальная цель", db.crash_start, A, rid(r, "a3"), 400, crash.MIN_TARGET_X100, now_ms=ms3 + 20000, db_path=r.path, rng=crash_rng(101))
     r.op("авто предельная цель", db.crash_start, B, rid(r, "a4"), 1000, crash.CAP_X100, now_ms=ms3 + 30, db_path=r.path, rng=crash_rng(10 ** 7))
-    r.op("авто предельная цель, краш ниже", db.crash_start, B, rid(r, "a5"), 1000, crash.CAP_X100, now_ms=ms3 + 40, db_path=r.path, rng=crash_rng(20000))
+    r.op("авто предельная цель, краш ниже", db.crash_start, B, rid(r, "a5"), 1000, crash.CAP_X100, now_ms=ms3 + 60000, db_path=r.path, rng=crash_rng(20000))
     # ручной до предела x250
-    ms4 = ms + 80000
+    ms4 = ms + 160000     # раунд ×200 (авто, предел ×250) разбивается за 45,8 с после старта в ms3 + 60000
     r.op("старт к пределу", db.crash_start, B, rid(r, "p1"), 1000, now_ms=ms4, db_path=r.path, rng=crash_rng(10 ** 7))
     r.op("cashout на пределе", db.crash_cashout, B, rid(r, "p2"), now_ms=ms4 + 60000, db_path=r.path)
     r.op("максимальная ставка авто", db.crash_start, B, rid(r, "m1"), crash.CRASH_MAX_BET, crash.CAP_X100, now_ms=ms4 + 70000, db_path=r.path, rng=crash_rng(10 ** 7))
@@ -551,6 +554,25 @@ def main():
         return
     with open(GOLDEN, encoding="utf-8") as f:
         golden = json.load(f)
+    if "--update-ops" in sys.argv:
+        # Точечное обновление перечисленных операций целиком: python test_game_golden.py --update-ops "crash_main#24,crash_main#25". Все остальные операции
+        # обязаны совпасть с эталоном, иначе обновление отменяется (эталон не тронут).
+        wanted = sys.argv[sys.argv.index("--update-ops") + 1].split(",")
+        want_set = {(w.split("#")[0], int(w.split("#")[1])) for w in wanted}
+        assert set(golden) == set(result), "наборы сценариев разошлись"
+        stray = []
+        for name in sorted(result):
+            assert len(golden[name]) == len(result[name]), "%s: число операций изменилось" % name
+            for i, (got, want) in enumerate(zip(result[name], golden[name])):
+                if got != want and (name, i) not in want_set:
+                    stray.append("%s #%d «%s»" % (name, i, want["op"]))
+        assert not stray, "разошлись не перечисленные операции (обновление отменено, эталон не тронут): %s" % stray
+        for name, i in sorted(want_set):
+            print("обновлена %s #%d «%s»: %s" % (name, i, golden[name][i]["op"], [k for k in sorted(result[name][i]) if result[name][i][k] != golden[name][i].get(k)]))
+            golden[name][i] = result[name][i]
+        with open(GOLDEN, "w", encoding="utf-8") as f:
+            json.dump(golden, f, ensure_ascii=False, sort_keys=True, indent=None, separators=(",", ":"))
+        return
     if "--update-sql" in sys.argv:
         assert set(golden) == set(result), "наборы сценариев разошлись"
         changed = {}

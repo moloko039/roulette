@@ -14,12 +14,13 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 GOLDEN_NET = os.path.join(HERE, "golden_net.json")
-NET_SKIP = ("layout", "mines_layout", "crash_visibility")    # раскладка меняет размеры и открывает игры подряд; crash_visibility ждёт раунд по времени: число опросов состояния плавает. Запросы не предмет проверки
-# Сценарии с опросом: число подряд идущих одинаковых запросов зависит от скорости (после оплаты Stars клиент опрашивает /api/cosmetics/mine до появления предмета),
+NET_SKIP = ("layout", "mines_layout", "crash_visibility", "crash_auto_manual")    # раскладка меняет размеры и открывает игры подряд; crash_visibility и crash_auto_manual ждут раунды по времени: число опросов состояния и порядок фонового GET /api/me плавают. Запросы не предмет проверки
+# Сценарии с опросом: число подряд идущих одинаковых запросов зависит от скорости (после оплаты Stars клиент опрашивает /api/cosmetics/mine до появления предмета;
+# в раунде краша клиент опрашивает /api/crash/state раз в 300 мс),
 # поэтому последовательность сравнивается со склейкой подряд идущих одинаковых запросов (порядок и набор разных запросов проверяются, число опросов нет).
-POLL_COLLAPSE = ("wardrobe_buy_stars",)
+POLL_COLLAPSE = ("wardrobe_buy_stars", "crash", "shared_core")
 SCENARIOS = ["lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
-             "transfers_ui", "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast", "wardrobe_buy_chips", "wardrobe_buy_stars", "wardrobe_buy_safety", "skin_preview_isolation", "keno_hex_play", "best_wins_board", "best_wins_safety", "blackjack_auto_stand", "desktop_scroll", "crash_visibility", "post_body_abort", "style_tab"]
+             "transfers_ui", "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast", "wardrobe_buy_chips", "wardrobe_buy_stars", "wardrobe_buy_safety", "skin_preview_isolation", "keno_hex_play", "best_wins_board", "best_wins_safety", "blackjack_auto_stand", "desktop_scroll", "crash_visibility", "post_body_abort", "style_tab", "crash_auto_manual"]
 
 
 def collapse(seq):

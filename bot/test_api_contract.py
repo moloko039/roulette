@@ -426,7 +426,7 @@ try:
     with _mock.patch.object(_cr, "new_crash", return_value=5000):
         ca.post("/api/crash/start", headers=auth(5004), json={"request_id": rid(5004), "bet": 10})
     with _mock.patch.object(_cr, "new_crash", return_value=5000):
-        ca.post("/api/crash/start", headers=auth(5005), json={"request_id": rid(5005), "bet": 10, "target_x100": 200})   # авто решается сразу
+        ca.post("/api/crash/start", headers=auth(5005), json={"request_id": rid(5005), "bet": 10, "target_x100": 200})   # авто-раунд активен до цели, краха или ручного вывода
     import json as _json
     me_examples = _json.load(open(os.path.join(os.path.dirname(HERE_DIR), "docs", "examples", "me.json"), encoding="utf-8"))
     for name, example in me_examples.items():
@@ -434,7 +434,7 @@ try:
             continue
         assert not shape_errors(ME, example), (name, "пример /api/me не совпадает с контрактом", shape_errors(ME, example))
         assert example["active_game"] in (None, "mines", "blackjack", "crash", "hilo")
-    for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, None)):
+    for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, "crash")):
         r = ca.get("/api/me", headers=auth(uid))
         contract("GET /api/me %s" % expected, r.json(), ME)
         assert r.json()["active_game"] == expected, (uid, r.json())
