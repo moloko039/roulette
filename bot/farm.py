@@ -2,6 +2,7 @@
 
 Все значения СТАРТОВЫЕ: их можно менять, когда появятся реальные данные об игре.
 """
+import economy_config
 import levels
 
 INCOME_MAX_LEVEL = 20
@@ -10,9 +11,9 @@ STORAGE_MAX_LEVEL = 8
 # доход: ставка в час на уровне n = floor(100 * 1.35^n) = 100 * 27^n // 20^n
 INCOME_BASE_RATE = 100
 INCOME_RATE_NUM, INCOME_RATE_DEN = 27, 20
-# цена перехода с уровня n на n+1 = floor(1000 * 1.8^n) = 1000 * 9^n // 5^n
+# цена перехода с уровня n на n+1 = floor(1000 * 1.6^n) = 1000 * 8^n // 5^n (число роста в economy_config.FARM_INCOME_COST_GROWTH)
 INCOME_BASE_COST = 1000
-INCOME_COST_NUM, INCOME_COST_DEN = 9, 5
+INCOME_COST_NUM, INCOME_COST_DEN = economy_config.FARM_INCOME_COST_GROWTH
 
 # хранилище: потолок накопления в часах на уровне n = 30 + 6n; цена перехода с n на n+1 = 1000 * 2^n
 STORAGE_BASE_HOURS = 30
