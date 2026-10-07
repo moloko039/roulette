@@ -108,7 +108,7 @@ def rid(n):
 try:
     # ================= farm.py: значения =================
     check("доход: ставка", [farm.income_rate(n) for n in (0, 1, 2, 19, 20)], [100, 135, 182, 29946, 40427])
-    check("доход: цена", [farm.income_cost(n) for n in (0, 1, 2, 19, 20)], [1000, 1800, 3240, 70823534, None])
+    check("доход: цена", [farm.income_cost(n) for n in (0, 1, 2, 19, 20)], [1000, 1600, 2560, 7555786, None])
     check("хранилище: часы", [farm.storage_hours(n) for n in range(9)], [30, 36, 42, 48, 54, 60, 66, 72, 78])
     check("хранилище: цена", [farm.storage_cost(n) for n in range(9)],
           [1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, None])
@@ -116,7 +116,7 @@ try:
     for n in range(21):  # те же числа точной дробной арифметикой, без float
         check("ставка %d" % n, farm.income_rate(n), (100 * Fraction(27, 20) ** n).__floor__())
         if n < 20:
-            check("цена дохода %d" % n, farm.income_cost(n), (1000 * Fraction(9, 5) ** n).__floor__())
+            check("цена дохода %d" % n, farm.income_cost(n), (1000 * Fraction(8, 5) ** n).__floor__())
     rates = [farm.income_rate(n) for n in range(21)]
     costs = [farm.income_cost(n) for n in range(20)]
     assert all(a < b for a, b in zip(rates, rates[1:])), "ставка растёт не строго"
@@ -477,7 +477,7 @@ try:
     assert "Дата последнего обновления:" in page
 
     # ================= в логах нет id, имён, балансов, цен и уровней =================
-    for secret in (str(SECRET_ID), SECRET_NAME, str(SECRET_BALANCE), "70823534"):
+    for secret in (str(SECRET_ID), SECRET_NAME, str(SECRET_BALANCE), "7555786"):
         for line in cap.lines:
             assert secret not in line, "секрет в логе: " + line[:80]
     for line in cap.lines:
