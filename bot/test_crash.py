@@ -262,27 +262,160 @@ try:
     # цель ровно на пределе: авто
     add_player(path, 6, balance=10_000)
     r = start(path, 6, 1, 100, crash.CAP_X100, target=crash.CAP_X100)
-    check("авто на ×250 выигрывает при crash >= CAP", (r["result"], r["payout"]), ("win", 25_000))
+    check("авто на ×250: раунд активен до цели", (r["status"], r["mode"], r["target"], r["result"]), ("active", "auto", "250.00", None))
+    st = db.crash_state(6, now_ms=at_eff(47795), db_path=path)
+    check("авто на ×250 выигрывает при crash >= CAP (закрыт лениво по времени)", (st["status"], st["result"], st["payout"], st["auto"]), ("finished", "win", 25_000, True))
 
-    # ================= режим авто =================
+    # ================= режим авто: раунд остаётся активным, решает серверное время =================
     path = new_db()
     add_player(path, 1, balance=10_000)
     calls.clear()
     with mock.patch.object(wallet, "debit", side_effect=lambda *a: (calls.append("debit"), real_debit(*a))[1]), \
             mock.patch.object(wallet, "credit", side_effect=lambda *a: (calls.append("credit"), real_credit(*a))[1]):
         r = start(path, 1, 1, 100, 341, target=200)
-    check("авто выигрыш", (r["status"], r["mode"], r["target"], r["result"], r["multiplier"], r["payout"], r["crash_multiplier"], r["elapsed_ms"], r["balance"]),
-          ("finished", "auto", "2.00", "win", "2.00", 200, "3.41", None, 10_100))
-    check("авто: списание и выплата", calls, ["debit", "credit"])
+    check("авто: старт активен, точки краха нет", (r["status"], r["mode"], r["target"], r["result"], r["multiplier"], r["payout"], r["crash_multiplier"], r["elapsed_ms"], r["balance"]),
+          ("active", "auto", "2.00", None, None, None, None, 0, 9_900))
+    check("авто: на старте только списание", calls, ["debit"])
+    st = db.crash_state(1, now_ms=at_eff(6000), db_path=path)
+    check("цель достигнута по серверному времени: выигрыш по цели", (st["status"], st["result"], st["multiplier"], st["payout"], st["crash_multiplier"], st["balance"], st["auto"]),
+          ("finished", "win", "2.00", 200, "3.41", 10_100, True))
     check("XP авто (цель 200)", sql(path, "SELECT total_staked, xp FROM players")[0], (100, crash.xp_for(100, 200)))
-    r = start(path, 1, 2, 100, 150, target=200)
-    check("авто проигрыш", (r["result"], r["multiplier"], r["payout"], r["crash_multiplier"], r["balance"]), ("lose", "0.00", 0, "1.50", 10_000))
+    r = start(path, 1, 2, 100, 150, target=200, at=at_eff(7000))
+    st = db.crash_state(1, now_ms=at_eff(7000) + at_eff(4000) - NOW_MS, db_path=path)
+    check("авто проигрыш: крах 1.50 раньше цели 2.00", (st["result"], st["multiplier"], st["payout"], st["crash_multiplier"], st["balance"]), ("lose", "0.00", 0, "1.50", 10_000))
     check("XP авто и при проигрыше (цель)", sql(path, "SELECT xp FROM players")[0][0], 2 * crash.xp_for(100, 200))
-    r = start(path, 1, 3, 100, 200, target=200)
-    check("авто: цель == краху выигрывает", r["result"], "win")
-    r = start(path, 1, 4, 100, 100, target=101)
-    check("мгновенный крах проигрывает любую цель", r["result"], "lose")
-    check("авто ничего не оставляет активным", sql(path, "SELECT COUNT(*) FROM crash_games WHERE status = 'active'")[0][0], 0)
+    check("авто: ничего не осталось активным", sql(path, "SELECT COUNT(*) FROM crash_games WHERE status = 'active'")[0][0], 0)
+
+    # ================= автовывод + ручной вывод в любой момент =================
+    T = 200                     # цель ×2.00 достигается на эффективном времени 6000 мс
+    def auto_round(uid, c, bet=100, target=T, balance=10_000, at=NOW_MS):
+        add_player(path, uid, balance=balance)
+        return start(path, uid, 1, bet, c, target=target, at=at)
+
+    path = new_db()
+    # ручной до цели: платится множитель на момент запроса (то же округление, что у обычного ручного вывода)
+    auto_round(10, 500)
+    w = cashout(path, 10, 2, at_eff(3000))
+    check("ручной до цели: выплата по m(t) = 1.41", (w["status"], w["mode"], w["target"], w["result"], w["multiplier"], w["payout"], w["balance"], w["auto"], w["crash_multiplier"]),
+          ("finished", "auto", "2.00", "win", "1.41", 141, 10_041, False, "5.00"))
+    check("баланс, XP по множителю вывода, total_staked", (balance(path, 10), sql(path, "SELECT total_staked, xp FROM players WHERE telegram_id = 10")[0]), (10_041, (100, crash.xp_for(100, 141))))
+    check("рекорд выигрыша: чистый выигрыш 41", sql(path, "SELECT game, net_amount FROM player_best_win WHERE telegram_id = 10"), [("crash", 41)])
+    check("в базе: режим авто, цель и итог", sql(path, "SELECT mode, target_x100, mult_x100, payout, auto FROM crash_games WHERE telegram_id = 10")[0], ("auto", 200, 141, 141, 0))
+    # ровно в цели: платится цель (m = 200)
+    auto_round(11, 500)
+    w = cashout(path, 11, 2, at_eff(6000))
+    check("ручной ровно в цели: выплата 2.00", (w["result"], w["multiplier"], w["payout"]), ("win", "2.00", 200))
+    # после цели: выше цели платить нельзя
+    auto_round(12, 500)
+    w = cashout(path, 12, 2, at_eff(9000))      # m(9000) = 2.82
+    check("ручной после цели платит цель, а не 2.82", (w["result"], w["multiplier"], w["payout"], w["balance"], w["auto"]), ("win", "2.00", 200, 10_100, True))
+    check("XP по цели", sql(path, "SELECT xp FROM players WHERE telegram_id = 12")[0][0], crash.xp_for(100, 200))
+    # ручной после краха: проигрыш (ответ — итог раунда, не ошибка)
+    auto_round(13, 150)
+    w = cashout(path, 13, 2, at_eff(6000))      # m = 2.00 > крах 1.50
+    check("ручной после краха: проигрыш", (w["status"], w["result"], w["multiplier"], w["payout"], w["balance"], w["crash_multiplier"], w["auto"]),
+          ("finished", "lose", "0.00", 0, 9_900, "1.50", True))
+    check("XP проигрыша авто: по цели", sql(path, "SELECT xp FROM players WHERE telegram_id = 13")[0][0], crash.xp_for(100, 200))
+    check("проигрыш рекорд не пишет", sql(path, "SELECT COUNT(*) FROM player_best_win WHERE telegram_id = 13")[0][0], 0)
+    # ручной до краха, когда цель выше краха: платится m(t)
+    auto_round(14, 300, target=800)
+    w = cashout(path, 14, 2, at_eff(5000))      # m = 1.78 <= крах 3.00 < цель 8.00
+    check("цель выше краха, ручной до краха: выплата по m(t) = 1.78", (w["result"], w["multiplier"], w["payout"]), ("win", "1.78", 178))
+    # краш раньше цели без ручного вывода
+    auto_round(15, 150)
+    check("крах раньше цели: до краха раунд идёт", db.crash_state(15, now_ms=at_eff(3000), db_path=path)["status"], "active")     # m = 1.41 <= 1.50
+    st = db.crash_state(15, now_ms=at_eff(4000), db_path=path)                                                                    # m = 1.58 > 1.50
+    check("крах раньше цели: проигрыш при чтении состояния", (st["result"], st["multiplier"], st["payout"], st["crash_multiplier"]), ("lose", "0.00", 0, "1.50"))
+    # ранний автовывод без игрока: ленивое закрытие при чтении состояния и в /api/me, один раз
+    auto_round(16, 500)
+    check("рано: раунд активен", db.crash_state(16, now_ms=at_eff(2000), db_path=path)["status"], "active")
+    check("settle рано ничего не делает", db.settle_expired_crash(16, now_ms=at_eff(2000), db_path=path), False)
+    check("settle после цели закрывает", db.settle_expired_crash(16, now_ms=at_eff(6001), db_path=path), True)
+    check("settle повторно ничего не делает", db.settle_expired_crash(16, now_ms=at_eff(6002), db_path=path), False)
+    check("выплачено один раз по цели", (balance(path, 16), sql(path, "SELECT payout, mult_x100, auto FROM crash_games WHERE telegram_id = 16")[0]), (10_100, (200, 200, 1)))
+    # двойной ручной вывод: второй с другим request_id получает no_active_game, платится один раз
+    auto_round(17, 500)
+    cashout(path, 17, 2, at_eff(3000))
+    e = raises(crash.NoActiveGame, cashout, path, 17, 3, at_eff(3100))
+    check("второй ручной вывод: код", e.code, "no_active_game")
+    check("двойной вывод платит один раз", balance(path, 17), 10_041)
+    # слишком рано: раунд остаётся активным
+    auto_round(18, 500)
+    e = raises(crash.TooEarly, cashout, path, 18, 2, at_eff(50))
+    check("слишком рано в авто: раунд активен, ставка списана", (e.code, db.crash_state(18, now_ms=at_eff(100), db_path=path)["status"], balance(path, 18)), ("too_early", "active", 9_900))
+    # повтор ручного вывода по request_id: тот же ответ, без второй выплаты
+    auto_round(19, 500)
+    w1 = cashout(path, 19, 2, at_eff(3000))
+    w2 = cashout(path, 19, 2, at_eff(5000))
+    check("повтор по request_id: тот же ответ, replayed, баланс прежний", ({k: v for k, v in w2.items() if k != "replayed"}, w2["replayed"], balance(path, 19)),
+          ({k: v for k, v in w1.items() if k != "replayed"}, True, 10_041))
+    # повтор старта авто по request_id и конфликт
+    first = start(path, 20, 1, 100, 500, target=200) if add_player(path, 20, balance=10_000) is None else None
+    with mock.patch.object(crash, "new_crash", return_value=100):
+        again = db.crash_start(20, rid(1), 100, 200, now_ms=NOW_MS + 5, db_path=path)
+    check("повтор старта авто: тот же ответ, ставка списана один раз", ({k: v for k, v in again.items() if k != "replayed"}, again["replayed"], balance(path, 20)),
+          ({k: v for k, v in first.items() if k != "replayed"}, True, 9_900))
+    raises(crash.RequestConflict, db.crash_start, 20, rid(1), 100, 300, now_ms=NOW_MS, db_path=path)
+    raises(crash.RequestConflict, db.crash_start, 20, rid(1), 100, None, now_ms=NOW_MS, db_path=path)
+    # потолок ×250: ручной до предела платит m, после предела цель = предел = ×250 (ставка 10**9: 2,5 * 10**11)
+    auto_round(21, crash.CAP_X100, bet=10 ** 9, target=crash.CAP_X100, balance=10 ** 9)
+    w = cashout(path, 21, 2, at_eff(20000))      # m = 10.07
+    check("до предела ручной по m(t)", (w["result"], w["multiplier"], w["payout"]), ("win", "10.07", 10 ** 9 * 1007 // 100))
+    auto_round(22, crash.CAP_X100, bet=10 ** 9, target=crash.CAP_X100, balance=10 ** 9)
+    w = cashout(path, 22, 2, at_eff(60000))
+    check("после предела платится ×250, не выше", (w["result"], w["multiplier"], w["payout"], w["balance"]), ("win", "250.00", 25 * 10 ** 10, 25 * 10 ** 10))
+    check("рекорд при ×250", sql(path, "SELECT net_amount FROM player_best_win WHERE telegram_id = 22")[0][0], 25 * 10 ** 10 - 10 ** 9)
+    # точка краха активного авто-раунда нигде не раскрывается, раунд виден как активный в /api/me
+    auto_round(23, 777)
+    act = db.crash_state(23, now_ms=at_eff(1000), db_path=path)
+    check("активный авто: форма без точки краха", (act["status"], act["mode"], act["target"], act["crash_multiplier"], act["multiplier"], act["payout"], act["elapsed_ms"]),
+          ("active", "auto", "2.00", None, None, None, 1000))
+    assert "777" not in json.dumps(act) and "7.77" not in json.dumps(act), "точка краха в ответе"
+    check("active_game_of видит активный авто-раунд", db.active_game_of(23, db_path=path), "crash")
+    # цель и время: итог не зависит от того, кто и когда закрывает; параллельность: ручной вывод и ленивое закрытие, 20 потоков, одна выплата
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    for label, eff, expect_pay in (("после цели", 8000, 200), ("до цели", 3000, 141)):
+        path = new_db()
+        add_player(path, 30, balance=10_000)
+        start(path, 30, 1, 100, 500, target=200)
+        calls.clear()
+        gate = threading.Barrier(20)
+
+        def race(i):
+            gate.wait()
+            try:
+                if i % 3 == 0:
+                    return ("cashout", cashout(path, 30, 100 + i, at_eff(eff))["payout"])
+                if i % 3 == 1:
+                    return ("settle", db.settle_expired_crash(30, now_ms=at_eff(eff), db_path=path))
+                return ("state", db.crash_state(30, now_ms=at_eff(eff), db_path=path)["status"])
+            except crash.NoActiveGame:
+                return ("no_active", None)
+        with mock.patch.object(wallet, "credit", side_effect=lambda *a: (calls.append("credit"), real_credit(*a))[1]), ThreadPoolExecutor(20) as pool:
+            res = list(pool.map(race, range(20)))
+        paid_rows = sql(path, "SELECT COUNT(*), SUM(payout) FROM crash_games WHERE status = 'finished'")[0]
+        check("параллельно (%s): ровно одна выплата, баланс и опыт один раз" % label, (calls.count("credit"), paid_rows, balance(path, 30), sql(path, "SELECT xp FROM players")[0][0]),
+              (1, (1, expect_pay), 9_900 + expect_pay, crash.xp_for(100, expect_pay)))
+        check("параллельно (%s): один рекорд" % label, sql(path, "SELECT net_amount FROM player_best_win WHERE telegram_id = 30")[0][0], expect_pay - 100)
+    # ленивое закрытие совпадает с итогом авто по правилу (decide_auto) на любом позднем времени
+    for target, c in ((101, 101), (101, 100), (200, 200), (200, 199), (350, 1000), (800, 300), (25000, 25000), (25000, 24999), (150, 10 ** 6)):
+        late = crash.settle(c, 0, 10 ** 6, target)
+        check("settle (цель %d, крах %d) на позднем времени = decide_auto" % (target, c), late, crash.decide_auto(target, c))
+    import random as _rnd
+    rnd = _rnd.Random(7)
+    for _ in range(3000):                        # итог не меняется со временем и совпадает с decide_auto
+        target = rnd.randint(101, 25000)
+        c = rnd.choice([rnd.randint(100, 30000), 10 ** rnd.randint(2, 6)])
+        first_verdict = None
+        for t in sorted(rnd.randint(0, 80000) for _ in range(6)):
+            v = crash.settle(c, 0, t + crash.GRACE_MS, target)
+            if first_verdict is None:
+                first_verdict = v
+            elif v is not None:
+                assert v == first_verdict, ("итог изменился со временем", target, c, t, first_verdict, v)
+        if first_verdict is not None:
+            assert first_verdict == crash.decide_auto(target, c), ("итог не совпал с decide_auto", target, c, first_verdict)
 
     # ================= идемпотентность, ошибки, откат =================
     path = new_db()
@@ -313,7 +446,9 @@ try:
     raises(InsufficientFunds, start, path, 3, 1, 301, 5000)
     check("нехватка: ничего нет", (balance(path, 3), sql(path, "SELECT COUNT(*) FROM crash_games WHERE telegram_id = 3")[0][0]), (300, 0))
     r = start(path, 3, 2, 300, 5000, target=150)
-    check("ставка на весь баланс (300 -> 450)", (r["result"], r["balance"]), ("win", 450))
+    check("ставка на весь баланс: списана, раунд активен", (r["status"], r["balance"]), ("active", 0))
+    st = db.crash_state(3, now_ms=at_eff(4000), db_path=path)      # m(4000) = 1.58 >= цель 1.50: выплата по цели
+    check("ставка на весь баланс (300 -> 450)", (st["result"], st["balance"]), ("win", 450))
     for bad in (0, -1, 10 ** 9 + 1, 1.5, "5", True, None):
         raises(ValueError, db.crash_start, 1, rid(20), bad, None, now_ms=NOW_MS, db_path=path)
     for bad in (100, 25001, 100001, 150.5, "200", True):
@@ -321,9 +456,13 @@ try:
     # сбой на выплате откатывает всё
     path = new_db()
     add_player(path, 1, balance=1000)
-    with mock.patch.object(wallet, "credit", side_effect=RuntimeError("boom")):
+    with mock.patch.object(wallet, "debit", side_effect=RuntimeError("boom")):
         raises(RuntimeError, start, path, 1, 1, 100, 500, 200)
     check("откат старта", (balance(path, 1), sql(path, "SELECT COUNT(*) FROM crash_games")[0][0], sql(path, "SELECT total_staked, xp FROM players")[0]), (1000, 0, (0, 0)))
+    start(path, 1, 2, 100, 500, target=200)
+    with mock.patch.object(wallet, "credit", side_effect=RuntimeError("boom")):
+        raises(RuntimeError, db.crash_state, 1, now_ms=at_eff(6000), db_path=path)      # выплата по цели падает: ленивое закрытие откатывается целиком
+    check("откат закрытия: раунд активен, выплаты нет", (balance(path, 1), sql(path, "SELECT status FROM crash_games")[0][0], sql(path, "SELECT xp FROM players")[0][0]), (900, "active", 0))
     # начисление по часам и регистрация
     path = new_db()
     add_player(path, 1, balance=0, last_accrual=NOW - 3 * 3600)
@@ -501,14 +640,23 @@ try:
         check("повтор cashout", (rep.json()["replayed"], rep.json()["balance"]), (True, wj["balance"]))
         gj = state().json()
         same_shape("state finished", gj, examples["finished_win_auto"])
-    # авто: выигрыш, проигрыш
+    # авто: раунд активен, закрывается лениво по времени (по цели или по крашу), ручной вывод в любой момент
     with mock.patch.object(crash, "new_crash", return_value=341):
         a = post("start", {"request_id": rid(108), "bet": 100, "target_x100": 200}).json()
+    same_shape("auto active", a, examples["active_auto"])
+    check("авто по API: активный раунд с целью, точки краха нет", (a["status"], a["mode"], a["target"], a["result"], a["crash_multiplier"]), ("active", "auto", "2.00", None, None))
+    assert "341" not in json.dumps(a) and "3.41" not in json.dumps(a), "точка краха в ответе авто-раунда"
+    check("авто: state тоже активный", state().json()["status"], "active")
+    db.settle_expired_crash(SECRET_ID, now_ms=int(time.time() * 1000) + 10_000, db_path=path)       # цель ×2.00 достигнута по серверному времени
+    a = state().json()
     same_shape("auto win", a, examples["finished_win_auto"])
-    check("авто выигрыш по API", (a["mode"], a["target"], a["result"], a["payout"], a["crash_multiplier"]), ("auto", "2.00", "win", 200, "3.41"))
+    check("авто выигрыш по API", (a["mode"], a["target"], a["result"], a["payout"], a["crash_multiplier"], a["auto"]), ("auto", "2.00", "win", 200, "3.41", True))
     with mock.patch.object(crash, "new_crash", return_value=100):
         a = post("start", {"request_id": rid(109), "bet": 100, "target_x100": 150, }).json()
-        check("мгновенный крах в авто", (a["result"], a["crash_multiplier"], a["multiplier"]), ("lose", "1.00", "0.00"))
+        check("мгновенный крах в авто: раунд активен до первого чтения", (a["status"], a["mode"]), ("active", "auto"))
+        db.settle_expired_crash(SECRET_ID, now_ms=int(time.time() * 1000) + 10_000, db_path=path)
+        a = state().json()
+        check("авто: крах 1.00 раньше цели", (a["result"], a["crash_multiplier"], a["multiplier"]), ("lose", "1.00", "0.00"))
         m = post("start", {"request_id": rid(110), "bet": 100, "target_x100": None}).json()
         check("target null = ручной", (m["mode"], m["status"]), ("manual", "active"))
         db.settle_expired_crash(SECRET_ID, now_ms=int(time.time() * 1000) + 200_000, db_path=path)

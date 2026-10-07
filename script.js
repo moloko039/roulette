@@ -3639,7 +3639,6 @@ const CR_BET_MAX = 1000000000;
 const CR_TARGET_MIN = 101;
 const CR_TARGET_MAX = 25000;     // ×250.00, как CAP_X100 на сервере
 const CR_POLL_MS = 300;          // опрос состояния во время полёта
-const CR_AUTO_MAX_MS = 2000;     // авто-анимация не дольше
 const CR_HISTORY = 10;
 const CR_MULT_RE = /^\d+\.\d\d$/;
 
@@ -3724,8 +3723,7 @@ function validCrash(d, allowNone) {
   if ((d.mode !== 'auto' && d.mode !== 'manual') || !isCount(d.bet) || d.bet < 1) return false;
   if (d.mode === 'auto' ? !(typeof d.target === 'string' && CR_MULT_RE.test(d.target)) : d.target !== null) return false;
   if (d.status === 'active') {
-    return d.mode === 'manual' && isCount(d.elapsed_ms) && d.crash_multiplier === null && d.result === null
-      && d.multiplier === null && d.payout === null;
+    return isCount(d.elapsed_ms) && d.crash_multiplier === null && d.result === null && d.multiplier === null && d.payout === null;   // и ручной, и с автовыводом
   }
   return typeof d.crash_multiplier === 'string' && CR_MULT_RE.test(d.crash_multiplier) && (d.result === 'win' || d.result === 'lose')
     && typeof d.multiplier === 'string' && CR_MULT_RE.test(d.multiplier) && isCount(d.payout);
@@ -3769,10 +3767,15 @@ function crShowMult(x100) {
 }
 
 // Отрисовка одного кадра: множитель, кривая и «Забрать N» (N = ставка × текущий множитель)
+// Раунд с автовыводом: на экране множитель не выше цели (сервер закроет раунд на цели при ближайшем опросе, показ не должен её перескакивать)
+const crTarget100 = () => (cr.game && cr.game.mode === 'auto' && typeof cr.game.target === 'string' ? crX100(cr.game.target) : null);
+
 function crDraw() {
   if (cr.view !== 'play' || !cr.game || cr.resync) return;
-  const e = crElapsed();
-  const x100 = crM100(e);
+  const tc = crTarget100();
+  const eT = tc === null ? Infinity : crDoubling() * Math.log2(tc / 100);
+  const e = Math.min(crElapsed(), eT);
+  const x100 = crElapsed() >= eT ? tc : crM100(e);
   crShowMult(x100);
   crDrawCurve(e);
   if (!cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(cr.game.bet * x100 / 100));
@@ -3910,7 +3913,7 @@ function renderCrResult() {
     crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(profit);
     crEls.bannerDetail.textContent = 'Крах был бы ' + crashX;
     crEls.banner.classList.add('win');
-  } else if (g.mode === 'manual' && (cr.pressed || (g.auto && !cr.live))) {
+  } else if ((g.mode === 'manual' && (cr.pressed || (g.auto && !cr.live))) || (g.mode === 'auto' && cr.pressed)) {
     crEls.bannerTitle.textContent = 'Не успел';
     crEls.bannerDetail.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(g.bet);
     crEls.bannerDetail.title = 'Потеряно ' + formatNumber(g.bet);
@@ -3981,7 +3984,7 @@ function renderCrash() {
     crDrawCurve(crDoubling() * Math.log2(Math.max(1, x100 / 100)));
   } else if (cr.view === 'play' && g) {
     crSetTone('idle');
-    crEls.label.textContent = g.target === null ? 'Нажмите «Забрать» до краха' : '';
+    crEls.label.textContent = g.target === null ? 'Нажмите «Забрать» до краха' : 'авто ×' + g.target;
   }
   crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = cr.busy || cr.animating || cr.balance === null; });
   crEls.start.textContent = cr.view === 'result' ? 'Ещё раз' : 'Старт';
@@ -4042,35 +4045,6 @@ async function loadCrash(reason) {
     blockWhileAnimating: true,
     skipRecent: (g) => g.view !== 'play'
   }, reason);
-}
-
-// Авто-режим: быстрая анимация до цели (выигрыш) или до точки краха (проигрыш), потом итог и баланс
-async function crAnimateAuto(d) {
-  const win = d.result === 'win';
-  const endX100 = win ? crX100(d.multiplier) : crX100(d.crash_multiplier);
-  cr.animating = true;
-  cr.view = 'result';
-  cr.game = d;
-  cr.shownBalance = cr.balance;
-  renderCrash();
-  crSetTone('idle');
-  crEls.label.textContent = 'Цель ' + crText(crX100(d.target));
-  if (!reducedMotion()) {
-    const dur = Math.min(CR_AUTO_MAX_MS, Math.max(500, 400 * Math.log2(Math.max(2, endX100 / 100)) + 300));
-    const t0 = performance.now();
-    await new Promise((resolve) => {
-      const step = () => {
-        const f = Math.min(1, (performance.now() - t0) / dur);
-        const x100 = Math.floor(100 * Math.pow(endX100 / 100, f));
-        crShowMult(x100);
-        crDrawCurve(crDoubling() * Math.log2(Math.max(1, x100 / 100)));
-        if (f < 1) requestAnimationFrame(step);
-        else resolve();
-      };
-      step();
-    });
-  }
-  cr.animating = false;
 }
 
 async function crAct(path, body, onOk) {
@@ -4136,8 +4110,7 @@ function crStart() {
       haptic('light');
       return;
     }
-    await crAnimateAuto(d);    // баланс в шапке остаётся прежним до конца анимации
-    crFinishWith(d, false);
+    crFinishWith(d, false);     // сервер всегда отвечает активным раундом; итог сразу (не должно случаться) показывается как есть
   });
 }
 

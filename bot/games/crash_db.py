@@ -71,11 +71,11 @@ def _crash_finish(conn, telegram_id, row, result, mult_x100, now, auto):
 
 
 def _crash_settle_in(conn, telegram_id, now_ms):
-    """Закрывает активный ручной раунд, если он разбился по времени, достиг предела или брошен. Возвращает True, если закрыла."""
+    """Закрывает активный раунд (ручной или с автовыводом), если по серверному времени он разбился, достиг цели или предела либо брошен. True, если закрыла."""
     row = _crash_active(conn, telegram_id)
     if row is None:
         return False
-    verdict = crash.settle(row["crash_x100"], row["started_at_ms"], now_ms)
+    verdict = crash.settle(row["crash_x100"], row["started_at_ms"], now_ms, row["target_x100"])
     if verdict is None:
         return False
     _crash_finish(conn, telegram_id, row, verdict[0], verdict[1], now_ms // 1000, True)
@@ -89,7 +89,7 @@ def settle_expired_crash(telegram_id, now_ms=None, db_path=None):
 
     def due(conn):
         row = _crash_active(conn, telegram_id)
-        return not (row is None or crash.settle(row["crash_x100"], row["started_at_ms"], now_ms) is None)
+        return not (row is None or crash.settle(row["crash_x100"], row["started_at_ms"], now_ms, row["target_x100"]) is None)
 
     return settle_expired(lambda conn: _crash_settle_in(conn, telegram_id, now_ms), db_path, precheck=due)
 
@@ -119,7 +119,8 @@ def _run_crash_action(telegram_id, request_id, action, params, body, now_ms, db_
 
 def crash_start(telegram_id, request_id, bet, target_x100=None, now_ms=None, db_path=None, rng=None):
     """Новый раунд: нет активного, ставка списывается через wallet и идёт в total_staked, точка краха выбирается и прячется.
-    Режим авто (задан target_x100): раунд решается сразу. Ручной: раунд активен, множитель растёт по времени сервера."""
+    Режим авто (задан target_x100) и ручной ведут себя одинаково: раунд активен, множитель растёт по времени сервера; с целью раунд сам закроется
+    на цели или на крахе, а игрок может вывести вручную в любой момент (выплата не выше цели)."""
     if type(bet) is not int or not 1 <= bet <= crash.CRASH_MAX_BET:
         raise ValueError("bet out of range")
     if target_x100 is not None and (type(target_x100) is not int
@@ -138,18 +139,14 @@ def crash_start(telegram_id, request_id, bet, target_x100=None, now_ms=None, db_
             "VALUES (?, ?, ?, ?, ?, ?, 'active', ?)",
             (telegram_id, bet, mode, target_x100, crash_x100, now_ms_, now))
         game_id = cur.lastrowid
-        if mode == "auto":
-            result, mult = crash.decide_auto(target_x100, crash_x100)
-            _crash_finish(conn, telegram_id, conn.execute("SELECT * FROM crash_games WHERE id = ?", (game_id,)).fetchone(),
-                          result, mult, now, False)
         return _crash_response(conn, telegram_id, game_id, now_ms_)
 
     return _run_crash_action(telegram_id, request_id, "start", {"bet": bet, "target_x100": target_x100}, body, now_ms, db_path)
 
 
 def crash_cashout(telegram_id, request_id, now_ms=None, db_path=None):
-    """Вывод на текущем множителе. Если раунд к этому моменту уже разбился (или достиг предела), отвечает итогом раунда.
-    TooEarly (множитель меньше 1.01): раунд остаётся активным."""
+    """Вывод на текущем множителе (и в ручном раунде, и в раунде с автовыводом). Если раунд к этому моменту уже разбился, достиг цели (выплата по
+    цели, не выше) или предела, отвечает итогом раунда. TooEarly (множитель меньше 1.01): раунд остаётся активным."""
     def body(conn, now_ms_, now):
         row = _crash_active(conn, telegram_id)
         if row is None:
