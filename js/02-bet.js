@@ -200,12 +200,8 @@ function closeOnBackdropTap(backdrop, close) {
     swallow = 0;
     const a = active();
     if (!a || e.target === a || !e.target.closest || e.target.closest('.bet-maxdone')) return;
-    if (e.target.closest('.picker-list')) {   // строки списка: фокус остаётся (без него клавиатура не уходит и вёрстка не двигается), выбор по клику
-      e.preventDefault();                      // (прокрутка списка пальцем строку не выбирает)
-      return;
-    }
     const btn = e.target.closest('button');
-    const immediate = btn && !btn.disabled && e.isPrimary !== false && (e.button || 0) === 0 && btn.closest('.bets-dock, .transfer-panel');
+    const immediate = btn && !btn.disabled && e.isPrimary !== false && (e.button || 0) === 0 && btn.closest('.bets-dock, .dialog-panel');
     a.blur();
     if (immediate) {
       btn.click();

@@ -542,7 +542,7 @@ try:
     me = client.get("/api/me", headers=auth(SECRET_ID))
     check("/api/me", me.status_code, 200)
     check("/api/me закрыл просроченную игру", (game_row(path, SECRET_ID)[0], balance(path, SECRET_ID)), ("auto_refunded", before + 500))
-    check("ключи /api/me прежние и active_game", sorted(me.json()), ["active_game", "balance", "cosmetics", "farm", "income_level", "incoming_unseen", "level", "rate", "seconds_to_next", "storage_level", "transfer_limits"])
+    check("ключи /api/me прежние и active_game", sorted(me.json()), ["active_game", "balance", "cosmetics", "farm", "income_level", "level", "rate", "seconds_to_next", "storage_level"])
     check("баланс в /api/me включает возврат", me.json()["balance"], before + 500)
     st = client.get("/api/mines/state", headers=auth(SECRET_ID)).json()
     check("state: автовозврат виден клиенту как auto_refunded", (st["game"], st["last"]["status"], st["last"]["payout"]), (None, "auto_refunded", 500))

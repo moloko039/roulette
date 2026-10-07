@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/08-blackjack.css?v=16e156c1">
   <link rel="stylesheet" href="css/09-crash.css?v=4717fdb7">
   <link rel="stylesheet" href="css/10-hilo.css?v=4cf770b5">
-  <link rel="stylesheet" href="css/11-lobby-transfers.css?v=9fce0914">
+  <link rel="stylesheet" href="css/11-lobby.css?v=55ece568">
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=763a9ece">
 </head>
 <body>
@@ -110,8 +110,8 @@
       <div class="wd-tabs" id="wd-tabs" role="tablist" aria-label="Слоты оформления"></div>
       <div class="wd-grid" id="wd-grid"></div>
       <button type="button" class="wd-switch" id="wd-vis" role="switch" aria-checked="true"><span class="wd-switch-text">Показывать мои рамку и значок в рейтинге</span><span class="wd-switch-knob" aria-hidden="true"></span></button>
-      <div class="wd-foot"><button type="button" class="transfer-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру. Фишки за Stars не продаются.</span></div>
-      <p class="transfer-msg" id="wd-msg" aria-live="polite"></p>
+      <div class="wd-foot"><button type="button" class="dialog-change" id="wd-terms">Условия покупки</button><span class="wd-foot-note">Предметы не влияют на игру. Фишки за Stars не продаются.</span></div>
+      <p class="dialog-msg" id="wd-msg" aria-live="polite"></p>
     </div>
   </section>
   <section class="screen farm" data-screen="farm" hidden>
@@ -506,14 +506,6 @@
         <div class="ring-inner"><strong class="num" id="profile-timer"></strong><small>до начисления</small></div>
       </div>
     </div>
-    <div class="profile-card transfers-block" id="profile-transfers">
-      <h3 class="transfers-title">Переводы</h3>
-      <button type="button" class="action transfer-new" id="transfer-new">Новый перевод</button>
-      <p class="transfers-empty" id="transfer-new-note" hidden></p>
-      <ol class="transfers-list" id="transfers-list"></ol>
-      <p class="transfers-empty" id="transfers-empty" hidden>Переводов пока нет</p>
-      <p class="transfers-note">Фишки не имеют денежной стоимости. Переводы только подарок между участниками игры.</p>
-    </div>
     <div class="skeleton-card" id="profile-skel" hidden aria-hidden="true">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton tall"></div>
     </div>
@@ -542,45 +534,16 @@
   </div>
 
   <!-- кнопки строятся в js/*.js из массива TABS -->
-  <div class="transfer-sheet" id="picker-sheet" hidden>
-    <div class="transfer-dim" id="picker-dim"></div>
-    <section class="transfer-panel picker-panel" id="picker-panel" role="dialog" aria-modal="true" aria-label="Кому перевести">
-      <div class="transfer-head"><strong>Кому перевести</strong><button type="button" class="transfer-change" id="picker-close">Закрыть</button></div>
-      <input id="picker-search" class="bet-input picker-search" type="search" maxlength="32" autocomplete="off" autocorrect="off" enterkeyhint="search" placeholder="Поиск по имени" aria-label="Поиск по имени">
-      <ul class="picker-list" id="picker-list"></ul>
-      <p class="picker-msg" id="picker-msg" aria-live="polite"></p>
-      <button type="button" class="action picker-retry" id="picker-retry" hidden>Повторить</button>
-    </section>
-  </div>
-  <div class="transfer-sheet" id="transfer-sheet" hidden>
-    <div class="transfer-dim" id="transfer-dim"></div>
-    <section class="transfer-panel bets-dock" role="dialog" aria-modal="true" aria-label="Перевод">
-      <div class="transfer-head"><strong>Перевод</strong><span class="transfer-to" id="transfer-to"></span><button type="button" class="transfer-change" id="transfer-change">Изменить</button></div>
-      <div class="row bet-row">
-        <button type="button" class="action step-btn" id="transfer-half" aria-label="Уменьшить вдвое">÷2</button>
-        <input id="transfer-amount" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="" aria-label="Сумма перевода">
-        <button type="button" class="action step-btn" id="transfer-double" aria-label="Увеличить вдвое">×2</button>
-        <button type="button" class="action bet-maxdone" id="transfer-max">Макс</button>
-      </div>
-      <div class="transfer-info" id="transfer-recv"></div>
-      <div class="transfer-info muted" id="transfer-limits"></div>
-      <p class="transfer-msg" id="transfer-msg" aria-live="polite"></p>
-      <div class="row transfer-actions">
-        <button type="button" class="action" id="transfer-cancel">Отмена</button>
-        <button type="button" class="keno-play" id="transfer-send">Отправить</button>
-      </div>
-    </section>
-  </div>
   <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
-  <div class="transfer-sheet" id="wd-prev-sheet" hidden>
-    <div class="transfer-dim" id="wd-prev-dim"></div>
-    <section class="transfer-panel wd-prev-panel" role="dialog" aria-modal="true" aria-label="Предпросмотр">
-      <div class="transfer-head"><strong id="wd-prev-title"></strong><span class="wd-status" id="wd-prev-status"></span></div>
+  <div class="dialog-sheet" id="wd-prev-sheet" hidden>
+    <div class="dialog-dim" id="wd-prev-dim"></div>
+    <section class="dialog-panel wd-prev-panel" role="dialog" aria-modal="true" aria-label="Предпросмотр">
+      <div class="dialog-head"><strong id="wd-prev-title"></strong><span class="wd-status" id="wd-prev-status"></span></div>
       <div class="wd-scene" id="wd-prev-scene"></div>
       <p class="wd-desc" id="wd-prev-desc"></p>
       <p class="wd-desc" id="wd-prev-note" hidden>Предметы не влияют на игру. Фишки за Stars не продаются.</p>
-      <p class="transfer-msg" id="wd-prev-msg" aria-live="polite"></p>
-      <div class="row transfer-actions">
+      <p class="dialog-msg" id="wd-prev-msg" aria-live="polite"></p>
+      <div class="row dialog-actions">
         <button type="button" class="action" id="wd-prev-close">Закрыть</button>
         <button type="button" class="keno-play" id="wd-prev-act" hidden>Надеть</button>
       </div>
@@ -598,23 +561,22 @@
   </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
-  <script src="js/00-config.js?v=f548d110"></script>
+  <script src="js/00-config.js?v=006cbb3a"></script>
   <script src="js/01-core.js?v=d5a6594e"></script>
-  <script src="js/02-bet.js?v=885b7063"></script>
+  <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
-  <script src="js/04-profile.js?v=0928e80e"></script>
-  <script src="js/05-rating.js?v=d4dbb6f7"></script>
+  <script src="js/04-profile.js?v=086d0005"></script>
+  <script src="js/05-rating.js?v=507243c8"></script>
   <script src="js/06-farm.js?v=f6c02370"></script>
   <script src="js/07-mines.js?v=a24c3021"></script>
   <script src="js/08-keno.js?v=e8d2f354"></script>
   <script src="js/09-blackjack.js?v=6d9fd117"></script>
   <script src="js/10-crash.js?v=8de486b3"></script>
   <script src="js/11-hilo.js?v=59039265"></script>
-  <script src="js/12-transfers.js?v=bba7d5a2"></script>
   <script src="js/13-wardrobe.js?v=42bd4425"></script>
-  <script src="js/14-lobby.js?v=2b5e9bb6"></script>
+  <script src="js/14-lobby.js?v=007b0796"></script>
   <script src="js/15-arcade.js?v=ca5ba0bc"></script>
-  <script src="js/16-a11y.js?v=c7a44939"></script>
+  <script src="js/16-a11y.js?v=09029a73"></script>
   <script src="js/17-start.js?v=6b477d77"></script>
 </body>
 </html>

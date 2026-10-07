@@ -39,9 +39,7 @@
 | storage_level | int | всегда |
 | farm | `{income_per_hour int, per_minute_estimate str, next_tick_in_s int, hours_cap int, accrued_now int}` | всегда: поминутное начисление дохода (ниже) |
 | active_game | str\|null | всегда: `"mines"`, `"blackjack"`, `"crash"`, `"hilo"` (незавершённая игра игрока; если активных несколько, та, где действие было позже) или null |
-| incoming_unseen | `{count int, total int}` | всегда: непросмотренные входящие переводы (число и сумма, которую получатель получил) |
 | cosmetics | `{equipped {слот: код}, show_in_rating bool}` | всегда: косметика (только внешний вид): надетое по всем 8 слотам (стартовый, если ничего не надето) и показ рамки и значка в рейтинге |
-| transfer_limits | `{min int, max int, daily_left int, fee_percent int, min_level int, cooldown_seconds int, min_age_hours int, min_staked int, unlimited bool}` | всегда: лимиты переводов для клиента; у владельца `fee_percent` 0, `unlimited` true, `daily_left` равен 9007199254740991 |
 
 Побочные эффекты: закрывает просроченные игры (мины, блэкджек, краш, хило) игрока, подтягивает поминутное начисление дохода. `active_game` считается после закрытия просроченных игр.
 
@@ -79,7 +77,7 @@
 | me | объект | всегда |
 | chat_staked | int | всегда |
 
-Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int`, `member_ref str|null` (все всегда; `member_ref` непрозрачная метка участника для перевода, у самого себя null).
+Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int` (все всегда).
 `me`: `rank int`, `balance int`, `total int` (число участников рейтинга), `staked int`, `level int` (все всегда).
 Элемент `top` дополнительно содержит `cosmetics {слот: код}`: только публичные слоты (`avatar_frame`, `badge`), только надетые не стартовые предметы и только если игрок не отключил показ (`show_in_rating`); иначе `{}`. Остальные слоты других игроков не отдаются никогда. Пример: `docs/examples/cosmetics.json` (`rating_entry`).
 
@@ -93,7 +91,7 @@
 | me | объект\|null | место вызвавшего среди участников с рекордом; null, если своего рекорда нет |
 | total | int | сколько в беседе участников с рекордом |
 
-Элемент `top`: `rank int`, `name str`, `net_amount int`, `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`, `member_ref str|null` (как в `/api/chat/top`, у себя null), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
+Элемент `top`: `rank int`, `name str`, `net_amount int`, `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
 В ответе нет `telegram_id`, времени достижения и идентификатора беседы. Отдельный маршрут, а не поле в `/api/chat/top`: сбой или рост рекордов не ломает основной рейтинг. Кэша нет (`no-store`), как у остальных ответов API. Примеры: `docs/examples/best_wins.json`. Ошибки: 401 `{"detail": "Unauthorized"}`, 429 `{"error": "too_many_requests"}`.
 
 ## GET /api/farm
@@ -347,35 +345,11 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Ошибки: 400 `{"detail": "invalid_request"}` (типы, `coin` вне списка, `buy` не bool, ключи, `request_id`); 409 `{"detail": "insufficient_funds"}`,
 `{"detail": "request_conflict"}` (тот же `request_id` с другими `coin` или `buy`), `{"detail": "balance_limit"}` (баланс плюс наибольшая выплата `100000 * coin` выше потолка).
 
-## Переводы между участниками беседы
-Фишки виртуальные: перевод это подарок между участниками игры. Работает только если приложение открыто из беседы, получатель
-выбирается по `member_ref` из рейтинга беседы (идентификаторы Telegram в API не показываются: `member_ref` это HMAC от беседы и игрока секретом сервера).
-Константы в `bot/transfers.py`, клиент берёт лимиты из `transfer_limits` в `/api/me`. Примеры ответов: `docs/examples/transfers.json`.
-Правила: сумма 100..500000 за перевод; пауза 10 секунд между переводами; отправитель не ниже уровня 3, старше 1 часа с регистрации и с накопленными ставками
-(`total_staked`) не менее 20000; за скользящие 24 часа отправитель отправляет не больше 500000 (считается списанное, то есть вместе с комиссией); суточного лимита на получение нет
-(ограничивает только потолок баланса получателя `recipient_limit`). Комиссия 5 % (минимум 1) идёт на игровой аккаунт разработчика. Владелец (`OWNER_CHAT_ID`) не подпадает под суточный
-лимит отправки и условие по ставкам, комиссию не платит; мин. и макс. сумма, пауза, уровень и возраст аккаунта действуют и для него. Комиссия владельцу в лимиты других не входит.
-Перевод не влияет на опыт, уровень и `total_staked`. Значения лежат в `bot/transfers.py`.
-
-### POST /api/transfers/send
-Группа write. Тело: `{"request_id": str, "member_ref": str (32 hex), "amount": int (100..500000)}`. 200 (все ключи всегда):
-`amount int`, `fee int`, `received int` (сколько получит получатель), `balance int` (баланс отправителя после), `level int`, `daily_left int`, `replayed bool`.
-Повтор с тем же `request_id` и параметрами возвращает сохранённый перевод (`replayed: true`, `balance` текущий).
-Ошибки: 400 `{"detail": "invalid_request"}`; 409 `{"detail": "<код>"}`: `no_chat`, `self_transfer`, `not_in_chat`, `level_too_low`, `account_too_new`,
-`not_enough_staked` (у отправителя ставок меньше порога), `cooldown` (в теле ещё `seconds int`: сколько ждать), `daily_limit` (исчерпан суточный лимит отправки),
-`insufficient_funds`, `recipient_limit` (баланс получателя упёрся бы в потолок), `request_conflict`.
-
-### GET /api/transfers
-Группа read. 200: `{"items": [{"direction": "out"|"in", "name": str, "amount": int, "fee": int, "time": int}]}`: до 20 последних переводов
-(отправленных и полученных), новые первыми; `name` имя второй стороны как в рейтинге. Помечает входящие просмотренными (`incoming_unseen` в `/api/me` обнуляется).
-
-### GET /api/chat/members
-Группа read. Список участников беседы для выбора получателя перевода (из рейтинга можно выбрать только топ-10, здесь все).
-Запрос: `?q=<часть имени>&offset=<n>`. `q` ищет по имени без учёта регистра по вхождению (до 32 символов, управляющие символы отбрасываются), пустой `q` это все;
-`offset` целое 0..100000 (по умолчанию 0). 200: `{"items": [{"name": str, "member_ref": str}], "next_offset": int|null}`: не больше 30 участников на страницу,
-по последней активности (новые первыми); себя в списке нет; ни балансов, ни уровней, ни идентификаторов Telegram. `next_offset` null, если страниц больше нет.
-Ошибки: 400 `{"detail": "invalid_request"}` (плохой `offset`); 409 `{"detail": "no_chat"}` (приложение открыто вне беседы) или `{"detail": "not_in_chat"}`
-(запрашивающего нет среди участников этой беседы). Примеры: `docs/examples/chat_members.json`.
+## Переводы удалены
+Переводов между игроками больше нет (план экономики, этап E1). `POST /api/transfers/send`, `GET /api/transfers` и `GET /api/chat/members` отвечают
+410 `{"detail": "gone"}` без проверки подписи; из `/api/me` убраны `incoming_unseen` и `transfer_limits`, из рейтинга и рекордов `member_ref`.
+Уже сделанные переводы лежат в таблице `transfers` до конца срока хранения (30 дней), попадают в `/mydata` и удаляются или обезличиваются
+`/deletemydata` как раньше.
 
 ## Косметика
 Только внешний вид; не влияет на шансы, выплаты, множители, XP, лимиты, ферму и экономику. Каталог в коде (`bot/cosmetics.py`): 8 слотов (`card_back`, `chip`, `table`, `mine_icons`, `keno_ball`, `crash`,

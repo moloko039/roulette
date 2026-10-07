@@ -11,9 +11,6 @@ const srv = {
   incomeLevel: null,
   storageLevel: null,
   level: null,        // уровень профиля из /api/me
-  transferLimits: null,   // лимиты переводов из /api/me: {min, max, daily_left, fee_percent, min_level, cooldown_seconds, min_age_hours, min_staked, unlimited}
-  incomingUnseen: null,   // непросмотренные входящие переводы: {count, total}
-  noChat: false,          // приложение открыто вне беседы (по рейтингу или по ответу списка участников): переводы недоступны
   farm: null,         // блок фермы из /api/me: {income_per_hour, per_minute_estimate, next_tick_in_s, hours_cap, accrued_now}
   activeGame: null    // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | "hilo" | null
 };
@@ -221,11 +218,6 @@ async function loadServer(reason) {
     srv.storageLevel = isCount(d.storage_level) ? d.storage_level : null;
     srv.deadline = performance.now() + d.seconds_to_next * 1000;
     srv.level = isCount(d.level) ? d.level : null;
-    const tl = d.transfer_limits;
-    srv.transferLimits = tl && ['min', 'max', 'daily_left', 'fee_percent', 'min_level', 'cooldown_seconds', 'min_age_hours', 'min_staked'].every((k) => isCount(tl[k]))
-      && typeof tl.unlimited === 'boolean' ? tl : null;
-    const iu = d.incoming_unseen;
-    srv.incomingUnseen = iu && isCount(iu.count) && isCount(iu.total) ? iu : null;
     srv.activeGame = ['mines', 'blackjack', 'crash', 'hilo'].includes(d.active_game) ? d.active_game : null;
     applySkins(d.cosmetics && d.cosmetics.equipped);       // внешний вид по надетому (только оформление)
     setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
@@ -239,7 +231,6 @@ async function loadServer(reason) {
     if (gained === 0 && reason === 'visible' && srv.farm && prevBalance !== null && d.balance > prevBalance
       && d.balance - prevBalance <= srv.farm.income_per_hour * srv.farm.hours_cap) gained = d.balance - prevBalance;
     applyAccrualTick(gained);
-    notifyIncoming();
     if (!lobbyStartDecided) {
       // запуск: если у игрока есть незавершённая игра, сразу открываем её экран (он сам восстановит раунд)
       lobbyStartDecided = true;

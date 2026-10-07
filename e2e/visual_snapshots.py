@@ -163,7 +163,7 @@ async def scenario(w, shooter):
         await p.wait("!document.getElementById('cr-banner').hidden && document.getElementById('cr-banner').classList.contains('%s')" % banner, 20, name)
         await p.wait("!document.getElementById('cr-bets').hidden && !document.getElementById('cr-start').disabled", 20, "раунд закончен")
         await shot(name)
-    # вкладки и переводы
+    # вкладки
     for tab in ("farm", "rating", "profile"):
         await p.tap(tab_js(tab))
         await p.wait("!document.querySelector('.screen:not([hidden]) .skeleton-card:not([hidden])')", 15, "экран загружен: " + tab)
@@ -172,15 +172,6 @@ async def scenario(w, shooter):
         await shot(tab)
     await p.tap(tab_js("rating"))
     await p.wait("document.querySelectorAll('#rating-list li').length >= 2 && !document.getElementById('best-card').hidden", 10, "рейтинг и блок рекордов")
-    await p.ev("[...document.querySelectorAll('#rating-list li')].find(l => l.textContent.includes('bob')).id = 'e2e-bob'")
-    await p.tap("#e2e-bob")
-    await p.wait("!document.getElementById('transfer-sheet').hidden", 5, "окно перевода")
-    await shot("transfer")
-    await p.tap("#transfer-change")
-    await p.wait("!document.getElementById('picker-sheet').hidden && document.querySelectorAll('#picker-list li').length >= 1", 10, "выбор получателя")
-    await p.ev("(() => { const i = document.getElementById('picker-search'); i.value = 'bob'; i.dispatchEvent(new Event('input')); })()")
-    await p.wait("document.querySelectorAll('#picker-list li').length === 1", 10, "поиск по имени")
-    await shot("picker")
     # гардероб и рейтинг с рамкой и значком (новые снимки добавлены в конец: номера прежних снимков не меняются)
     import time
     now = int(time.time())

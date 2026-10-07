@@ -76,7 +76,7 @@ try:
         return proc, port
 
     def probe(port):
-        url = "http://127.0.0.1:%d/api/chat/members?q=%s" % (port, urllib.parse.quote(SECRET_NAME))
+        url = "http://127.0.0.1:%d/api/chat/top?q=%s" % (port, urllib.parse.quote(SECRET_NAME))
         try:
             urllib.request.urlopen(urllib.request.Request(url, headers={"Authorization": "tma bad"}), timeout=3)
         except urllib.error.HTTPError as err:
@@ -124,8 +124,13 @@ try:
     check("CORS по-прежнему работает", client.get("/api/me", headers=dict(auth(1), Origin=ORIGIN)).headers.get("access-control-allow-origin"), ORIGIN)
     check("CSP не добавляется", "content-security-policy" in client.get("/api/me", headers=auth(1)).headers, False)
 
+    # ================= переводы удалены (E1): старые адреса отвечают 410, подпись не нужна =================
+    for method, url in (("post", "/api/transfers/send"), ("get", "/api/transfers"), ("get", "/api/chat/members")):
+        r = getattr(client, method)(url, headers=auth(2))
+        check("410 Gone: " + method.upper() + " " + url, (r.status_code, r.json()), (410, {"detail": "gone"}))
+
     # ================= 4. лимит тела запроса: 413 до чтения =================
-    posts = [("/api/roulette/spin", {}), ("/api/farm/buy", {}), ("/api/mines/start", {}), ("/api/keno/play", {}), ("/api/transfers/send", {})]
+    posts = [("/api/roulette/spin", {}), ("/api/farm/buy", {}), ("/api/mines/start", {}), ("/api/keno/play", {})]
     for url, _ in posts:
         r = client.post(url, content=b"x" * (MAX_BODY_BYTES + 1), headers=auth(2))
         check("413 по Content-Length: " + url, (r.status_code, r.json()), (413, {"detail": "payload_too_large"}))

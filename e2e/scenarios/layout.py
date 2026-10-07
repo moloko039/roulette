@@ -27,10 +27,4 @@ async def run(w):
         for tab in ("profile", "farm", "rating"):
             await p.tap(".tab[data-tab=%s]" % tab)
             await measure(p, "%s %dx%d" % (tab, width, height))
-        await p.ev("[...document.querySelectorAll('#rating-list li')].find(l => l.textContent.includes('bob')).id = 'e2e-bob'")
-        await p.tap("#e2e-bob")
-        await p.wait("!document.getElementById('transfer-sheet').hidden", 5, "окно перевода")
-        await measure(p, "окно перевода %dx%d" % (width, height))
-        await p.tap({"x": width / 2, "y": 40})
-        await p.wait("document.getElementById('transfer-sheet').hidden", 5, "окно закрыто")
         await p.tap(".tab[data-tab=play]")

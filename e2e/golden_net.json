@@ -28,10 +28,7 @@
 "GET /api/chat/top"
 ],
 "betpanel_keyboard": [
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
-"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}"
+"GET /api/me"
 ],
 "blackjack": [
 "GET /api/me",
@@ -112,29 +109,26 @@
 "GET /api/cosmetics/mine",
 "GET /api/farm",
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/farm",
-"GET /api/transfers",
+"GET /api/me",
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/farm",
-"GET /api/transfers",
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
 "GET /api/me",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
-"GET /api/farm",
-"GET /api/transfers"
+"GET /api/farm"
 ],
 "hilo": [
 "GET /api/me",
@@ -227,7 +221,6 @@
 "skin_apply": [
 "GET /api/me",
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/me"
 ],
 "skin_contrast": [
@@ -241,7 +234,6 @@
 ],
 "style_tab": [
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/chat/top",
@@ -251,28 +243,6 @@
 "GET /api/me",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine"
-],
-"transfers_ui": [
-"GET /api/me",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
-"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
-"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
-"POST /api/transfers/send {\"amount\":500,\"member_ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins",
-"GET /api/me",
-"GET /api/me",
-"GET /api/chat/top",
-"GET /api/chat/best-wins"
 ],
 "wardrobe_buy_chips": [
 "GET /api/me",
@@ -334,7 +304,6 @@
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":false}",
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":true}",
 "GET /api/me",
-"GET /api/transfers",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine"
 ],
@@ -344,8 +313,7 @@
 "GET /api/chat/best-wins",
 "GET /api/me",
 "GET /api/chat/top",
-"GET /api/chat/best-wins",
-"GET /api/transfers"
+"GET /api/chat/best-wins"
 ],
 "wardrobe_safety": [
 "GET /api/me",

@@ -72,7 +72,6 @@ function showTab(id) {
   if (screen === 'crash') crResume();
   else crPause();
   if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');
-  if (started && screen === 'profile') loadTransfers('open');
   if (started && screen === 'rating') loadRating('open');
   if (started && screen === 'farm') loadFarm('open');
   if (started && screen === 'mines') loadMines('open');

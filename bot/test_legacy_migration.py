@@ -111,7 +111,6 @@ try:
         deleted = db.delete_player_data(A, db_path=path, now=NOW + 10)
         check("%s: удаление: отправленный перевод удалён, полученный обезличен" % commit, (deleted["transfers"], deleted["transfers_anonymized"]), (1, 1))
         check("%s: запись отправителя B осталась без идентификатора получателя" % commit, sql(path, "SELECT sender, recipient, amount, fee FROM transfers"), [(B, 0, 40000, 2000)])
-        check("%s: суточный остаток отправителя B учитывает перевод" % commit, db.transfer_status(B, owner_id=None, now=NOW + 20, db_path=path)[0]["daily_left"], 500_000 - 40000)
         print("миграция со схемы коммита %s проверена" % commit)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
