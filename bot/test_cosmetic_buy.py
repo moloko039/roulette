@@ -17,7 +17,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 from telegram.error import TelegramError
 
-import api
+import web.routes_cosmetics as api  # INVOICE_INTERVAL живёт в модуле маршрутов косметики
 import bot
 import cosmetics
 import db

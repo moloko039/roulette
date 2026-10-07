@@ -12,6 +12,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 import api as api_module
+import web.routes_account as me_routes  # имена settle_expired_* ищутся в модуле маршрута /api/me
 import blackjack
 import crash
 import db
@@ -122,7 +123,7 @@ try:
     seen = {}
     wrappers = {}
     for fname in ("settle_expired_mines", "settle_expired_blackjack", "settle_expired_crash", "settle_expired_hilo"):
-        real = getattr(api_module, fname)
+        real = getattr(me_routes, fname)
 
         def wrap(*a, _real=real, _name=fname, **k):
             before = locks[0]
@@ -136,7 +137,7 @@ try:
 
     sql(path, "DELETE FROM mines_games"); sql(path, "DELETE FROM blackjack_games"); sql(path, "DELETE FROM hilo_games")   # noqa: E702
     with mock.patch.object(db_conn.TimedConnection, "execute", counting_execute), \
-            mock.patch.multiple(api_module, **wrappers):
+            mock.patch.multiple(me_routes, **wrappers):
         r = me(A)
     check("/api/me без игр: 200, active_game null", (r.status_code, r.json()["active_game"]), (200, None))
     check("/api/me без игр: ни одной блокировки записи при проверке просроченных игр", seen, {"settle_expired_mines": 0, "settle_expired_blackjack": 0, "settle_expired_crash": 0, "settle_expired_hilo": 0})
@@ -146,7 +147,7 @@ try:
     db.blackjack_start(A, "me-lock-bj-0000010", 100, now=old, db_path=path, rng=Stack(cards=["10S", "6C", "6D", "9H"]))
     check("до запроса обе игры активны", [sql(path, "SELECT status FROM mines_games")[0][0], sql(path, "SELECT status FROM blackjack_games")[0][0]], ["active", "active"])
     seen.clear()
-    with mock.patch.object(db_conn.TimedConnection, "execute", counting_execute), mock.patch.multiple(api_module, **wrappers):
+    with mock.patch.object(db_conn.TimedConnection, "execute", counting_execute), mock.patch.multiple(me_routes, **wrappers):
         r = me(A)
     check("/api/me закрыл просроченные игры, active_game null", (r.status_code, r.json()["active_game"],
                                                               sql(path, "SELECT status FROM mines_games")[0][0], sql(path, "SELECT status, auto FROM blackjack_games")[0]),
@@ -155,7 +156,7 @@ try:
     # активная непросроченная игра видна в active_game, блокировка при этом не берётся
     db.mines_start(A, "me-lock-mines-0011", 100, 3, now=int(time.time()), db_path=path, rng=Stack(cells=[0, 1, 2]))
     seen.clear()
-    with mock.patch.object(db_conn.TimedConnection, "execute", counting_execute), mock.patch.multiple(api_module, **wrappers):
+    with mock.patch.object(db_conn.TimedConnection, "execute", counting_execute), mock.patch.multiple(me_routes, **wrappers):
         r = me(A)
     check("активная игра: active_game mines, проверка без блокировки", (r.json()["active_game"], seen["settle_expired_mines"], seen["settle_expired_blackjack"]), ("mines", 0, 0))
 finally:
