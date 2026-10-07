@@ -44,8 +44,8 @@ let currentGame = 'lobby';
 // Нижняя панель: названия и иконки меняются здесь. Иконка — вложенный SVG (24×24, контур).
 // Иконка центральной кнопки: нейтральная, пока игра не выбрана; после выбора подменяется иконкой открытой игры.
 const TABS = [
+  { id: 'shop',    label: 'Магазин', icon: '<path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>' },
   { id: 'rating',  label: 'Рейтинг', icon: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/>' },
-  { id: 'style',   label: 'Стиль',   icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15v4M17 17h4"/>' },
   { id: 'play',    label: 'Играть',  icon: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>', main: true },
   { id: 'farm',    label: 'Ферма',   icon: '<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>' },
   { id: 'profile', label: 'Профиль', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' }
@@ -68,7 +68,7 @@ function showTab(id) {
   const screen = id === 'play' ? currentGame : id;
   document.querySelectorAll('[data-screen]').forEach((el) => { el.hidden = el.dataset.screen !== screen; });
   closeGameMenu();
-  if (screen === 'style') { if (started) openWardrobe(); } else closeWardrobe();
+  if (screen === 'shop') { if (started) openShop(); } else closeShop();
   if (screen === 'crash') crResume();
   else crPause();
   if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');

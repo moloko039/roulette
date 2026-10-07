@@ -359,7 +359,7 @@ try:
     payload = cosmetics.make_payload(A, "table_blue", int(time.time()))
     cap.lines.clear()
     paid(fake, A, payload, "chg-0001")
-    check("оплата: предмет в гардеробе и сообщение", (owned(path, A), fake.texts(A)), (["table_blue"], ["Предмет добавлен во вкладку «Стиль»"]))
+    check("оплата: предмет в гардеробе и сообщение", (owned(path, A), fake.texts(A)), (["table_blue"], ["Предмет добавлен в раздел «Оформление»"]))
     check("журнал: запись paid без лишнего", sql(path, "SELECT charge_id, telegram_id, item_code, amount_stars, status, refunded_at FROM cosmetic_purchases"), [("chg-0001", A, "table_blue", 150, "paid", None)])
     check("предмет связан с платежом", sql(path, "SELECT source, payment_ref FROM cosmetic_items"), [("stars", "chg-0001")])
     paid(fake, A, payload, "chg-0001")
@@ -386,7 +386,7 @@ try:
         with mock.patch.object(db, "record_stars_payment", side_effect=flaky):
             pay_b = cosmetics.make_payload(B, "crash_neon", int(time.time()))
             paid(fake, B, pay_b, "chg-0004", amount=100)
-        check("сбой дважды, на третьей попытке записано", (len(calls), owned(path, B), fake.texts(B)[-1]), (3, ["crash_neon"], "Предмет добавлен во вкладку «Стиль»"))
+        check("сбой дважды, на третьей попытке записано", (len(calls), owned(path, B), fake.texts(B)[-1]), (3, ["crash_neon"], "Предмет добавлен в раздел «Оформление»"))
         cap.lines.clear()
         with mock.patch.object(db, "record_stars_payment", side_effect=sqlite3.OperationalError("диск")):
             paid(fake, B, cosmetics.make_payload(B, "keno_hex", int(time.time())), "chg-0005", amount=75)
@@ -423,7 +423,7 @@ try:
     check("refund: возврат выполнен", (out, fake.refunds), (["Возврат выполнен, предмет убран у игрока"], [(A, "chg-0001")]))
     check("предмет убран и снят, статус refunded", (owned(path, A), sql(path, "SELECT COUNT(*) FROM cosmetic_equipped WHERE telegram_id = ?", (A,))[0][0],
                                                    sql(path, "SELECT status, refunded_at IS NOT NULL FROM cosmetic_purchases WHERE charge_id = 'chg-0001'")), ([], 0, [("refunded", 1)]))
-    check("игроку сообщение", fake.texts(A)[-1], "Платёж возвращён, предмет убран из вкладки «Стиль».")
+    check("игроку сообщение", fake.texts(A)[-1], "Платёж возвращён, предмет убран из раздела «Оформление».")
     check("refund: повтор безопасен", (command(bot.refund, fake, ["chg-0001"]), len(fake.refunds)), (["Этот платёж уже возвращён"], 1))
     fake.refund_error = "Bad Request: CHARGE_ALREADY_REFUNDED"
     sql(path, "INSERT INTO cosmetic_purchases (charge_id, telegram_id, item_code, amount_stars, status, created_at) VALUES ('chg-9', ?, 'crash_neon', 100, 'paid', ?)", (A, NOW))
@@ -461,9 +461,9 @@ try:
     os.environ["PRIVACY_URL"] = "https://example.test/roulette/privacy.html"
     out = command(bot.paysupport, FakeBot(), [], uid=A)[0]
     check("paysupport со ссылкой на условия", out.endswith("Условия: https://example.test/roulette/terms.html"), True)
-    check("terms: ссылка выводится из PRIVACY_URL", command(bot.terms, FakeBot(), [], uid=A), ["Условия покупки предметов: https://example.test/roulette/terms.html"])
+    check("terms: ссылка выводится из PRIVACY_URL", command(bot.terms, FakeBot(), [], uid=A), ["Условия покупок: https://example.test/roulette/terms.html"])
     os.environ["TERMS_URL"] = "https://example.test/t.html"
-    check("terms: TERMS_URL главнее", command(bot.terms, FakeBot(), [], uid=A), ["Условия покупки предметов: https://example.test/t.html"])
+    check("terms: TERMS_URL главнее", command(bot.terms, FakeBot(), [], uid=A), ["Условия покупок: https://example.test/t.html"])
     os.environ.pop("TERMS_URL"), os.environ.pop("PRIVACY_URL")
     check("terms без настроек: нейтральный ответ", command(bot.terms, FakeBot(), [], uid=A), [bot.UNAVAILABLE])
     check("в группе: только личная переписка", (command(bot.paysupport, FakeBot(), [], uid=A, chat="supergroup"), command(bot.terms, FakeBot(), [], uid=A, chat="group")), ([bot.PRIVATE_ONLY], [bot.PRIVATE_ONLY]))
