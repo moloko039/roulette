@@ -1,0 +1,37 @@
+{
+  "_comment": "Ответы покупки фишек. packs: GET /api/chips/packs; buy: POST /api/chips/buy.",
+  "packs": {
+    "packs": [
+      {
+        "code": "chips_6h",
+        "gems": 30,
+        "hours": 6,
+        "chips": 600
+      },
+      {
+        "code": "chips_24h",
+        "gems": 100,
+        "hours": 24,
+        "chips": 2400
+      },
+      {
+        "code": "chips_72h",
+        "gems": 250,
+        "hours": 72,
+        "chips": 7200
+      }
+    ],
+    "gems": 130,
+    "balance": 1000,
+    "daily_left": 5
+  },
+  "buy": {
+    "pack_code": "chips_24h",
+    "gems_spent": 100,
+    "chips": 2400,
+    "balance": 3400,
+    "gems": 30,
+    "daily_left": 4,
+    "replayed": false
+  }
+}

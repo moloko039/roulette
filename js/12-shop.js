@@ -1,6 +1,6 @@
 // #region Магазин
-// Вкладка «Магазин» (в нижней панели первая): три страницы по порядку. «Оформление» (открыта по умолчанию): гардероб (js/13-wardrobe.js). «Фишки»: покупка фишек за кристаллы (появится в E6;
-// продать фишки или вывести их нельзя, это сказано прямо). «Кристаллы»: покупка пакетов за Telegram Stars (E2). Баланс кристаллов и список пакетов приходят с сервера
+// Вкладка «Магазин» (в нижней панели первая): три страницы по порядку. «Оформление» (открыта по умолчанию): гардероб (js/13-wardrobe.js). «Фишки»: покупка фишек за кристаллы (E6;
+// продать фишки или вывести их нельзя, это сказано прямо; пакеты равны часам фермы игрока, данные только с сервера GET /api/chips/packs). «Кристаллы»: покупка пакетов за Telegram Stars (E2). Баланс кристаллов и список пакетов приходят с сервера
 // (GET /api/gems/packs), цены берутся только оттуда. Оплата: счёт /api/gems/invoice, Telegram.WebApp.openInvoice, затем опрос баланса.
 // Файл стоит перед js/13-wardrobe.js: функции гардероба (wdBuyErrorText, wdSafeInvoiceUrl, openWardrobe) вызываются уже после загрузки всех файлов.
 const SHOP_PAGES = ['look', 'chips', 'gems'];
@@ -10,8 +10,12 @@ const GEM_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 
 
 const shopEls = {
   pages: document.getElementById('shop-pages'), gems: document.getElementById('shop-gems'), packs: document.getElementById('gem-packs'),
-  msg: document.getElementById('gem-msg'), terms: document.getElementById('gem-terms'), chipsTerms: document.getElementById('chips-terms')
+  msg: document.getElementById('gem-msg'), terms: document.getElementById('gem-terms'), chipsTerms: document.getElementById('chips-terms'),
+  chipPacks: document.getElementById('chip-packs'), chipMsg: document.getElementById('chip-msg')
 };
+const CHIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>';
+const CHIP_CONFIRM_MS = 5000;
+const chipShop = { packs: null, dailyLeft: null, loading: false, busy: false, confirm: null, timer: 0, msg: '' };
 const shop = { open: false, page: 'look', gems: null, packs: null, loading: false, busy: false, paying: false, payCode: null, pollGen: 0, msg: '' };
 
 // Ответ GET /api/gems/packs: пакеты с кодом gems_*, звёзды и кристаллы целые и разумные; всё остальное отбрасывается
@@ -71,7 +75,126 @@ function renderShop() {
     li.appendChild(btn);
     shopEls.packs.appendChild(li);
   });
-  if (!shop.packs && !shop.loading && !shop.msg) shopEls.packs.textContent = '';
+  renderChipPacks();
+}
+
+// ---------- фишки за кристаллы (E6) ----------
+function validChipPacks(d) {
+  return !!d && Array.isArray(d.packs) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
+    && Number.isSafeInteger(d.daily_left) && d.daily_left >= 0 && d.daily_left <= 1000;
+}
+
+function normalizeChipPacks(d) {
+  const out = [];
+  d.packs.forEach((p) => {
+    if (!p || typeof p.code !== 'string' || !/^chips_[a-z0-9_]{1,30}$/.test(p.code)) return;
+    if (![p.gems, p.hours, p.chips].every((v) => Number.isSafeInteger(v) && v >= 1 && v <= 1e12)) return;
+    out.push({ code: p.code, gems: p.gems, hours: p.hours, chips: p.chips });
+  });
+  return out;
+}
+
+function setChipMsg(text) {
+  chipShop.msg = text;
+  shopEls.chipMsg.textContent = text;
+}
+
+const chipHoursText = (h) => formatNumber(h) + ' ' + (h % 10 === 1 && h % 100 !== 11 ? 'час' : (h % 10 >= 2 && h % 10 <= 4 && (h % 100 < 12 || h % 100 > 14) ? 'часа' : 'часов')) + ' фермы';
+
+function renderChipPacks() {
+  shopEls.chipPacks.textContent = '';
+  (chipShop.packs || []).forEach((p) => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gem-pack';
+    btn.dataset.code = p.code;
+    btn.disabled = chipShop.busy || (chipShop.dailyLeft !== null && chipShop.dailyLeft <= 0);
+    const icon = document.createElement('span');
+    icon.className = 'gem-pack-icon';
+    icon.innerHTML = CHIP_SVG;       // постоянная разметка значка
+    const body = document.createElement('span');
+    body.className = 'gem-pack-body';
+    const name = document.createElement('strong');
+    name.textContent = chipHoursText(p.hours);
+    const sub = document.createElement('small');
+    sub.textContent = formatNumber(p.chips) + ' фишек';
+    body.append(name, sub);
+    const price = document.createElement('span');
+    price.className = 'gem-pack-price';
+    price.textContent = chipShop.confirm === p.code ? 'Нажмите ещё раз' : formatNumber(p.gems) + ' кристаллов';
+    btn.append(icon, body, price);
+    btn.addEventListener('click', () => buyChipPack(p));
+    li.appendChild(btn);
+    shopEls.chipPacks.appendChild(li);
+  });
+}
+
+async function loadChipPacks() {
+  if (chipShop.loading) return;
+  if (!(tg && tg.initData)) { setChipMsg('Откройте игру через бота в Telegram'); return; }
+  chipShop.loading = true;
+  setChipMsg('Загрузка…');
+  renderChipPacks();
+  try {
+    const d = await fetchGameState('/api/chips/packs', validChipPacks);
+    chipShop.packs = normalizeChipPacks(d);
+    chipShop.dailyLeft = d.daily_left;
+    shop.gems = d.gems;
+    setChipMsg(d.daily_left <= 0 ? 'На сегодня пакеты закончились, попробуйте завтра' : '');
+  } catch (e) {
+    setChipMsg(e && e.text ? e.text : 'Нет связи с сервером');
+  } finally {
+    chipShop.loading = false;
+    renderShop();
+  }
+}
+
+function chipErrorText(r) {
+  if (r.kind === 'conflict') {
+    return ({
+      insufficient_gems: 'Не хватает кристаллов. Их можно купить на странице «Кристаллы»', balance_limit: 'Баланс фишек достиг предела',
+      daily_limit: 'Сегодня больше пакетов нельзя, попробуйте завтра', request_conflict: 'Запрос уже обработан, обновите экран', unknown_item: 'Такого пакета нет'
+    })[r.detail] || 'Не удалось выполнить покупку';
+  }
+  return wdErrorText(r);
+}
+
+const validChipBuy = (d) => !!d && Number.isSafeInteger(d.chips) && Number.isSafeInteger(d.gems_spent) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
+  && Number.isSafeInteger(d.daily_left) && d.daily_left >= 0;
+
+// Покупка пакета: первое нажатие просит подтвердить (5 секунд), второе отправляет один запрос с одним request_id
+async function buyChipPack(pack) {
+  if (chipShop.busy) return;
+  if (chipShop.confirm !== pack.code) {
+    chipShop.confirm = pack.code;
+    clearTimeout(chipShop.timer);
+    chipShop.timer = setTimeout(() => { chipShop.confirm = null; setChipMsg(''); renderChipPacks(); }, CHIP_CONFIRM_MS);
+    setChipMsg('Потратить ' + formatNumber(pack.gems) + ' кристаллов на ' + formatNumber(pack.chips) + ' фишек? Вернуть фишки нельзя');
+    renderChipPacks();
+    return;
+  }
+  clearTimeout(chipShop.timer);
+  chipShop.confirm = null;
+  if (!(tg && tg.initData)) { setChipMsg('Откройте игру через бота в Telegram'); renderChipPacks(); return; }
+  const id = makeRequestId();
+  if (!id) { setChipMsg('Ошибка'); renderChipPacks(); return; }
+  chipShop.busy = true;
+  setChipMsg('');
+  renderChipPacks();
+  const result = await postWithRetries(() => wdPostOnce('/api/chips/buy', { request_id: id, pack_code: pack.code }, validChipBuy));
+  chipShop.busy = false;
+  if (result && result.kind === 'ok') {
+    const d = result.data;
+    shop.gems = d.gems;
+    chipShop.dailyLeft = d.daily_left;
+    wdApplyBalance(d.balance);
+    setChipMsg('Куплено: ' + formatNumber(d.chips) + ' фишек за ' + formatNumber(d.gems_spent) + ' кристаллов');
+    haptic('success');
+  } else {
+    setChipMsg(chipErrorText(result || { kind: 'retry' }));
+  }
+  renderShop();
 }
 
 function showShopPage(name) {
@@ -181,6 +304,7 @@ function openShop() {
   renderShop();
   openWardrobe();
   loadGems();
+  loadChipPacks();
 }
 
 function closeShop() {
@@ -189,6 +313,9 @@ function closeShop() {
   shop.pollGen += 1;          // устаревшие опросы и ответы openInvoice больше ничего не меняют
   shop.paying = false;
   setShopMsg('');
+  clearTimeout(chipShop.timer);
+  chipShop.confirm = null;
+  setChipMsg('');
   closeWardrobe();
 }
 

@@ -15,9 +15,9 @@ INCOME_RATE_NUM, INCOME_RATE_DEN = 27, 20
 INCOME_BASE_COST = 1000
 INCOME_COST_NUM, INCOME_COST_DEN = economy_config.FARM_INCOME_COST_GROWTH
 
-# хранилище: потолок накопления в часах на уровне n = 30 + 6n; цена перехода с n на n+1 = 1000 * 2^n
-STORAGE_BASE_HOURS = 30
-STORAGE_HOURS_STEP = 6
+# хранилище: потолок накопления в часах на уровне n = 8 + 4n (числа в economy_config); цена перехода с n на n+1 = 1000 * 2^n
+STORAGE_BASE_HOURS = economy_config.FARM_STORAGE_BASE_HOURS
+STORAGE_HOURS_STEP = economy_config.FARM_STORAGE_STEP_HOURS
 STORAGE_BASE_COST = 1000
 
 KINDS = ("income", "storage")
