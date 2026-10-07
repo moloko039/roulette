@@ -115,5 +115,7 @@ jobs:
           {
             echo "### e2e в Chrome: прошло $ok, упало $failed"
             if [ "$failed" != "0" ]; then echo; echo "Упавшие сценарии:"; grep '^ПАДЕНИЕ ' e2e.log | sed 's/^/- /'; fi
-            grep -q 'Chrome не найден' e2e.log && echo && echo "Chrome не найден: e2e пропущены"
+            if grep -q 'Chrome не найден' e2e.log; then echo; echo "Chrome не найден: e2e пропущены"; fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # причина каждого падения видна в аннотациях запуска (логи заданий доступны только администратору репозитория)
+          awk '/^ПАДЕНИЕ /{name=$2; getline; print "::error title=e2e " name "::" substr($0, 1, 400)}' e2e.log
