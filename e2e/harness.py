@@ -78,8 +78,7 @@ def sign_init_data(token, user_id, name, chat_instance, auth_date):
 
 
 # ---------------------------------------------------------------- клиент во временной папке
-STUB = """<script>
-window.__errs = []; window.__log = [];
+STUB = """window.__errs = []; window.__log = [];
 window.Telegram = {WebApp: {initData: (function(){ try { return localStorage.getItem('__init') || ''; } catch (e) { return ''; } })(),
   initDataUnsafe: {user: {first_name: 'Игрок'}}, ready(){}, expand(){}, isVersionAtLeast(){return true}, disableVerticalSwipes(){},
   setHeaderColor(){}, setBackgroundColor(){}, setBottomBarColor(){},
@@ -93,7 +92,7 @@ window.fetch = async (u, o) => {
   window.__log.push(rec);
   try { const res = await _fetch(u, o); rec.status = res.status; return res; } catch (e) { rec.err = String(e); throw e; }
 };
-</script>"""
+"""
 
 
 def build_client(dst, api_url):
@@ -103,6 +102,7 @@ def build_client(dst, api_url):
         shutil.copytree(os.path.join(CLIENT_ROOT, folder), os.path.join(dst, folder), dirs_exist_ok=True)
     config = os.path.join(dst, "js", "00-config.js")
     js = open(config, encoding="utf-8").read()
+    prod_url = re.search(r"const API_URL = '([^']*)';", js).group(1)
     js, n = re.subn(r"const API_URL = '[^']*';", "const API_URL = '%s';" % api_url, js, count=1)
     if n != 1:
         raise E2EError("в js/00-config.js не найден const API_URL")
@@ -111,7 +111,11 @@ def build_client(dst, api_url):
     tag = '<script src="https://telegram.org/js/telegram-web-app.js"></script>'
     if tag not in html:
         raise E2EError("в index.html не найден скрипт Telegram WebApp")
-    open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(html.replace(tag, STUB.replace("__API__", json.dumps(api_url))))
+    # заглушка лежит файлом: CSP страницы запрещает inline-скрипты; адрес сервера в CSP подменяется на адрес e2e
+    with open(os.path.join(dst, "e2e-stub.js"), "w", encoding="utf-8") as f:
+        f.write(STUB.replace("__API__", json.dumps(api_url)))
+    html = html.replace(tag, '<script src="e2e-stub.js"></script>').replace(prod_url, api_url)
+    open(os.path.join(dst, "index.html"), "w", encoding="utf-8").write(html)
 
 
 class StaticServer:
@@ -396,7 +400,8 @@ class User:
 class World:
     """Сервер, клиент, Chrome-страница и пользователи одного сценария. users: имя -> параметры (первый пользователь «me»)."""
 
-    def __init__(self, chrome, users=None, viewport=(390, 700), clock_mod=None):
+    def __init__(self, chrome, users=None, viewport=(390, 700), clock_mod=None, bypass_csp=False):
+        self.bypass_csp = bypass_csp    # только для сценариев, которые сами внедряют <style> и inline-стили (проверка значений CSS, не CSP)
         self.clock_mod = clock_mod      # если задано: серверные часы сдвигаются так, что секунда минуты равна этому числу
         self.tmp = tempfile.mkdtemp(prefix="e2e-")
         self.chrome = chrome
@@ -423,6 +428,8 @@ class World:
         self._start_server()
         self.page = Page(self.chrome.new_page_ws())
         await self.page.open()
+        if self.bypass_csp:
+            await self.page.send("Page.setBypassCSP", {"enabled": True})
         await self.page.viewport(*self.viewport)
         await self.login("me")
 
