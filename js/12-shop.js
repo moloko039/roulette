@@ -1,9 +1,9 @@
 // #region Магазин
-// Вкладка «Магазин» (в нижней панели вторая): три раздела. «Кристаллы»: покупка пакетов за Telegram Stars (E2). «Фишки»: покупка фишек за кристаллы (появится в E6;
-// продать фишки или вывести их нельзя, это сказано прямо). «Оформление»: гардероб (js/13-wardrobe.js). Баланс кристаллов и список пакетов приходят с сервера
+// Вкладка «Магазин» (в нижней панели первая): три страницы по порядку. «Оформление» (открыта по умолчанию): гардероб (js/13-wardrobe.js). «Фишки»: покупка фишек за кристаллы (появится в E6;
+// продать фишки или вывести их нельзя, это сказано прямо). «Кристаллы»: покупка пакетов за Telegram Stars (E2). Баланс кристаллов и список пакетов приходят с сервера
 // (GET /api/gems/packs), цены берутся только оттуда. Оплата: счёт /api/gems/invoice, Telegram.WebApp.openInvoice, затем опрос баланса.
 // Файл стоит перед js/13-wardrobe.js: функции гардероба (wdBuyErrorText, wdSafeInvoiceUrl, openWardrobe) вызываются уже после загрузки всех файлов.
-const SHOP_PAGES = ['gems', 'chips', 'look'];
+const SHOP_PAGES = ['look', 'chips', 'gems'];
 const GEM_POLL_MS = 1500;
 const GEM_POLL_TOTAL_MS = 20000;
 const GEM_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20M9 3l3 6 3-6M9 9l3 12 3-12"/></svg>';
@@ -12,7 +12,7 @@ const shopEls = {
   pages: document.getElementById('shop-pages'), gems: document.getElementById('shop-gems'), packs: document.getElementById('gem-packs'),
   msg: document.getElementById('gem-msg'), terms: document.getElementById('gem-terms'), chipsTerms: document.getElementById('chips-terms')
 };
-const shop = { open: false, page: 'gems', gems: null, packs: null, loading: false, busy: false, paying: false, payCode: null, pollGen: 0, msg: '' };
+const shop = { open: false, page: 'look', gems: null, packs: null, loading: false, busy: false, paying: false, payCode: null, pollGen: 0, msg: '' };
 
 // Ответ GET /api/gems/packs: пакеты с кодом gems_*, звёзды и кристаллы целые и разумные; всё остальное отбрасывается
 function validGemPacks(d) {
