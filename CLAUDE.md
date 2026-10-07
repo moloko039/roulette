@@ -6,12 +6,12 @@ Telegram Mini App: рулетка на виртуальных фишках.
 Данные игроков хранятся в SQLite на томе Railway.
 
 ## Рабочие правила (всегда)
-- Не делай git commit и git push: это делает владелец.
+- Роль ведущего и правила работы: docs/LEAD_GUIDE.md (читай в начале каждой сессии).
+- Git (commit, push, main) и деплой ведёт ведущий сам, правила и красные линии в docs/LEAD_GUIDE.md.
 - Не удаляй файлы, которые не создавал сам. Не трогай .env, .venv, *.db.
 - Репозиторий публичный: никаких секретов, токенов, настоящих идентификаторов и персональных
   данных в коде, тестах, документации и журнале. Значения переменных окружения не писать, только имена.
-- Код должен работать на Python 3.9 (локально, bot/.python-version) и 3.12 (Railway, RAILPACK_PYTHON_VERSION):
-  без match и без X | Y в аннотациях. SQL только параметризованный, без f-строк.
+- Python 3.12 везде (локально bot/.python-version, Railway, CI). SQL только параметризованный, без f-строк.
 - В логи не писать id, имена, балансы, токены, секреты.
 - Форма ответов API описана в docs/API.md и закреплена bot/test_api_contract.py; при её изменении обновляй
   оба и клиент; проверки клиента на моке сверяй с настоящим сервером (поднимается локально, см. docs/JOURNAL.md).
@@ -21,8 +21,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   и честно напиши, что не проверено.
 - Если меняется то, что хранится о людях или что видят другие игроки, в той же задаче обнови
   privacy.html (по указанным владельцем фразам) и дату.
-- Дизайн клиента владелец правит сам: перед правкой index.html, style.css, script.js читай их
-  актуальное состояние.
+- Перед правкой index.html, style.css, script.js читай их актуальное состояние (владелец мог править дизайн).
 - Если видишь проблему в постановке, скажи, но не усложняй без согласия владельца.
 - В конце каждой задачи добавь запись в docs/JOURNAL.md.
 
@@ -80,15 +79,10 @@ Telegram Mini App: рулетка на виртуальных фишках.
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
   blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
 - Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
-- GitHub Actions (tests.yml): тесты на Python 3.9 и 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
+- GitHub Actions (tests.yml): тесты на Python 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
   сделать блокирующим после 10 зелёных запусков на main подряд. Секреты до коммита: `git config core.hooksPath .githooks` (хук pre-commit = check_repo --staged).
-- Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. Журнал: docs/JOURNAL.md.
+- Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. Журнал решений: docs/JOURNAL.md (читай выборочно: последние записи или поиск по теме, целиком не читай).
 
 ## Тесты
-Из папки bot: `.venv/bin/python run_tests.py` (все test_*.py, код выхода 1 при сбое; `--hostile-env` с реалистичными значениями переменных проекта).
-Один файл: `.venv/bin/python test_db.py` (успех: последняя строка «Все проверки прошли»).
+Из папки bot: `.venv/bin/python run_tests.py` (все test_*.py, код выхода 1 при сбое; `--hostile-env` с реалистичными значениями переменных проекта). Один файл: `.venv/bin/python test_db.py` (успех: последняя строка «Все проверки прошли»).
 Клиент: `python e2e/run_e2e.py` (Chrome + настоящий сервер, зависимости e2e/requirements.txt; без Chrome пропуск; сверяет запросы клиента с e2e/golden_net.json); хуков в боевом коде нет.
-
-## Журнал
-История и обоснования решений: docs/JOURNAL.md. Читай его выборочно (последние записи или
-поиском по теме), целиком не читай.

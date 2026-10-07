@@ -30,7 +30,7 @@
 | `notify.py` | уведомления владельцу | – |
 | `stubs.py`, `tg_testutil.py`, `run_tests.py` | заглушки для тестов, подпись `initData`, запуск всех тестов | – |
 
-Рядом: `scripts/check_repo.py` (запрещённые файлы и токены в индексе git), `.github/workflows/tests.yml` (тесты на Python 3.9 и 3.12), `.github/dependabot.yml`.
+Рядом: `scripts/check_repo.py` (запрещённые файлы и токены в индексе git), `.github/workflows/tests.yml` (тесты на Python 3.12), `.github/dependabot.yml`.
 
 ## 3. Деньги
 - Баланс меняется **только через `wallet`** внутри уже открытой транзакции `BEGIN IMMEDIATE`. Исключение: разовая миграция `_migrate_minute_accrual` в `core/migrations.py` (прямой `UPDATE`).
@@ -113,7 +113,7 @@
 Меняется то, что хранится о людях или видят другие игроки: в той же задаче правь `privacy.html` (разделы 2, 4, 5) и дату.
 
 ## 8. Проверки
-- `cd bot && .venv/bin/python run_tests.py` (все `test_*.py`, код 1 при сбое), один файл: `.venv/bin/python test_db.py`. CI: Python 3.9 и 3.12. `python scripts/check_repo.py` перед коммитом.
+- `cd bot && .venv/bin/python run_tests.py` (все `test_*.py`, код 1 при сбое), один файл: `.venv/bin/python test_db.py`. CI: Python 3.12. `python scripts/check_repo.py` перед коммитом.
 - Тесты не зависят от окружения и `bot/.env`. Покрытие сервера строчное около 95 %. `bot/test_game_golden.py` сверяет мины, блэкджек, краш и хило с эталоном (`bot/testdata/game_golden.json`); перезапись только осознанно: `python test_game_golden.py --record`.
 - **Клиентские e2e** (`e2e/`): настоящий сервер FastAPI во временной базе + headless Chrome по CDP, клиент копируется во временную папку (файлы репозитория не
   меняются). Запуск: `pip install -r bot/requirements.txt -r e2e/requirements.txt`, затем `python e2e/run_e2e.py [сценарий ...] [--repeat N] [--list]` (код 0/1; нет Chrome: пропуск с кодом 0).
@@ -122,5 +122,5 @@
   В каждом сценарии консоль без ошибок и предупреждений (допустимое объявляется в сценарии `ALLOW_CONSOLE`). **Сетевой эталон** `e2e/golden_net.json`: порядок, метод, путь и тело запросов клиента по каждому сценарию (случайные `request_id` и `member_ref` заменены формой); проверяется в каждом прогоне, перезапись `python e2e/run_e2e.py --record-net` только осознанно. **Визуальный эталон** `e2e/visual_snapshots.py`: скриншоты всех экранов на 320/360/390/430, сравнение попиксельно (`--out НОВАЯ --compare СТАРАЯ`), снимки лежат вне репозитория. CI: отдельная задача `e2e` (пока не блокирует).
 
 ## 9. Деплой
-`bot/railway.toml` (команда uvicorn с `--no-access-log --no-server-header`, `/health`), Python 3.12 на Railway (`RAILPACK_PYTHON_VERSION`), 3.9 локально (`bot/.python-version`),
-`requirements.txt` с разбивкой по версии Python. Переменные окружения: `bot/DEPLOY.md`. **Перед деплоем с миграцией: `/backupnow`.**
+`bot/railway.toml` (команда uvicorn с `--no-access-log --no-server-header`, `/health`), Python 3.12 везде (Railway: `RAILPACK_PYTHON_VERSION`, локально и в CI: `bot/.python-version`),
+`requirements.txt` с одним набором версий. Переменные окружения: `bot/DEPLOY.md`. **Перед деплоем с миграцией: `/backupnow`.**
