@@ -21,10 +21,13 @@ async def run(w):
     check("порядок вкладок: Магазин, Рейтинг, Играть, Ферма, Профиль", await p.ev("[...document.querySelectorAll('#nav .tab')].map(t => t.textContent.trim())"),
           ["Магазин", "Рейтинг", "Играть", "Ферма", "Профиль"])
     await p.tap(".tab[data-tab=shop]")
-    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#gem-packs .gem-pack').length === 3", 10, "пакеты кристаллов")
-    check("заголовок и открытая страница по умолчанию: кристаллы", await p.ev(
-        "[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.getElementById('shop-page-gems').hidden, document.getElementById('shop-page-chips').hidden, document.getElementById('shop-page-look').hidden]"),
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#gem-packs .gem-pack').length === 3", 10, "пакеты кристаллов загружены")
+    check("порядок страниц: Оформление, Фишки, Кристаллы", await p.ev("[...document.querySelectorAll('#shop-pages [data-page]')].map(b => [b.dataset.page, b.textContent.trim()])"),
+          [["look", "Оформление"], ["chips", "Фишки"], ["gems", "Кристаллы"]])
+    check("заголовок и открытая страница по умолчанию: оформление", await p.ev(
+        "[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.getElementById('shop-page-look').hidden, document.getElementById('shop-page-chips').hidden, document.getElementById('shop-page-gems').hidden]"),
         ["Магазин", False, True, True])
+    await p.tap("#shop-pages [data-page=gems]")
     check("баланс кристаллов 0", await p.ev("document.getElementById('shop-gems').textContent"), "0")
     rows = await p.ev("[...document.querySelectorAll('#gem-packs .gem-pack')].map(b => [b.querySelector('strong').textContent.replace(/\\s/g, ' '), "
                       "(b.querySelector('small') || {textContent: ''}).textContent.replace(/\\s/g, ' '), b.querySelector('.gem-pack-price').textContent.replace(/\\s/g, ' ')])")
@@ -38,7 +41,7 @@ async def run(w):
         "[document.getElementById('shop-page-chips').hidden, document.getElementById('shop-page-chips').textContent.replace(/\\s+/g, ' ').includes('Фишки можно только купить. Продать их или обменять на реальные деньги и Stars нельзя.')]"), [False, True])
     await p.tap("#shop-pages [data-page=look]")
     check("оформление: гардероб на этой странице", await p.ev("[document.getElementById('shop-page-look').hidden, document.querySelectorAll('#wd-grid .wd-card').length > 0]"), [False, True])
-    check("выбранная страница отмечена aria-selected", await p.ev("[...document.querySelectorAll('#shop-pages [data-page]')].map(b => b.getAttribute('aria-selected'))"), ["false", "false", "true"])
+    check("выбранная страница отмечена aria-selected", await p.ev("[...document.querySelectorAll('#shop-pages [data-page]')].map(b => b.getAttribute('aria-selected'))"), ["true", "false", "false"])
     await p.tap("#shop-pages [data-page=gems]")
 
     # отмена и отказ оплаты: ничего не начислено
