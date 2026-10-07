@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#050506">
+  <!-- CSP: только свои скрипты и стили, скрипт Telegram, запросы к серверу игры; inline-скриптов и стилей нет. Адрес сервера меняй вместе с API_URL (js/00-config.js) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://roulette-production-4b93.up.railway.app; frame-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>Депная</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="css/00-fonts-tokens.css?v=15c70936">
@@ -542,7 +544,7 @@
   <!-- кнопки строятся в js/*.js из массива TABS -->
   <div class="transfer-sheet" id="picker-sheet" hidden>
     <div class="transfer-dim" id="picker-dim"></div>
-    <section class="transfer-panel picker-panel" id="picker-panel" role="dialog" aria-label="Кому перевести">
+    <section class="transfer-panel picker-panel" id="picker-panel" role="dialog" aria-modal="true" aria-label="Кому перевести">
       <div class="transfer-head"><strong>Кому перевести</strong><button type="button" class="transfer-change" id="picker-close">Закрыть</button></div>
       <input id="picker-search" class="bet-input picker-search" type="search" maxlength="32" autocomplete="off" autocorrect="off" enterkeyhint="search" placeholder="Поиск по имени" aria-label="Поиск по имени">
       <ul class="picker-list" id="picker-list"></ul>
@@ -552,7 +554,7 @@
   </div>
   <div class="transfer-sheet" id="transfer-sheet" hidden>
     <div class="transfer-dim" id="transfer-dim"></div>
-    <section class="transfer-panel bets-dock" role="dialog" aria-label="Перевод">
+    <section class="transfer-panel bets-dock" role="dialog" aria-modal="true" aria-label="Перевод">
       <div class="transfer-head"><strong>Перевод</strong><span class="transfer-to" id="transfer-to"></span><button type="button" class="transfer-change" id="transfer-change">Изменить</button></div>
       <div class="row bet-row">
         <button type="button" class="action step-btn" id="transfer-half" aria-label="Уменьшить вдвое">÷2</button>
@@ -572,7 +574,7 @@
   <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
   <div class="transfer-sheet" id="wd-prev-sheet" hidden>
     <div class="transfer-dim" id="wd-prev-dim"></div>
-    <section class="transfer-panel wd-prev-panel" role="dialog" aria-label="Предпросмотр">
+    <section class="transfer-panel wd-prev-panel" role="dialog" aria-modal="true" aria-label="Предпросмотр">
       <div class="transfer-head"><strong id="wd-prev-title"></strong><span class="wd-status" id="wd-prev-status"></span></div>
       <div class="wd-scene" id="wd-prev-scene"></div>
       <p class="wd-desc" id="wd-prev-desc"></p>
@@ -596,7 +598,7 @@
   </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
-  <script src="js/00-config.js?v=90bfa4b4"></script>
+  <script src="js/00-config.js?v=f548d110"></script>
   <script src="js/01-core.js?v=d5a6594e"></script>
   <script src="js/02-bet.js?v=885b7063"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
@@ -612,6 +614,7 @@
   <script src="js/13-wardrobe.js?v=0cad1e6d"></script>
   <script src="js/14-lobby.js?v=2b5e9bb6"></script>
   <script src="js/15-arcade.js?v=ca5ba0bc"></script>
-  <script src="js/16-start.js?v=6b477d77"></script>
+  <script src="js/16-a11y.js?v=c7a44939"></script>
+  <script src="js/17-start.js?v=6b477d77"></script>
 </body>
 </html>

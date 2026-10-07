@@ -8,6 +8,7 @@ import re
 import harness
 from harness import check
 
+BYPASS_CSP = True     # сценарий внедряет <style> и inline-стили для проверки значений CSS; сама CSP проверяется сценарием csp
 NAME = "skin_vars"
 USERS = {"me": {"rate": 0}}
 
@@ -55,7 +56,7 @@ PROBES = """
 (() => {
   const host = document.createElement('div');
   host.id = 'e2e-probes';
-  host.style.cssText = 'position:fixed;left:-9999px;top:0;';
+  Object.assign(host.style, {position: 'fixed', left: '-9999px', top: '0'});   // не cssText: CSP страницы запрещает inline-стили
   host.innerHTML = `
     <button class="chip" id="p-chip" data-amount="100">1</button>
     <button class="chip" id="p-chip-on" aria-pressed="true">1</button>

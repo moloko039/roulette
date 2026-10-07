@@ -3,6 +3,7 @@ docs/ARCHITECTURE.md; там, где различие ТОЛЬКО цветом,
 (режим shape/fx) и проверяются отдельно (разные формы, разные фильтры свечения). Таблица значений печатается при запуске сценария."""
 from harness import check
 
+BYPASS_CSP = True     # сценарий внедряет <style> и inline-стили для проверки значений CSS; сама CSP проверяется сценарием csp
 NAME = "skin_contrast"
 USERS = {"me": {"rate": 0}}
 MIN = 3.0
@@ -48,7 +49,7 @@ JS = r"""
   const mount = (slot, code, html) => {
     const host = document.createElement('div');
     host.setAttribute('data-skin-' + slot, code);
-    host.style.cssText = 'position:fixed;left:-9999px;top:0;width:300px;';
+    Object.assign(host.style, {position: 'fixed', left: '-9999px', top: '0', width: '300px'});   // не cssText: CSP страницы запрещает inline-стили
     host.innerHTML = html;
     document.body.appendChild(host);
     return host;
