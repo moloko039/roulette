@@ -305,6 +305,7 @@ function openShop() {
   openWardrobe();
   loadGems();
   loadChipPacks();
+  loadGiftRecipients();
 }
 
 function closeShop() {

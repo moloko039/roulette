@@ -13,7 +13,7 @@ SLOT_NAMES = {
 PUBLIC_SLOTS = ("avatar_frame", "badge")      # видны другим участникам беседы, только если игрок их надел и не скрыл
 RARITIES = ("starter", "common", "rare", "premium")    # редкость только визуальная
 PURCHASE_RETENTION_DAYS = 365   # журнал оплат Stars хранится столько дней после покупки (споры и возвраты), даже после удаления данных игрока
-SOURCES = ("free", "owner_gift", "stars", "chips", "gems")
+SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift")
 
 
 class CosmeticsError(Exception):

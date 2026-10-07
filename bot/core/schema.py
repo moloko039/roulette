@@ -477,6 +477,24 @@ def init_db(db_path=None):
             )
             """
         )
+        # подарки косметикой (E-подарки): (отправитель, request_id) уникален; имя отправителя на момент подарка нужно получателю («подарок от …»); хранится 365 дней
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS gifts (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_user  INTEGER NOT NULL,
+                to_user    INTEGER NOT NULL,
+                from_name  TEXT    NOT NULL,
+                item_code  TEXT    NOT NULL,
+                gems       INTEGER NOT NULL,
+                request_id TEXT    NOT NULL,
+                created_at INTEGER NOT NULL,
+                UNIQUE (from_user, request_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gifts_from ON gifts(from_user, created_at)")
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)

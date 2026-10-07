@@ -115,6 +115,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
             deleted["cosmetic_purchases"] = batches(
                 "DELETE FROM cosmetic_purchases WHERE id IN (SELECT id FROM cosmetic_purchases WHERE created_at < ? LIMIT ?)",
                 (now - cosmetics.PURCHASE_RETENTION_DAYS * 86400, batch))
+        if "gifts" in present:  # подарки: тот же долгий срок, что у оплат
+            batches("DELETE FROM gifts WHERE id IN (SELECT id FROM gifts WHERE created_at < ? LIMIT ?)", (now - cosmetics.PURCHASE_RETENTION_DAYS * 86400, batch))
         if "streak_claims" in present:  # старые сборы удаляются, но последняя строка каждого игрока остаётся: по ней считается серия
             batches("DELETE FROM streak_claims WHERE rowid IN (SELECT rowid FROM streak_claims WHERE created_at < ? AND rowid NOT IN "
                     "(SELECT MAX(rowid) FROM streak_claims GROUP BY telegram_id) LIMIT ?)", (now - 365 * 86400, batch))

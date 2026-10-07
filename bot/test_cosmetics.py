@@ -122,7 +122,7 @@ try:
     check("недоступные и стартовые без цены", all(i["price"] is None for i in cosmetics.CATALOG if i["starter"] or not i["available"]), True)
     check("скрытого тестового предмета нет в каталоге для клиента", ("test_1star" in codes, cosmetics.item("test_1star"), cosmetics.sellable("test_1star")["price"]), (False, None, {"currency": "stars", "amount": 1}))
     check("публичные слоты", cosmetics.PUBLIC_SLOTS, ("avatar_frame", "badge"))
-    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars", "chips", "gems"))
+    check("источники", cosmetics.SOURCES, ("free", "owner_gift", "stars", "chips", "gems", "gift"))
 
     # ================= статически: экономика и игры косметику не читают =================
     guarded = (glob.glob(os.path.join(HERE, "games", "*.py")) + glob.glob(os.path.join(HERE, "core", "kernel.py")) +
@@ -142,7 +142,7 @@ try:
     check("одна строка, источник первой выдачи", sql(path, "SELECT item_code, source, payment_ref, acquired_at FROM cosmetic_items"), [("back_midnight", "free", None, NOW)])
     raises(ValueError, db.grant_item, A, "nope", "free", db_path=path)
     raises(ValueError, db.grant_item, A, 5, "free", db_path=path)
-    raises(ValueError, db.grant_item, A, "chip_ring", "gift", db_path=path)
+    raises(ValueError, db.grant_item, A, "chip_ring", "hacked", db_path=path)
     raises(ValueError, db.grant_item, A, "chip_ring", None, db_path=path)
     raises(ValueError, db.grant_item, A, "chip_plain", "free", db_path=path)       # стартовые не выдаются
     raises(ValueError, db.grant_item, A, "back_classic", "owner_gift", db_path=path)

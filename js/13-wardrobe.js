@@ -245,6 +245,7 @@ function renderWardrobe() {
 }
 
 function openWdPreview(item) {
+  resetGiftBox();
   wd.preview = item;
   wd.confirm = false;
   wd.prevMsg = '';
@@ -255,6 +256,7 @@ function openWdPreview(item) {
 
 function closeWdPreview() {
   if (wd.busy) return;
+  resetGiftBox();
   wdEls.pSheet.hidden = true;
   wd.preview = null;
   wd.confirm = false;
@@ -286,6 +288,7 @@ function renderWdPreview() {
   wdEls.pAct.disabled = wd.busy;
   wdEls.pClose.textContent = confirming ? 'Отмена' : 'Закрыть';
   wdEls.pClose.disabled = wd.busy;
+  renderGiftControls();
 }
 
 // тексты ошибок гардероба

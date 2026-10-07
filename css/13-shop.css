@@ -17,3 +17,8 @@
 .gem-pack-body strong { font-size: 16px; font-weight: 600; }
 .gem-pack-body small { font-size: 12px; color: var(--green); }
 .gem-pack-price { font-family: var(--font-display); font-size: 15px; font-weight: 600; white-space: nowrap; }
+.wd-gift-open { width: 100%; }
+.wd-gift-box { display: grid; gap: var(--space-2); max-height: 220px; overflow-y: auto; }
+.wd-gift-box[hidden] { display: none; }
+.wd-gift-list { margin: 0; }
+.wd-gift-to { min-height: 48px; }

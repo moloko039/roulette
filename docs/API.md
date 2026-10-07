@@ -418,3 +418,13 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Группа write. Тело пустое: `{}`. 200: `{"streak_day", "cycle", "chips", "gems", "gems_capped" bool, "balance" (фишки после), "gems_balance" (кристаллы после), "replayed" bool}`. Один раз в «день» (запись `streak_claims` с ключом игрок и день); повтор в тот же день отдаёт то же с `replayed: true` и ничего не начисляет.
 Ошибки: 400 `invalid_request` (непустое тело); 429. Примеры: `docs/examples/streak.json`.
 
+## Подарки косметикой
+Предмет за кристаллы покупается сразу на имя участника той же беседы (`docs/ECONOMY_ADDITIONS.md`, п. 2). Получатель задаётся непрозрачной меткой `ref` (HMAC от беседы и игрока; Telegram id клиент не видит). Нельзя дарить фишки, кристаллы и пакеты, предмет за фишки, предмет, который у получателя уже есть, и самому себе; подаренное нельзя передарить, продать или обменять; не больше 5 подарков в сутки (`economy_config.GIFT_DAILY_LIMIT`). Кристаллы, потраченные на подарок, считаются потраченными (возврат пакета, из которого они оплачены, недоступен). У получателя предмет приходит с `source: "gift"` и в `GET /api/cosmetics/mine` с полем `gift_from` (имя дарителя на момент подарка, пусто, если даритель удалил данные); бот присылает получателю короткое уведомление (ошибка отправки не мешает подарку).
+
+### GET /api/gifts/recipients
+Группа read. Нужен запуск из беседы. 200: `{"recipients": [{"name", "ref"}] (до 30 участников той же беседы с профилем, без самого игрока), "daily_left" int, "gems" int}`. Ошибки: 409 `no_chat` (приложение открыто не из беседы), `not_in_chat`.
+
+### POST /api/gifts/send
+Группа write. Тело: `{"request_id", "ref", "item_code"}`. 200: `{"item_code", "price": {"currency": "gems", "amount"}, "recipient" (имя), "gems" (кристаллы отправителя после), "daily_left", "replayed"}`. Одна транзакция: проверки до списания, `wallet.gems_debit` (причина `gift_purchase`), запись `gifts`, выдача предмета получателю (источник `gift`). Идемпотентно по `request_id`.
+Ошибки: 400 `invalid_request`; 404 `unknown_item`, `unknown_recipient` (метка не найдена в этой беседе или у участника нет профиля); 409 `no_chat`, `not_in_chat`, `self_gift`, `not_for_gems`, `item_unavailable`, `already_owned`, `daily_limit`, `insufficient_gems`, `request_conflict`; 429. Примеры: `docs/examples/gifts.json`.
+
