@@ -446,6 +446,22 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_gem_purchases_player ON gem_purchases(telegram_id, created_at)")
+        # покупки пакетов фишек за кристаллы (E6): (игрок, request_id) уникален, повтор отдаёт то же; хранится 365 дней
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chip_purchases (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                request_id  TEXT    NOT NULL,
+                pack_code   TEXT    NOT NULL,
+                gems        INTEGER NOT NULL,
+                chips       INTEGER NOT NULL,
+                created_at  INTEGER NOT NULL,
+                UNIQUE (telegram_id, request_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chip_purchases_player ON chip_purchases(telegram_id, created_at)")
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)

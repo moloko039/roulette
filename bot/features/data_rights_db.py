@@ -95,6 +95,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT show_in_rating FROM cosmetic_prefs WHERE telegram_id = ?", (telegram_id,)).fetchone()
             gem_balance = conn.execute("SELECT gems FROM gem_balances WHERE telegram_id = ?", (telegram_id,)).fetchone()
             gem_ledger = conn.execute("SELECT created_at, delta, reason FROM gems_ledger WHERE telegram_id = ? ORDER BY id", (telegram_id,)).fetchall()
+            chip_purchase_rows = conn.execute(
+                "SELECT pack_code, gems, chips, created_at FROM chip_purchases WHERE telegram_id = ? ORDER BY id", (telegram_id,)).fetchall()
             gem_purchase_rows = conn.execute(
                 "SELECT pack_code, amount_stars, gems, status, created_at FROM gem_purchases WHERE telegram_id = ? ORDER BY created_at", (telegram_id,)).fetchall()
             best_win = conn.execute(
@@ -162,6 +164,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             "balance": 0 if gem_balance is None else gem_balance["gems"],
             "ledger": [{"time": r["created_at"], "delta": r["delta"], "reason": r["reason"]} for r in gem_ledger],
             "purchases": [{"pack": r["pack_code"], "amount_stars": r["amount_stars"], "gems": r["gems"], "status": r["status"], "time": r["created_at"]} for r in gem_purchase_rows],
+            "chip_purchases": [{"pack": r["pack_code"], "gems": r["gems"], "chips": r["chips"], "time": r["created_at"]} for r in chip_purchase_rows],
         },
         # личный рекорд (лучший чистый выигрыш за раунд); его видят участники бесед: имя, сумма и игра
         "best_win": None if best_win is None else {"game": best_win["game"], "net_amount": best_win["net_amount"], "achieved_at": best_win["achieved_at"]},
@@ -240,6 +243,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             # кристаллы удаляются вместе с игроком без возмещения (как купленные предметы); запись об оплате Stars (gem_purchases) остаётся на срок хранения
             conn.execute("DELETE FROM gems_ledger WHERE telegram_id = ?", (telegram_id,))
             conn.execute("DELETE FROM gem_balances WHERE telegram_id = ?", (telegram_id,))
+            conn.execute("DELETE FROM chip_purchases WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",

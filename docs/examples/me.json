@@ -11,7 +11,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": null,
@@ -41,7 +41,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": "mines",
@@ -71,7 +71,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": "blackjack",
@@ -101,7 +101,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": "crash",
@@ -131,7 +131,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": null,
@@ -161,7 +161,7 @@
       "income_per_hour": 100,
       "per_minute_estimate": "1.7",
       "next_tick_in_s": 30,
-      "hours_cap": 30,
+      "hours_cap": 8,
       "accrued_now": 0
     },
     "active_game": null,

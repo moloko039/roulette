@@ -22,6 +22,7 @@ from tg_testutil import make_init_data
 
 TOKEN = "123456:TEST-TOKEN-not-real"
 T0 = 1_760_000_040          # граница минуты (кратна 60)
+CAP = farm.storage_hours(0)  # потолок офлайн-накопления нового игрока (8 часов), числа в economy_config
 assert T0 % 60 == 0
 
 # тест не зависит от окружения и bot/.env: переменные очищаются, в конце возвращаются
@@ -149,24 +150,24 @@ try:
     v1 = version()
     db.get_player(1, now=T0 + 90, db_path=path)
     check("повторный запрос в ту же минуту: без записи", version(), v1)
-    # потолок офлайн-накопления (30 часов), лишнее сгорает, метка переносится на текущую минуту
+    # потолок офлайн-накопления (farm.storage_hours(0) часов), лишнее сгорает, метка переносится на текущую минуту
     path = new_db()
     add_player(path, 1, balance=0, rate=100, last=T0)
     far = T0 + 50 * 3600 + 17
     p = db.get_player(1, now=far, db_path=path)
-    check("50 часов отсутствия: платят 30 часов", (p["balance"], row(path)[1], row(path)[2]), (3000, far // 60 * 60, 0))
+    check("50 часов отсутствия: платят потолок (8 часов)", (p["balance"], row(path)[1], row(path)[2]), (CAP * 100, far // 60 * 60, 0))
     path = new_db()
     add_player(path, 1, balance=0, rate=100, last=T0, storage=3)
-    check("хранилище 3: потолок 48 часов", db.get_player(1, now=T0 + 100 * 3600, db_path=path)["balance"], 4800)
+    check("хранилище 3: потолок 20 часов", db.get_player(1, now=T0 + 100 * 3600, db_path=path)["balance"], farm.storage_hours(3) * 100)
     path = new_db()
     add_player(path, 1, balance=0, rate=182, last=T0, storage=8, income=2)
-    check("хранилище 8 и ставка 182: 78 часов", db.get_player(1, now=T0 + 200 * 3600, db_path=path)["balance"], 78 * 182)
+    check("хранилище 8 и ставка 182: 40 часов", db.get_player(1, now=T0 + 200 * 3600, db_path=path)["balance"], 40 * 182)
     path = new_db()
     add_player(path, 1, balance=0, rate=100, last=T0)
-    check("ровно потолок (30 часов) без сгорания", db.get_player(1, now=T0 + 30 * 3600, db_path=path)["balance"], 3000)
+    check("ровно потолок (8 часов) без сгорания", db.get_player(1, now=T0 + CAP * 3600, db_path=path)["balance"], CAP * 100)
     path = new_db()
     add_player(path, 1, balance=0, rate=100, last=T0)
-    check("потолок + 1 минута отсутствия: всё равно 30 часов", db.get_player(1, now=T0 + 30 * 3600 + 60, db_path=path)["balance"], 3000)
+    check("потолок + 1 минута отсутствия: всё равно 8 часов", db.get_player(1, now=T0 + CAP * 3600 + 60, db_path=path)["balance"], CAP * 100)
 
     # ================= 20 параллельных запросов: ровно одно начисление =================
     path = new_db()
@@ -268,7 +269,7 @@ try:
         (1, 1000, 100, NOW,                            0),   # только что начислено: ничего накопленного
         (2, 1000, 100, NOW - 3 * 3600 - 20 * 60 - 7,   0),   # 3 ч 20 мин: накоплено < потолка, неполный час
         (3, 1000, 100, NOW - 50 * 3600,                0),   # накоплено сверх потолка (30 ч)
-        (4, 1000, 182, NOW - 60 * 3600,                3),   # хранилище 3: потолок 48 ч, ставка 182
+        (4, 1000, 182, NOW - 60 * 3600,                3),   # хранилище 3: потолок 20 ч, ставка 182
         (5, 7, 135, NOW - 29 * 3600 - 59 * 60,          0),   # почти потолок
         (6, MAX_SAFE_INT - 5, 100, NOW - 10 * 3600,    0),   # упор в потолок баланса
         (7, 1000, 100, NOW + 3 * 3600,                 0),   # метка в будущем
@@ -305,8 +306,8 @@ try:
         check("игрок %d: итог равен старой логике + неполный час без потерь" % uid, paid_pending * 60 + a["accrual_acc"], exact_pending)
         check("игрок %d: метка = граница минуты «сейчас»" % uid, a["last_accrual"], NOW // 60 * 60)
     check("игрок 1: пустой, ничего лишнего", (after[1]["balance"], after[1]["accrual_acc"]), (1000, 0))
-    check("игрок 3: потолок 30 часов (3000), лишнее сгорело", after[3]["balance"], 1000 + 3000)
-    check("игрок 4: хранилище 3, 48 часов по 182", after[4]["balance"], 1000 + 48 * 182)
+    check("игрок 3: потолок 8 часов (800), лишнее сгорело", after[3]["balance"], 1000 + CAP * 100)
+    check("игрок 4: хранилище 3, потолок 20 часов по 182", after[4]["balance"], 1000 + farm.storage_hours(3) * 182)
     check("игрок 2: 3 часа 300 + неполный час поминутно", after[2]["balance"] - 1000 >= 300, True)
     # повторный запуск ничего не меняет (идемпотентность), и столбец один
     conn = sqlite3.connect(copy)
@@ -357,7 +358,7 @@ try:
     with mock.patch("time.time", return_value=float(mid)):
         me = client.get("/api/me", headers=auth()).json()
         check("ферма в /api/me: 60 тиков по 25 за этим запросом", me["farm"], {"income_per_hour": 1500, "per_minute_estimate": "25.0",
-                                                                                "next_tick_in_s": 30, "hours_cap": 30, "accrued_now": 1500})
+                                                                                "next_tick_in_s": 30, "hours_cap": 8, "accrued_now": 1500})
         check("старые поля контракта на месте", (me["balance"], me["rate"], me["seconds_to_next"]), (2500, 1500, 30))
         obs = sqlite3.connect(path)
         v = obs.execute("PRAGMA data_version").fetchone()[0]

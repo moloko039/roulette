@@ -79,6 +79,8 @@ jobs:
         run: python scripts/check_repo.py --history
       - name: Метки версий клиента в index.html актуальны
         run: python scripts/stamp_client.py --check
+      - name: Нет дублей имён верхнего уровня в js/ (общая область видимости)
+        run: python scripts/check_js_globals.py
 
   e2e:
     name: e2e в Chrome (Python 3.12, не блокирует)

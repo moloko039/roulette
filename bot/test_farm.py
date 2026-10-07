@@ -109,7 +109,7 @@ try:
     # ================= farm.py: значения =================
     check("доход: ставка", [farm.income_rate(n) for n in (0, 1, 2, 19, 20)], [100, 135, 182, 29946, 40427])
     check("доход: цена", [farm.income_cost(n) for n in (0, 1, 2, 19, 20)], [1000, 1600, 2560, 7555786, None])
-    check("хранилище: часы", [farm.storage_hours(n) for n in range(9)], [30, 36, 42, 48, 54, 60, 66, 72, 78])
+    check("хранилище: часы", [farm.storage_hours(n) for n in range(9)], [8, 12, 16, 20, 24, 28, 32, 36, 40])
     check("хранилище: цена", [farm.storage_cost(n) for n in range(9)],
           [1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, None])
     check("максимумы", (farm.INCOME_MAX_LEVEL, farm.STORAGE_MAX_LEVEL), (20, 8))
@@ -301,26 +301,26 @@ try:
     path = new_db()
     add_player(path, 1, balance=5000, total=1600, last_accrual=NOW - 40 * HOUR)
     r = db.buy_upgrade(1, rid(1), "storage", NOW, path)
-    check("при покупке платим по старому потолку (30 ч): 5000 + 3000 - 1000", r["balance"], 7000)
+    check("при покупке платим по старому потолку (8 ч): 5000 + 800 - 1000", r["balance"], 4800)
     check("лишние часы сгорели, метка на текущей минуте", player(path, 1)[2], NOW // 60 * 60)
     p = db.get_player(1, now=NOW + HOUR, db_path=path)
-    check("1 час после покупки", p["balance"], 7100)
+    check("1 час после покупки", p["balance"], 4900)
     p = db.get_player(1, now=NOW + 100 * HOUR, db_path=path)
-    check("новый потолок 36 часов действует после покупки: 7100 + 36*100", p["balance"], 7100 + 3600)
-    # хранилище 3: не больше 48 часов дохода
+    check("новый потолок 12 часов действует после покупки: 4900 + 12*100", p["balance"], 4900 + 1200)
+    # хранилище 3: не больше 20 часов дохода
     path = new_db()
     add_player(path, 1, balance=0, storage=3, last_accrual=NOW - 100 * HOUR)
     p = db.get_player(1, now=NOW, db_path=path)
-    check("100 часов простоя при хранилище 3: 48 часов", p["balance"], 48 * 100)
+    check("100 часов простоя при хранилище 3: 20 часов", p["balance"], 20 * 100)
     add_player(path, 2, balance=0, storage=0, last_accrual=NOW - 100 * HOUR)
-    check("без хранилища 30 часов", db.get_player(2, now=NOW, db_path=path)["balance"], 30 * 100)
+    check("без хранилища 8 часов", db.get_player(2, now=NOW, db_path=path)["balance"], 8 * 100)
     add_player(path, 3, balance=0, storage=8, income=2, rate=182, last_accrual=NOW - 100 * HOUR)
-    check("хранилище 8 и ставка 182: 78 часов", db.get_player(3, now=NOW, db_path=path)["balance"], 78 * 182)
+    check("хранилище 8 и ставка 182: 40 часов", db.get_player(3, now=NOW, db_path=path)["balance"], 40 * 182)
     # spin использует потолок и ставку игрока
     add_player(path, 4, balance=0, storage=3, last_accrual=NOW - 100 * HOUR)
     res = db.spin_roulette(4, "spin-farm-001", [{"type": "red", "value": None, "amount": 1}], now=NOW, db_path=path,
                            rng=lambda n: 1)
-    check("spin: баланс с потолком игрока", res["balance"], 4800 - 1 + 2)
+    check("spin: баланс с потолком игрока", res["balance"], 2000 - 1 + 2)
     # chat_top считает баланс с учётом ставки и потолка каждого игрока (без записи)
     path = new_db()
     add_player(path, 1, balance=1000, rate=135, income=1, storage=0, last_accrual=NOW - 40 * HOUR)
@@ -331,8 +331,8 @@ try:
     before = sql(path, "SELECT telegram_id, balance, last_accrual FROM players ORDER BY 1")
     top = db.chat_top("room", 1, "A", now=NOW, db_path=path)["top"]
     check("баланс в рейтинге", {e["name"]: e["balance"] for e in top},
-          {"A": 1000 + 30 * 135, "B": 1000 + 40 * 100, "C": 1000 + 30 * 100})
-    check("порядок по балансу", [e["name"] for e in top], ["A", "B", "C"])
+          {"A": 1000 + 8 * 135, "B": 1000 + 20 * 100, "C": 1000 + 8 * 100})      # потолки хранилищ 8, 20 и 8 часов
+    check("порядок по балансу", [e["name"] for e in top], ["B", "A", "C"])
     check("chat_top ничего не записал", sql(path, "SELECT telegram_id, balance, last_accrual FROM players ORDER BY 1"), before)
 
     # ================= API =================
@@ -366,7 +366,7 @@ try:
     check("slots", f["slots"], {"used": 0, "total": 1})
     check("income", f["income"], {"level": 0, "max": 20, "rate": 100, "next_rate": 135, "next_cost": 1000,
                                   "can_buy": True, "reason": None})
-    check("storage", f["storage"], {"level": 0, "max": 8, "hours": 30, "next_hours": 36, "next_cost": 1000,
+    check("storage", f["storage"], {"level": 0, "max": 8, "hours": 8, "next_hours": 12, "next_cost": 1000,
                                     "can_buy": True, "reason": None})
     # покупки через API
     r = buy(SECRET_ID, {"request_id": rid(1), "kind": "income"})
