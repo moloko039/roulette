@@ -14,21 +14,6 @@
       "hours_cap": 30,
       "accrued_now": 0
     },
-    "incoming_unseen": {
-      "count": 0,
-      "total": 0
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 500000,
-      "fee_percent": 5,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": false
-    },
     "active_game": null,
     "cosmetics": {
       "equipped": {
@@ -57,21 +42,6 @@
       "next_tick_in_s": 30,
       "hours_cap": 30,
       "accrued_now": 0
-    },
-    "incoming_unseen": {
-      "count": 0,
-      "total": 0
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 500000,
-      "fee_percent": 5,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": false
     },
     "active_game": "mines",
     "cosmetics": {
@@ -102,21 +72,6 @@
       "hours_cap": 30,
       "accrued_now": 0
     },
-    "incoming_unseen": {
-      "count": 0,
-      "total": 0
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 500000,
-      "fee_percent": 5,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": false
-    },
     "active_game": "blackjack",
     "cosmetics": {
       "equipped": {
@@ -145,21 +100,6 @@
       "next_tick_in_s": 30,
       "hours_cap": 30,
       "accrued_now": 0
-    },
-    "incoming_unseen": {
-      "count": 0,
-      "total": 0
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 500000,
-      "fee_percent": 5,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": false
     },
     "active_game": "crash",
     "cosmetics": {
@@ -190,21 +130,6 @@
       "hours_cap": 30,
       "accrued_now": 0
     },
-    "incoming_unseen": {
-      "count": 2,
-      "total": 285
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 500000,
-      "fee_percent": 5,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": false
-    },
     "active_game": null,
     "cosmetics": {
       "equipped": {
@@ -233,21 +158,6 @@
       "next_tick_in_s": 30,
       "hours_cap": 30,
       "accrued_now": 0
-    },
-    "incoming_unseen": {
-      "count": 0,
-      "total": 0
-    },
-    "transfer_limits": {
-      "min": 100,
-      "max": 500000,
-      "daily_left": 9007199254740991,
-      "fee_percent": 0,
-      "min_level": 3,
-      "cooldown_seconds": 10,
-      "min_age_hours": 1,
-      "min_staked": 20000,
-      "unlimited": true
     },
     "active_game": null,
     "cosmetics": {

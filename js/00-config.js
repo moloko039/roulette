@@ -16,7 +16,6 @@ const API_URL = 'https://roulette-production-4b93.up.railway.app';
 //   09-blackjack  блэкджек
 //   10-crash      краш
 //   11-hilo       хило
-//   12-transfers  переводы, выбор получателя, история
 //   13-wardrobe   гардероб (вкладка «Стиль»)
 //   14-lobby      лобби, меню игр и вкладки
 //   15-arcade     «Не слоты» (встроенные игры и мост)

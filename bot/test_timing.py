@@ -98,8 +98,6 @@ try:
     check("коды ответов", [LINE.match(l).group(3) for _, l in cap.records], ["400", "409", "200", "200", "200", "200"])
     assert LINE.match(cap.records[0][1]).group(5), "и у запроса с ошибкой формы есть db_ms (POST /api/*)"
     cap.records.clear()
-    client.get("/api/transfers", headers=auth())          # история переводов всегда открывает транзакцию (отметка просмотра): GET с транзакцией пишет db_ms
-    assert LINE.match(cap.records[0][1]).group(5), "у GET с транзакцией записи есть db_ms: " + cap.records[0][1]
     # без подписи: 401 тоже записывается
     cap.records.clear()
     client.get("/api/me")

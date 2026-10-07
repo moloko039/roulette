@@ -3,12 +3,40 @@
   "chat": {
     "scope": "chat",
     "top": [
-      {"rank": 1, "name": "Аня", "net_amount": 1250000, "game": "keno", "is_me": false, "cosmetics": {"avatar_frame": "frame_thin"}, "member_ref": "0123456789abcdef0123456789abcdef"},
-      {"rank": 2, "name": "Игрок", "net_amount": 3500, "game": "roulette", "is_me": true, "cosmetics": {}, "member_ref": null}
+      {
+        "rank": 1,
+        "name": "Аня",
+        "net_amount": 1250000,
+        "game": "keno",
+        "is_me": false,
+        "cosmetics": {
+          "avatar_frame": "frame_thin"
+        }
+      },
+      {
+        "rank": 2,
+        "name": "Игрок",
+        "net_amount": 3500,
+        "game": "roulette",
+        "is_me": true,
+        "cosmetics": {}
+      }
     ],
-    "me": {"rank": 2, "net_amount": 3500, "game": "roulette", "total": 2},
+    "me": {
+      "rank": 2,
+      "net_amount": 3500,
+      "game": "roulette",
+      "total": 2
+    },
     "total": 2
   },
-  "empty": {"scope": "chat", "top": [], "me": null, "total": 0},
-  "none": {"scope": "none"}
+  "empty": {
+    "scope": "chat",
+    "top": [],
+    "me": null,
+    "total": 0
+  },
+  "none": {
+    "scope": "none"
+  }
 }

@@ -191,8 +191,6 @@ function showRating(d) {
   ratingEls.retry.hidden = true;
   ratingHasData = true;
   ratingLast = d;
-  srv.noChat = d.scope === 'none';
-  renderTransferEntry();
   if (d.scope === 'none') {
     ratingEls.card.hidden = true;
     bestEls.card.hidden = true;
@@ -232,15 +230,6 @@ function showRating(d) {
     bal.className = 'rating-bal';
     setNumber(bal, e.balance);
     li.append(rank, avatar, who, bal);
-    if (!e.is_me && typeof e.member_ref === 'string') {
-      // участник беседы: нажатие открывает панель перевода (метка непрозрачная, Telegram ID клиент не знает)
-      li.classList.add('tap');
-      li.tabIndex = 0;
-      li.setAttribute('role', 'button');
-      li.setAttribute('aria-label', 'Перевести фишки: ' + e.name);
-      li.addEventListener('click', () => openTransfer(e.member_ref, e.name));
-      li.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openTransfer(e.member_ref, e.name); } });
-    }
     // сумма ставок за всё время (поле staked); в старом ответе его нет, тогда строки нет
     if (isCount(e.staked)) {
       const staked = document.createElement('span');

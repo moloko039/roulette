@@ -39,7 +39,7 @@ async def run(w):
         "[document.getElementById('wd-vis').textContent.trim(), document.getElementById('wd-terms').textContent.trim(), document.querySelector('.wd-foot-note').textContent.trim()]"),
         ["Показывать мои рамку и значок в рейтинге", "Условия покупки", "Предметы не влияют на игру. Фишки за Stars не продаются."])
     check("сетка не прокручивается внутри себя", await p.ev("(() => { const g = document.getElementById('wd-grid'); return [getComputedStyle(g).overflowY, g.scrollHeight - g.clientHeight]; })()"), ["visible", 0])
-    check("лист предпросмотра не открыт, он остаётся листом поверх вкладки", await p.ev("[document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-prev-sheet').classList.contains('transfer-sheet')]"), [True, True])
+    check("лист предпросмотра не открыт, он остаётся листом поверх вкладки", await p.ev("[document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-prev-sheet').classList.contains('dialog-sheet')]"), [True, True])
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр поверх вкладки")
     check("вкладка осталась под листом", await p.ev("!document.querySelector('[data-screen=style]').hidden"), True)

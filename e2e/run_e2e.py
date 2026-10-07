@@ -20,7 +20,7 @@ NET_SKIP = ("csp", "a11y_overlays", "a11y_overlays", "layout", "mines_layout", "
 # поэтому последовательность сравнивается со склейкой подряд идущих одинаковых запросов (порядок и набор разных запросов проверяются, число опросов нет).
 POLL_COLLAPSE = ("wardrobe_buy_stars", "crash", "shared_core")
 SCENARIOS = ["lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
-             "transfers_ui", "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast", "wardrobe_buy_chips", "wardrobe_buy_stars", "wardrobe_buy_safety", "skin_preview_isolation", "keno_hex_play", "best_wins_board", "best_wins_safety", "blackjack_auto_stand", "desktop_scroll", "crash_visibility", "post_body_abort", "style_tab", "crash_auto_manual", "csp", "a11y_overlays"]
+             "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast", "wardrobe_buy_chips", "wardrobe_buy_stars", "wardrobe_buy_safety", "skin_preview_isolation", "keno_hex_play", "best_wins_board", "best_wins_safety", "blackjack_auto_stand", "desktop_scroll", "crash_visibility", "post_body_abort", "style_tab", "crash_auto_manual", "csp", "a11y_overlays"]
 
 
 def collapse(seq):

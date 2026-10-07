@@ -157,7 +157,6 @@
     "is_me": true,
     "staked": 0,
     "level": 1,
-    "member_ref": null,
     "cosmetics": {
       "avatar_frame": "frame_thin",
       "badge": "badge_spade"

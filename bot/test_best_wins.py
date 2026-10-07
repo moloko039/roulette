@@ -286,7 +286,7 @@ try:
     check("запись в player_best_win только в core/kernel.py", writers, [os.path.join("core", "kernel.py")])
     check("игры таблицу рекордов не читают и не пишут", [f for f in sources if f.startswith("games") and "player_best_win" in sources[f]], [])
     check("рекорды не влияют на деньги: ни wallet, ни economy, ни xp, ни levels их не знают",
-          [f for f in ("wallet.py", "economy.py", "xp.py", "levels.py", "farm.py", "transfers.py") if "best_win" in sources[f]], [])
+          [f for f in ("wallet.py", "economy.py", "xp.py", "levels.py", "farm.py") if "best_win" in sources[f]], [])
 
     # --- 20 параллельных раундов одного игрока: запись не ломается, остаётся максимум
     P = IDS[0]
@@ -323,9 +323,9 @@ try:
           [("Имя1", 9000), ("Имя2", 5000), ("Имя6", 5000), ("Имя0", 5000), ("Имя3", 700)])
     check("ничья 5000: у ids[2] и ids[6] время 100, раньше по id; ids[0] время 300 последний", [e["rank"] for e in top["top"]], [1, 2, 3, 4, 5])
     check("фильтр по беседе: чужая беседа и не-участники не видны", (top["total"], [e["game"] for e in top["top"]]), (5, ["keno", "mines", "blackjack", "roulette", "crash"]))
-    check("я: место среди участников с рекордом, is_me, member_ref None у себя", (top["me"], [e["is_me"] for e in top["top"]], [e["member_ref"] is None for e in top["top"]]),
-          ({"rank": 4, "net_amount": 5000, "game": "roulette", "total": 5}, [False, False, False, True, False], [False, False, False, True, False]))
-    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "is_me", "cosmetics", "member_ref"})
+    check("я: место среди участников с рекордом, is_me", (top["me"], [e["is_me"] for e in top["top"]]),
+          ({"rank": 4, "net_amount": 5000, "game": "roulette", "total": 5}, [False, False, False, True, False]))
+    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "is_me", "cosmetics"})
     text = json.dumps(top)
     check("в ответе нет telegram_id и времени достижения", [str(u) in text for u in IDS], [False] * 12)
     other = db.chat_best_wins("chat-B", ids[5], db_path=path3)

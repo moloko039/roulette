@@ -49,7 +49,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   возврат 36/37; опыт bet*(37m-3600)//(37m). Автовывод: раунд с целью T активен до ручного вывода (платит m(t), не выше T), цели или краха; закрытие ленивое.
 - Скрытые команды владельца: /grantall <сумма> <id> [silent] + confirm (всем игрокам, копия базы, одна транзакция, объявление в группы
   из bot_chats), /give <сумма>, /giveitem <код> [id], /refund и /regrant <платёж> (Stars), /teststars (1 Star).
-- Косметика (bot/cosmetics.py): только внешний вид; игры, wallet, economy, transfers её не читают (тест); не передаётся, без лутбоксов.
+- Косметика (bot/cosmetics.py): только внешний вид; игры, wallet, economy её не читают (тест); не передаётся, без лутбоксов.
   За фишки (wallet.debit, без XP) и за Stars (журнал cosmetic_purchases 365 дней, terms.html); фишки за Stars можно только купить (по плану экономики), не продать. Клиент:
   скины = CSS-переменные + data-skin-<слот> (applySkins), вкладка «Стиль» (гардероб) с покупкой (цены только из каталога), рамка и значок (docs/ARCHITECTURE.md).
 - Хило: 13 достоинств (туз=1), равенство выигрывает, ход k=13 запрещён, пропуск бесплатный; шаг 13/k*36/37 точной дробью,
@@ -60,9 +60,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   и денег не считает; wallet, лимит частоты, опыт (xp.slot_xp), рекорды (код slot), /mydata и очистка общие.
 - Лобби один раз за запуск; если /api/me вернул active_game (mines, blackjack, crash, hilo), сразу открывается эта игра.
   Порядок игр: Краш, Рулетка, Кено, Мины, Хило, Блэкджек; центральная кнопка открывает меню игр.
-- Переводы (bot/transfers.py): только внутри беседы по member_ref (HMAC), комиссия 5 % владельцу (OWNER_CHAT_ID) или сгорает;
-  отправитель: уровень 3, 1 час, ставок 20000, 500000 в сутки; суточного лимита на получение нет; макс. перевод 500000;
-  лимита на пару нет; владелец без суточных лимитов; значения в одном месте (transfers.py). /deletemydata: свои отправленные удаляются, полученные обезличиваются (recipient=0), лимит отправителя цел.
+- Переводов между игроками нет (удалены 2026-10-07, E1): /api/transfers*, /api/chat/members отвечают 410; таблица transfers доживает срок хранения 30 дней (очистка, /mydata, /deletemydata как раньше), bot/transfers.py содержит только ANONYMOUS_ID.
 - Старт 1000 фишек, 100 в час. Доход начисляется минутными тиками лениво (economy.accrue_minutes: acc, ceil(acc/60), ровно R за час),
   потолок офлайна 30 ч + хранилище, без фонового задания. Микрозайма нет. Лимита ставки нет, кроме баланса и потолка MAX_SAFE_INT (bot/roulette.py).
 - Рекорды выигрыша: player_best_win, лучший ЧИСТЫЙ выигрыш за раунд (выплата минус вся ставка), одна строка на игрока, растёт только строго;
@@ -75,7 +73,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 ## Где что лежит
 - Клиент в корне: index.html, css/*.css, js/*.js (метки версий: python scripts/stamp_client.py), privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: web/ (HTTP: маршруты, подпись, middleware; api.py собирает), tg/ (команды бота; bot.py фасад), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
-  farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, transfers.py, notify.py; правила игр: roulette, keno, mines,
+  farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, notify.py; правила игр: roulette, keno, mines,
   blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
 - Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
 - GitHub Actions (tests.yml): тесты на Python 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
