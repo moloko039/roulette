@@ -483,7 +483,7 @@ try:
     assert "Western Slot" in privacy and "История раундов Western Slot хранится 30 дней" in privacy
     api_doc = open(os.path.join(ROOT, "docs", "API.md"), encoding="utf-8").read()
     assert "/api/slot/spin" in api_doc and "freeSpinsLeftAfter" in api_doc
-    client_js = open(os.path.join(ROOT, "script.js"), encoding="utf-8").read()
+    client_js = "".join(open(os.path.join(ROOT, "js", n), encoding="utf-8").read() for n in sorted(os.listdir(os.path.join(ROOT, "js"))) if n.endswith(".js"))
     assert "/api/slot/spin" in client_js and "slot: 'Western Slot'" in client_js
 
     # ================= в логах нет id, балансов и request_id =================

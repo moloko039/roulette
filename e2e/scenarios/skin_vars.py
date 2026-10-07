@@ -111,7 +111,7 @@ READ = """
 async def run(w):
     p = w.page
     css = open(os.path.join(harness.CLIENT_ROOT, "style.css"), encoding="utf-8").read()
-    js = open(os.path.join(harness.CLIENT_ROOT, "script.js"), encoding="utf-8").read()
+    js = harness.client_js()
     block = css[css.index("переменные скинов (косметика)"):css.index("* {\n  box-sizing")]
     declared = re.findall(r"^\s*(--(?:card|chip|table|wheel|mines|keno|cr)-[a-z0-9-]+):", block, re.M)
     check("переменных скинов объявлено не меньше 60", len(declared) >= 60, True)
