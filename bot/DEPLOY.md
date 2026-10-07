@@ -21,7 +21,7 @@ Railway → New Project → Deploy from GitHub repo → выберите реп�
 
 В настройках сервиса (Settings) укажите **Root Directory = `bot`**. **Не проверено**: где именно эта настройка называется и находится в интерфейсе, документацию по ней я не открывал.
 
-Railway сам найдёт `requirements.txt` (проверено по документации Railpack). В нём версии разделены по `python_version`: на Python 3.12 (Railway) свежие fastapi, starlette, anyio, click, python-dotenv, на 3.9 (локально и в CI) последние, что выпускаются под 3.9. Обновления зависимостей присылает `.github/dependabot.yml` (pip в `/bot` и github-actions, раз в неделю). Версию Python берёт из файла `bot/.python-version` (в нём `3.9`; проверено: Railpack читает `.python-version`; без него по документации берётся 3.13.2). **Не проверено**: что запись `3.9` без патч-версии принимается.
+Railway сам найдёт `requirements.txt` (проверено по документации Railpack). Версии одни для всех сред (Python 3.12). Обновления зависимостей присылает `.github/dependabot.yml` (pip в `/bot` и github-actions, раз в неделю). Версию Python берёт из файла `bot/.python-version` (в нём `3.12`; Railpack читает `.python-version`; без него по документации берётся 3.13.2). **Не проверено**: что запись `3.12` без патч-версии принимается.
 
 Команда запуска uvicorn в `bot/railway.toml` содержит флаги `--no-access-log` (адреса запросов с параметрами, например поиском по имени, в лог не попадают) и `--no-server-header` (нет заголовка `server`). Не убирайте их. Команда запуска и проверка работоспособности заданы в `bot/railway.toml` (ключи `startCommand` и `healthcheckPath` есть в документации «config as code»). **Не проверено**: подставляет ли Railway `$PORT` в `startCommand` и подхватит ли он файл, если корень сервиса `bot`.
 
@@ -269,13 +269,13 @@ python3 bot/decrypt_backup.py ~/Downloads/players-<время>.db.enc ~/roulette
 ## Проверка на GitHub Actions
 
 Файл `.github/workflows/tests.yml` на каждый пуш в `main`, каждый pull request и по кнопке (Run workflow) запускает:
-- **Тесты** (`python run_tests.py` в папке `bot`) на Python 3.9 и 3.12 (две независимые проверки);
+- **Тесты** (`python run_tests.py` в папке `bot`) на Python 3.12;
 - **Тесты во враждебном окружении** (`python run_tests.py --hostile-env`, Python 3.12): те же тесты с реалистичными значениями всех переменных проекта; результаты не должны меняться (тесты сами очищают окружение, `bot/testenv.py`);
 - **Проверку репозитория** (`scripts/check_repo.py`): падает, если в индексе git есть `.env`, файлы баз (`*.db`, `*.sqlite*`), ключи (`*.key`, `*.pem`, `id_rsa*`, `id_ed25519*`), папки `.venv` и `backups`, строка, похожая на токен Telegram-бота в любом контексте (в том числе ссылка `api.telegram.org/bot<id>:<токен>`), закрытый ключ PEM, токен GitHub или ключ AWS. Явные заглушки (пример из документации Telegram, значения со словами example, placeholder, not-real, fake) не считаются. Найденное значение не печатается, только путь и номер строки. Локально: `python scripts/check_repo.py` (код выхода 0 или 1);
 - **Скан всей истории git** (`python scripts/check_repo.py --history`, checkout на полную глубину): те же правила по добавленным строкам и именам файлов всех коммитов;
 - **e2e в Chrome** (не блокирует, `continue-on-error`): в журнале и во вкладке Summary сводка «прошло N, упало M». Блокирующим его можно сделать (убрать `continue-on-error`), когда 10 запусков подряд на `main` прошли без падений и без повторного запуска.
 
-Тесты на 3.9 и 3.12 идут на Ubuntu 24.04, на Ubuntu 26.04 только на 3.12 (для 3.9 там нет готовой сборки Python); задачи на 26.04 с `continue-on-error` (пока проверка совместимости, красный результат на 26.04 общий итог не ломает; окно миграции `ubuntu-latest` 19.10-19.11.2026).
+Тесты на 3.12 идут на Ubuntu 24.04 и 26.04; задачи на 26.04 с `continue-on-error` (пока проверка совместимости, красный результат на 26.04 общий итог не ломает; окно миграции `ubuntu-latest` 19.10-19.11.2026).
 
 **Проверка секретов до коммита (по желанию, без установки пакетов).** В репозитории лежит хук `.githooks/pre-commit`: он запускает `scripts/check_repo.py --staged` по добавленным и изменённым файлам (содержимое берётся из индекса) и блокирует коммит с токеном или файлом базы. Включить одной командой: `git config core.hooksPath .githooks`. Выключить: `git config --unset core.hooksPath`; разовый обход: `git commit --no-verify` (CI всё равно проверит индекс). Нужен Python 3 в `PATH`; без него хук выводит предупреждение и коммит не блокирует.
 
@@ -283,7 +283,7 @@ python3 bot/decrypt_backup.py ~/Downloads/players-<время>.db.enc ~/roulette
 
 Railway деплоит после пуша независимо от результата проверок: красный крестик деплой не останавливает (**не проверено** по документации Railway; чтобы ждать зелёной проверки, у Railway есть настройка «Wait for CI», её наличие и условия не сверялись).
 
-Версия Python на Railway: по документации Railpack переменная `RAILPACK_PYTHON_VERSION` важнее файла `bot/.python-version` (там `3.9`), поэтому при заданной `RAILPACK_PYTHON_VERSION=3.12` работает 3.12. Тесты на 3.9 нужны для локальной работы, на 3.12 для продакшена.
+Версия Python на Railway: по документации Railpack переменная `RAILPACK_PYTHON_VERSION` важнее файла `bot/.python-version` (там `3.12`); на Railway задана `RAILPACK_PYTHON_VERSION=3.12`, локально та же версия.
 
 ## Режимы запуска
 

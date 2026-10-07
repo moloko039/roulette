@@ -2,15 +2,8 @@ python-telegram-bot==22.5
 uvicorn==0.39.0
 httpx==0.28.1
 pynacl==1.6.2
-# Python 3.12 (Railway): свежие версии с исправлениями безопасности.
-# Python 3.9 (локально и в CI): новее этих версий пакеты не выпускаются под 3.9 (им нужен Python 3.10+).
-fastapi==0.142.2; python_version >= "3.10"
-fastapi==0.128.8; python_version < "3.10"
-starlette==1.7.0; python_version >= "3.10"
-starlette==0.49.3; python_version < "3.10"
-anyio==4.15.1; python_version >= "3.10"
-anyio==4.12.1; python_version < "3.10"
-click==8.5.0; python_version >= "3.10"
-click==8.1.8; python_version < "3.10"
-python-dotenv==1.2.4; python_version >= "3.10"
-python-dotenv==1.2.1; python_version < "3.10"
+fastapi==0.142.2
+starlette==1.7.0
+anyio==4.15.1
+click==8.5.0
+python-dotenv==1.2.4
