@@ -81,7 +81,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
 - GitHub Actions (tests.yml): тесты на Python 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
   сделать блокирующим после 10 зелёных запусков на main подряд. Секреты до коммита: `git config core.hooksPath .githooks` (хук pre-commit = check_repo --staged).
-- Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. Журнал решений: docs/JOURNAL.md (читай выборочно: последние записи или поиск по теме, целиком не читай).
+- Карта модулей и шаблон игры: docs/ARCHITECTURE.md. Деплой и переменные окружения: bot/DEPLOY.md. План новой экономики и аудит: docs/ECONOMY.md, docs/ECONOMY_AUDIT.md (план, не реализован). Журнал решений: docs/JOURNAL.md (читай выборочно: последние записи или поиск по теме, целиком не читай).
 
 ## Тесты
 Из папки bot: `.venv/bin/python run_tests.py` (все test_*.py, код выхода 1 при сбое; `--hostile-env` с реалистичными значениями переменных проекта). Один файл: `.venv/bin/python test_db.py` (успех: последняя строка «Все проверки прошли»).
