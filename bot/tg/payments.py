@@ -7,6 +7,7 @@ from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 import cosmetics
+import economy_config
 import db as db_module
 from tg.common import GROUP_TYPES, PRIVATE_ONLY, UNAVAILABLE, _chat_type, _env, _notify_owner, _reply, _send_quiet, logger, privacy_url
 from tg import common
@@ -73,13 +74,17 @@ async def pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
         code = cosmetics.parse_payload(query.invoice_payload, query.from_user.id, now=common._wall())
         if code is None or query.currency != "XTR":
             raise cosmetics.UnknownItem()
-        item = await asyncio.to_thread(db_module.stars_offer, query.from_user.id, code)
-        if item["price"]["amount"] != query.total_amount:
-            raise cosmetics.ItemUnavailable()
+        if code.startswith(economy_config.GEM_PACK_PREFIX):      # пакет кристаллов: цена должна совпасть с economy_config
+            if db_module.pack(code)[0] != query.total_amount:
+                raise ValueError("price")
+        else:
+            item = await asyncio.to_thread(db_module.stars_offer, query.from_user.id, code)
+            if item["price"]["amount"] != query.total_amount:
+                raise cosmetics.ItemUnavailable()
     except cosmetics.AlreadyOwned:
         ok, message = False, "Этот предмет у вас уже есть"
-    except (cosmetics.CosmeticsError, ValueError):
-        ok, message = False, "Предмет сейчас недоступен или цена изменилась. Откройте магазин и попробуйте снова"
+    except (cosmetics.CosmeticsError, db_module.GemsError, ValueError):
+        ok, message = False, "Товар сейчас недоступен или цена изменилась. Откройте магазин и попробуйте снова"
     except Exception as exc:
         logger.error("Проверка заказа не выполнена: %s", type(exc).__name__)
         ok, message = False, "Не удалось проверить заказ, попробуйте позже"
@@ -111,6 +116,9 @@ async def successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE)
                           "Не удалось распознать заказ. Напишите в поддержку: /paysupport")
         if not refunded:
             await _notify_owner(context, "Оплата без распознанного заказа, возврат не удался. Платёж: %s, игрок: %d" % (charge_id, user_id))
+        return
+    if code.startswith(economy_config.GEM_PACK_PREFIX):
+        await _gem_payment(context, user_id, charge_id, code, amount)
         return
     result = None
     for attempt in range(PAY_RETRIES):
@@ -146,3 +154,51 @@ async def _refund_and_record_unknown(context, user_id, charge_id):
     except TelegramError as exc:
         logger.error("Возврат Stars не выполнен: %s", type(exc).__name__)
         return False
+
+
+async def _refund_gems_and_record(context, user_id, charge_id):
+    """Возврат Stars за пакет кристаллов и отметка в журнале (кристаллы пакета списываются). True, если возврат выполнен."""
+    try:
+        await context.bot.refund_star_payment(user_id=user_id, telegram_payment_charge_id=charge_id)
+    except TelegramError as exc:
+        if "ALREADY_REFUNDED" not in str(exc).upper():
+            logger.error("Возврат Stars не выполнен: %s", type(exc).__name__)
+            return False
+    await asyncio.to_thread(db_module.finish_gem_refund, charge_id)
+    return True
+
+
+async def _gem_payment(context, user_id, charge_id, code, amount):
+    """Оплачен пакет кристаллов: одна транзакция (журнал оплат с уникальным charge_id и начисление). Повтор апдейта дублей не создаёт.
+    Потолок баланса: автоматический возврат. Сбой записи: до PAY_RETRIES повторов, затем сообщение владельцу (/regrantgems)."""
+    result = None
+    for attempt in range(PAY_RETRIES):
+        try:
+            result = await asyncio.to_thread(db_module.record_gem_payment, user_id, charge_id, code, amount)
+            break
+        except (db_module.GemsError, ValueError):      # пакет неизвестен или сумма не равна цене: повторять бессмысленно, деньги возвращаются
+            refunded = await _refund_and_record_unknown(context, user_id, charge_id)
+            await _send_quiet(context, user_id, "Не удалось распознать заказ, оплата возвращена." if refunded else
+                              "Не удалось распознать заказ. Напишите в поддержку: /paysupport")
+            if not refunded:
+                await _notify_owner(context, "Оплата пакета без распознанного заказа, возврат не удался. Платёж: %s, игрок: %d" % (charge_id, user_id))
+            return
+        except Exception as exc:
+            logger.error("Запись оплаты пакета не удалась (попытка %d): %s", attempt + 1, type(exc).__name__)
+            if attempt + 1 < PAY_RETRIES:
+                await asyncio.sleep(PAY_RETRY_DELAY)
+    if result is None:
+        await _send_quiet(context, user_id, "Оплата получена, но кристаллы не удалось начислить сразу. Владелец начислит их вручную; если их нет, напишите: /paysupport")
+        await _notify_owner(context, "Не удалось записать оплату пакета кристаллов. Платёж: %s, игрок: %d, пакет: %s, сумма: %d. Вернуть: /refund %s force"
+                            % (charge_id, user_id, code, amount, charge_id))
+        return
+    if result["result"] == "duplicate":
+        return
+    if result["result"] == "limit":
+        if await _refund_gems_and_record(context, user_id, charge_id):
+            await _send_quiet(context, user_id, "У вас уже слишком много кристаллов, оплата возвращена.")
+        else:
+            await _send_quiet(context, user_id, "У вас уже слишком много кристаллов. Возврат оформит владелец, подробности: /paysupport")
+            await _notify_owner(context, "Автоматический возврат не удался (потолок кристаллов). Платёж: %s. Вернуть: /refund %s force" % (charge_id, charge_id))
+        return
+    await _send_quiet(context, user_id, "Кристаллы начислены: +%d. Баланс: %d" % (result["gems"], result["balance"]))

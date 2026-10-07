@@ -115,6 +115,9 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
             deleted["cosmetic_purchases"] = batches(
                 "DELETE FROM cosmetic_purchases WHERE id IN (SELECT id FROM cosmetic_purchases WHERE created_at < ? LIMIT ?)",
                 (now - cosmetics.PURCHASE_RETENTION_DAYS * 86400, batch))
+        if "gem_purchases" in present:  # журнал оплат пакетов кристаллов: тот же долгий срок, что у оплат косметики
+            batches("DELETE FROM gem_purchases WHERE rowid IN (SELECT rowid FROM gem_purchases WHERE created_at < ? LIMIT ?)",
+                    (now - cosmetics.PURCHASE_RETENTION_DAYS * 86400, batch))
         if "transfers" in present:  # тот же срок хранения, что у раундов
             deleted["transfers"] = batches(
                 "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",

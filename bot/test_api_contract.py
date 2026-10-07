@@ -79,7 +79,7 @@ LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells"
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
       "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
-      "active_game": OPT(str),
+      "active_game": OPT(str), "gems": int,
       "cosmetics": {"equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
                                  "avatar_frame": str, "badge": str}, "show_in_rating": bool}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}

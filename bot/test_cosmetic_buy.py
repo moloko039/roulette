@@ -336,7 +336,7 @@ try:
     fake = FakeBot()
     good = cosmetics.make_payload(A, "table_blue", int(time.time()))
     check("pre_checkout ок", pre_checkout(fake, A, good), [(True, None)])
-    check("чужая метка: отказ с понятным текстом", pre_checkout(fake, B, good), [(False, "Предмет сейчас недоступен или цена изменилась. Откройте магазин и попробуйте снова")])
+    check("чужая метка: отказ с понятным текстом", pre_checkout(fake, B, good), [(False, "Товар сейчас недоступен или цена изменилась. Откройте магазин и попробуйте снова")])
     check("неверная сумма", pre_checkout(fake, A, good, amount=149)[0][0], False)
     check("не та валюта", pre_checkout(fake, A, good, currency="USD")[0][0], False)
     check("испорченная метка", pre_checkout(fake, A, "ci1.table_blue.1.zzz")[0][0], False)
