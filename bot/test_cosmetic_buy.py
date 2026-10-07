@@ -19,6 +19,10 @@ from telegram.error import TelegramError
 
 import web.routes_cosmetics as api  # INVOICE_INTERVAL живёт в модуле маршрутов косметики
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 import cosmetics
 import db
 import ratelimit
@@ -370,7 +374,7 @@ try:
     check("возврат не удался: refund_pending и сообщение владельцу", (sql(path, "SELECT status FROM cosmetic_purchases WHERE charge_id = 'chg-0003'"), any("chg-0003" in t for t in fake.texts(OWNER))), ([("refund_pending",)], True))
     fake.refund_error = None
     # сбой записи: три попытки, затем владельцу и ручная выдача
-    with mock.patch.object(bot, "PAY_RETRY_DELAY", 0):
+    with mock.patch.object(tg.payments, "PAY_RETRY_DELAY", 0):
         calls = []
         real = db.record_stars_payment
 

@@ -13,6 +13,10 @@ from unittest import mock
 from telegram.error import BadRequest, Forbidden, RetryAfter
 
 import bot
+import tg.common
+import tg.owner
+import tg.payments
+import tg.user
 import db
 from stubs import FakeChat, FakeUpdate
 
@@ -127,7 +131,7 @@ def grant(mock_bot, store, amount="10000", gid="oct4", extra=()):
 try:
     os.environ["OWNER_CHAT_ID"] = str(OWNER)
     os.environ["GAME_LINK"] = LINK
-    mock.patch.object(bot, "ANNOUNCE_PAUSE", 0).start()
+    mock.patch.object(tg.owner, "ANNOUNCE_PAUSE", 0).start()
     CHATS = (-1001, -1002, -1003)
 
     def world(chats=CHATS):
