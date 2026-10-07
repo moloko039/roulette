@@ -518,7 +518,7 @@ try:
     # ---------- сборка приложения и обработка ошибок ----------
     asyncio.set_event_loop(asyncio.new_event_loop())  # Python 3.9: Queue() внутри Application ищет цикл
     real = bot.build_application("123456:TEST-TOKEN-not-real", use_updater=False)
-    check("обработчики", len(real.handlers[0]), 22)  # 8 команд, /paysupport и /terms, скрытые /backupnow, /grantall, /give, /givegems, /giveitem, /refund, /regrant, /teststars, кнопки удаления, my_chat_member, pre_checkout и successful_payment
+    check("обработчики", len(real.handlers[0]), 23)  # 8 команд, /paysupport и /terms, скрытые /backupnow, /grantall, /give, /givegems, /stats, /giveitem, /refund, /regrant, /teststars, кнопки удаления, my_chat_member, pre_checkout и successful_payment
     assert bot.on_error in real.error_handlers, "нет обработчика ошибок"
 
     cap = Capture()

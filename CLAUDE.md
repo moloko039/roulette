@@ -48,7 +48,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Краш: время только серверное (одно эффективное время now-150мс во всех проверках), точка краха хранится на сервере и до конца раунда нигде не появляется;
   возврат 36/37; опыт bet*(37m-3600)//(37m). Автовывод: раунд с целью T активен до ручного вывода (платит m(t), не выше T), цели или краха; закрытие ленивое.
 - Скрытые команды владельца: /grantall <сумма> <id> [silent] + confirm (всем игрокам, копия базы, одна транзакция, объявление в группы
-  из bot_chats), /give <сумма>, /givegems <сумма> (кристаллы только владельцу), /giveitem <код> [id], /refund <платёж> [force] и /regrant <платёж> (Stars; пакет кристаллов возвращается, пока не потрачен), /teststars (1 Star).
+  из bot_chats), /give <сумма>, /givegems <сумма> (кристаллы только владельцу), /stats (сводка экономики, только агрегаты), /giveitem <код> [id], /refund <платёж> [force] и /regrant <платёж> (Stars; пакет кристаллов возвращается, пока не потрачен), /teststars (1 Star).
 - Косметика (bot/cosmetics.py): только внешний вид; игры, wallet, economy её не читают (тест); не передаётся, без лутбоксов.
   За кристаллы (wallet.gems_debit) или фишки (wallet.debit, без XP); за Stars покупаются только кристаллы (E2), фишки покупаются за кристаллы пакетами в часах фермы (E6, chip_purchases): пакеты и числа в bot/economy_config.py, журнал gems_ledger (баланс = его сумма), оплаты gem_purchases 365 дней, terms.html. Клиент:
   скины = CSS-переменные + data-skin-<слот> (applySkins), раздел «Оформление» магазина (гардероб) с покупкой (цены только из каталога), рамка и значок (docs/ARCHITECTURE.md).
@@ -74,7 +74,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Клиент в корне: index.html, css/*.css, js/*.js (метки версий: python scripts/stamp_client.py), privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: web/ (HTTP: маршруты, подпись, middleware; api.py собирает), tg/ (команды бота; bot.py фасад), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, notify.py; правила игр: roulette, keno, mines,
-  blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py.
+  blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py, scripts/stamp_client.py, scripts/check_js_globals.py; симулятор экономики tools/econ_sim.py (тест test_econ_sim: гарантии плана на текущих числах).
 - Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
 - GitHub Actions (tests.yml): тесты на Python 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
   сделать блокирующим после 10 зелёных запусков на main подряд. Секреты до коммита: `git config core.hooksPath .githooks` (хук pre-commit = check_repo --staged).

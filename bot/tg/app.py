@@ -14,7 +14,7 @@ from db import init_db
 from tg.common import guarded, logger, warn_missing_config
 from tg.data import CALLBACK_PATTERN, delete_callback, deletemydata, mydata
 from tg.groups import my_chat_member, note_group
-from tg.owner import backupnow, give, givegems, giveitem, grantall, refund, regrant, teststars
+from tg.owner import backupnow, give, givegems, giveitem, grantall, refund, regrant, stats, teststars
 from tg.payments import paysupport, pre_checkout, successful_payment, terms
 from tg.user import balance, developer_info, help_command, play, privacy, start
 from tg import common
@@ -73,7 +73,7 @@ def build_application(token, use_updater=True):
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
                           ("deletemydata", deletemydata), ("backupnow", backupnow),
-                          ("grantall", grantall), ("give", give), ("givegems", givegems), ("giveitem", giveitem), ("paysupport", paysupport), ("terms", terms),
+                          ("grantall", grantall), ("give", give), ("givegems", givegems), ("stats", stats), ("giveitem", giveitem), ("paysupport", paysupport), ("terms", terms),
                           ("refund", refund), ("regrant", regrant), ("teststars", teststars)):
         app.add_handler(CommandHandler(name, guarded(handler)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))

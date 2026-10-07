@@ -171,6 +171,24 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Баланс у потолка: начислено %d из %d. Баланс: %d" % (given, amount, balance_now))
 
 
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца (нет в меню и в /help): /stats присылает сводку экономики (только агрегаты, без идентификаторов и имён).
+    Все остальные (и любой чат, кроме личного) не получают ответа."""
+    if _chat_type(update) != "private":
+        return
+    user = update.effective_user
+    owner_id = load_owner_id()
+    if user is None or owner_id is None or user.id != owner_id:
+        return
+    try:
+        text = db_module.stats_text(await asyncio.to_thread(db_module.economy_stats))
+    except Exception as exc:
+        logger.error("Сводка экономики не собрана: %s", type(exc).__name__)
+        await _reply(update, "Не удалось собрать сводку (подробности в логах сервиса)")
+        return
+    await _reply(update, text)
+
+
 async def givegems(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Скрытая команда владельца (нет в меню и в /help): /givegems <сумма> начисляет кристаллы ТОЛЬКО самому владельцу (для проверок магазина без оплаты Stars).
     Причина в журнале owner_grant. Все остальные (и любой чат, кроме личного) не получают ответа."""
