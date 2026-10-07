@@ -1,0 +1,60 @@
+{
+  "_comment": "Серия входов. status: GET /api/streak; claim: POST /api/streak/claim.",
+  "status": {
+    "claimed_today": false,
+    "streak_day": 1,
+    "cycle": 1,
+    "reward": {
+      "chips": 300,
+      "gems": 0
+    },
+    "week": [
+      {
+        "day": 1,
+        "chips": 300,
+        "gems": 0
+      },
+      {
+        "day": 2,
+        "chips": 400,
+        "gems": 0
+      },
+      {
+        "day": 3,
+        "chips": 500,
+        "gems": 0
+      },
+      {
+        "day": 4,
+        "chips": 600,
+        "gems": 0
+      },
+      {
+        "day": 5,
+        "chips": 800,
+        "gems": 0
+      },
+      {
+        "day": 6,
+        "chips": 1000,
+        "gems": 0
+      },
+      {
+        "day": 7,
+        "chips": 1000,
+        "gems": 5
+      }
+    ],
+    "seconds_to_next_day": 43200
+  },
+  "claim": {
+    "streak_day": 1,
+    "cycle": 1,
+    "chips": 300,
+    "gems": 0,
+    "gems_capped": false,
+    "balance": 1300,
+    "gems_balance": 0,
+    "replayed": false
+  }
+}

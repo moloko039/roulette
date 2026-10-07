@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/08-blackjack.css?v=16e156c1">
   <link rel="stylesheet" href="css/09-crash.css?v=4717fdb7">
   <link rel="stylesheet" href="css/10-hilo.css?v=4cf770b5">
-  <link rel="stylesheet" href="css/11-lobby.css?v=55ece568">
+  <link rel="stylesheet" href="css/11-lobby.css?v=57c8af13">
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=511f8c12">
   <link rel="stylesheet" href="css/13-shop.css?v=e1f39294">
 </head>
@@ -35,6 +35,12 @@
       </div>
       <span class="rating-lvl lobby-level" id="lobby-level" hidden></span>
     </div>
+    <button type="button" class="streak-card" id="streak-card" hidden>
+      <span class="streak-title" id="streak-title"></span>
+      <span class="streak-sub" id="streak-sub"></span>
+      <span class="streak-week" id="streak-week" aria-hidden="true"></span>
+    </button>
+    <p class="dialog-msg streak-msg" id="streak-msg" aria-live="polite"></p>
     <div class="lobby-grid" id="lobby-grid" role="menu" aria-label="Игры"></div>
   </section>
   <main class="app screen" data-screen="roulette" hidden>
@@ -580,7 +586,7 @@
   </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
-  <script src="js/00-config.js?v=64b2be32"></script>
+  <script src="js/00-config.js?v=8e9b1379"></script>
   <script src="js/01-core.js?v=d5a6594e"></script>
   <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
@@ -594,9 +600,10 @@
   <script src="js/11-hilo.js?v=59039265"></script>
   <script src="js/12-shop.js?v=72dac1f1"></script>
   <script src="js/13-wardrobe.js?v=2d3384a7"></script>
-  <script src="js/14-lobby.js?v=d727000a"></script>
+  <script src="js/14-lobby.js?v=bff9226a"></script>
+  <script src="js/14-streak.js?v=28c358d6"></script>
   <script src="js/15-arcade.js?v=ca5ba0bc"></script>
   <script src="js/16-a11y.js?v=09029a73"></script>
-  <script src="js/17-start.js?v=6b477d77"></script>
+  <script src="js/17-start.js?v=a8abd05f"></script>
 </body>
 </html>

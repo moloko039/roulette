@@ -89,3 +89,18 @@
 
 
 .dialog-change { flex: none; padding: 0 var(--space-2); font-size: 13px; color: var(--text-muted); background: none; border: none; text-decoration: underline; min-height: 32px; }
+
+/* серия входов: карточка «Награда дня» под балансом */
+.streak-card { display: grid; gap: 6px; padding: var(--space-3); text-align: left; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.streak-card[hidden] { display: none; }
+.streak-card:disabled { opacity: 0.75; }
+.streak-card:not(:disabled):active { background: var(--white-soft); border-color: var(--border-strong); }
+.streak-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.streak-sub { font-size: 14px; color: var(--text-muted); }
+.streak-week { display: flex; gap: 6px; }
+.streak-dot { flex: 1; height: 6px; border-radius: 3px; background: var(--border); }
+.streak-dot.done { background: var(--accent); }
+.streak-dot.now { background: var(--text-muted); }
+.streak-dot.gem { height: 8px; margin-top: -1px; }
+.streak-msg { min-height: 0; text-align: center; }
+.streak-msg:empty { display: none; }
