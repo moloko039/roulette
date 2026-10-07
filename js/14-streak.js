@@ -13,7 +13,7 @@ function validStreakStatus(d) {
     && !!d.reward && Number.isSafeInteger(d.reward.chips) && d.reward.chips >= 0 && Number.isSafeInteger(d.reward.gems) && d.reward.gems >= 0 && Array.isArray(d.week) && d.week.length === 7;
 }
 
-const validStreakClaim = (d) => !!d && Number.isSafeInteger(d.chips) && d.chips >= 0 && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
+const validStreakClaim = (d) => !!d && Number.isSafeInteger(d.chips) && d.chips >= 0 && (d.collection_part === null || (!!d.collection_part && typeof d.collection_part.collection_name === 'string' && typeof d.collection_part.name === 'string')) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
   && Number.isSafeInteger(d.gems_balance) && d.gems_balance >= 0 && typeof d.gems_capped === 'boolean';
 
 function streakRewardText(chips, gems) {
@@ -67,7 +67,8 @@ async function claimStreak() {
     const r = result.data;
     wdApplyBalance(r.balance);
     shop.gems = r.gems_balance;
-    setStreakMsg('Награда получена: ' + streakRewardText(r.chips, r.gems) + (r.gems_capped ? ' (кристаллов за этот месяц больше нет)' : ''));
+    setStreakMsg('Награда получена: ' + streakRewardText(r.chips, r.gems) + (r.gems_capped ? ' (кристаллов за этот месяц больше нет)' : '') +
+      (r.collection_part ? '. Часть коллекции «' + r.collection_part.collection_name.slice(0, 40) + '»: ' + r.collection_part.name.slice(0, 40) : ''));
     haptic('success');
     await loadStreak();
     return;

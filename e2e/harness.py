@@ -519,7 +519,7 @@ def normalize_net(entries):
         if body:
             try:
                 data = json.loads(body)
-                for key, tag in (("request_id", "rid"), ("member_ref", "ref")):    # случайные значения: сравнивается форма
+                for key, tag in (("request_id", "rid"), ("member_ref", "ref"), ("ref", "ref")):    # случайные значения: сравнивается форма
                     if isinstance(data, dict) and isinstance(data.get(key), str):
                         data[key] = "<%s:%d>" % (tag, len(data[key]))
                 text = " " + json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))

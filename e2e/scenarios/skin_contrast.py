@@ -9,7 +9,8 @@ USERS = {"me": {"rate": 0}}
 MIN = 3.0
 SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "chip_plain"), ("table", "table_blue", "table_green"),
          ("mine_icons", "mine_star", "mine_classic"), ("keno_ball", "keno_hex", "keno_round"), ("crash", "crash_neon", "crash_line"),
-         ("avatar_frame", "frame_thin", "frame_plain"), ("badge", "badge_spade", "badge_none")]
+         ("avatar_frame", "frame_thin", "frame_plain"), ("badge", "badge_spade", "badge_none"),
+         ("card_back", "back_leaves", "back_classic"), ("table", "table_autumn", "table_green"), ("mine_icons", "mine_acorn", "mine_classic")]     # части коллекции «Листопад»
 
 # (пара, цвет A, цвет B, режим): режим «>=3» требует контраст не ниже 3:1; «shape» только документирует, чем пара различается (текст)
 PAIRS = {

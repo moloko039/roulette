@@ -228,7 +228,7 @@ async def scenario(w, shooter):
 
 async def run_width(harness, chrome, width, folder):
     os.makedirs(folder, exist_ok=True)
-    world = harness.World(chrome, users=USERS, viewport=(width, HEIGHT), clock_mod=30)
+    world = harness.World(chrome, users=USERS, viewport=(width, HEIGHT), clock_mod=30, bypass_csp=True)   # снимки внедряют <style> заморозки анимаций
     world.owner.rate = 0
     try:
         await world.start()

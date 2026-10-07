@@ -68,6 +68,26 @@
 "GET /api/blackjack/state",
 "POST /api/blackjack/action {\"action\":\"stand\",\"request_id\":\"<rid:36>\"}"
 ],
+"collection_leaves": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/me",
+"GET /api/streak",
+"POST /api/streak/claim {}",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients",
+"GET /api/me",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients"
+],
 "crash": [
 "GET /api/me",
 "GET /api/streak",
@@ -168,8 +188,8 @@
 "GET /api/gems/packs",
 "GET /api/chips/packs",
 "GET /api/gifts/recipients",
-"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"3b67bf8bc8449b04d1dce9b1ed047646\",\"request_id\":\"<rid:36>\"}",
-"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"3b67bf8bc8449b04d1dce9b1ed047646\",\"request_id\":\"<rid:36>\"}"
+"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}",
+"POST /api/gifts/send {\"item_code\":\"table_blue\",\"ref\":\"<ref:32>\",\"request_id\":\"<rid:36>\"}"
 ],
 "hilo": [
 "GET /api/me",
@@ -272,7 +292,8 @@
 "POST /api/crash/cashout {\"request_id\":\"<rid:36>\"}",
 "GET /api/hilo/state",
 "POST /api/hilo/start {\"bet\":100,\"request_id\":\"<rid:36>\"}",
-"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}"
+"POST /api/hilo/guess {\"choice\":\"hi\",\"request_id\":\"<rid:36>\"}",
+"GET /api/me"
 ],
 "shop_chips": [
 "GET /api/me",

@@ -12,6 +12,10 @@ const MINES_ICON_SETS = {
     gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
     mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>'
   },
+  mine_acorn: {
+    gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C5 9 11 5 19 5c0 8-4 14-14 14z"/><path d="M5 19 14 10"/></svg>',
+    mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11c0-4 3-6 6-6s6 2 6 6z"/><path d="M12 3v2"/><path d="M7 11c0 5 2 9 5 10 3-1 5-5 5-10"/></svg>'
+  },
   mine_star: {
     gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6.1L12 16.6 6.6 19.6l1.2-6.1-4.5-4.2 6.1-.7z"/></svg>',
     mine: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6"/><path d="M12 3v3M12 20v3M3 13h3M18 13h3M5.6 6.6l2.1 2.1M16.3 17.3l2.1 2.1M18.4 6.6l-2.1 2.1M7.7 17.3l-2.1 2.1"/></svg>'

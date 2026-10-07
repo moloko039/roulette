@@ -13,7 +13,7 @@ SLOT_NAMES = {
 PUBLIC_SLOTS = ("avatar_frame", "badge")      # видны другим участникам беседы, только если игрок их надел и не скрыл
 RARITIES = ("starter", "common", "rare", "premium")    # редкость только визуальная
 PURCHASE_RETENTION_DAYS = 365   # журнал оплат Stars хранится столько дней после покупки (споры и возвраты), даже после удаления данных игрока
-SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift")
+SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift", "collection")
 
 
 class CosmeticsError(Exception):
@@ -93,15 +93,18 @@ _ROWS = (
     ("back_classic", "card_back", "Классика", "Диагональные тёмно-серые полосы", "starter", True),
     ("back_midnight", "card_back", "Полночь", "Глубокий синий с мелкой сеткой ромбов", "common", True),
     ("back_ember", "card_back", "Уголь", "Чёрный фон с тёплыми оранжевыми штрихами", "rare", False),
+    ("back_leaves", "card_back", "Листопад", "Осенние листья на тёплом коричневом фоне", "rare", True),
     ("chip_plain", "chip", "Простые", "Тёмные круглые фишки", "starter", True),
     ("chip_ring", "chip", "Кольцо", "Светлое кольцо с насечками по краю", "common", True),
     ("chip_gold", "chip", "Золото", "Золотистый градиент с тонкой тёмной кромкой", "premium", False),
     ("table_green", "table", "Сукно", "Привычная зелёно-красная палитра стола", "starter", True),
     ("table_blue", "table", "Лагуна", "Бирюзовое сукно и мягкие синие сектора", "rare", True),
     ("table_violet", "table", "Сумерки", "Сливовый фон и розовые сектора", "premium", False),
+    ("table_autumn", "table", "Октябрь", "Горчичное сукно и осенние сектора", "rare", True),
     ("mine_classic", "mine_icons", "Обычные", "Привычные мина и кристалл", "starter", True),
     ("mine_star", "mine_icons", "Звёзды", "Мина-звезда и кристалл-ромб", "common", True),
     ("mine_gem", "mine_icons", "Самоцвет", "Огранённый камень и мина-капля", "rare", False),
+    ("mine_acorn", "mine_icons", "Жёлуди", "Мина-жёлудь и листок вместо кристалла", "rare", True),
     ("keno_round", "keno_ball", "Круги", "Привычные круглые шарики", "starter", True),
     ("keno_hex", "keno_ball", "Соты", "Шестиугольные шарики со светлой рамкой", "common", True),
     ("crash_line", "crash", "Линия", "Привычная кривая и цвета краша", "starter", True),

@@ -114,6 +114,11 @@ blackjack.new_shoe = _shoe
 crash.new_crash = _crash
 hilo.draw_card = _card
 
+import cosmetic_sets  # noqa: E402
+
+# сезон коллекции «Листопад» в e2e идёт всегда (иначе сценарии зависели бы от календаря); в боевом коде сезон только октябрь 2026
+for _c in cosmetic_sets.COLLECTIONS.values():
+    _c["season"] = ("2020-01-01", "2099-12-31")
 import db  # noqa: E402
 import ratelimit  # noqa: E402
 import uvicorn  # noqa: E402

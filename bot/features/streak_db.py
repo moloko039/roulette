@@ -5,12 +5,15 @@ wallet.credit (с подтянутым доходом) и кристаллами
 import datetime
 import time
 
+import cosmetic_sets
+import cosmetics
 import economy_config
 import wallet
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
 from core.kernel import _accrue_write, _register_player
+from features.cosmetics_db import _grant_in
 
 
 class StreakError(Exception):
@@ -111,7 +114,7 @@ def claim_streak(telegram_id, now=None, db_path=None):
             row = conn.execute("SELECT streak_day, cycle, chips, gems FROM streak_claims WHERE telegram_id = ? AND day = ?", (telegram_id, today)).fetchone()
             if row is not None:
                 result = {"streak_day": row["streak_day"], "cycle": row["cycle"], "chips": row["chips"], "gems": row["gems"], "gems_capped": False,
-                          "balance": wallet.get_balance(conn, telegram_id), "gems_balance": wallet.gems_balance(conn, telegram_id), "replayed": True}
+                          "balance": wallet.get_balance(conn, telegram_id), "gems_balance": wallet.gems_balance(conn, telegram_id), "collection_part": None, "replayed": True}
                 conn.execute("COMMIT")
                 return result
             last = _last(conn, telegram_id)
@@ -132,7 +135,15 @@ def claim_streak(telegram_id, now=None, db_path=None):
                 gems_balance = wallet.gems_credit(conn, telegram_id, gems, "streak_gems", "day-%d" % today, now)
             conn.execute("INSERT INTO streak_claims (telegram_id, day, streak_day, cycle, chips, gems, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                          (telegram_id, today, day, cycle, chips, gems, now))
-            result = {"streak_day": day, "cycle": cycle, "chips": chips, "gems": gems, "gems_capped": capped, "balance": balance, "gems_balance": gems_balance, "replayed": False}
+            part = None
+            owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
+            pick = cosmetic_sets.streak_part_to_grant(owned, day, today)
+            if pick is not None:
+                collection, part_code = pick
+                if _grant_in(conn, telegram_id, part_code, "collection", "collection:" + collection, now):
+                    part = {"collection": collection, "collection_name": cosmetic_sets.COLLECTIONS[collection]["name"], "part": part_code, "name": cosmetics.item(part_code)["name"]}
+            result = {"streak_day": day, "cycle": cycle, "chips": chips, "gems": gems, "gems_capped": capped, "balance": balance, "gems_balance": gems_balance,
+                      "collection_part": part, "replayed": False}
             conn.execute("COMMIT")
             return result
         except Exception:

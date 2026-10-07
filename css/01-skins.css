@@ -311,3 +311,54 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   stroke-linejoin: round;
 }
 
+/* Листопад (коллекция, docs/COLLECTIONS.md): тёплая рубашка с листьями, горчичный стол, мины-жёлуди. Только цвета и градиенты, без clip-path и filter */
+[data-skin-card_back="back_leaves"] {
+  --card-back-a: #3b1f10;
+  --card-back-b: #5a2e14;
+  --card-back-border: #d9892b;
+  --card-back-image:
+    repeating-linear-gradient(35deg, rgba(217, 137, 43, 0.3) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(-35deg, rgba(190, 70, 35, 0.3) 0 2px, transparent 2px 12px),
+    linear-gradient(160deg, #5a2e14, #331a0c);
+  --card-back-image-hl:
+    repeating-linear-gradient(35deg, rgba(217, 137, 43, 0.3) 0 2px, transparent 2px 18px),
+    repeating-linear-gradient(-35deg, rgba(190, 70, 35, 0.3) 0 2px, transparent 2px 24px),
+    linear-gradient(160deg, #5a2e14, #331a0c);
+  --card-back-outline: 1px solid rgba(217, 137, 43, 0.7);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+
+[data-skin-table="table_autumn"] {
+  --table-red: #d9523a;
+  --table-black: #1a1007;
+  --table-green: #6b8a2e;
+  --table-felt: #2f2409;
+  --wheel-rim-a: #6b4a1a;
+  --wheel-rim-b: #e8c66a;
+  --wheel-rim-c: #a77a2c;
+  --wheel-sector-line: rgba(232, 198, 106, 0.4);
+  --wheel-edge: #1f1409;
+  --wheel-hub: #2a1b0b;
+  --wheel-hub-line: rgba(232, 198, 106, 0.55);
+}
+
+[data-skin-mine_icons="mine_acorn"] {
+  --mines-cell-bg: #3a2412;
+  --mines-cell-border: #6b4a2a;
+  --mines-cell-text: #dcc7a4;
+  --mines-cell-active-bg: #4a2f18;
+  --mines-safe-bg: #4a3516;
+  --mines-safe-border: #e0a33a;
+  --mines-safe-text: #f3d9a0;
+  --mines-safe-glow: rgba(243, 217, 160, 0.55);
+  --mines-bomb-bg: #7a2a1c;
+  --mines-bomb-text: #f5f5f2;
+  --mines-muted-bg: #3a2412;
+  --mines-muted-text: #a68b68;
+  --mines-hit-border: #f5f5f2;
+  --mines-hit-ring: rgba(196, 69, 43, 0.45);
+  --mines-opening-a: #3a2412;
+  --mines-opening-b: #5a3a1c;
+}
+

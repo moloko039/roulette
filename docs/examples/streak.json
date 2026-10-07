@@ -55,6 +55,7 @@
     "gems_capped": false,
     "balance": 1300,
     "gems_balance": 0,
-    "replayed": false
+    "replayed": false,
+    "collection_part": null
   }
 }
