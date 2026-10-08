@@ -118,14 +118,20 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             ).fetchall()
             invitee_row = conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND referrer_id != 0", (telegram_id,)).fetchone()
             referrer_counts = conn.execute("SELECT COUNT(*) AS invited_count, SUM(qualified_at IS NOT NULL) AS qualified_count FROM referrals WHERE referrer_id = ?", (telegram_id,)).fetchone()
+            crash_live_bets = conn.execute(
+                "SELECT round_id, created_at_ms, bet, target_x100, status, cashed_x100, payout "
+                "FROM crash_bets WHERE telegram_id = ? ORDER BY created_at_ms DESC, rowid DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
         finally:
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None and not crash_live_bets:
         return None
     return {
         "player": dict(player) if player is not None else None,
+        "crash_live": [{"round_id": b["round_id"], "time_ms": b["created_at_ms"], "bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]} for b in crash_live_bets],
         "rounds": [
             {"time": r["created_at"], "bets": json.loads(r["bets_json"]), "number": r["number"],
              "stake_total": r["stake_total"], "payout_total": r["payout_total"]}
@@ -237,6 +243,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                     "DELETE FROM chat_members WHERE telegram_id = ?", (telegram_id,)).rowcount,
                 "farm_purchases": conn.execute(
                     "DELETE FROM farm_purchases WHERE telegram_id = ?", (telegram_id,)).rowcount,
+                "crash_bets": conn.execute(
+                    "DELETE FROM crash_bets WHERE telegram_id = ?", (telegram_id,)).rowcount,
                 # незавершённая игра удаляется вместе со ставкой
                 "mines_games": conn.execute(
                     "DELETE FROM mines_games WHERE telegram_id = ?", (telegram_id,)).rowcount,

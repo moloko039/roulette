@@ -270,6 +270,38 @@
 Выплата: `bet * c // 100` (c в сотых). Вывод ровно на множителе краха выигрывает. Ошибки POST: 400 `{"detail": "invalid_request"}`; 409 `{"detail": "<код>"}`:
 `active_game_exists`, `insufficient_funds`, `no_active_game`, `too_early`, `request_conflict`, `balance_limit`.
 
+## Живой краш (Live Crash)
+
+В отличие от старого краша, это общая игра для всего сервера. Состояние читается частым опросом (`GET /api/crash/live`) в группе лимитов `live` (например, 6 запросов в секунду на игрока). Маршруты ставок и вывода в группе `write`. Точка краха и секрет раскрываются только в фазе итога и попадают в историю закрытых раундов. Имена игроков берутся из участников беседы (если открыто из чата) и видны всем в ленте этой беседы (вне беседы видна только своя ставка).
+
+### GET /api/crash/live
+Возвращает состояние общего раунда и ленту ставок вашей комнаты (беседы или личной). Подпись обязательна.
+- `server_ms`: int (текущее время сервера в мс)
+- `history`: список последних закрытых раундов `[{"crash_x100": int, "seed_hash": str, "seed": str}, ...]`
+- `round`: объект или null:
+  - `id`: int
+  - `phase`: `"betting"`, `"flight"`, `"result"`, `"idle"`
+  - `seed_hash`: str (хэш секрета)
+  - `bet_open_ms`: int
+  - `flight_start_ms`: int
+  - `m100`: int\|null (текущий множитель в полёте)
+  - `result`: объект `{"crash_x100": int, "seed": str}`\|null (только в фазе `result`)
+  - `next_open_ms`: int\|null (время начала следующего раунда, только в фазе `result`)
+- `bets`: список `[{"name": str, "bet": int, "status": str, "cashed_x100": int|null, "payout": int|null}, ...]`
+- `me`: объект `{"bet": int, "target_x100": int|null, "status": str, "cashed_x100": int|null, "payout": int|null}`\|null
+
+### POST /api/crash/live/bet
+Тело: `{"request_id": str, "bet": int, "target_x100": int|null}`. `target_x100` необязательное (ключ можно опустить).
+Ответ 200: `{"round_id": int, "bet": int, "target_x100": int|null, "balance": int, "replayed": bool}`
+Ошибки (409): `betting_closed`, `already_bet`, `room_full`, `insufficient_funds`, `request_conflict`, `balance_limit`.
+Ошибки (400): `invalid_request` (ставка или цель вне диапазона).
+
+### POST /api/crash/live/cashout
+Тело: `{"request_id": str}`.
+Ответ 200: `{"round_id": int, "cashed_x100": int, "payout": int, "balance": int, "replayed": bool}`
+Ошибки (409): `no_bet`, `too_early`, `round_over`, `request_conflict`.
+Ошибки (400): `invalid_request`.
+
 ### POST /api/crash/start
 Группа write. Тело: `{"request_id": str, "bet": int (1..1000000000), "target_x100": int (101..25000, необязательно)}`.
 Без `target_x100` раунд ручной, с ним авто: в обоих случаях раунд активен (`status: "active"`, у авто `mode: "auto"` и `target`), его можно вывести вручную (`cashout`) в любой момент. 200: общая форма. Примеры: `active_manual`, `active_auto`.
