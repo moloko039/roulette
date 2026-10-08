@@ -220,7 +220,14 @@ async function loadServer(reason) {
     srv.deadline = performance.now() + d.seconds_to_next * 1000;
     srv.level = isCount(d.level) ? d.level : null;
     srv.activeGame = ['mines', 'blackjack', 'crash', 'hilo'].includes(d.active_game) ? d.active_game : null;
-    applySkins(d.cosmetics && d.cosmetics.equipped);       // внешний вид по надетому (только оформление)
+    let patinaObj = undefined;
+    if (d.cosmetics && typeof d.cosmetics.patina === 'object' && d.cosmetics.patina !== null) {
+      patinaObj = {};
+      for (const [k, v] of Object.entries(d.cosmetics.patina)) {
+        if (Number.isInteger(v) && v >= 0 && v <= 4) patinaObj[k] = v;
+      }
+    }
+    applySkins(d.cosmetics && d.cosmetics.equipped, patinaObj);       // внешний вид по надетому (только оформление)
     setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)

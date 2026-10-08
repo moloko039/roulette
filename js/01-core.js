@@ -323,7 +323,7 @@ const registerGame = (entry) => { gameRegistry.push(entry); };
 // Слоты avatar_frame и badge (рамка и значок) здесь не обрабатываются. Источник: cosmetics.equipped из /api/me.
 const SKIN_SLOTS = ['card_back', 'chip', 'table', 'mine_icons', 'keno_ball', 'crash'];
 const SKIN_CODE_RE = /^[a-z0-9_]{1,40}$/;
-function applySkins(equipped) {
+function applySkins(equipped, patina) {
   const root = document.documentElement;
   const src = equipped && typeof equipped === 'object' ? equipped : {};
   const before = root.getAttribute('data-skin-table');
@@ -331,6 +331,14 @@ function applySkins(equipped) {
     const code = src[slot];
     if (typeof code === 'string' && SKIN_CODE_RE.test(code)) root.setAttribute('data-skin-' + slot, code);
     else root.removeAttribute('data-skin-' + slot);
+  });
+  ['chip', 'card_back', 'mine_icons'].forEach((slot) => {
+    const stage = patina && typeof patina === 'object' ? patina[slot] : undefined;
+    if (Number.isInteger(stage) && stage >= 0 && stage <= 4) {
+      root.setAttribute('data-patina-' + slot, String(stage));
+    } else {
+      root.removeAttribute('data-patina-' + slot);
+    }
   });
   const pick = (sets, code) => (typeof code === 'string' && Object.prototype.hasOwnProperty.call(sets, code) ? sets[code] : sets.default);
   const suits = pick(BJ_SUIT_SETS, src.card_back);

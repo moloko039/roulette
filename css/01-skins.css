@@ -556,3 +556,107 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --cr-win-glow: none;
   --cr-crash-glow: none;
 }
+
+/* ========================================================================== */
+/* Патина (docs/COLLECTIONS.md)                                               */
+/* ========================================================================== */
+
+/* --- chip_patina --- */
+[data-skin-chip="chip_patina"] {
+  --chip-bg: #7a5932;
+  --chip-text: #ffffff;
+  --chip-ring: #e6c79e;
+  --chip-ring-10: #e6c79e;
+  --chip-ring-50: #a3d0ff;
+  --chip-ring-100: #ffb3e6;
+  --chip-ring-500: #fffaad;
+  --chip-inner: none;
+}
+[data-skin-chip="chip_patina"][data-patina-chip="1"] {
+  --chip-bg: #6c4d28;
+  --chip-inner: inset 2px 2px 0 rgba(0,0,0,0.3);
+}
+[data-skin-chip="chip_patina"][data-patina-chip="2"] {
+  --chip-bg: #5f411e;
+  --chip-inner: inset 2px 2px 0 rgba(0,0,0,0.4), inset -2px -1px 0 rgba(0,0,0,0.25);
+}
+[data-skin-chip="chip_patina"][data-patina-chip="3"] {
+  --chip-bg: #523514;
+  --chip-inner: inset 2px 2px 0 rgba(0,0,0,0.5), inset -2px -1px 0 rgba(0,0,0,0.35), inset 0px -3px 0 rgba(0,0,0,0.25);
+}
+[data-skin-chip="chip_patina"][data-patina-chip="4"] {
+  --chip-bg: #45290a;
+  --chip-inner: inset 2px 2px 0 rgba(0,0,0,0.6), inset -2px -1px 0 rgba(0,0,0,0.45), inset 0px -3px 0 rgba(0,0,0,0.35), inset -1px 3px 0 rgba(255,255,255,0.15);
+}
+
+/* --- back_patina --- */
+[data-skin-card_back="back_patina"] {
+  --card-back-a: #1c2b3d;
+  --card-back-b: #283a52;
+  --card-back-border: #809bb3;
+  --card-back-image: repeating-linear-gradient(45deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
+  --card-back-image-hl: repeating-linear-gradient(45deg, var(--card-back-a) 0 8px, var(--card-back-b) 8px 16px);
+  --card-back-outline: 1px solid rgba(128, 155, 179, 0.6);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+[data-skin-card_back="back_patina"][data-patina-card_back="1"] {
+  --card-back-a: #26364a;
+  --card-back-b: #32455e;
+  --card-back-border: #809bb3;
+  --card-back-image: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.05), transparent 15%), repeating-linear-gradient(45deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
+}
+[data-skin-card_back="back_patina"][data-patina-card_back="2"] {
+  --card-back-a: #314257;
+  --card-back-b: #3d516b;
+  --card-back-border: #8da8c2;
+  --card-back-image: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.1), transparent 20%), radial-gradient(circle at 90% 90%, rgba(255,255,255,0.05), transparent 15%), repeating-linear-gradient(45deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
+}
+[data-skin-card_back="back_patina"][data-patina-card_back="3"] {
+  --card-back-a: #3d4f66;
+  --card-back-b: #4a5f7a;
+  --card-back-border: #92b1cc;
+  --card-back-image: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.15), transparent 25%), radial-gradient(circle at 90% 90%, rgba(255,255,255,0.1), transparent 20%), radial-gradient(circle at 90% 10%, rgba(255,255,255,0.05), transparent 15%), repeating-linear-gradient(45deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
+}
+[data-skin-card_back="back_patina"][data-patina-card_back="4"] {
+  --card-back-a: #495d75;
+  --card-back-b: #576d8a;
+  --card-back-border: #a8c9e6;
+  --card-back-image: radial-gradient(circle at 10% 10%, rgba(255,255,255,0.2), transparent 30%), radial-gradient(circle at 90% 90%, rgba(255,255,255,0.15), transparent 25%), radial-gradient(circle at 90% 10%, rgba(255,255,255,0.1), transparent 20%), radial-gradient(circle at 10% 90%, rgba(255,255,255,0.05), transparent 15%), repeating-linear-gradient(45deg, var(--card-back-a) 0 4px, var(--card-back-b) 4px 8px);
+}
+
+/* --- mine_patina --- */
+[data-skin-mine_icons="mine_patina"] {
+  --mines-cell-bg: #3a4a3e;
+  --mines-cell-border: #566e5c;
+  --mines-cell-text: #e6ebd8;
+  --mines-cell-active-bg: #475c4d;
+  --mines-safe-bg: #4d6152;
+  --mines-safe-border: #90ad99;
+  --mines-safe-text: #d8ebd6;
+  --mines-safe-glow: rgba(216, 235, 214, 0.4);
+  --mines-bomb-bg: #8c3b3b;
+  --mines-bomb-text: #ffffff;
+  --mines-muted-bg: #3a4a3e;
+  --mines-muted-text: #829e89;
+  --mines-hit-border: #ffffff;
+  --mines-hit-ring: rgba(140, 59, 59, 0.5);
+  --mines-opening-a: #3a4a3e;
+  --mines-opening-b: #475c4d;
+}
+[data-skin-mine_icons="mine_patina"][data-patina-mine_icons="1"] {
+  --mines-cell-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.15) 40% 42%, transparent 42%), #3a4a3e;
+  --mines-safe-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.15) 40% 42%, transparent 42%), #4d6152;
+}
+[data-skin-mine_icons="mine_patina"][data-patina-mine_icons="2"] {
+  --mines-cell-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.2) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.15) 60% 61%, transparent 61%), #3a4a3e;
+  --mines-safe-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.2) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.15) 60% 61%, transparent 61%), #4d6152;
+}
+[data-skin-mine_icons="mine_patina"][data-patina-mine_icons="3"] {
+  --mines-cell-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.25) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.2) 60% 61%, transparent 61%), linear-gradient(80deg, transparent 20%, rgba(0,0,0,0.15) 20% 21%, transparent 21%), #3a4a3e;
+  --mines-safe-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.25) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.2) 60% 61%, transparent 61%), linear-gradient(80deg, transparent 20%, rgba(0,0,0,0.15) 20% 21%, transparent 21%), #4d6152;
+}
+[data-skin-mine_icons="mine_patina"][data-patina-mine_icons="4"] {
+  --mines-cell-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.3) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.25) 60% 61%, transparent 61%), linear-gradient(80deg, transparent 20%, rgba(0,0,0,0.2) 20% 21%, transparent 21%), linear-gradient(10deg, transparent 70%, rgba(0,0,0,0.15) 70% 72%, transparent 72%), #3a4a3e;
+  --mines-safe-bg: linear-gradient(30deg, transparent 40%, rgba(0,0,0,0.3) 40% 42%, transparent 42%), linear-gradient(-50deg, transparent 60%, rgba(0,0,0,0.25) 60% 61%, transparent 61%), linear-gradient(80deg, transparent 20%, rgba(0,0,0,0.2) 20% 21%, transparent 21%), linear-gradient(10deg, transparent 70%, rgba(0,0,0,0.15) 70% 72%, transparent 72%), #4d6152;
+}
