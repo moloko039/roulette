@@ -39,15 +39,15 @@ class RequestConflict(crash.RequestConflict):
 GLOBAL_ROOM = "live"      # раунды общие на весь сервер: один раунд, одна точка краха, один секрет на всех (crash_rounds.room_key всегда равен этому значению)
 
 
-def room_key(chat_instance=None, telegram_id=None):
-    """Ключ КОМНАТЫ-ЛЕНТЫ ставок: беседа (по chat_instance) или личная комната игрока. Раунд один на всех, комната только решает, чьи ставки игрок видит."""
-    if chat_instance is not None:
-        base = b"crashroom:chat:" + str(chat_instance).encode("utf-8")
-    elif telegram_id is not None:
-        base = b"crashroom:solo:" + str(telegram_id).encode("utf-8")
-    else:
-        raise ValueError("Either chat_instance or telegram_id required")
-    return hashlib.sha256(base).hexdigest()
+PUBLIC_ROOM_KEY = hashlib.sha256(b"crashroom:public").hexdigest()      # общая АНОНИМНАЯ комната игроков, открывших игру вне беседы
+
+
+def room_key(chat_instance=None):
+    """Ключ КОМНАТЫ-ЛЕНТЫ ставок: беседа (по chat_instance) или общая анонимная комната (игра открыта вне беседы: ставки видны всем таким игрокам, без имён).
+    Раунд один на всех, комната только решает, чьи ставки игрок видит. Сам chat_instance нигде не хранится."""
+    if chat_instance is None:
+        return PUBLIC_ROOM_KEY
+    return hashlib.sha256(b"crashroom:chat:" + str(chat_instance).encode("utf-8")).hexdigest()
 
 
 def new_seed(rng=None):

@@ -139,7 +139,8 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
                 
         room_count = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ? AND room_key = ?", (round_row["id"], room_key)).fetchone()[0]
         round_count = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ?", (round_row["id"],)).fetchone()[0]
-        if room_count >= economy_config.CRASH_LIVE_ROOM_BETS_MAX or round_count >= economy_config.CRASH_LIVE_ROUND_BETS_MAX:
+        room_cap = economy_config.CRASH_LIVE_ROUND_BETS_MAX if room_key == crash_live.PUBLIC_ROOM_KEY else economy_config.CRASH_LIVE_ROOM_BETS_MAX
+        if room_count >= room_cap or round_count >= economy_config.CRASH_LIVE_ROUND_BETS_MAX:
             raise crash_live.RoomFull()
             
         now_sec = now_ms // 1000
@@ -252,18 +253,27 @@ def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, 
                 
             res["round"] = r_dict
             
-            bets_rows = conn.execute("SELECT telegram_id, bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? AND room_key = ? ORDER BY created_at_ms",
-                                     (round_row["id"], room_key)).fetchall()
-            # имена из участников беседы (как в рейтинге беседы); у личной комнаты (нет chat_instance) в ленте только свои ставки
-            names = {}
-            if chat_instance:
-                names = {r["telegram_id"]: r["first_name"] for r in conn.execute("SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ?", (chat_instance,)).fetchall()}
-            bets = []
+            # лента комнаты: последние CRASH_LIVE_FEED_MAX ставок по порядку подачи; своя ставка отдаётся отдельно (me), даже если она старше
+            feed_rows = conn.execute("SELECT telegram_id, bet, status, cashed_x100, payout, created_at_ms FROM crash_bets WHERE round_id = ? AND room_key = ? "
+                                     "ORDER BY created_at_ms DESC, telegram_id DESC LIMIT ?", (round_row["id"], room_key, economy_config.CRASH_LIVE_FEED_MAX)).fetchall()
+            feed_rows = list(reversed(feed_rows))
+            my_row = conn.execute("SELECT bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? AND telegram_id = ?", (round_row["id"], telegram_id)).fetchone()
             me = None
-            for b in bets_rows:
-                if b["telegram_id"] == telegram_id:
-                    me = {"bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]}
-                bets.append({"name": names.get(b["telegram_id"]) or "Игрок", "bet": b["bet"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]})
+            if my_row is not None:
+                me = {"bet": my_row["bet"], "target_x100": my_row["target_x100"], "status": my_row["status"], "cashed_x100": my_row["cashed_x100"], "payout": my_row["payout"]}
+            # имена: у беседы из её участников (как в рейтинге беседы); в общей комнате вне бесед ставки АНОНИМНЫ: «Игрок N» по порядку подачи в раунде
+            names = {}
+            if chat_instance and room_key != crash_live.PUBLIC_ROOM_KEY:
+                names = {r["telegram_id"]: r["first_name"] for r in conn.execute("SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ?", (chat_instance,)).fetchall()}
+            anonymous = room_key == crash_live.PUBLIC_ROOM_KEY
+            ordinal_base = 0
+            if anonymous and len(feed_rows) == economy_config.CRASH_LIVE_FEED_MAX:
+                ordinal_base = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ? AND room_key = ? AND (created_at_ms, telegram_id) < (?, ?)",
+                                            (round_row["id"], room_key, feed_rows[0]["created_at_ms"], feed_rows[0]["telegram_id"])).fetchone()[0]
+            bets = []
+            for n, b in enumerate(feed_rows, start=ordinal_base + 1):
+                label = ("Игрок %d" % n) if anonymous else (names.get(b["telegram_id"]) or "Игрок")
+                bets.append({"name": label, "bet": b["bet"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]})
             res["bets"] = bets
             res["me"] = me
             

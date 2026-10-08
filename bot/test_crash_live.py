@@ -285,7 +285,7 @@ try:
     check("после простоя: ручная проиграна, автоцель выплачена", (bets_c[121], bets_c[122], balance_of(121), balance_of(122)), ("lost", "cashed", 1_000_000 - 100, 1_000_000 - 100 + 101))
 
     # один общий раунд на весь сервер, лента ставок по беседам: беседы D и E и личная комната играют в одном раунде, но видят только свои ставки
-    add_players([131, 132, 141], at=TD)
+    add_players([131, 132, 141, 142, 143], at=TD)
     add_member("gD", 131, "Анна")
     add_member("gE", 132, "Борис")
     add_member("gE", 131, "Чужое")          # тот же игрок в другой беседе под другим именем: в ленте D имя берётся из D
@@ -296,17 +296,23 @@ try:
     db.live_state(131, roomD, TD, chat_instance="gD", db_path=db_path, rng=rngD)
     db.place_bet(131, roomD, "bD1", 100, None, TD, db_path=db_path, rng=rngD)
     db.place_bet(132, roomE, "bE1", 200, None, TD, db_path=db_path, rng=rngD)
-    solo = crash_live.room_key(telegram_id=141)
-    db.place_bet(141, solo, "bS1", 300, None, TD, db_path=db_path, rng=rngD)
+    pub = crash_live.room_key()           # общая анонимная комната игроков вне бесед
+    check("ключ общей комнаты постоянный и не равен ключу беседы", (pub == crash_live.PUBLIC_ROOM_KEY, pub != roomD), (True, True))
+    db.place_bet(141, pub, "bS1", 300, None, TD, db_path=db_path, rng=rngD)
+    db.place_bet(142, pub, "bS2", 400, None, TD + 1, db_path=db_path, rng=rngD)
     feedD = db.live_state(131, roomD, TD + 1, chat_instance="gD", db_path=db_path, rng=rngD)
     feedE = db.live_state(132, roomE, TD + 1, chat_instance="gE", db_path=db_path, rng=rngD)
-    feedS = db.live_state(141, solo, TD + 1, db_path=db_path, rng=rngD)
+    feedS = db.live_state(141, pub, TD + 2, db_path=db_path, rng=rngD)
+    feedS2 = db.live_state(143, pub, TD + 2, db_path=db_path, rng=rngD)
     check("беседа D видит только свои ставки, имя из беседы D", [(b["name"], b["bet"]) for b in feedD["bets"]], [("Анна", 100)])
     check("беседа E видит только свои ставки", [(b["name"], b["bet"]) for b in feedE["bets"]], [("Борис", 200)])
-    check("личная комната: лента только своя ставка, без имён", [(b["name"], b["bet"]) for b in feedS["bets"]], [("Игрок", 300)])
+    check("вне бесед: игроки видят ставки друг друга, но анонимно (Игрок N по порядку подачи), ставки бесед в общую ленту не попадают",
+          ([(b["name"], b["bet"]) for b in feedS["bets"]], [(b["name"], b["bet"]) for b in feedS2["bets"]]),
+          ([("Игрок 1", 300), ("Игрок 2", 400)], [("Игрок 1", 300), ("Игрок 2", 400)]))
+    check("в общей ленте нет настоящих имён и идентификаторов, у наблюдателя без ставки me пуст", ("141" in json.dumps(feedS2["bets"]), "Анна" in json.dumps(feedS2), feedS2["me"]), (False, False, None))
     check("раунд ОДИН на всех: одинаковые номер, хэш и времена во всех комнатах", (feedD["round"]["id"] == feedE["round"]["id"] == feedS["round"]["id"],
           feedD["round"]["seed_hash"] == feedE["round"]["seed_hash"] == feedS["round"]["seed_hash"], feedD["round"]["flight_start_ms"] == feedE["round"]["flight_start_ms"]), (True, True, True))
-    check("в раунде ровно три ставки на весь сервер", sqlite3.connect(db_path).execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ?", (feedD["round"]["id"],)).fetchone()[0], 3)
+    check("в раунде ровно четыре ставки на весь сервер (две беседы и две вне бесед)", sqlite3.connect(db_path).execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ?", (feedD["round"]["id"],)).fetchone()[0], 4)
     # вывод не зависит от комнаты: игрок из E выводит в общем полёте и выигрывает, ставки других комнат не затронуты
     wonE = db.cashout(132, "cE1", TD + economy_config.CRASH_LIVE_BET_MS + crash.GRACE_MS + 1500, db_path=db_path, rng=rngD)
     check("вывод игрока беседы E в общем раунде: выплата по множителю", wonE["payout"], 200 * wonE["cashed_x100"] // 100)
@@ -318,6 +324,23 @@ try:
     current = json.dumps({"round": stF["round"], "bets": stF["bets"], "me": stF["me"]})
     check("в полёте: фаза flight, нет result, нет crash_x100 в раунде, ленте и «мне»", (stF["round"]["phase"], "result" in stF["round"] and stF["round"]["result"] is not None, "crash_x100" in current), ("flight", False, False))
     check("в полёте секрет текущего раунда не встречается нигде в ответе, даже в истории", sD.hex() in json.dumps(stF), False)
+    # лента общей комнаты усечена до последних CRASH_LIVE_FEED_MAX ставок, нумерация сквозная; своя старая ставка отдаётся отдельно (me)
+    TE = T0 + 130_000_000
+    add_players([151, 152, 153, 154, 155], at=TE)
+    sE = seed_with(lambda c: c > 200, start=4_000_000)
+    rngE = CustomRng(sE)
+    db.live_state(151, pub, TE, db_path=db_path, rng=rngE)
+    for k, uid in enumerate([151, 152, 153, 154, 155]):
+        db.place_bet(uid, pub, "bF%d" % uid, 100 + k, None, TE + k, db_path=db_path, rng=rngE)
+    old_feed = economy_config.CRASH_LIVE_FEED_MAX
+    economy_config.CRASH_LIVE_FEED_MAX = 3
+    try:
+        feedF = db.live_state(151, pub, TE + 10, db_path=db_path, rng=rngE)
+    finally:
+        economy_config.CRASH_LIVE_FEED_MAX = old_feed
+    check("усечённая лента: последние три ставки, нумерация сквозная (Игрок 3..5)", [(b["name"], b["bet"]) for b in feedF["bets"]], [("Игрок 3", 102), ("Игрок 4", 103), ("Игрок 5", 104)])
+    check("своя ставка старше ленты всё равно отдаётся в me", feedF["me"]["bet"], 100)
+
     print("Все проверки прошли")
 finally:
     shutil.rmtree(tmp)
