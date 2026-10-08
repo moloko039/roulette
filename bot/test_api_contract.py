@@ -110,7 +110,7 @@ SLOT_STEP = {"board": str, "wins": [{"sym": str, "length": int, "ways": int, "pa
 SLOT_SPIN = {"mode": str, "steps": [SLOT_STEP], "scatters": int, "freeSpinsAwarded": int, "totalWin": int, "capped": bool}
 SLOT_ROUND = {"base": SLOT_SPIN, "freeSpins": [SLOT_SPIN], "freeSpinsLeftAfter": [int], "totalWin": int, "bonusWin": int, "capped": bool, "bought": bool}
 SLOT = {"coin": int, "bought": bool, "cost": int, "payout": int, "round": SLOT_ROUND, "balance": int, "level": int, "xp": int, "replayed": bool}
-
+REFERRAL = {"link": OPT(str), "invited": int, "qualified": int}
 
 class FixedRng:
     def __init__(self, cells):

@@ -116,6 +116,8 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             achievement_rows = conn.execute(
                 "SELECT code, done_at FROM achievement_progress WHERE telegram_id = ? AND done_at IS NOT NULL ORDER BY done_at, code", (telegram_id,)
             ).fetchall()
+            invitee_row = conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND referrer_id != 0", (telegram_id,)).fetchone()
+            referrer_counts = conn.execute("SELECT COUNT(*) AS invited_count, SUM(qualified_at IS NOT NULL) AS qualified_count FROM referrals WHERE referrer_id = ?", (telegram_id,)).fetchone()
         finally:
             conn.execute("COMMIT")
     finally:
@@ -202,6 +204,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                   for c in chats],
         "chat_boosts": [{"time": r["created_at"], "gems": 50} for r in chat_boost_rows],
         "achievements": [{"code": r["code"], "time": r["done_at"]} for r in achievement_rows],
+        "referral": {
+            "invited_by_someone": invitee_row is not None,
+            "invited_count": referrer_counts["invited_count"] if referrer_counts else 0,
+            "qualified_count": referrer_counts["qualified_count"] if referrer_counts and referrer_counts["qualified_count"] is not None else 0,
+        },
     }
 
 
@@ -267,6 +274,9 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             conn.execute("UPDATE gifts SET from_user = 0, from_name = '' WHERE from_user = ?", (telegram_id,))
             counts["achievement_progress"] = conn.execute("DELETE FROM achievement_progress WHERE telegram_id = ?", (telegram_id,)).rowcount
             conn.execute("DELETE FROM chat_boosts WHERE telegram_id = ?", (telegram_id,))
+            counts["referrals_as_invitee"] = conn.execute("DELETE FROM referrals WHERE invitee_id = ?", (telegram_id,)).rowcount
+            counts["referrals_as_referrer"] = conn.execute("UPDATE referrals SET referrer_id = 0 WHERE referrer_id = ?", (telegram_id,)).rowcount
+            counts["referral_codes"] = conn.execute("DELETE FROM referral_codes WHERE telegram_id = ?", (telegram_id,)).rowcount
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",
