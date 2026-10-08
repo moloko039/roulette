@@ -64,6 +64,8 @@ def buy_upgrade(telegram_id, request_id, kind, now=None, db_path=None):
                     "UPDATE players SET income_level = ?, rate = ? WHERE telegram_id = ?",
                     (level + 1, farm.income_rate(level + 1), telegram_id),
                 )
+                from features.cosmetics_db import grant_dacha_parts_in
+                grant_dacha_parts_in(conn, telegram_id, level + 1, now)
             else:
                 conn.execute("UPDATE players SET storage_level = ? WHERE telegram_id = ?", (level + 1, telegram_id))
             conn.execute(

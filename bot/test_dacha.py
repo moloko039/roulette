@@ -1,0 +1,154 @@
+"""Тест серверной части коллекции "Дачный сезон" (за улучшения фермы)."""
+import testenv  # noqa: F401
+import os
+import sqlite3
+import tempfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import cosmetic_sets
+import cosmetics
+import db
+import economy_config
+from features import farm_db
+from features import gifts_db
+
+A, B = 424242422, 424242423
+NOW = int(time.time())
+DACHA_PARTS = ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel")
+
+_ENV_KEYS = ("DB_PATH", "TOMBSTONE_SECRET", "MEMBER_REF_SECRET", "OWNER_CHAT_ID")
+_saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
+
+def check(name, got, expected):
+    assert got == expected, f"{name}: получили {got}, ожидали {expected}"
+
+def raises(exc, fn, *args, **kwargs):
+    try:
+        fn(*args, **kwargs)
+    except exc as caught:
+        return caught
+    except Exception as other:
+        raise AssertionError("ожидали %s, получили %r" % (exc.__name__, other))
+    raise AssertionError("ожидали %s, исключения не было" % exc.__name__)
+
+tmp = tempfile.mkdtemp()
+counter = [0]
+
+def sql(path, query, params=()):
+    conn = sqlite3.connect(path)
+    try:
+        rows = conn.execute(query, params).fetchall()
+        conn.commit()
+        return rows
+    finally:
+        conn.close()
+
+def new_db():
+    counter[0] += 1
+    path = os.path.join(tmp, "dacha%d.db" % counter[0])
+    db.init_db(path)
+    os.environ["DB_PATH"] = path
+    return path
+
+def add_player(path, uid, balance=2000000000, xp=1000000000, income_level=0):
+    sql(path, "INSERT INTO players (telegram_id, balance, rate, last_accrual, created_at, xp, income_level, storage_level) VALUES (?, ?, 100, ?, ?, ?, ?, 0)",
+        (uid, balance, NOW - 86400, NOW - 86400, xp, income_level))
+    sql(path, "INSERT INTO chat_members VALUES ('room', ?, 'Player', 1, 2)", (uid,))
+
+try:
+    path = new_db()
+    add_player(path, A)
+    add_player(path, B, income_level=9)
+
+    # 1. Границы порогов и выдача при реальной покупке
+    # Уровень 1 - нет частей
+    farm_db.buy_upgrade(A, "req_1", "income", now=NOW, db_path=path)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    check("Уровень 1: нет частей", [r[0] for r in owned], [])
+
+    # Уровень 2 - back_rug
+    farm_db.buy_upgrade(A, "req_2", "income", now=NOW, db_path=path)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    check("Уровень 2: back_rug", [r[0] for r in owned], ["back_rug"])
+
+    # Уровень 3 - ничего нового
+    farm_db.buy_upgrade(A, "req_3", "income", now=NOW, db_path=path)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    check("Уровень 3: без изменений", [r[0] for r in owned], ["back_rug"])
+
+    # Уровень 4 - chip_cork
+    farm_db.buy_upgrade(A, "req_4", "income", now=NOW, db_path=path)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    check("Уровень 4: +chip_cork", [r[0] for r in owned], ["back_rug", "chip_cork"])
+
+    # Доходим до 16
+    for i in range(5, 17):
+        farm_db.buy_upgrade(A, f"req_{i}", "income", now=NOW, db_path=path)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    check("Уровень 16: все 6", set(r[0] for r in owned), set(DACHA_PARTS))
+
+    # 2. Идемпотентность повторных и параллельных вызовов
+    gate = threading.Barrier(12)
+    def worker(i):
+        gate.wait()
+        conn = sqlite3.connect(path)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            from features.cosmetics_db import grant_dacha_parts_in
+            grant_dacha_parts_in(conn, B, 16, NOW)
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+        finally:
+            conn.close()
+
+    with ThreadPoolExecutor(12) as pool:
+        list(pool.map(worker, range(12)))
+    
+    owned_b = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (B,))
+    check("Параллельная выдача: без дублей, все 6 частей", len(owned_b), 6)
+    check("Параллельная выдача: все правильные", set(r[0] for r in owned_b), set(DACHA_PARTS))
+
+    # 3. Ленивая выдача через cosmetics_mine
+    path2 = new_db()
+    add_player(path2, A, income_level=9)
+    add_player(path2, B)
+    # 4 части: level 2, 4, 6, 9
+    mine = db.cosmetics_mine(A, db_path=path2)
+    owned_codes = [c["code"] for c in mine["owned"]]
+    check("Ленивая выдача (9 уровень): 4 части", set(owned_codes), {"back_rug", "chip_cork", "table_oilcloth", "mine_beetle"})
+    
+    # Ленивая выдача: вторая проверка (ничего не добавится)
+    db.cosmetics_mine(A, db_path=path2)
+    owned_after = sql(path2, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (A,))
+    check("Ленивая выдача 2: без изменений", len(owned_after), 4)
+
+    # 4. Части не покупаются и не дарятся
+    db.owner_grant_gems(A, 1000, "seed", now=1, db_path=path2)
+    raises(cosmetics.ItemUnavailable, db.buy_item, A, "buy-1", "back_rug", now=1, db_path=path2)
+    raises(cosmetics.ItemUnavailable, db.buy_with_gems, A, "buy-2", "chip_cork", now=1, db_path=path2)
+    raises(cosmetics.ItemUnavailable, db.buy_with_chips, A, "buy-3", "table_oilcloth", now=1, db_path=path2)
+    ref = gifts_db.member_ref("room", B)
+    raises(cosmetics.ItemUnavailable, db.send_gift, A, "room", "gift-1", ref, "mine_beetle", "A", now=1, db_path=path2)
+
+    # 5. Прогресс коллекции (season null)
+    dacha_prog = [c for c in mine["collections"] if c["code"] == "dacha"][0]
+    check("Прогресс коллекции (9 уровень)", (dacha_prog["owned"], dacha_prog["total"], dacha_prog["complete"], dacha_prog["season"]), (4, 6, False, None))
+    
+    # 6. В рейтинге беседы: полная коллекция
+    sql(path2, "UPDATE players SET income_level = 16 WHERE telegram_id = ?", (A,))
+    db.cosmetics_mine(A, db_path=path2)  # ленивая выдача остальных
+    top = db.chat_top("room", A, "PlayerA", db_path=path2)
+    my_top = [e for e in top["top"] if e["is_me"]][0]
+    check("Рейтинг: полная коллекция", my_top["complete_sets"], ["dacha"])
+    check("Рейтинг: set_names содержит dacha", "dacha" in top["set_names"], True)
+
+    print("Все проверки прошли")
+finally:
+    for k, v in _saved_env.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v

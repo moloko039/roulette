@@ -134,6 +134,12 @@ _ROWS = (
     ("void_table", "table", "Пустота", "Чёрный стол, белые цифры", "common", True),
     ("void_chip", "chip", "Пустота", "Без украшений", "common", True),
     ("void_badge", "badge", "Пустота", "Значок «—»", "common", True),
+    ("back_rug", "card_back", "Ковёр", "Узор как на ковре на стене", "common", True),
+    ("chip_cork", "chip", "Пробки", "Пробки от лимонада", "common", True),
+    ("table_oilcloth", "table", "Клеёнка", "Клеёнка в клетку с вишнями", "common", True),
+    ("mine_beetle", "mine_icons", "Жуки", "Колорадские жуки на грядке", "common", True),
+    ("keno_lotto", "keno_ball", "Бочонки", "Бочонки деревенского лото", "common", True),
+    ("crash_barrel", "crash", "Бочка", "Самодельная ракета из бочки", "common", True),
 )
 
 CATALOG = tuple(
