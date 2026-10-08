@@ -239,6 +239,7 @@
   --cr-label: #a99fc4;
   --cr-history-text: #a99fc4;
   --cr-history-border: rgba(179, 136, 255, 0.3);
+  --cr-label-strong: var(--text);
 }
 
 /* frame_thin: тонкая двойная рамка (два кольца по 1 px с тёмным зазором), аватар того же размера */
@@ -414,7 +415,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --wheel-rim-b: #1d3557;
   --wheel-rim-c: #e5e0d0;
   --wheel-sector-line: rgba(29, 53, 87, 0.4);
-  --wheel-text: #f2efe3;
   --wheel-edge: #f2efe3;
   --wheel-hub: #1d3557;
   --wheel-hub-line: rgba(242, 239, 227, 0.5);
@@ -434,7 +434,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --wheel-rim-b: #6a6a6a;
   --wheel-rim-c: #333333;
   --wheel-sector-line: rgba(255, 255, 255, 0.35);
-  --wheel-text: #ffffff;
   --wheel-edge: #000000;
   --wheel-hub: #1a1a1a;
   --wheel-hub-line: rgba(255, 255, 255, 0.5);
@@ -448,10 +447,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --chip-ring-50: #7a7a7a;
   --chip-ring-100: #a8a8a8;
   --chip-ring-500: #e0e0e0;
-  --chip-on-bg: #ffffff;
-  --chip-on-text: #000000;
-  --chip-on-ring: #ffffff;
-  --chip-on-glow: none;
   --chip-inner: none;
 }
 
