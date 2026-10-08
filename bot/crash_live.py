@@ -36,7 +36,11 @@ class RequestConflict(crash.RequestConflict):
     pass
 
 
+GLOBAL_ROOM = "live"      # раунды общие на весь сервер: один раунд, одна точка краха, один секрет на всех (crash_rounds.room_key всегда равен этому значению)
+
+
 def room_key(chat_instance=None, telegram_id=None):
+    """Ключ КОМНАТЫ-ЛЕНТЫ ставок: беседа (по chat_instance) или личная комната игрока. Раунд один на всех, комната только решает, чьи ставки игрок видит."""
     if chat_instance is not None:
         base = b"crashroom:chat:" + str(chat_instance).encode("utf-8")
     elif telegram_id is not None:
@@ -69,15 +73,22 @@ def verify(seed_hex, commit_hex, crash_x100):
         return False
 
 
+def end_ms(round_row_like):
+    """Серверное время закрытия раунда: точка краха плюс запас сети GRACE_MS. «Одно эффективное время» (now - GRACE - старт полёта) во всех проверках:
+    вывод, пришедший в пределах запаса после краха по серверным часам, но отправленный до него, не проигрывает из-за задержки сети."""
+    return round_row_like["crash_ms"] + crash.GRACE_MS
+
+
+def next_open_ms(round_row_like):
+    """Когда откроется приём ставок следующего раунда: закрытие раунда плюс пауза итога."""
+    return end_ms(round_row_like) + economy_config.CRASH_LIVE_RESULT_MS
+
+
 def phase_of(round_row_like, now_ms):
-    status = round_row_like["status"]
-    if status == "closed":
-        if now_ms < round_row_like["crash_ms"] + economy_config.CRASH_LIVE_RESULT_MS:
-            return "result"
-        return "idle"
-    
+    if round_row_like["status"] == "closed":
+        return "result" if now_ms < next_open_ms(round_row_like) else "idle"
     if now_ms < round_row_like["flight_start_ms"]:
         return "betting"
-    if now_ms < round_row_like["crash_ms"]:
+    if now_ms < end_ms(round_row_like):
         return "flight"
     return "result"

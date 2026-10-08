@@ -1,8 +1,7 @@
-"""Живой краш: база данных и логика."""
+"""Живой краш: база данных и логика. Раунд один на весь сервер (комната crash_live.GLOBAL_ROOM); комната беседы (room_key) определяет только ленту ставок, которую видит игрок."""
 
 import time
 import math
-import sqlite3
 
 import crash
 import crash_live
@@ -12,7 +11,7 @@ import xp
 from core import achievements
 from core.db_conn import _connect
 from games.round_common import pay_and_xp, add_staked
-from core.kernel import _accrue_write, _register_player, _record_best_win
+from core.kernel import _accrue_write, _register_player
 
 
 def _time_to_crash_x100(crash_x100):
@@ -28,20 +27,21 @@ def _time_to_crash_x100(crash_x100):
     return t
 
 
-def _advance_room_in_tx(conn, room_key, now_ms, rng):
+def _advance_round_in_tx(conn, now_ms, rng):
+    room_key = crash_live.GLOBAL_ROOM
     last_round = conn.execute(
         "SELECT id, status, crash_ms FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1",
         (room_key,)
     ).fetchone()
 
-    if not last_round or (last_round["status"] == "closed" and now_ms >= last_round["crash_ms"] + economy_config.CRASH_LIVE_RESULT_MS):
+    if not last_round or (last_round["status"] == "closed" and now_ms >= crash_live.next_open_ms(last_round)):
         seed = crash_live.new_seed(rng)
         seed_hash = crash_live.commit_of(seed)
         crash_x100 = crash_live.crash_from_seed(seed)
         
         bet_open_ms = now_ms
         if last_round:
-            expected_next = last_round["crash_ms"] + economy_config.CRASH_LIVE_RESULT_MS
+            expected_next = crash_live.next_open_ms(last_round)
             if now_ms - expected_next < economy_config.CRASH_LIVE_BET_MS:
                 bet_open_ms = expected_next
             else:
@@ -86,7 +86,6 @@ def _advance_room_in_tx(conn, room_key, now_ms, rng):
                 (b["target_x100"], payout, round_row["id"], b["telegram_id"])
             )
             pay_and_xp(conn, b["telegram_id"], payout, xp.crash_xp(b["bet"], crash.xp_multiplier("auto", "win", b["target_x100"], b["target_x100"])), "crash", b["bet"], now_sec)
-            _record_best_win(conn, b["telegram_id"], "crash", b["bet"], payout, now_sec)
 
     if phase == "result":
         now_sec = now_ms // 1000
@@ -98,18 +97,17 @@ def _advance_room_in_tx(conn, room_key, now_ms, rng):
             mode = "auto" if b["target_x100"] is not None else "manual"
             xp_amount = xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "lose", 0, b["target_x100"]))
             pay_and_xp(conn, b["telegram_id"], 0, xp_amount, "crash", b["bet"], now_sec)
-            _record_best_win(conn, b["telegram_id"], "crash", b["bet"], 0, now_sec)
             achievements.record(conn, b["telegram_id"], "crash_crash", now_sec, mult_x100=round_row["crash_x100"])
 
-        if now_ms >= round_row["crash_ms"] + economy_config.CRASH_LIVE_RESULT_MS:
-            _advance_room_in_tx(conn, room_key, now_ms, rng)
+        if now_ms >= crash_live.next_open_ms(round_row):
+            _advance_round_in_tx(conn, now_ms, rng)
 
 
-def advance_room(room_key, now_ms, db_path=None, rng=None):
+def advance_round(now_ms, db_path=None, rng=None):
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        _advance_room_in_tx(conn, room_key, now_ms, rng)
+        _advance_round_in_tx(conn, now_ms, rng)
         conn.commit()
     finally:
         conn.close()
@@ -124,9 +122,9 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        _advance_room_in_tx(conn, room_key, now_ms, rng)
+        _advance_round_in_tx(conn, now_ms, rng)
         
-        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (room_key,)).fetchone()
+        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
         if not round_row or crash_live.phase_of(round_row, now_ms) != "betting":
             raise crash_live.BettingClosed()
         
@@ -139,8 +137,9 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
             else:
                 raise crash_live.AlreadyBet()
                 
-        count = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ?", (round_row["id"],)).fetchone()[0]
-        if count >= economy_config.CRASH_LIVE_ROOM_BETS_MAX:
+        room_count = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ? AND room_key = ?", (round_row["id"], room_key)).fetchone()[0]
+        round_count = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ?", (round_row["id"],)).fetchone()[0]
+        if room_count >= economy_config.CRASH_LIVE_ROOM_BETS_MAX or round_count >= economy_config.CRASH_LIVE_ROUND_BETS_MAX:
             raise crash_live.RoomFull()
             
         now_sec = now_ms // 1000
@@ -150,8 +149,8 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
         add_staked(conn, telegram_id, bet, now_sec)
         
         conn.execute(
-            "INSERT INTO crash_bets (round_id, telegram_id, bet, target_x100, status, request_id, created_at_ms) VALUES (?, ?, ?, ?, 'open', ?, ?)",
-            (round_row["id"], telegram_id, bet, target_x100, request_id, now_ms)
+            "INSERT INTO crash_bets (round_id, telegram_id, bet, target_x100, status, request_id, created_at_ms, room_key) VALUES (?, ?, ?, ?, 'open', ?, ?, ?)",
+            (round_row["id"], telegram_id, bet, target_x100, request_id, now_ms, room_key)
         )
         
         balance = wallet.get_balance(conn, telegram_id)
@@ -161,13 +160,13 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
         conn.close()
 
 
-def cashout(telegram_id, room_key, request_id, now_ms, db_path=None, rng=None):
+def cashout(telegram_id, request_id, now_ms, db_path=None, rng=None):
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        _advance_room_in_tx(conn, room_key, now_ms, rng)
+        _advance_round_in_tx(conn, now_ms, rng)
         
-        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (room_key,)).fetchone()
+        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
         if not round_row:
             raise crash_live.NoBet()
             
@@ -202,7 +201,6 @@ def cashout(telegram_id, room_key, request_id, now_ms, db_path=None, rng=None):
         
         mode = "auto" if b["target_x100"] is not None else "manual"
         pay_and_xp(conn, telegram_id, payout, xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "win", m_x100, b["target_x100"])), "crash", b["bet"], now_sec)
-        _record_best_win(conn, telegram_id, "crash", b["bet"], payout, now_sec)
         
         balance = wallet.get_balance(conn, telegram_id)
         conn.commit()
@@ -215,11 +213,11 @@ def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, 
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
-        _advance_room_in_tx(conn, room_key, now_ms, rng)
+        _advance_round_in_tx(conn, now_ms, rng)
         
-        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (room_key,)).fetchone()
+        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
         
-        history_rows = conn.execute("SELECT crash_x100, seed_hash, seed FROM crash_rounds WHERE room_key = ? AND status = 'closed' ORDER BY id DESC LIMIT ?", (room_key, economy_config.CRASH_LIVE_HISTORY)).fetchall()
+        history_rows = conn.execute("SELECT crash_x100, seed_hash, seed FROM crash_rounds WHERE room_key = ? AND status = 'closed' ORDER BY id DESC LIMIT ?", (crash_live.GLOBAL_ROOM, economy_config.CRASH_LIVE_HISTORY)).fetchall()
         history = [{"crash_x100": r["crash_x100"], "seed_hash": r["seed_hash"], "seed": r["seed"].hex()} for r in history_rows]
 
         res = {
@@ -250,37 +248,22 @@ def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, 
                     "crash_x100": round_row["crash_x100"],
                     "seed": round_row["seed"].hex()
                 }
-                r_dict["next_open_ms"] = round_row["crash_ms"] + economy_config.CRASH_LIVE_RESULT_MS
+                r_dict["next_open_ms"] = crash_live.next_open_ms(round_row)
                 
             res["round"] = r_dict
             
-            bets_rows = conn.execute("SELECT telegram_id, bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? ORDER BY created_at_ms", (round_row["id"],)).fetchall()
-            
-            bets = []
-            me = None
+            bets_rows = conn.execute("SELECT telegram_id, bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? AND room_key = ? ORDER BY created_at_ms",
+                                     (round_row["id"], room_key)).fetchall()
+            # имена из участников беседы (как в рейтинге беседы); у личной комнаты (нет chat_instance) в ленте только свои ставки
+            names = {}
             if chat_instance:
                 names = {r["telegram_id"]: r["first_name"] for r in conn.execute("SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ?", (chat_instance,)).fetchall()}
-                for b in bets_rows:
-                    if b["telegram_id"] == telegram_id:
-                        me = {"bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]}
-                    bets.append({
-                        "name": names.get(b["telegram_id"], "Игрок"),
-                        "bet": b["bet"],
-                        "status": b["status"],
-                        "cashed_x100": b["cashed_x100"],
-                        "payout": b["payout"]
-                    })
-            else:
-                for b in bets_rows:
-                    if b["telegram_id"] == telegram_id:
-                        me = {"bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]}
-                        bets.append({
-                            "name": "Игрок",
-                            "bet": b["bet"],
-                            "status": b["status"],
-                            "cashed_x100": b["cashed_x100"],
-                            "payout": b["payout"]
-                        })
+            bets = []
+            me = None
+            for b in bets_rows:
+                if b["telegram_id"] == telegram_id:
+                    me = {"bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]}
+                bets.append({"name": names.get(b["telegram_id"]) or "Игрок", "bet": b["bet"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]})
             res["bets"] = bets
             res["me"] = me
             

@@ -251,11 +251,13 @@ def init_db(db_path=None):
                 status        TEXT    NOT NULL,
                 request_id    TEXT    NOT NULL,
                 created_at_ms INTEGER NOT NULL,
+                room_key TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (round_id, telegram_id)
             )
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_player ON crash_bets(telegram_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_room ON crash_bets(round_id, room_key)")
         # хило: следующая карта нигде не хранится (выбирается в момент хода); множитель дробью из двух целых (текстом: числа
         # бывают длиннее 64 бит); hist_json: последние карты раунда [достоинство, масть, как выпала], текущая карта последняя
         conn.execute(
