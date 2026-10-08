@@ -272,7 +272,7 @@ const refEls = {
   actions: document.getElementById('referral-actions')
 };
 
-let refLastRequest = 0;
+let refLastRequest = -Infinity;    // performance.now() последнего запроса; -Infinity: ещё не запрашивали (иначе первые 60 с после старта карточка не грузилась бы)
 let refData = null;
 let refError = false;
 
@@ -302,7 +302,7 @@ function renderReferral() {
     btn.type = 'button';
     btn.className = 'action';
     btn.textContent = 'Повторить';
-    btn.addEventListener('click', () => { refLastRequest = 0; loadReferral(); });
+    btn.addEventListener('click', () => { refLastRequest = -Infinity; loadReferral(); });
     refEls.msg.appendChild(btn);
     return;
   }

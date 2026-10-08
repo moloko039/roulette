@@ -1,6 +1,8 @@
 """Рефералка (E5): эндпоинт получения ссылки и статистики."""
 import os
 
+import economy_config
+
 from fastapi import Header
 
 from core.db_conn import _connect
@@ -37,7 +39,6 @@ def register(app, ctx):
         finally:
             conn.close()
 
-        import economy_config
         rules = {
             "invitee_chips": economy_config.REFERRAL_INVITEE_CHIPS,
             "inviter_chips": economy_config.REFERRAL_INVITER_CHIPS,
