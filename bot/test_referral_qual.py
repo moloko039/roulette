@@ -109,6 +109,33 @@ try:
     client.get("/api/me", headers=auth(U_INVITEE))
     check("меньше раундов награды нет", get_rewards(path, U_INVITER), (chips_before, gems_before))
     
+    # Проверка 3б: незавершённые партии (finished_at NULL) раундами не считаются: 9 завершённых + 1 открытая партия мин = всё ещё 9
+    conn = sqlite3.connect(path)
+    for i in range(1):    # открытая партия мин может быть только одна на игрока (уникальный индекс)
+        conn.execute("INSERT INTO mines_games (telegram_id, bet, mines_count, mine_mask, status, created_at, updated_at, finished_at) VALUES (?, 10, 3, 7, 'active', ?, ?, NULL)", (U_INVITEE, NOW, NOW))
+    conn.commit()
+    conn.close()
+    client.get("/api/me", headers=auth(U_INVITEE))
+    check("открытые партии не считаются раундами", get_rewards(path, U_INVITER), (chips_before, gems_before))
+    # завершённая партия засчитывается: закрываем одну (9 + 1 = 10)
+    conn = sqlite3.connect(path)
+    conn.execute("UPDATE mines_games SET finished_at = ?, status = 'lost' WHERE id = (SELECT MIN(id) FROM mines_games WHERE telegram_id = ?)", (NOW, U_INVITEE))
+    conn.commit()
+    conn.close()
+    client.get("/api/me", headers=auth(U_INVITEE))
+    chips_fin, gems_fin = get_rewards(path, U_INVITER)
+    check("завершённая партия засчитывается наравне с остальными", (chips_fin - chips_before, gems_fin - gems_before), (economy_config.REFERRAL_INVITER_CHIPS, economy_config.REFERRAL_INVITER_GEMS))
+    # вернуть состояние до проверки 4: награда снята, квалификация сброшена, партии убраны
+    conn = sqlite3.connect(path)
+    conn.execute("DELETE FROM mines_games WHERE telegram_id = ?", (U_INVITEE,))
+    conn.execute("UPDATE referrals SET qualified_at = NULL WHERE invitee_id = ?", (U_INVITEE,))
+    conn.execute("UPDATE players SET balance = balance - ? WHERE telegram_id = ?", (economy_config.REFERRAL_INVITER_CHIPS, U_INVITER))
+    conn.execute("DELETE FROM gems_ledger WHERE telegram_id = ? AND reason = 'referral_reward'", (U_INVITER,))
+    conn.execute("UPDATE gem_balances SET gems = gems - ? WHERE telegram_id = ?", (economy_config.REFERRAL_INVITER_GEMS, U_INVITER))
+    conn.commit()
+    conn.close()
+    chips_before, gems_before = get_rewards(path, U_INVITER)
+
     # Проверка 4: на пороге есть, награда: 1000 фишек, 5 кристаллов, запись с referral_reward и непрозрачным ref
     set_invitee_stats(path, U_INVITEE, economy_config.REFERRAL_QUALIFY_HOURS, economy_config.REFERRAL_QUALIFY_LEVEL, economy_config.REFERRAL_QUALIFY_ROUNDS)
     client.get("/api/me", headers=auth(U_INVITEE))

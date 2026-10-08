@@ -66,7 +66,7 @@ from features.cosmetics_db import (
 from features.data_rights_db import get_player_export, delete_player_data
 from features.purge_db import PURGE_BATCH, purge_old_data
 from core.referral import bind_referral_in
-from features.referral_db import get_or_create_code, link_for, check_qualification
+from features.referral_db import get_or_create_code, link_for, check_qualification, is_unqualified_invitee
 from games.roulette_db import _round_result, spin_roulette
 from games.keno_db import _keno_result, play_keno
 from games.slot_db import _slot_result, play_slot
