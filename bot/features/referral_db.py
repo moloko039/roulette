@@ -9,6 +9,16 @@ import economy_config
 import levels
 from features.streak_db import _free_gems_used
 
+# Завершённые раунды игрока по всем играм (квалификация приглашённого): разовые игры завершены всегда, у партий считаются только закрытые (finished_at)
+_ROUND_COUNT_SQL = (
+    "SELECT COUNT(*) FROM roulette_rounds WHERE telegram_id = ?",
+    "SELECT COUNT(*) FROM keno_rounds WHERE telegram_id = ?",
+    "SELECT COUNT(*) FROM slot_rounds WHERE telegram_id = ?",
+    "SELECT COUNT(*) FROM mines_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
+    "SELECT COUNT(*) FROM blackjack_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
+    "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
+    "SELECT COUNT(*) FROM hilo_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
+)
 _CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 CODE_LENGTH = 10
 
@@ -78,22 +88,17 @@ def check_qualification(invitee_id, now=None, db_path=None):
                 conn.execute("COMMIT")
                 return
             
-            tables = ("roulette_rounds", "keno_rounds", "slot_rounds", "mines_games", "blackjack_games", "crash_games", "hilo_games")
             total_rounds = 0
-            present_tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-            
-            for table in tables:
-                if table in present_tables:
-                    c = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE telegram_id = ?", (invitee_id,)).fetchone()[0]
-                    total_rounds += c
-                    if total_rounds >= economy_config.REFERRAL_QUALIFY_ROUNDS:
-                        break
-            
+            for query in _ROUND_COUNT_SQL:
+                total_rounds += conn.execute(query, (invitee_id,)).fetchone()[0]
+                if total_rounds >= economy_config.REFERRAL_QUALIFY_ROUNDS:
+                    break
+
             if total_rounds < economy_config.REFERRAL_QUALIFY_ROUNDS:
                 conn.execute("COMMIT")
                 return
             
-            changed = conn.execute("UPDATE referrals SET qualified_at = ? WHERE invitee_id = ?", (now, invitee_id)).rowcount
+            changed = conn.execute("UPDATE referrals SET qualified_at = ? WHERE invitee_id = ? AND qualified_at IS NULL", (now, invitee_id)).rowcount
             if changed == 0:
                 conn.execute("COMMIT")
                 return
@@ -112,5 +117,14 @@ def check_qualification(invitee_id, now=None, db_path=None):
         except Exception:
             conn.execute("ROLLBACK")
             raise
+    finally:
+        conn.close()
+
+
+def is_unqualified_invitee(telegram_id, db_path=None):
+    """Быстрая проверка одним запросом: игрок приглашён и квалификация ещё не засчитана (нужна ли ленивая проверка при входе)."""
+    conn = _connect(db_path)
+    try:
+        return conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND qualified_at IS NULL", (telegram_id,)).fetchone() is not None
     finally:
         conn.close()
