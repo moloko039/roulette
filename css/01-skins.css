@@ -475,11 +475,11 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 [data-skin-chip="chip_cork"] {
   --chip-bg: #3a572a;
   --chip-text: #f5f5f2;
-  --chip-ring: #547542;
-  --chip-ring-10: #547542;
-  --chip-ring-50: #70965b;
-  --chip-ring-100: #93bf7c;
-  --chip-ring-500: #bedeab;
+  --chip-ring: #86b86b;
+  --chip-ring-10: #86b86b;
+  --chip-ring-50: #a8d38f;
+  --chip-ring-100: #c6e6b3;
+  --chip-ring-500: #eaf5df;
   --chip-inner: inset 0 0 0 2px #d4bb8c;
 }
 
