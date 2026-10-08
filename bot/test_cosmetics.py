@@ -116,7 +116,7 @@ try:
           sorted(["back_midnight", "chip_ring", "table_blue", "mine_star", "keno_hex", "crash_neon", "frame_thin", "badge_spade", "back_leaves", "table_autumn", "mine_acorn", "achv_nearly", "achv_sapper", "achv_bust", "achv_keno",
                   "draft_crash", "draft_mines", "draft_table", "draft_badge", "void_table", "void_chip", "void_badge"]))
     check("цена есть у платных", sorted(i["code"] for i in cosmetics.CATALOG if i["price"] is not None),
-          sorted(list(c for c, _ in cosmetics.PRICES.items()) + ["draft_crash", "draft_mines", "draft_table", "draft_badge", "void_table", "void_chip", "void_badge"]))
+          sorted(c for c, _ in cosmetics.PRICES.items()))
     check("цены в одном месте: валюта и целая положительная сумма", all(v[0] in ("gems", "chips") and type(v[1]) is int and v[1] > 0 for v in cosmetics.PRICES.values()), True)
     check("цены из задания", {k: tuple(v) for k, v in cosmetics.PRICES.items()}, {"table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75),
                                                                            "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000),

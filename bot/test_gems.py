@@ -287,7 +287,7 @@ try:
     path = new_db()
     in_tx(path, lambda c: db._register_player(c, A, NOW))
     sql(path, "UPDATE players SET balance = 500000 WHERE telegram_id = ?", (A,))
-    check("цены 4 предметов в кристаллах, остальные за фишки", {c: v for c, v in cosmetics.PRICES.items() if v[0] == "gems"}, {"table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75)})
+    check("цены предметов в кристаллах (4 старых и части наборов), остальные за фишки", {c: v for c, v in cosmetics.PRICES.items() if v[0] == "gems"}, {"table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75), "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100), "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150)})
     raises(cosmetics.InsufficientGems, db.buy_with_gems, A, "gem-buy-000001", "table_blue", now=NOW, db_path=path)
     check("нехватка: ничего не списано, предмета нет", (db.gems_state(A, path)["gems"], sql(path, "SELECT COUNT(*) FROM cosmetic_items")[0][0]), (0, 0))
     db.owner_grant_gems(A, 400, "dev-buy", now=NOW, db_path=path)

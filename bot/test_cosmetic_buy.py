@@ -274,7 +274,7 @@ try:
 
     cat = client.get("/api/cosmetics/catalog", headers=auth(A)).json()
     prices = {i["code"]: i["price"] for i in cat["items"] if i["price"]}
-    check("каталог отдаёт цены предметов", sorted(prices), sorted(list(cosmetics.PRICES.keys()) + ["draft_crash", "draft_mines", "draft_table", "draft_badge", "void_table", "void_chip", "void_badge"]))
+    check("каталог отдаёт цены предметов", sorted(prices), sorted(cosmetics.PRICES.keys()))
     check("форма цены: предметы за кристаллы и за фишки", (prices["table_blue"], prices["chip_ring"]), ({"currency": "gems", "amount": 150}, {"currency": "chips", "amount": 40000}))
     check("в каталоге нет скрытого тестового предмета", "test_1star" in json.dumps(cat), False)
     r = post(A, "buy", {"request_id": "api-buy-000001", "item_code": "badge_spade"})
