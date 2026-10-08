@@ -28,7 +28,7 @@ def register(app, ctx):
             chat_instance = info["chat_instance"]
             r_key = crash_live.room_key(chat_instance=chat_instance)
         else:
-            r_key = crash_live.room_key(telegram_id=info["user_id"])
+            r_key = crash_live.room_key()      # вне беседы: общая анонимная комната (ставки видны без имён)
 
         return crash_live_db.live_state(
             telegram_id=info["user_id"],
@@ -69,7 +69,7 @@ def register(app, ctx):
         if _in_group(info):
             r_key = crash_live.room_key(chat_instance=info["chat_instance"])
         else:
-            r_key = crash_live.room_key(telegram_id=info["user_id"])
+            r_key = crash_live.room_key()      # вне беседы: общая анонимная комната (ставки видны без имён)
 
         def call():
             return crash_live_db.place_bet(
