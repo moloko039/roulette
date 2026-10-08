@@ -750,7 +750,7 @@ try:
     path = new_db()
     db.init_db(path)
     db.init_db(path)
-    check("таблицы есть", sorted(r[0] for r in sql(path, "SELECT name FROM sqlite_master WHERE name LIKE 'crash_%' AND type = 'table'")), ["crash_actions", "crash_games"])
+    check("таблицы есть", sorted(r[0] for r in sql(path, "SELECT name FROM sqlite_master WHERE name LIKE 'crash_%' AND type = 'table'")), ["crash_actions", "crash_bets", "crash_games", "crash_rounds"])
     add_player(path, 1)
     start(path, 1, 1, 10, 5000)
     try:
