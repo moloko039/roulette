@@ -16,8 +16,10 @@ def register(app, ctx):
     db_path = ctx.db_path
     throttled = ctx.throttled
 
+    import re
+    
     @app.get("/api/crash/live")
-    def live_state_endpoint(authorization: str = Header(default=None)):
+    def live_state_endpoint(request: Request, authorization: str = Header(default=None)):
         info = ctx.auth_full(authorization)
         limited = throttled(info["user_id"], "live")
         if limited is not None:
@@ -30,12 +32,17 @@ def register(app, ctx):
         else:
             r_key = crash_live.room_key()      # вне беседы: общая анонимная комната (ставки видны без имён)
 
+        v_param = request.query_params.get("v")
+        if v_param and not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", v_param):
+            v_param = None
+
         return crash_live_db.live_state(
             telegram_id=info["user_id"],
             room_key=r_key,
             now_ms=crash_live.now_ms(),
             chat_instance=chat_instance,
-            db_path=db_path
+            db_path=db_path,
+            client_v=v_param
         )
 
     @app.post("/api/crash/live/bet")

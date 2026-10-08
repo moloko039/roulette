@@ -210,73 +210,124 @@ def cashout(telegram_id, request_id, now_ms, db_path=None, rng=None):
         conn.close()
 
 
-def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, rng=None):
+def needs_advance(conn, now_ms):
+    """Чистая функция (только чтение БД без блокировок), проверяющая нужно ли продвигать время."""
+    round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
+    if not round_row:
+        return True
+    if round_row["status"] == "closed" and now_ms >= crash_live.next_open_ms(round_row):
+        return True
+    if round_row["status"] == "open" and now_ms >= crash_live.end_ms(round_row):
+        return True
+    if round_row["status"] == "open" and crash_live.phase_of(round_row, now_ms) == "flight":
+        eff_ms = crash.effective_ms(now_ms, round_row["flight_start_ms"])
+        curr_m100 = min(crash.m100(eff_ms), round_row["crash_x100"])
+        # Check if there's any open bet with auto cashout <= curr_m100
+        has_auto = conn.execute("SELECT 1 FROM crash_bets WHERE round_id = ? AND status = 'open' AND target_x100 IS NOT NULL AND target_x100 <= ? LIMIT 1", (round_row["id"], curr_m100)).fetchone()
+        if has_auto:
+            return True
+    return False
+
+
+def _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v=None):
+    round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
+    
+    history_rows = conn.execute("SELECT crash_x100, seed_hash, seed FROM crash_rounds WHERE room_key = ? AND status = 'closed' ORDER BY id DESC LIMIT ?", (crash_live.GLOBAL_ROOM, economy_config.CRASH_LIVE_HISTORY)).fetchall()
+    history = [{"crash_x100": r["crash_x100"], "seed_hash": r["seed_hash"], "seed": r["seed"].hex()} for r in history_rows]
+
+    res = {
+        "server_ms": now_ms,
+        "history": history,
+        "round": None,
+        "bets": [],
+        "me": None
+    }
+
+    if not round_row:
+        v_token = f"0.none.0.0.none"
+        if client_v == v_token:
+            return {"unchanged": True, "v": v_token, "server_ms": now_ms, "phase": "none", "m100": None}
+        res["v"] = v_token
+        return res
+
+    phase = crash_live.phase_of(round_row, now_ms)
+    r_dict = {
+        "id": round_row["id"],
+        "phase": phase,
+        "seed_hash": round_row["seed_hash"],
+        "bet_open_ms": round_row["bet_open_ms"],
+        "flight_start_ms": round_row["flight_start_ms"]
+    }
+    
+    m100_val = None
+    if phase == "flight":
+        eff_ms = crash.effective_ms(now_ms, round_row["flight_start_ms"])
+        m100_val = crash.m100(eff_ms)
+    r_dict["m100"] = m100_val
+        
+    if phase == "result":
+        r_dict["result"] = {
+            "crash_x100": round_row["crash_x100"],
+            "seed": round_row["seed"].hex()
+        }
+        r_dict["next_open_ms"] = crash_live.next_open_ms(round_row)
+        
+    res["round"] = r_dict
+    
+    feed_rows = conn.execute("SELECT telegram_id, bet, status, cashed_x100, payout, created_at_ms FROM crash_bets WHERE round_id = ? AND room_key = ? "
+                             "ORDER BY created_at_ms DESC, telegram_id DESC LIMIT ?", (round_row["id"], room_key, economy_config.CRASH_LIVE_FEED_MAX)).fetchall()
+    feed_rows = list(reversed(feed_rows))
+    my_row = conn.execute("SELECT bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? AND telegram_id = ?", (round_row["id"], telegram_id)).fetchone()
+    me = None
+    my_state = "none"
+    if my_row is not None:
+        me = {"bet": my_row["bet"], "target_x100": my_row["target_x100"], "status": my_row["status"], "cashed_x100": my_row["cashed_x100"], "payout": my_row["payout"]}
+        my_state = f"{my_row['status']}_{my_row['payout'] or 0}"
+        
+    n_bets = len(feed_rows)
+    n_done = sum(1 for b in feed_rows if b["status"] != "open")
+    
+    # Check if feed rows are truncated to accurately get total bets for the token if needed. Wait, token rules say "число ставок в ленте комнаты, число ставок комнаты в статусе не open (cashed или lost)"
+    # Better to count them precisely in db to have a stable token even if feed limit applies.
+    # Actually, if we just use the entire room's count, it's easier and perfectly valid.
+    counts = conn.execute("SELECT COUNT(*), SUM(status != 'open') FROM crash_bets WHERE round_id = ? AND room_key = ?", (round_row["id"], room_key)).fetchone()
+    total_bets = counts[0]
+    total_done = counts[1] or 0
+    
+    v_token = f"{round_row['id']}.{phase}.{total_bets}.{total_done}.{my_state}"
+    if client_v == v_token:
+        return {"unchanged": True, "v": v_token, "server_ms": now_ms, "phase": phase, "m100": m100_val}
+
+    names = {}
+    if chat_instance and room_key != crash_live.PUBLIC_ROOM_KEY:
+        names = {r["telegram_id"]: r["first_name"] for r in conn.execute("SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ?", (chat_instance,)).fetchall()}
+    anonymous = room_key == crash_live.PUBLIC_ROOM_KEY
+    ordinal_base = 0
+    if anonymous and len(feed_rows) == economy_config.CRASH_LIVE_FEED_MAX:
+        ordinal_base = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ? AND room_key = ? AND (created_at_ms, telegram_id) < (?, ?)",
+                                    (round_row["id"], room_key, feed_rows[0]["created_at_ms"], feed_rows[0]["telegram_id"])).fetchone()[0]
+    bets = []
+    for n, b in enumerate(feed_rows, start=ordinal_base + 1):
+        label = ("Игрок %d" % n) if anonymous else (names.get(b["telegram_id"]) or "Игрок")
+        bets.append({"name": label, "bet": b["bet"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]})
+    res["bets"] = bets
+    res["me"] = me
+    res["v"] = v_token
+    return res
+
+
+def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, rng=None, client_v=None):
     conn = _connect(db_path)
     try:
+        # Fast path
+        advance = needs_advance(conn, now_ms)
+        if not advance:
+            return _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+            
+        # Slow path (needs advance)
         conn.execute("BEGIN IMMEDIATE")
         _advance_round_in_tx(conn, now_ms, rng)
-        
-        round_row = conn.execute("SELECT * FROM crash_rounds WHERE room_key = ? ORDER BY id DESC LIMIT 1", (crash_live.GLOBAL_ROOM,)).fetchone()
-        
-        history_rows = conn.execute("SELECT crash_x100, seed_hash, seed FROM crash_rounds WHERE room_key = ? AND status = 'closed' ORDER BY id DESC LIMIT ?", (crash_live.GLOBAL_ROOM, economy_config.CRASH_LIVE_HISTORY)).fetchall()
-        history = [{"crash_x100": r["crash_x100"], "seed_hash": r["seed_hash"], "seed": r["seed"].hex()} for r in history_rows]
-
-        res = {
-            "server_ms": now_ms,
-            "history": history,
-            "round": None,
-            "bets": [],
-            "me": None
-        }
-
-        if round_row:
-            phase = crash_live.phase_of(round_row, now_ms)
-            r_dict = {
-                "id": round_row["id"],
-                "phase": phase,
-                "seed_hash": round_row["seed_hash"],
-                "bet_open_ms": round_row["bet_open_ms"],
-                "flight_start_ms": round_row["flight_start_ms"]
-            }
-            if phase == "flight":
-                eff_ms = crash.effective_ms(now_ms, round_row["flight_start_ms"])
-                r_dict["m100"] = crash.m100(eff_ms)
-            else:
-                r_dict["m100"] = None
-                
-            if phase == "result":
-                r_dict["result"] = {
-                    "crash_x100": round_row["crash_x100"],
-                    "seed": round_row["seed"].hex()
-                }
-                r_dict["next_open_ms"] = crash_live.next_open_ms(round_row)
-                
-            res["round"] = r_dict
-            
-            # лента комнаты: последние CRASH_LIVE_FEED_MAX ставок по порядку подачи; своя ставка отдаётся отдельно (me), даже если она старше
-            feed_rows = conn.execute("SELECT telegram_id, bet, status, cashed_x100, payout, created_at_ms FROM crash_bets WHERE round_id = ? AND room_key = ? "
-                                     "ORDER BY created_at_ms DESC, telegram_id DESC LIMIT ?", (round_row["id"], room_key, economy_config.CRASH_LIVE_FEED_MAX)).fetchall()
-            feed_rows = list(reversed(feed_rows))
-            my_row = conn.execute("SELECT bet, target_x100, status, cashed_x100, payout FROM crash_bets WHERE round_id = ? AND telegram_id = ?", (round_row["id"], telegram_id)).fetchone()
-            me = None
-            if my_row is not None:
-                me = {"bet": my_row["bet"], "target_x100": my_row["target_x100"], "status": my_row["status"], "cashed_x100": my_row["cashed_x100"], "payout": my_row["payout"]}
-            # имена: у беседы из её участников (как в рейтинге беседы); в общей комнате вне бесед ставки АНОНИМНЫ: «Игрок N» по порядку подачи в раунде
-            names = {}
-            if chat_instance and room_key != crash_live.PUBLIC_ROOM_KEY:
-                names = {r["telegram_id"]: r["first_name"] for r in conn.execute("SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ?", (chat_instance,)).fetchall()}
-            anonymous = room_key == crash_live.PUBLIC_ROOM_KEY
-            ordinal_base = 0
-            if anonymous and len(feed_rows) == economy_config.CRASH_LIVE_FEED_MAX:
-                ordinal_base = conn.execute("SELECT COUNT(*) FROM crash_bets WHERE round_id = ? AND room_key = ? AND (created_at_ms, telegram_id) < (?, ?)",
-                                            (round_row["id"], room_key, feed_rows[0]["created_at_ms"], feed_rows[0]["telegram_id"])).fetchone()[0]
-            bets = []
-            for n, b in enumerate(feed_rows, start=ordinal_base + 1):
-                label = ("Игрок %d" % n) if anonymous else (names.get(b["telegram_id"]) or "Игрок")
-                bets.append({"name": label, "bet": b["bet"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]})
-            res["bets"] = bets
-            res["me"] = me
-            
+        res = _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
         conn.commit()
         return res
     finally:
