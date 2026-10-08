@@ -5,6 +5,7 @@ import json
 import blackjack
 import wallet
 import xp
+from core import achievements
 
 from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, latest_row, now_or_clock, pay_and_xp,
                                 player_view, read_state, run_action, settle_expired)
@@ -44,6 +45,8 @@ def _bj_finish(conn, telegram_id, game_id, state, now, auto=False):
     _bj_save(conn, game_id, state, now)
     conn.execute("UPDATE blackjack_games SET finished_at = ?, auto = ? WHERE id = ?", (now, 1 if auto else 0, game_id))
     pay_and_xp(conn, telegram_id, state["payout"], xp.blackjack_xp(state["wager"]), "blackjack", state["wager"], now)
+    
+    achievements.record(conn, telegram_id, "blackjack_end", now, busted=(state["result"] == "bust"))
 
 
 def _bj_response(conn, telegram_id, row, replayed=False):
