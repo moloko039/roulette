@@ -88,6 +88,7 @@
 | chat_staked | int | всегда |
 | chat_level | int | всегда |
 | chat_points | int | всегда |
+| chat_level_start_points | int | всегда (очки, с которых начинается текущий уровень; прогресс внутри уровня = (chat_points - chat_level_start_points) / (chat_next_points - chat_level_start_points)) |
 | chat_next_points | int\|null | всегда (null на максимальном уровне) |
 | set_names | объект | всегда |
 

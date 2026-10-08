@@ -68,6 +68,19 @@
 "GET /api/blackjack/state",
 "POST /api/blackjack/action {\"action\":\"stand\",\"request_id\":\"<rid:36>\"}"
 ],
+"chat_level": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/me",
+"GET /api/streak",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/me",
+"GET /api/streak",
+"GET /api/chat/top"
+],
 "collection_leaves": [
 "GET /api/me",
 "GET /api/streak",

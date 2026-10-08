@@ -95,6 +95,11 @@ def chat_level(points):
     return level
 
 
+def chat_level_start_points(points):
+    """Очки, с которых начинается текущий уровень беседы (нужно клиенту, чтобы считать прогресс внутри уровня)."""
+    return CHAT_LEVEL_THRESHOLDS[chat_level(points) - 1]
+
+
 def chat_next_points(points):
     """Возвращает количество очков для следующего уровня или None для максимального."""
     for threshold in CHAT_LEVEL_THRESHOLDS:
@@ -173,6 +178,7 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
         "chat_staked": chat_staked,
         "chat_level": chat_level(chat_staked),
         "chat_points": chat_points,
+        "chat_level_start_points": chat_level_start_points(chat_points),
         "chat_next_points": next_points,
         "set_names": set_names
     }
