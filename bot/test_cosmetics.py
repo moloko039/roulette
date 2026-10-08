@@ -133,7 +133,7 @@ try:
     guarded = (glob.glob(os.path.join(HERE, "games", "*.py")) + glob.glob(os.path.join(HERE, "core", "kernel.py")) +
                [os.path.join(HERE, n) for n in ("wallet.py", "economy.py", "farm.py", "levels.py", "xp.py", "roulette.py", "keno.py", "mines.py",
                                                 "blackjack.py", "crash.py", "hilo.py", "ratelimit.py")] +
-               [os.path.join(HERE, "features", n) for n in ("give_db.py", "grants_db.py")])
+               [os.path.join(HERE, "features", n) for n in ("farm_db.py", "give_db.py", "grants_db.py")])
     assert len(guarded) >= 20, guarded
     for f in guarded:
         text = open(f, encoding="utf-8").read().lower()

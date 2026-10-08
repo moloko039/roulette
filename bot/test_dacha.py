@@ -11,9 +11,14 @@ import cosmetic_sets
 import cosmetics
 import db
 import economy_config
-from features import farm_db
-from features import gifts_db
+from fastapi.testclient import TestClient
 
+from api import create_app
+from features import gifts_db
+from features.cosmetics_db import grant_dacha_parts
+from tg_testutil import make_init_data
+
+TOKEN = "123456:TEST-TOKEN-not-real"
 A, B = 424242422, 424242423
 NOW = int(time.time())
 DACHA_PARTS = ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel")
@@ -57,56 +62,63 @@ def add_player(path, uid, balance=2000000000, xp=1000000000, income_level=0):
         (uid, balance, NOW - 86400, NOW - 86400, xp, income_level))
     sql(path, "INSERT INTO chat_members VALUES ('room', ?, 'Player', 1, 2)", (uid,))
 
+def buy_income(client, uid, n):
+    """Настоящая покупка улучшения дохода фермы через API (выдачу частей делает маршрут после покупки)."""
+    headers = {"Authorization": "tma " + make_init_data(TOKEN, user_id=uid, auth_date=int(time.time()), first_name="Игрок")}
+    r = client.post("/api/farm/buy", headers=headers, json={"request_id": "dacha-req-%06d-%d" % (n, uid % 1000), "kind": "income"})
+    assert r.status_code == 200, (r.status_code, r.text)
+    return r.json()
+
+
+def owned_codes(path, uid):
+    return [r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at, item_code", (uid,))]
+
+
 try:
     path = new_db()
     add_player(path, A)
     add_player(path, B, income_level=9)
+    client = TestClient(create_app(TOKEN, [], db_path=path))
 
     # 1. Границы порогов и выдача при реальной покупке
     # Уровень 1 - нет частей
-    farm_db.buy_upgrade(A, "req_1", "income", now=NOW, db_path=path)
+    buy_income(client, A, 1)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
     check("Уровень 1: нет частей", [r[0] for r in owned], [])
 
     # Уровень 2 - back_rug
-    farm_db.buy_upgrade(A, "req_2", "income", now=NOW, db_path=path)
+    buy_income(client, A, 2)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
     check("Уровень 2: back_rug", [r[0] for r in owned], ["back_rug"])
 
     # Уровень 3 - ничего нового
-    farm_db.buy_upgrade(A, "req_3", "income", now=NOW, db_path=path)
+    buy_income(client, A, 3)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
     check("Уровень 3: без изменений", [r[0] for r in owned], ["back_rug"])
 
     # Уровень 4 - chip_cork
-    farm_db.buy_upgrade(A, "req_4", "income", now=NOW, db_path=path)
+    buy_income(client, A, 4)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
     check("Уровень 4: +chip_cork", [r[0] for r in owned], ["back_rug", "chip_cork"])
 
     # Доходим до 16
     for i in range(5, 17):
-        farm_db.buy_upgrade(A, f"req_{i}", "income", now=NOW, db_path=path)
+        buy_income(client, A, i)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
     check("Уровень 16: все 6", set(r[0] for r in owned), set(DACHA_PARTS))
 
     # 2. Идемпотентность повторных и параллельных вызовов
+    sql(path, "UPDATE players SET income_level = 16 WHERE telegram_id = ?", (B,))     # игроку B положены все шесть частей
     gate = threading.Barrier(12)
+
     def worker(i):
         gate.wait()
-        conn = sqlite3.connect(path)
-        try:
-            conn.execute("BEGIN IMMEDIATE")
-            from features.cosmetics_db import grant_dacha_parts_in
-            grant_dacha_parts_in(conn, B, 16, NOW)
-            conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
-        finally:
-            conn.close()
+        return grant_dacha_parts(B, now=NOW, db_path=path)     # исключения не глотаем: упадёт тест
 
     with ThreadPoolExecutor(12) as pool:
-        list(pool.map(worker, range(12)))
-    
+        granted = list(pool.map(worker, range(12)))
+    check("параллельная выдача: все шесть частей выданы ровно один раз (остальные потоки ничего не добавили)", sum(granted), 6)
+
     owned_b = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (B,))
     check("Параллельная выдача: без дублей, все 6 частей", len(owned_b), 6)
     check("Параллельная выдача: все правильные", set(r[0] for r in owned_b), set(DACHA_PARTS))

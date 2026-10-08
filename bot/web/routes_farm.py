@@ -1,14 +1,17 @@
 """Ферма: статус и покупка улучшений."""
 import json
+import logging
 
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 import farm
-from db import (buy_upgrade, farm_status)
+from db import (buy_upgrade, farm_status, grant_dacha_parts)
 from roulette import InsufficientFunds, validate_request_id
 from web.http import BodyTooLarge, read_body_limited
+
+logger = logging.getLogger("depnaya")
 
 
 def register(app, ctx):
@@ -47,7 +50,13 @@ def register(app, ctx):
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
 
         try:
-            return await run_in_threadpool(buy_upgrade, user_id, request_id, kind, None, db_path)
+            result = await run_in_threadpool(buy_upgrade, user_id, request_id, kind, None, db_path)
+            if kind == "income":
+                try:       # части «Дачного сезона» за уровень дохода: отдельной транзакцией после покупки (ферма косметики не касается); при сбое выдаст ленивая проверка
+                    await run_in_threadpool(grant_dacha_parts, user_id, None, db_path)
+                except Exception:
+                    logger.error("dacha grant failed", exc_info=True)
+            return result
         except farm.MaxLevel:
             return JSONResponse({"detail": "max_level"}, status_code=409)
         except farm.LevelLocked as exc:
