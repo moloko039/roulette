@@ -10,16 +10,16 @@ MIN = 3.0
 SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "chip_plain"), ("table", "table_blue", "table_green"),
          ("mine_icons", "mine_star", "mine_classic"), ("keno_ball", "keno_hex", "keno_round"), ("crash", "crash_neon", "crash_line"),
          ("avatar_frame", "frame_thin", "frame_plain"), ("badge", "badge_spade", "badge_none"),
-         ("card_back", "back_leaves", "back_classic"), ("table", "table_autumn", "table_green"), ("mine_icons", "mine_acorn", "mine_classic"),
+         ("card_back", "back_leaves", "back_classic"), ("table", "table_autumn", "table_green"), ("mine_icons", "mine_acorn", "mine_classic"),     # части коллекции «Листопад»
          ("crash", "draft_crash", "crash_line"), ("mine_icons", "draft_mines", "mine_classic"), ("table", "draft_table", "table_green"),
          ("badge", "draft_badge", "badge_none"), ("table", "void_table", "table_green"), ("chip", "void_chip", "chip_plain"),
-         ("badge", "void_badge", "badge_none")]     # части коллекции «Листопад», Черновик, Пустота
+         ("badge", "void_badge", "badge_none")]     # наборы за кристаллы: Черновик, Пустота
 
 # (пара, цвет A, цвет B, режим): режим «>=3» требует контраст не ниже 3:1; «shape» только документирует, чем пара различается (текст)
 PAIRS = {
     "table": [("красный и чёрный сектор", "red", "black", ">=3"), ("зелёный и чёрный сектор", "green", "black", ">=3"),
               ("красный и зелёный сектор", "red", "green", "shape: зелёный только единственный «0» с подписью, другое положение"),
-              ("подпись на красном", "labelRed", "red", ">=3"), ("подпись на чёрном", "labelBlack", "black", ">=3"), ("подпись на зелёном", "labelGreen", "green", ">=3"),
+              ("подпись на красном", "label", "red", ">=3"), ("подпись на чёрном", "label", "black", ">=3"), ("подпись на зелёном", "label", "green", ">=3"),
               ("сукно и красная клетка", "felt", "red", ">=3")],
     "card_back": [("рубашка и лицо карты", "back", "face", ">=3"), ("рамка рубашки и рубашка", "border", "back", ">=3"),
                   ("красная масть на лице", "suitRed", "face", ">=3"), ("чёрная масть на лице", "ink", "face", ">=3")],
@@ -66,10 +66,7 @@ JS = r"""
       const v = (n) => parse(getComputedStyle(h).getPropertyValue(n).trim() || 'rgb(0,0,0)');
       const hexTo = (s) => { s = s.trim(); if (s[0] === '#') { const n = parseInt(s.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1]; } return parse(s); };
       return { red: col(h, '.cell.red', 'backgroundColor'), black: col(h, '.cell.black', 'backgroundColor'), green: col(h, '.cell.green', 'backgroundColor'),
-               labelRed: col(h, '.cell.red', 'color', col(h, '.cell.red', 'backgroundColor')),
-               labelBlack: col(h, '.cell.black', 'color', col(h, '.cell.black', 'backgroundColor')),
-               labelGreen: col(h, '.cell.green', 'color', col(h, '.cell.green', 'backgroundColor')),
-               felt: col(h, '.table', 'backgroundColor') };
+               label: hexTo(getComputedStyle(h).getPropertyValue('--wheel-text')), felt: col(h, '.table', 'backgroundColor') };
     },
     card_back(h) {
       const a = getComputedStyle(h).getPropertyValue('--card-back-a').trim();

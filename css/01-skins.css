@@ -371,10 +371,10 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --cr-border: #1d3557;
   --cr-axis: rgba(29, 53, 87, 0.4);
   --cr-line: #1d3557;
-  --cr-win: #2d6a4f;
-  --cr-win-soft: rgba(45, 106, 79, 0.2);
-  --cr-crash: #c0392b;
-  --cr-crash-soft: rgba(192, 57, 43, 0.2);
+  --cr-win: #3f9a3f;
+  --cr-win-soft: rgba(63, 154, 63, 0.22);
+  --cr-crash: #4a0c0c;
+  --cr-crash-soft: rgba(74, 12, 12, 0.22);
   --cr-label: #1d3557;
   --cr-label-strong: #1d3557;
   --cr-history-text: #1d3557;
@@ -392,7 +392,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --mines-safe-bg: #1d3557;
   --mines-safe-border: #1d3557;
   --mines-safe-text: #f2efe3;
-  --mines-safe-glow: none;
+  --mines-safe-glow: rgba(29, 53, 87, 0);
   --mines-bomb-bg: #c0392b;
   --mines-bomb-text: #f2efe3;
   --mines-muted-bg: #f2efe3;
@@ -404,9 +404,9 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 
 [data-skin-table="draft_table"] {
-  --table-red: #c0392b;
+  --table-red: #e0554a;
   --table-black: #1d3557;
-  --table-green: #2d6a4f;
+  --table-green: #3b9066;
   --table-felt: 
     repeating-linear-gradient(0deg, transparent 0 19px, rgba(29, 53, 87, 0.2) 19px 20px),
     repeating-linear-gradient(90deg, #f2efe3 0 19px, rgba(29, 53, 87, 0.2) 19px 20px);
@@ -424,37 +424,30 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --badge-color: #c0392b;
 }
 
-/* Пустота: люкс через отсутствие */
+/* Пустота: люкс через отсутствие. Только чёрное, белое и серое; подпись колеса одна (белая), поэтому все три сектора темнее светлой подписи: красный и зелёный серые, различаются положением (единственный «0») */
 [data-skin-table="void_table"] {
-  --table-red: #d8d8d8;
+  --table-red: #8a8a8a;
   --table-black: #000000;
-  --table-green: #6a6a6a;
+  --table-green: #626262;
   --table-felt: #000000;
   --wheel-rim-a: #1a1a1a;
   --wheel-rim-b: #6a6a6a;
   --wheel-rim-c: #333333;
-  --wheel-sector-line: #d8d8d8;
+  --wheel-sector-line: rgba(255, 255, 255, 0.35);
   --wheel-text: #ffffff;
   --wheel-edge: #000000;
   --wheel-hub: #1a1a1a;
-  --wheel-hub-line: rgba(216, 216, 216, 0.5);
-}
-[data-skin-table="void_table"] .cell.red {
-  color: #000000;
-}
-[data-skin-table="void_table"] .cell.black,
-[data-skin-table="void_table"] .cell.green {
-  color: #ffffff;
+  --wheel-hub-line: rgba(255, 255, 255, 0.5);
 }
 
 [data-skin-chip="void_chip"] {
   --chip-bg: #000000;
   --chip-text: #ffffff;
-  --chip-ring: #333333;
-  --chip-ring-10: #4d4d4d;
-  --chip-ring-50: #666666;
-  --chip-ring-100: #999999;
-  --chip-ring-500: #cccccc;
+  --chip-ring: #5c5c5c;
+  --chip-ring-10: #5c5c5c;
+  --chip-ring-50: #7a7a7a;
+  --chip-ring-100: #a8a8a8;
+  --chip-ring-500: #e0e0e0;
   --chip-on-bg: #ffffff;
   --chip-on-text: #000000;
   --chip-on-ring: #ffffff;
