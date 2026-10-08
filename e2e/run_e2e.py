@@ -19,7 +19,7 @@ NET_SKIP = ("csp", "a11y_overlays", "a11y_overlays", "layout", "mines_layout", "
 # в раунде краша клиент опрашивает /api/crash/state раз в 300 мс),
 # поэтому последовательность сравнивается со склейкой подряд идущих одинаковых запросов (порядок и набор разных запросов проверяются, число опросов нет).
 POLL_COLLAPSE = ("crash", "shared_core", "shop_gems")    # shop_gems: после оплаты клиент опрашивает /api/gems/packs, число опросов зависит от времени
-SCENARIOS = ["lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
+SCENARIOS = ["referral_card", "lobby", "betpanel_keyboard", "roulette", "mines", "keno", "blackjack", "crash", "hilo", "resume", "accrual_tick",
              "layout", "mines_layout", "shared_core", "skin_vars", "skin_apply", "wardrobe_flow", "wardrobe_rating", "wardrobe_safety", "skin_contrast", "wardrobe_buy_chips", "wardrobe_buy_gems", "wardrobe_buy_safety", "skin_preview_isolation", "keno_hex_play", "best_wins_board", "best_wins_safety", "blackjack_auto_stand", "desktop_scroll", "crash_visibility", "post_body_abort", "style_tab", "crash_auto_manual", "csp", "a11y_overlays", "shop_gems", "shop_chips", "streak_card", "gift_send", "collection_leaves", "chat_bonus_hint"]
 
 

@@ -85,6 +85,7 @@ window.Telegram = {WebApp: {initData: (function(){ try { return localStorage.get
   // оплата и внешние ссылки Telegram: статус openInvoice задаёт сценарий (window.__invoiceStatus: paid, cancelled, failed, pending, none = колбэк не вызывается)
   openInvoice(url, cb){ (window.__invoices = window.__invoices || []).push(url); const m = window.__invoiceStatus || 'cancelled'; if (m !== 'none') setTimeout(() => cb && cb(m), 20); },
   openLink(url){ (window.__links = window.__links || []).push(url); },
+  openTelegramLink(url){ (window.__links = window.__links || []).push(url); },
   HapticFeedback: {impactOccurred(){}, notificationOccurred(){}}}};
 const _fetch = window.fetch.bind(window);
 window.fetch = async (u, o) => {

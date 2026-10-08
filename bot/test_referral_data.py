@@ -58,9 +58,10 @@ try:
     r = client.get("/api/referral", headers=auth(U_INVITER))
     check("GET /api/referral status 200", r.status_code, 200)
     data = r.json()
-    check("Keys in response", sorted(data.keys()), ["invited", "link", "qualified"])
+    check("Keys in response", sorted(data.keys()), ["invited", "link", "qualified", "rules"])
     check("invited is 0", data["invited"], 0)
     check("qualified is 0", data["qualified"], 0)
+    check("rules has invitee_chips", "invitee_chips" in data["rules"], True)
     check("link has code", "startapp=ref_" in data["link"], True)
     
     # link should be null if GAME_LINK not valid

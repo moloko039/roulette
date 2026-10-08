@@ -259,3 +259,132 @@ document.addEventListener('visibilitychange', () => {
 
 // #endregion
 
+// #region Referral
+const refEls = {
+  card: document.getElementById('referral-card'),
+  text: document.getElementById('referral-text'),
+  invited: document.getElementById('referral-invited'),
+  qualified: document.getElementById('referral-qualified'),
+  send: document.getElementById('referral-send'),
+  copy: document.getElementById('referral-copy'),
+  msg: document.getElementById('referral-msg'),
+  linkText: document.getElementById('referral-link-text'),
+  actions: document.getElementById('referral-actions')
+};
+
+let refLastRequest = 0;
+let refData = null;
+let refError = false;
+
+function validReferral(d) {
+  if (!d || typeof d !== 'object') return false;
+  if (!Number.isInteger(d.invited) || d.invited < 0) return false;
+  if (!Number.isInteger(d.qualified) || d.qualified < 0) return false;
+  if (d.link !== null && (typeof d.link !== 'string' || !d.link.startsWith('https://t.me/') || d.link.length > 400)) return false;
+  const r = d.rules;
+  if (!r || typeof r !== 'object') return false;
+  const keys = ['invitee_chips', 'inviter_chips', 'inviter_gems', 'qualify_hours', 'qualify_level', 'qualify_rounds'];
+  for (const k of keys) {
+    if (!Number.isInteger(r[k]) || r[k] <= 0) return false;
+  }
+  return true;
+}
+
+function renderReferral() {
+  if (refError) {
+    refEls.card.hidden = false;
+    refEls.text.textContent = 'Ошибка загрузки реферальных данных.';
+    refEls.actions.hidden = true;
+    refEls.linkText.hidden = true;
+    refEls.msg.hidden = false;
+    refEls.msg.textContent = '';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'action';
+    btn.textContent = 'Повторить';
+    btn.addEventListener('click', () => { refLastRequest = 0; loadReferral(); });
+    refEls.msg.appendChild(btn);
+    return;
+  }
+  if (!refData) {
+    refEls.card.hidden = true;
+    return;
+  }
+  refEls.card.hidden = false;
+  refEls.msg.hidden = true;
+  refEls.actions.hidden = false;
+  const r = refData.rules;
+  refEls.text.textContent = `Друг получит ${r.invitee_chips} фишек при первом входе. Когда он проживёт ${r.qualify_hours} ч, дойдёт до ${r.qualify_level} уровня и сыграет ${r.qualify_rounds} раундов, ты получишь ${r.inviter_chips} фишек и ${r.inviter_gems} 💎.`;
+  refEls.invited.textContent = refData.invited;
+  refEls.qualified.textContent = refData.qualified;
+
+  if (refData.link === null) {
+    refEls.actions.hidden = true;
+    refEls.linkText.hidden = false;
+    refEls.linkText.textContent = 'Ссылка приглашения пока недоступна';
+  } else {
+    refEls.actions.hidden = false;
+    refEls.linkText.hidden = true;
+    refEls.linkText.textContent = refData.link; // for fallback
+  }
+}
+
+async function loadReferral() {
+  if (!tg || !tg.initData) return;
+  const now = performance.now();
+  if (now - refLastRequest < 60000) return;
+  refLastRequest = now;
+  
+  try {
+    const res = await fetch(API_URL + '/api/referral', {
+      headers: { Authorization: 'tma ' + tg.initData },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const d = await res.json();
+    if (!validReferral(d)) throw new Error('invalid format');
+    refData = d;
+    refError = false;
+  } catch (e) {
+    refError = true;
+  }
+  renderReferral();
+}
+
+new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    if (m.type === 'attributes' && m.attributeName === 'hidden') {
+      if (!profileEls.data.parentElement.hidden) loadReferral();
+    }
+  }
+}).observe(profileEls.data.parentElement, { attributes: true });
+
+refEls.send.addEventListener('click', () => {
+  if (!refData || !refData.link) return;
+  const url = 'https://t.me/share/url?url=' + encodeURIComponent(refData.link) + '&text=' + encodeURIComponent('Заходи в Депную');
+  if (tg.openTelegramLink) {
+    tg.openTelegramLink(url);
+  } else if (tg.openLink) {
+    tg.openLink(url);
+  } else {
+    refEls.msg.hidden = false;
+    refEls.msg.textContent = 'Отправка работает только внутри Telegram';
+  }
+});
+
+function showRefMsg(text) {
+  refEls.msg.hidden = false;
+  refEls.msg.textContent = text;
+  setTimeout(() => { refEls.msg.hidden = true; }, 2000);
+}
+
+refEls.copy.addEventListener('click', async () => {
+  if (!refData || !refData.link) return;
+  try {
+    await navigator.clipboard.writeText(refData.link);
+    showRefMsg('Скопировано');
+  } catch (e) {
+    refEls.linkText.hidden = false;
+  }
+});
+// #endregion
