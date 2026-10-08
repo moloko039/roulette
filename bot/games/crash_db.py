@@ -8,7 +8,6 @@ import xp
 from core import achievements
 
 from core.db_conn import _connect
-from core import achievements
 from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, latest_row, pay_and_xp, player_view,
                                 read_state, run_action, settle_expired)
 
