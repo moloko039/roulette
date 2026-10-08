@@ -23,9 +23,9 @@ A, B, C = 900000001, 900000002, 900000003
 
 # фикстура -> таблицы, которых в той версии ещё не было (их должна добавить миграция)
 NEW_TABLES = {
-    "dbc9242": {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
-    "1e602d6": {"cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
-    "981d2c0": {"player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
+    "dbc9242": {"referral_codes", "referrals", "cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
+    "1e602d6": {"referral_codes", "referrals", "cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
+    "981d2c0": {"referral_codes", "referrals", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "achievement_progress"},
 }
 BALANCES = {A: 12345, B: 1_000_000, C: 0}
 

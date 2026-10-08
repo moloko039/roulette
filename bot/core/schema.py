@@ -510,6 +510,28 @@ def init_db(db_path=None):
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_boosts_chat ON chat_boosts(chat_instance)")
 
+        # рефералка (E5)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS referral_codes (
+                telegram_id INTEGER PRIMARY KEY,
+                code        TEXT    NOT NULL UNIQUE,
+                created_at  INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS referrals (
+                invitee_id   INTEGER PRIMARY KEY,
+                referrer_id  INTEGER NOT NULL,
+                created_at   INTEGER NOT NULL,
+                qualified_at INTEGER
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
+
         # достижения (Клуб ×1.01)
         conn.execute(
             """
