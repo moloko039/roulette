@@ -140,6 +140,9 @@ _ROWS = (
     ("mine_beetle", "mine_icons", "Жуки", "Колорадские жуки на грядке", "common", True),
     ("keno_lotto", "keno_ball", "Бочонки", "Бочонки деревенского лото", "common", True),
     ("crash_barrel", "crash", "Бочка", "Самодельная ракета из бочки", "common", True),
+    ("chip_patina", "chip", "Патина", "Засечки на ребре за каждый краш выше ×50", "common", True),
+    ("back_patina", "card_back", "Патина", "Выцветает и протирается по числу сыгранных раундов", "common", True),
+    ("mine_patina", "mine_icons", "Патина", "Трещины на поле от прошлых взрывов", "common", True),
 )
 
 CATALOG = tuple(

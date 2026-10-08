@@ -109,7 +109,7 @@ try:
     check("фишки, опыт и ставки отправителя не тронуты", sql(path, "SELECT balance, xp, total_staked FROM players WHERE telegram_id = ?", (A,))[0], before)
     check("запись подарка", sql(path, "SELECT from_user, to_user, from_name, item_code, gems FROM gifts"), [(A, B, "Алиса", "table_blue", 150)])
     mine = db.cosmetics_mine(B, db_path=path)
-    check("у получателя в списке «подарок от»", [(o["code"], o["source"], o.get("gift_from")) for o in mine["owned"]], [("table_blue", "gift", "Алиса")])
+    check("у получателя в списке «подарок от»", [(o["code"], o["source"], o.get("gift_from")) for o in mine["owned"] if not o["code"].endswith("_patina")], [("table_blue", "gift", "Алиса")])
     check("у обычной покупки поля gift_from нет", "gift_from" in db.cosmetics_mine(A, db_path=path)["owned"], False)
     res2, notice2 = db.send_gift(A, CHAT, "gift-req-000001", ref(B), "table_blue", "Алиса", now=NOW + 1, db_path=path)
     check("повтор того же request_id: тот же ответ, без нового списания и без уведомления", (res2["replayed"], notice2, db.gems_state(A, path)["gems"]), (True, None, 850))
@@ -130,7 +130,7 @@ try:
     raises(cosmetics.UnknownItem, db.send_gift, A, CHAT, "gift-req-000011", ref(C), "nope", "Алиса", now=NOW + 3, db_path=path)
     raises(cosmetics.UnknownItem, db.send_gift, A, CHAT, "gift-req-000012", ref(C), "test_1star", "Алиса", now=NOW + 3, db_path=path)
     raises(ValueError, db.send_gift, A, CHAT, "gift-req-000013", 5, "crash_neon", "Алиса", now=NOW + 3, db_path=path)
-    check("отказы ничего не списали и не создали", (db.gems_state(A, path)["gems"], sql(path, "SELECT COUNT(*) FROM gifts")[0][0], sql(path, "SELECT COUNT(*) FROM cosmetic_items")[0][0], gems_ledger_ok(path)), (g0, 1, 1, True))
+    check("отказы ничего не списали и не создали", (db.gems_state(A, path)["gems"], sql(path, "SELECT COUNT(*) FROM gifts")[0][0], sql(path, "SELECT COUNT(*) FROM cosmetic_items WHERE item_code NOT LIKE '%_patina'")[0][0], gems_ledger_ok(path)), (g0, 1, 1, True))
     # нехватка кристаллов
     path2 = new_db(gems_a=100)
     raises(wallet.InsufficientGems, db.send_gift, A, CHAT, "gift-req-000020", ref(B), "table_blue", "Алиса", now=NOW, db_path=path2)
@@ -202,7 +202,8 @@ try:
     check("выгрузка отправителя: отправленный подарок без получателя", (export_a["gifts"]["sent"][0]["item"], "Боб" in json.dumps(export_a["gifts"]), str(B) in json.dumps(export_a["gifts"])), ("crash_neon", False, False))
     db.delete_player_data(A, db_path=path)
     check("удаление отправителя: запись остаётся без его id и имени, предмет у получателя на месте", (sql(path, "SELECT from_user, from_name FROM gifts"), sql(path, "SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ?", (B,))[0][0]), ([(0, "")], 1))
-    check("после этого у получателя «подарок от» пуст, но предмет есть", db.cosmetics_mine(B, db_path=path)["owned"][0].get("gift_from"), "")
+    owned_B = [i for i in db.cosmetics_mine(B, db_path=path)["owned"] if not i["code"].endswith("_patina")]
+    check("после этого у получателя «подарок от» пуст, но предмет есть", owned_B[0].get("gift_from"), "")
     db.delete_player_data(B, db_path=path)
     check("удаление получателя: запись подарка и предметы удалены", (sql(path, "SELECT COUNT(*) FROM gifts")[0][0], sql(path, "SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ?", (B,))[0][0]), (0, 0))
     path = new_db(gems_a=500)
