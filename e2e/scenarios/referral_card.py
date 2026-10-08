@@ -30,6 +30,7 @@ async def run(w):
         window._old_fetch_ref = window.fetch;
         window.fetch = async (u, o) => {
             if (u.includes('/api/referral')) {
+                window.__refCalls = (window.__refCalls || 0) + 1;
                 return {
                     ok: true,
                     status: 200,
@@ -53,7 +54,7 @@ async def run(w):
     """)
     
     # Перемотаем время (limit 60 секунд)
-    await w.skip_time(65)
+    await p.ev('refLastRequest -= 61000')      # прошло больше минуты с прошлого запроса
     
     # Открываем профиль снова
     await p.tap("[data-tab='profile']")
@@ -75,21 +76,21 @@ async def run(w):
     
     # Проверка "Скопировать ссылку" (подменяем буфер на отказ)
     await p.ev("""
-        navigator.clipboard = {
+        Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
             writeText: () => Promise.reject(new Error("deny"))
-        };
+        }});
     """)
     await p.tap("#referral-copy")
     await p.wait("!document.getElementById('referral-link-text').hidden", 10, "текст ссылки при отказе буфера")
     check("текст ссылки", await p.ev("document.getElementById('referral-link-text').textContent"), "https://t.me/TestBot/app?startapp=ref_CODE")
     
-    # Повторный показ профиля в течение минуты не делает запрос
-    c_before = await p.ev("E.count('/api/referral')")
+    # после показа профиля с подменой запрос был ровно один; повторный показ в течение минуты нового не делает
+    check("после минуты: один запрос к подмене", await p.ev("window.__refCalls || 0"), 1)
     await p.tap("[data-tab='play']")
     await p.tap("[data-tab='profile']")
-    c_after = await p.ev("E.count('/api/referral')")
-    check("нет лишнего запроса", c_after - c_before, 0)
-    
+    await p.wait("!document.querySelector('[data-screen=profile]').hidden", 5, "профиль снова открыт")
+    check("в течение минуты нового запроса нет", await p.ev("window.__refCalls || 0"), 1)
+
     # Возвращаем fetch (не обязательно, но вежливо)
     await p.ev("window.fetch = window._old_fetch_ref;")
 

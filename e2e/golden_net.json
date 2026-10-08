@@ -249,6 +249,13 @@
 "GET /api/me",
 "GET /api/me"
 ],
+"referral_card": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/referral",
+"GET /api/streak",
+"GET /api/streak"
+],
 "resume": [
 "GET /api/me",
 "GET /api/streak",
