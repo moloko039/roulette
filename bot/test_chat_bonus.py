@@ -25,7 +25,7 @@ from economy_config import (
     CHAT_BOOST_HOURS,
     STREAK_UTC_OFFSET_HOURS,
 )
-from features.chat_bonus import get_chat_bonus, buy_chat_boost, NoChat, NotAttributed
+from core.chat_bonus import get_chat_bonus, buy_chat_boost, NoChat, NotAttributed
 
 NOW = int(time.time())
 TOKEN = "123456:TEST-TOKEN-not-real"

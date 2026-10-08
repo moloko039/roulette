@@ -34,7 +34,7 @@ def register(app, ctx):
 
     from pydantic import BaseModel
     from fastapi.responses import JSONResponse
-    from features.chat_bonus import buy_chat_boost, NoChat, NotAttributed
+    from core.chat_bonus import buy_chat_boost, NoChat, NotAttributed
     import wallet
 
     class BoostRequest(BaseModel):

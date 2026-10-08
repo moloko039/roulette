@@ -27,7 +27,7 @@ def _accrue_conn(conn, telegram_id, now):
         "SELECT rate, last_accrual, accrual_acc, storage_level FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
     if row is None:
         return 0
-    from features.chat_bonus import get_chat_bonus
+    from core.chat_bonus import get_chat_bonus
     bonus = get_chat_bonus(conn, telegram_id, now)
     eff_rate = row["rate"] * (100 + bonus["bonus_pct"]) // 100
     credit, new_last, new_acc = economy.accrue_minutes(
@@ -43,7 +43,7 @@ def _pending_accrual(row, now, conn=None, telegram_id=None):
     """Сколько было бы начислено сейчас (только расчёт, без записи): для рейтинга беседы."""
     eff_rate = row["rate"]
     if conn is not None and telegram_id is not None:
-        from features.chat_bonus import get_chat_bonus
+        from core.chat_bonus import get_chat_bonus
         eff_rate = row["rate"] * (100 + get_chat_bonus(conn, telegram_id, now)["bonus_pct"]) // 100
     return economy.accrue_minutes(row["last_accrual"], row["accrual_acc"], now, eff_rate,
                                   farm.storage_hours(row["storage_level"]))[0]

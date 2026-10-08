@@ -10,7 +10,7 @@ import db
 import economy
 import farm
 from db import (active_game_of, cosmetics_state, gems_state, get_player, settle_expired_blackjack, settle_expired_crash, settle_expired_hilo, settle_expired_mines, touch_chat_member)
-from features.chat_bonus import get_chat_bonus
+from core.chat_bonus import get_chat_bonus
 from levels import profile_level
 from web.http import _in_group
 
