@@ -15,6 +15,13 @@ COLLECTIONS = {
         "season": ("2026-10-01", "2026-10-31"),          # московские даты включительно
         "how": "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре",
     },
+    "dacha": {
+        "name": "Дачный сезон",
+        "parts": ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel"),
+        "source": "farm",
+        "season": None,
+        "how": "За улучшения дохода фермы",
+    },
 }
 
 PART_TO_COLLECTION = {part: code for code, c in COLLECTIONS.items() for part in c["parts"]}
@@ -45,6 +52,8 @@ def _day(text):
 
 def season_active(code, day_index):
     """Идёт ли сезон коллекции в «день» day_index (московская дата как число дней с 1970-01-01)."""
+    if COLLECTIONS[code]["season"] is None:
+        return True
     start, end = COLLECTIONS[code]["season"]
     return _day(start) <= day_index <= _day(end)
 
@@ -60,7 +69,7 @@ def progress(owned_codes):
     out = []
     for code, c in COLLECTIONS.items():
         have = sum(1 for p in c["parts"] if p in owned)
-        out.append({"code": code, "name": c["name"], "how": c["how"], "season": list(c["season"]), "parts": list(c["parts"]),
+        out.append({"code": code, "name": c["name"], "how": c["how"], "season": list(c["season"]) if c["season"] else None, "parts": list(c["parts"]),
                     "owned": have, "total": len(c["parts"]), "complete": have == len(c["parts"])})
     return out
 
