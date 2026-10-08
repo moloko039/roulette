@@ -268,8 +268,8 @@ try:
     # ================= db: удаление =================
     seed(path)
     init_db(path)
-    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 1, "achievement_progress": 0})
-    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0, "achievement_progress": 0})
+    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 1, "achievement_progress": 0, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
+    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "crash_games": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0, "achievement_progress": 0, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
     check("другие не затронуты", counts(path, ME)[0], 1)
 
     # ================= логи =================

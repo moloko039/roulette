@@ -446,3 +446,18 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Группа write. Тело: `{"request_id", "ref", "item_code"}`. 200: `{"item_code", "price": {"currency": "gems", "amount"}, "recipient" (имя), "gems" (кристаллы отправителя после), "daily_left", "replayed"}`. Одна транзакция: проверки до списания, `wallet.gems_debit` (причина `gift_purchase`), запись `gifts`, выдача предмета получателю (источник `gift`). Идемпотентно по `request_id`.
 Ошибки: 400 `invalid_request`; 404 `unknown_item`, `unknown_recipient` (метка не найдена в этой беседе или у участника нет профиля); 409 `no_chat`, `not_in_chat`, `self_gift`, `not_for_gems`, `item_unavailable`, `already_owned`, `daily_limit`, `insufficient_gems`, `request_conflict`; 429. Примеры: `docs/examples/gifts.json`.
 
+
+## Реферальная система (E5)
+Приглашённые игроки регистрируются по ссылке; пригласивший получает бонус с их ставок (считается асинхронно). Ссылка приложения и код приглашения не меняются.
+
+### GET /api/referral
+Группа read. Получение своей реферальной ссылки и статистики приглашённых. 200 (все ключи всегда):
+| Поле | Тип | Значение |
+|---|---|---|
+| link | str\|null | ссылка вида `https://t.me/Bot/app?startapp=ref_КОД`; null, если базовая ссылка в настройках не задана |
+| invited | int | сколько всего игроков привязаны по вашей ссылке |
+| qualified | int | сколько из них прошли квалификацию (достигли порога ставок) |
+
+## Выгрузка данных (/mydata)
+Бот отправляет JSON-файл `mydata.json` со всеми собранными данными игрока. Новое поле `referral` содержит статистику по приглашениям:
+`"referral": {"invited_by_someone": bool, "invited_count": int, "qualified_count": int}` (без чужих идентификаторов и без самого кода).
