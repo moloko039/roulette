@@ -47,7 +47,7 @@ async def run(w):
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, (%s)(c.querySelector('.wd-status').textContent), c.getBoundingClientRect().height])" % n
     await p.tap("#wd-tabs .wd-tab:nth-child(8)")
     got = await p.ev(cards)
-    check("слот «Значок»: цена из каталога вместо «Не получено», «Скоро» без цены", [[c[0], c[1]] for c in got], [["Без значка", "Надето"], ["Пика", "20 000 фишек"], ["Пламя", "Скоро"]])
+    check("слот «Значок»: цена из каталога вместо «Не получено», «Скоро» без цены", [[c[0], c[1]] for c in got], [["Без значка", "Надето"], ["Пика", "20 000 фишек"], ["Пламя", "Скоро"], ["Черновик", "100 кристаллов"], ["Пустота", "150 кристаллов"]])
     check("размеры карточек не зависят от статуса", len({c[2] for c in got}), 1)
     check("в клиенте нет цен: подписи берутся из ответа каталога", await p.ev("typeof WD_PRICES === 'undefined' && !/20000|40000|60000|100000/.test(String(wdNormalizeCatalog) + String(wdPriceText))"), True)
     # подтверждение
