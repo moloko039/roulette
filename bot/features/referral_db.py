@@ -10,7 +10,7 @@ import levels
 from features.streak_db import _free_gems_used
 
 # Завершённые раунды игрока по всем играм (квалификация приглашённого): разовые игры завершены всегда, у партий считаются только закрытые (finished_at)
-_ROUND_COUNT_SQL = (
+ROUND_COUNT_SQL = _ROUND_COUNT_SQL = (
     "SELECT COUNT(*) FROM roulette_rounds WHERE telegram_id = ?",
     "SELECT COUNT(*) FROM keno_rounds WHERE telegram_id = ?",
     "SELECT COUNT(*) FROM slot_rounds WHERE telegram_id = ?",

@@ -106,7 +106,7 @@ def player(path, uid):
 
 
 def owned(path, uid):
-    return sorted(r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (uid,)))
+    return sorted(r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina'", (uid,)))
 
 
 # ---------- поддельный Telegram ----------
@@ -292,7 +292,7 @@ try:
     sql(path, "UPDATE players SET balance = 10 WHERE telegram_id = ?", (B,))
     check("API: нехватка фишек", (lambda x: (x.status_code, x.json()))(post(B, "buy", {"request_id": rid(), "item_code": "chip_ring"})), (409, {"detail": "insufficient_chips"}))
     check("без подписи", client.post("/api/cosmetics/buy", json={"request_id": rid(), "item_code": "chip_ring"}).status_code, 401)
-    check("покупка видна в /mine и не меняет игровые поля /api/me", (client.get("/api/cosmetics/mine", headers=auth(A)).json()["owned"][0]["source"],
+    check("покупка видна в /mine и не меняет игровые поля /api/me", ([o["source"] for o in client.get("/api/cosmetics/mine", headers=auth(A)).json()["owned"] if not o["code"].endswith("_patina")][0],
                                                                    client.get("/api/me", headers=auth(A)).json()["level"]), ("chips", 3))
     # ---- счета на предметы за Stars больше не создаются (E2): за Stars покупаются кристаллы ----
     body = {"request_id": "api-inv-000001", "item_code": "table_blue"}
@@ -418,7 +418,7 @@ try:
     check("pre_checkout тестового инвойса", pre_checkout(fake, OWNER, inv["payload"], amount=1), [(True, None)])
     paid(fake, OWNER, inv["payload"], "chg-test-1", amount=1)
     check("после оплаты запись обычная, предмет скрыт для клиента", (sql(path, "SELECT status, amount_stars FROM cosmetic_purchases WHERE charge_id = 'chg-test-1'"), owned(path, OWNER),
-                                                                   [o["code"] for o in db.cosmetics_mine(OWNER, db_path=path)["owned"]]), ([("paid", 1)], ["test_1star"], []))
+                                                                   [o["code"] for o in db.cosmetics_mine(OWNER, db_path=path)["owned"] if not o["code"].endswith("_patina")]), ([("paid", 1)], ["test_1star"], []))
     raises(cosmetics.UnknownItem, db.equip_item, OWNER, rid(), "badge", "test_1star", now=NOW + 900, db_path=path)      # надеть нельзя
     command(bot.refund, fake, ["chg-test-1"])
     check("возврат тестового платежа через /refund", (owned(path, OWNER), fake.refunds[-1]), ([], (OWNER, "chg-test-1")))
