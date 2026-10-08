@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/02-shell.css?v=4a4fbd3b">
   <link rel="stylesheet" href="css/03-table-bets.css?v=f63bad00">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
-  <link rel="stylesheet" href="css/05-profile-rating.css?v=d6419168">
+  <link rel="stylesheet" href="css/05-profile-rating.css?v=f49301b2">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=3c32beb2">
   <link rel="stylesheet" href="css/07-keno.css?v=03063a87">
   <link rel="stylesheet" href="css/08-blackjack.css?v=16e156c1">
@@ -94,6 +94,13 @@
   <section class="screen profile rating" data-screen="rating" hidden>
     <h2 id="rating-title">Рейтинг</h2>
     <div class="rating-card" id="rating-card" hidden>
+      <div class="chat-level-wrap" id="chat-level-wrap" hidden>
+        <div class="chat-level-head">
+          <strong class="chat-level-title" id="chat-level-title"></strong>
+          <span class="chat-level-score" id="chat-level-score"></span>
+        </div>
+        <div class="chat-level-bar" id="chat-level-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Прогресс уровня беседы"><div class="chat-level-bar-fill" id="chat-level-bar-fill"></div></div>
+      </div>
       <ol class="rating-list" id="rating-list"></ol>
       <div class="rating-total" id="rating-total" hidden></div>
       <div class="rating-me" id="rating-me"></div>
@@ -618,7 +625,7 @@
   <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
   <script src="js/04-profile.js?v=37a599c3"></script>
-  <script src="js/05-rating.js?v=a8f5b7d4"></script>
+  <script src="js/05-rating.js?v=ffb8010a"></script>
   <script src="js/06-farm.js?v=231e573c"></script>
   <script src="js/07-mines.js?v=32fadb6a"></script>
   <script src="js/08-keno.js?v=e8d2f354"></script>
