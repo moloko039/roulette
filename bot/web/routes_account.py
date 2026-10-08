@@ -10,6 +10,7 @@ import db
 import economy
 import farm
 from db import (active_game_of, cosmetics_state, gems_state, get_player, settle_expired_blackjack, settle_expired_crash, settle_expired_hilo, settle_expired_mines, touch_chat_member)
+from features.chat_bonus import get_chat_bonus
 from levels import profile_level
 from web.http import _in_group
 
@@ -69,4 +70,5 @@ def register(app, ctx):
             "active_game": active_game_of(user_id, db_path=db_path),   # "mines" | "blackjack" | "crash" | "hilo" | null
             "gems": gems_state(user_id, db_path=db_path)["gems"],   # кристаллы (премиум-валюта, план экономики E2)
             "cosmetics": cosmetics_state(user_id, db_path=db_path),   # только внешний вид: {equipped: {слот: код}, show_in_rating}
+            "chat": get_chat_bonus(None, user_id, now=now, db_path=db_path) if _in_group(info) else {"in_chat": False, "bonus_pct": 0, "active_today": 0, "boost_until": None, "boost_gems": 50},
         }

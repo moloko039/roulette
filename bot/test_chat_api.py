@@ -65,7 +65,7 @@ try:
 
     # ---------- /api/me записывает участника только из групп ----------
     r = me(1, chat_type="group", first_name="Аня")
-    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "gems", "cosmetics"})
+    check("/api/me без изменений", set(r.json()), {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "gems", "cosmetics", "chat"})
     me(2, chat_type="supergroup", first_name="Боря")
     me(3, chat_type="private")
     me(4, chat_type="sender")
@@ -93,7 +93,7 @@ try:
     # ошибка записи не ломает /api/me
     with mock.patch("web.routes_account.touch_chat_member", side_effect=RuntimeError("boom")):
         r = me(1, chat_type="group")
-    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "gems", "cosmetics"}))
+    check("ошибка записи", (r.status_code, set(r.json())), (200, {"balance", "rate", "seconds_to_next", "level", "income_level", "storage_level", "farm", "active_game", "gems", "cosmetics", "chat"}))
 
     # ---------- /api/chat/top: нет беседы ----------
     for kw in [{"chat_type": "private"}, {"chat_type": "sender"}, {"chat_type": "channel"},

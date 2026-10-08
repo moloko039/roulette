@@ -1,5 +1,5 @@
 {
-  "_comment": "Примеры ответов GET /api/me (значения-заглушки). test_api_contract.py сверяет с ними форму настоящего ответа; мок клиента строится из этого же файла.",
+  "_comment": "\u041f\u0440\u0438\u043c\u0435\u0440\u044b \u043e\u0442\u0432\u0435\u0442\u043e\u0432 GET /api/me (\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f-\u0437\u0430\u0433\u043b\u0443\u0448\u043a\u0438). test_api_contract.py \u0441\u0432\u0435\u0440\u044f\u0435\u0442 \u0441 \u043d\u0438\u043c\u0438 \u0444\u043e\u0440\u043c\u0443 \u043d\u0430\u0441\u0442\u043e\u044f\u0449\u0435\u0433\u043e \u043e\u0442\u0432\u0435\u0442\u0430; \u043c\u043e\u043a \u043a\u043b\u0438\u0435\u043d\u0442\u0430 \u0441\u0442\u0440\u043e\u0438\u0442\u0441\u044f \u0438\u0437 \u044d\u0442\u043e\u0433\u043e \u0436\u0435 \u0444\u0430\u0439\u043b\u0430.",
   "no_active_game": {
     "balance": 1000,
     "rate": 100,
@@ -28,7 +28,14 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   },
   "active_mines": {
     "balance": 900,
@@ -58,7 +65,14 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   },
   "active_blackjack": {
     "balance": 900,
@@ -88,7 +102,14 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   },
   "active_crash": {
     "balance": 900,
@@ -118,7 +139,14 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   },
   "incoming_transfer": {
     "balance": 1000,
@@ -148,7 +176,14 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   },
   "owner": {
     "balance": 1000,
@@ -178,6 +213,13 @@
       },
       "show_in_rating": true
     },
-    "gems": 0
+    "gems": 0,
+    "chat": {
+      "in_chat": false,
+      "bonus_pct": 0,
+      "active_today": 0,
+      "boost_until": null,
+      "boost_gems": 50
+    }
   }
 }

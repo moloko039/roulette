@@ -100,7 +100,7 @@ def blackjack_start(telegram_id, request_id, bet, now=None, db_path=None, rng=No
         if _bj_active(conn, telegram_id) is not None:
             raise blackjack.ActiveGameExists()
         wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
-        add_staked(conn, telegram_id, bet)
+        add_staked(conn, telegram_id, bet, now)
         state = blackjack.start(bet, blackjack.new_shoe(rng))
         cur = conn.execute(
             "INSERT INTO blackjack_games (telegram_id, bet, wager, deck_json, deck_pos, player_json, dealer_json, "
@@ -132,7 +132,7 @@ def blackjack_action(telegram_id, request_id, action, now=None, db_path=None):
             if not blackjack.can_double(state):
                 raise blackjack.InvalidAction()
             wallet.debit(conn, telegram_id, state["bet"])
-            add_staked(conn, telegram_id, state["bet"])
+            add_staked(conn, telegram_id, state["bet"], now)
         blackjack.act(state, action)
         if state["status"] == "finished":
             _bj_finish(conn, telegram_id, row["id"], state, now_)

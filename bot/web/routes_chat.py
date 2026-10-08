@@ -31,3 +31,32 @@ def register(app, ctx):
         if not _in_group(info):
             return {"scope": "none"}
         return chat_best_wins(info["chat_instance"], info["user_id"], db_path=db_path)
+
+    from pydantic import BaseModel
+    from fastapi.responses import JSONResponse
+    from features.chat_bonus import buy_chat_boost, NoChat, NotAttributed
+    import wallet
+
+    class BoostRequest(BaseModel):
+        request_id: str
+
+    @app.post("/api/chat/boost")
+    def chat_boost_endpoint(req: BoostRequest, authorization: str = Header(default=None)):
+        info = ctx.auth_full(authorization)
+        limited = throttled(info["user_id"], "write")
+        if limited is not None:
+            return limited
+
+        if not _in_group(info):
+            return JSONResponse({"detail": "no_chat"}, status_code=409)
+
+        try:
+            res = buy_chat_boost(info["user_id"], req.request_id, info["chat_instance"], db_path=db_path)
+            return res
+        except NotAttributed:
+            return JSONResponse({"detail": "not_attributed"}, status_code=409)
+        except NoChat:
+            return JSONResponse({"detail": "no_chat"}, status_code=409)
+        except wallet.InsufficientGems:
+            return JSONResponse({"detail": "insufficient_gems"}, status_code=409)
+

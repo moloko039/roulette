@@ -109,6 +109,10 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
                 (telegram_id,),
             ).fetchall()
+            chat_boost_rows = conn.execute(
+                "SELECT created_at FROM chat_boosts WHERE telegram_id = ? ORDER BY id",
+                (telegram_id,),
+            ).fetchall()
         finally:
             conn.execute("COMMIT")
     finally:
@@ -193,6 +197,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         ],
         "chats": [{"first_seen": c["first_seen"], "last_seen": c["last_seen"], "name": c["first_name"]}
                   for c in chats],
+        "chat_boosts": [{"time": r["created_at"], "gems": 50} for r in chat_boost_rows],
     }
 
 
@@ -256,6 +261,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             # подарки: полученные удаляются вместе с предметом; отправленные остаются у получателя без имени дарителя (предмет подарен, имя и id отправителя стираются)
             conn.execute("DELETE FROM gifts WHERE to_user = ?", (telegram_id,))
             conn.execute("UPDATE gifts SET from_user = 0, from_name = '' WHERE from_user = ?", (telegram_id,))
+            conn.execute("DELETE FROM chat_boosts WHERE telegram_id = ?", (telegram_id,))
             if counts["players"] > 0:
                 conn.execute(
                     "INSERT OR REPLACE INTO deletion_tombstones (key_hash, deleted_at) VALUES (?, ?)",

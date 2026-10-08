@@ -339,7 +339,7 @@ for phrase in (
 ):
     assert phrase in page, "нет фразы: " + phrase[:50]
 assert "и для вас будет создана новая запись" not in page, "старая фраза осталась"
-assert "Дата последнего обновления: 7 октября 2026 г." in page
+assert "Дата последнего обновления: 8 октября 2026 г." in page
 
 # ---------- логи ----------
 root.removeHandler(cap)

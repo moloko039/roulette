@@ -178,7 +178,7 @@ def hilo_guess(telegram_id, request_id, choice, now=None, db_path=None, rng=None
         if k >= hilo.RANKS:
             raise hilo.MoveForbidden()
         if not row["staked_counted"]:
-            add_staked(conn, telegram_id, row["bet"])
+            add_staked(conn, telegram_id, row["bet"], now)
             conn.execute("UPDATE hilo_games SET staked_counted = 1 WHERE id = ?", (row["id"],))
         new_rank, new_suit = hilo.draw_card(rng)
         after = m * hilo.step_multiplier(k)

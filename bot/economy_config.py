@@ -65,9 +65,18 @@ GEM_REASONS = {
     "chip_purchase": "sink",        # покупка пакета фишек за кристаллы
     "gift_purchase": "sink",        # подарок предмета другому игроку за кристаллы
     "streak_gems": "source",        # кристаллы седьмого дня серии входов (бесплатные, с месячным потолком)
+    "boost_purchase": "sink",       # покупка буста беседы
     "refund": "sink",               # возврат пакета (кристаллы убираются)
 }
 
 # Возврат пакета: разрешён, пока кристаллы этого платежа не потрачены (после платежа не было ни одного списания и баланс не меньше пакета);
 # иначе решает владелец (`/refund <платёж> force`).
 REFUND_RULE = "unspent_only"
+
+# Беседа (E4): множитель фермы и бусты кристаллами.
+CHAT_BONUS_PER_PLAYER_PCT = 2
+CHAT_BONUS_MAX_PCT = 20
+CHAT_BOOST_GEMS = 50
+CHAT_BOOST_PCT = 5
+CHAT_BOOST_HOURS = 24
+CHAT_BOOST_MAX_PCT = 25

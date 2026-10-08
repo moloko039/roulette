@@ -23,9 +23,9 @@ A, B, C = 900000001, 900000002, 900000003
 
 # фикстура -> таблицы, которых в той версии ещё не было (их должна добавить миграция)
 NEW_TABLES = {
-    "dbc9242": {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts"},
-    "1e602d6": {"cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts"},
-    "981d2c0": {"player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts"},
+    "dbc9242": {"cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts"},
+    "1e602d6": {"cosmetic_purchases", "player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts"},
+    "981d2c0": {"player_best_win", "slot_rounds", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts"},
 }
 BALANCES = {A: 12345, B: 1_000_000, C: 0}
 
@@ -73,11 +73,16 @@ try:
         after = snapshot(conn, old_tables)
         conn.close()
         for t in old_tables:
-            check("%s: строки таблицы %s не изменились (балансы, опыт, ставки и остальное)" % (commit, t), after[t], before[t])
+            if t == "players":
+                # добавилась колонка last_played_at = 0
+                expected = [r + (0,) for r in before[t]]
+            else:
+                expected = before[t]
+            check("%s: строки таблицы %s не изменились (балансы, опыт, ставки и остальное)" % (commit, t), after[t], expected)
         check("%s: балансы на месте" % commit, dict(sql(path, "SELECT telegram_id, balance FROM players")), BALANCES)
         db.init_db(path)
         conn = sqlite3.connect(path)
-        check("%s: повторная миграция ничего не меняет" % commit, snapshot(conn, old_tables), before)
+        check("%s: повторная миграция ничего не меняет" % commit, snapshot(conn, old_tables), after)
         check("%s: индекс chat_members(telegram_id) создан миграцией старой базы" % commit,
               [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'chat_members' AND name = 'idx_chat_members_telegram'")], ["idx_chat_members_telegram"])
         check("%s: индекс по столбцам (telegram_id, last_seen)" % commit, [r[2] for r in conn.execute("PRAGMA index_info(idx_chat_members_telegram)")], ["telegram_id", "last_seen"])
