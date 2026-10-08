@@ -290,6 +290,22 @@
 "POST /api/roulette/spin {\"bets\":[{\"amount\":10,\"type\":\"number\",\"value\":17}],\"request_id\":\"<rid:36>\"}",
 "GET /api/me"
 ],
+"set_buy": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients",
+"POST /api/cosmetics/buy-set {\"request_id\":\"<rid:36>\",\"set_code\":\"draft\"}",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients"
+],
 "shared_core": [
 "GET /api/me",
 "GET /api/streak",
