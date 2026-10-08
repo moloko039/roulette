@@ -13,7 +13,9 @@ SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "
          ("card_back", "back_leaves", "back_classic"), ("table", "table_autumn", "table_green"), ("mine_icons", "mine_acorn", "mine_classic"),     # части коллекции «Листопад»
          ("crash", "draft_crash", "crash_line"), ("mine_icons", "draft_mines", "mine_classic"), ("table", "draft_table", "table_green"),
          ("badge", "draft_badge", "badge_none"), ("table", "void_table", "table_green"), ("chip", "void_chip", "chip_plain"),
-         ("badge", "void_badge", "badge_none")]     # наборы за кристаллы: Черновик, Пустота
+         ("badge", "void_badge", "badge_none"),
+         ("card_back", "back_rug", "back_classic"), ("chip", "chip_cork", "chip_plain"), ("table", "table_oilcloth", "table_green"),
+         ("mine_icons", "mine_beetle", "mine_classic"), ("keno_ball", "keno_lotto", "keno_round"), ("crash", "crash_barrel", "crash_line")]     # наборы за кристаллы: Черновик, Пустота, Дачный сезон
 
 # (пара, цвет A, цвет B, режим): режим «>=3» требует контраст не ниже 3:1; «shape» только документирует, чем пара различается (текст)
 PAIRS = {
