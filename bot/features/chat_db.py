@@ -141,7 +141,8 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
                   "level": profile_level(e[5])}
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
-    return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked}
+    set_names = {code: c["name"] for code, c in cosmetic_sets.COLLECTIONS.items()}
+    return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked, "set_names": set_names}
 
 
 def chat_best_wins(chat_instance, telegram_id, db_path=None):

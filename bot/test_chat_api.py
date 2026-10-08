@@ -113,6 +113,8 @@ try:
     check("порядок", [(e["rank"], e["name"], e["balance"], e["is_me"]) for e in body["top"]],
           [(1, "P102", 3000, False), (2, "P103", 2000, True), (3, "P101", 1500, False)])
     check("me", body["me"], {"rank": 2, "balance": 2000, "total": 3, "staked": 0, "level": 1})
+    check("set_names содержит leaves", "leaves" in body["set_names"], True)
+    check("set_names значение leaves", body["set_names"]["leaves"], "Листопад")
 
     # другой chat_instance не видит этих игроков
     r = top(999, chat_instance="chat-OTHER", first_name="Чужой")
@@ -178,7 +180,7 @@ try:
     body = r.json()
     check("поля записи", sorted(body["top"][0]), ["balance", "complete_sets", "cosmetics", "is_me", "level", "name", "rank", "staked"])
     check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])
-    check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "top"])
+    check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "set_names", "top"])
 
     # ---------- полная коллекция «Листопад» и скрытый показ ----------
     # игрок 987654321 собирает Листопад: back_leaves, table_autumn, mine_acorn

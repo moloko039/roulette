@@ -174,14 +174,14 @@ async function loadBestWins() {
   }
 }
 
-const SET_NAMES = { leaves: 'Листопад' };
+let ratingSetNames = {};
 
 function ratingSetBadge(sets) {
   if (!Array.isArray(sets) || sets.length === 0) return null;
   const el = document.createElement('span');
   el.className = 'rating-set-badge';
   el.textContent = 'коллекция';
-  const title = sets.map((c) => SET_NAMES[c] || c).join(', ');
+  const title = sets.map((c) => ratingSetNames[c] || c).join(', ');
   if (title) el.title = title;
   return el;
 }
@@ -203,6 +203,7 @@ function showRating(d) {
   ratingEls.retry.hidden = true;
   ratingHasData = true;
   ratingLast = d;
+  if (d.set_names) ratingSetNames = d.set_names;
   if (d.scope === 'none') {
     ratingEls.card.hidden = true;
     bestEls.card.hidden = true;
