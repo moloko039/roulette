@@ -155,6 +155,51 @@
   background: var(--surface);
 }
 
+.chat-level-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-level-wrap[hidden] { display: none; }
+
+.chat-level-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.chat-level-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chat-level-score {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chat-level-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.chat-level-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s ease-out;
+}
+
 .rating-list {
   min-height: 0;
   max-height: min(340px, 50vh);

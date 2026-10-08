@@ -221,7 +221,7 @@ try:
     r = client.get("/api/chat/top", headers=auth(101, name="P1"))
     check("200", r.status_code, 200)
     body = r.json()
-    check("поля ответа", sorted(body), ["chat_level", "chat_points", "chat_staked", "me", "scope", "set_names", "top"])
+    check("поля ответа", sorted(body), ["chat_level", "chat_next_points", "chat_points", "chat_staked", "me", "scope", "set_names", "top"])
     check("chat_staked беседы A (включая не попавших в топ-10)", body["chat_staked"], expected_a)
     check("в топе 10", len(body["top"]), 10)
     check("порядок прежний", [e["name"] for e in body["top"]],

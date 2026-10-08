@@ -95,6 +95,14 @@ def chat_level(points):
     return level
 
 
+def chat_next_points(points):
+    """Возвращает количество очков для следующего уровня или None для максимального."""
+    for threshold in CHAT_LEVEL_THRESHOLDS:
+        if points < threshold:
+            return threshold
+    return None
+
+
 def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     """Рейтинг беседы: до 10 лучших и позиция вызвавшего.
 
@@ -154,13 +162,18 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
     set_names = {code: c["name"] for code, c in cosmetic_sets.COLLECTIONS.items()}
+    
+    chat_points = chat_staked
+    next_points = chat_next_points(chat_points)
+
     return {
         "scope": "chat",
         "top": top,
         "me": me,
         "chat_staked": chat_staked,
         "chat_level": chat_level(chat_staked),
-        "chat_points": chat_staked,
+        "chat_points": chat_points,
+        "chat_next_points": next_points,
         "set_names": set_names
     }
 

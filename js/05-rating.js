@@ -196,6 +196,13 @@ function levelBadge(level) {
 
 const CROWN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>';
 
+function validChatLevel(d) {
+  return d && typeof d === 'object' && d.scope === 'chat' && 
+         Number.isInteger(d.chat_level) && d.chat_level >= 1 && d.chat_level <= 10 &&
+         Number.isInteger(d.chat_points) && d.chat_points >= 0 &&
+         (d.chat_next_points === null || Number.isInteger(d.chat_next_points));
+}
+
 function showRating(d) {
   ratingEls.skel.hidden = true;
   ratingEls.msg.textContent = '';
@@ -211,6 +218,31 @@ function showRating(d) {
     ratingEls.msg.textContent = 'Рейтинг работает в беседах. Откройте игру по ссылке из группового чата, и здесь появится рейтинг участников. Бусты беседы и бонус беседы к ферме работают только когда игра открыта из группового чата: из личного чата они не действуют.';
     return;
   }
+  
+  const wrap = document.getElementById('chat-level-wrap');
+  if (validChatLevel(d)) {
+    const title = document.getElementById('chat-level-title');
+    const score = document.getElementById('chat-level-score');
+    const bar = document.getElementById('chat-level-bar');
+    const fill = document.getElementById('chat-level-bar-fill');
+    
+    title.textContent = 'Беседа: уровень ' + d.chat_level;
+    if (d.chat_next_points === null) {
+      score.textContent = 'Максимальный уровень';
+      bar.setAttribute('aria-valuenow', '100');
+      fill.style.width = '100%';
+    } else {
+      score.textContent = formatNumber(d.chat_points) + ' из ' + formatNumber(d.chat_next_points) + ' очков';
+      let progress = (d.chat_points / d.chat_next_points) * 100;
+      if (progress > 100) progress = 100;
+      bar.setAttribute('aria-valuenow', Math.floor(progress));
+      fill.style.width = progress + '%';
+    }
+    wrap.hidden = false;
+  } else {
+    wrap.hidden = true;
+  }
+
   ratingEls.title.textContent = 'Рейтинг беседы';
   ratingEls.list.textContent = '';
   d.top.forEach((e) => {

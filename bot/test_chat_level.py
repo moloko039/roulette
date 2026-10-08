@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 import time
 
-from features.chat_db import chat_level, chat_top
+from features.chat_db import chat_level, chat_top, chat_next_points
 from core.db_conn import _connect
 from db import init_db
 
@@ -33,6 +33,28 @@ def test_chat_level_bounds():
     check("уровень 15_000_000", chat_level(15_000_000), 10)
     check("уровень 100_000_000", chat_level(100_000_000), 10)
 
+    # chat_next_points
+    check("0 очков", chat_next_points(0), 10_000)
+    check("9_999", chat_next_points(9_999), 10_000)
+    check("10_000", chat_next_points(10_000), 25_000)
+    check("24_999", chat_next_points(24_999), 25_000)
+    check("25_000", chat_next_points(25_000), 60_000)
+    check("59_999", chat_next_points(59_999), 60_000)
+    check("60_000", chat_next_points(60_000), 150_000)
+    check("149_999", chat_next_points(149_999), 150_000)
+    check("150_000", chat_next_points(150_000), 400_000)
+    check("399_999", chat_next_points(399_999), 400_000)
+    check("400_000", chat_next_points(400_000), 1_000_000)
+    check("999_999", chat_next_points(999_999), 1_000_000)
+    check("1_000_000", chat_next_points(1_000_000), 2_500_000)
+    check("2_499_999", chat_next_points(2_499_999), 2_500_000)
+    check("2_500_000", chat_next_points(2_500_000), 6_000_000)
+    check("5_999_999", chat_next_points(5_999_999), 6_000_000)
+    check("6_000_000", chat_next_points(6_000_000), 15_000_000)
+    check("14_999_999", chat_next_points(14_999_999), 15_000_000)
+    check("15_000_000", chat_next_points(15_000_000), None)
+    check("100_000_000", chat_next_points(100_000_000), None)
+
 def test_chat_top_includes_level_and_points():
     fd, path = tempfile.mkstemp()
     os.close(fd)
@@ -51,6 +73,7 @@ def test_chat_top_includes_level_and_points():
         check("scope", res['scope'], 'chat')
         check("chat_staked", res['chat_staked'], 25000)
         check("chat_points", res['chat_points'], 25000)
+        check("chat_next_points", res['chat_next_points'], 60000)
         check("chat_level (points)", res['chat_level'], 3)
         check("chat_level (func)", res['chat_level'], chat_level(res['chat_staked']))
     finally:
