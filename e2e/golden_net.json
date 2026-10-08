@@ -258,6 +258,18 @@
 "POST /api/mines/start {\"bet\":100,\"mines\":3,\"request_id\":\"<rid:36>\"}",
 "POST /api/mines/reveal {\"cell\":0,\"request_id\":\"<rid:36>\"}"
 ],
+"patina_apply": [
+"GET /api/me",
+"GET /api/streak",
+"GET /api/me",
+"GET /api/streak",
+"GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/gems/packs",
+"GET /api/chips/packs",
+"GET /api/gifts/recipients",
+"POST /api/cosmetics/equip {\"code\":\"back_patina\",\"request_id\":\"<rid:36>\",\"slot\":\"card_back\"}"
+],
 "post_body_abort": [
 "GET /api/me",
 "GET /api/streak",

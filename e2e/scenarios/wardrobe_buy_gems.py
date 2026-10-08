@@ -57,4 +57,4 @@ async def run(w):
     check("нехватка: понятный текст со сколько не хватает и подсказкой", await p.ev("(%s)(document.getElementById('wd-prev-msg').textContent)" % NBSP),
           "Не хватает 50 кристаллов. Их можно купить на странице «Кристаллы»")
     check("нехватка: в базе ничего не изменилось", [w.sql_value("SELECT gems FROM gem_balances WHERE telegram_id = ?", (uid,)),
-                                                    w.sql_value("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ?", (uid,))], [50, 1])
+                                                    w.sql_value("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina'", (uid,))], [50, 1])      # три бесплатные патины выдаются при открытии гардероба: они не покупка

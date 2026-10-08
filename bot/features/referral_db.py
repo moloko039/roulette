@@ -7,18 +7,9 @@ from core.db_conn import _connect
 import wallet
 import economy_config
 import levels
+from features.round_counts import ROUND_COUNT_SQL
 from features.streak_db import _free_gems_used
 
-# Завершённые раунды игрока по всем играм (квалификация приглашённого): разовые игры завершены всегда, у партий считаются только закрытые (finished_at)
-ROUND_COUNT_SQL = _ROUND_COUNT_SQL = (
-    "SELECT COUNT(*) FROM roulette_rounds WHERE telegram_id = ?",
-    "SELECT COUNT(*) FROM keno_rounds WHERE telegram_id = ?",
-    "SELECT COUNT(*) FROM slot_rounds WHERE telegram_id = ?",
-    "SELECT COUNT(*) FROM mines_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
-    "SELECT COUNT(*) FROM blackjack_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
-    "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
-    "SELECT COUNT(*) FROM hilo_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
-)
 _CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 CODE_LENGTH = 10
 
@@ -89,7 +80,7 @@ def check_qualification(invitee_id, now=None, db_path=None):
                 return
             
             total_rounds = 0
-            for query in _ROUND_COUNT_SQL:
+            for query in ROUND_COUNT_SQL:
                 total_rounds += conn.execute(query, (invitee_id,)).fetchone()[0]
                 if total_rounds >= economy_config.REFERRAL_QUALIFY_ROUNDS:
                     break

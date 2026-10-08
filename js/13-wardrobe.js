@@ -454,18 +454,26 @@ async function wdAct(path, body, validate, onOk) {
   renderWardrobe();
 }
 
-function wdApplyEquipped(equipped) {
+function wdApplyEquipped(equipped, patina) {
   wd.mine.equipped = wdNormalizeEquipped(equipped);
-  applySkins(wd.mine.equipped);
-  setOwnCosmetics({ equipped: wd.mine.equipped });
+  if (patina && typeof patina === 'object') {          // стадии износа надетых вещей приходят в ответе на надевание (как cosmetics.patina в /api/me)
+    ownPatina = {};
+    for (const [k, v] of Object.entries(patina)) {
+      if (Number.isInteger(v) && v >= 0 && v <= 4) ownPatina[k] = v;
+    }
+  } else {
+    ownPatina = {};
+  }
+  applySkins(wd.mine.equipped, ownPatina);
+  setOwnCosmetics({ equipped: wd.mine.equipped, patina: ownPatina });
 }
 
 function wdEquip(item) {
-  wdAct('/api/cosmetics/equip', { slot: item.slot, code: item.code }, validWdEquip, (d) => wdApplyEquipped(d.equipped));
+  wdAct('/api/cosmetics/equip', { slot: item.slot, code: item.code }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina));
 }
 
 function wdUnequip(item) {
-  wdAct('/api/cosmetics/unequip', { slot: item.slot }, validWdEquip, (d) => wdApplyEquipped(d.equipped));
+  wdAct('/api/cosmetics/unequip', { slot: item.slot }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina));
 }
 
 function wdToggleVisibility() {

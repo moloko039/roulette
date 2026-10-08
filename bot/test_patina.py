@@ -101,6 +101,15 @@ try:
     r = client.get("/api/me", headers=auth(A))
     check("поле есть с одной патиной", r.json()["cosmetics"]["patina"], {"chip": 1})
 
+    # ответ на надевание и снятие тоже отдаёт стадии надетых вещей: клиент применяет износ сразу, без запроса /api/me
+    eq = db.equip_item(A, "req-2", "card_back", "back_patina", now=NOW + 100000, db_path=path)
+    check("надевание: ответ содержит стадии надетой патины (фишка и рубашка)", eq["patina"], {"chip": 1, "card_back": 1})
+    uneq = db.unequip_item(A, "req-3", "chip", now=NOW + 200000, db_path=path)
+    check("снятие: стадия снятой патины пропала, у оставшейся есть", uneq["patina"], {"card_back": 1})
+    uneq = db.unequip_item(A, "req-4", "card_back", now=NOW + 300000, db_path=path)
+    check("когда патины не осталось, поля patina в ответе нет", "patina" in uneq, False)
+    db.equip_item(A, "req-5", "chip", "chip_patina", now=NOW + 400000, db_path=path)      # вернуть как было для проверок ниже
+
     # Ленивая выдача при просмотре гардероба
     add_player(path, 424242424)
     r = client.get("/api/cosmetics/mine", headers=auth(424242424))
