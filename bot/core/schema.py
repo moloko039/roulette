@@ -509,6 +509,20 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_boosts_chat ON chat_boosts(chat_instance)")
+
+        # достижения (Клуб ×1.01)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS achievement_progress (
+                telegram_id INTEGER NOT NULL,
+                code        TEXT    NOT NULL,
+                count       INTEGER NOT NULL,
+                streak      INTEGER NOT NULL,
+                done_at     INTEGER,
+                PRIMARY KEY (telegram_id, code)
+            )
+            """
+        )
         
         _migrate_total_staked(conn)
         _migrate_xp(conn)

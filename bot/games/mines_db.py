@@ -3,6 +3,7 @@
 import mines
 import wallet
 import xp
+from core import achievements
 
 from core.kernel import _add_xp, _credit_capped, _record_best_win
 from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, now_or_clock, read_state, run_action,
@@ -67,6 +68,9 @@ def _finish_game(conn, game_id, status, payout, now):
     if status in ("lost", "cashed", "auto_cashed"):
         _add_xp(conn, game["telegram_id"],
                 xp.mines_xp(game["bet"], game["mines_count"], mines.popcount(game["revealed_mask"]), status == "lost"))
+
+    if status == "lost":
+        achievements.record(conn, game["telegram_id"], "mines_explode", now, is_first_move=(mines.popcount(game["revealed_mask"]) == 0))
 
 
 def _settle_expired_in(conn, telegram_id, now):

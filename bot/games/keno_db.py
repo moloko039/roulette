@@ -6,12 +6,14 @@ import time
 import keno
 import wallet
 import xp
+from core import achievements
 from levels import profile_level
 from roulette import BalanceLimit
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
 from core.kernel import _accrue_write, _add_xp, _record_best_win, _register_player
+from core import achievements
 
 
 def _keno_result(bet, picks, draw, payout, balance, xp_total, replayed):
@@ -83,6 +85,7 @@ def play_keno(telegram_id, request_id, bet, picks, now=None, db_path=None, rng=N
                 (telegram_id, request_id, bet, json.dumps(picks, separators=(",", ":")),
                  json.dumps(draw, separators=(",", ":")), len(hits), payout, now),
             )
+            achievements.record(conn, telegram_id, "keno_end", now, chosen=len(picks), matched=len(hits))
             cur = conn.execute("SELECT balance, xp FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
             result = _keno_result(bet, picks, draw, payout, cur["balance"], cur["xp"], False)
             conn.execute("COMMIT")

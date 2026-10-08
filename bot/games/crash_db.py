@@ -5,8 +5,10 @@ import time
 import crash
 import wallet
 import xp
+from core import achievements
 
 from core.db_conn import _connect
+from core import achievements
 from games.round_common import (Game, CLOSE_BATCH, active_row, add_staked, close_expired, latest_row, pay_and_xp, player_view,
                                 read_state, run_action, settle_expired)
 
@@ -67,6 +69,9 @@ def _crash_finish(conn, telegram_id, row, result, mult_x100, now, auto):
     pay_and_xp(conn, telegram_id, paid,
                xp.crash_xp(row["bet"], crash.xp_multiplier(row["mode"], result, mult_x100, row["target_x100"])),
                "crash", row["bet"], now)
+    
+    if result == "lose":
+        achievements.record(conn, telegram_id, "crash_crash", now, mult_x100=row["crash_x100"])
 
 
 def _crash_settle_in(conn, telegram_id, now_ms):
