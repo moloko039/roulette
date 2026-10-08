@@ -86,7 +86,10 @@ class NotForStars(CosmeticsError):
 PRICES = {
     "table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75),
     "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000),
-    }
+    # части наборов «Черновик» (200 💎 за набор) и «Пустота» (400 💎): по отдельности дороже набора, см. cosmetic_sets.SETS
+    "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100),
+    "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
+}
 STARS, CHIPS, GEMS = "stars", "chips", "gems"
 # Прежние цены в Stars: нужны только чтобы принять оплату по счетам, выставленным до перехода на кристаллы, и скрытому тестовому предмету (/teststars).
 # Новые счета на предметы не создаются (POST /api/cosmetics/invoice отвечает 410).
@@ -133,14 +136,9 @@ _ROWS = (
     ("void_badge", "badge", "Пустота", "Значок «—»", "common", True),
 )
 
-_NEW_PRICES = {
-    "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100),
-    "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
-}
-
 CATALOG = tuple(
-    {"code": c, "slot": s, "name": n, "description": d, "rarity": r, 
-     "price": ({"currency": PRICES[c][0], "amount": PRICES[c][1]} if c in PRICES else ({"currency": _NEW_PRICES[c][0], "amount": _NEW_PRICES[c][1]} if c in _NEW_PRICES else None)),
+    {"code": c, "slot": s, "name": n, "description": d, "rarity": r,
+     "price": ({"currency": PRICES[c][0], "amount": PRICES[c][1]} if c in PRICES else None),
      "starter": r == "starter", "available": a}
     for c, s, n, d, r, a in _ROWS)
 _BY_CODE = {i["code"]: i for i in CATALOG}
