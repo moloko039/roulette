@@ -17,6 +17,7 @@ import wallet
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
+from core.referral import bind_referral_in
 
 
 def _accrue_conn(conn, telegram_id, now):
@@ -98,14 +99,15 @@ def _register_player(conn, telegram_id, now, start_param=None):
         "VALUES (?, ?, ?, ?, ?)",
         (telegram_id, balance, BASE_RATE, now // economy.TICK * economy.TICK, now),   # метка на границе минуты
     )
-    
     if start_param and not cooldown_hit:
-        from features.referral_db import bind_referral_in
+        # привязка не должна ломать создание игрока: при любой ошибке откатывается только она (запись referrals и бонус вместе)
+        conn.execute("SAVEPOINT referral_bind")
         try:
             bind_referral_in(conn, telegram_id, start_param, now)
+            conn.execute("RELEASE SAVEPOINT referral_bind")
         except Exception:
-            pass
-
+            conn.execute("ROLLBACK TO SAVEPOINT referral_bind")
+            conn.execute("RELEASE SAVEPOINT referral_bind")
 
 
 def _accrue_write(conn, telegram_id, now):
