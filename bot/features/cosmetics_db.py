@@ -33,8 +33,14 @@ def cosmetics_state(telegram_id, db_path=None):
     """Для /api/me: надетое по всем слотам (стартовые, если записи нет) и показ в рейтинге. Только чтение, игрока не создаёт."""
     conn = _connect(db_path)
     try:
-        return {"equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id)),
-                "show_in_rating": _show_in_rating(conn, telegram_id)}
+        equipped = cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))
+        res = {"equipped": equipped,
+               "show_in_rating": _show_in_rating(conn, telegram_id)}
+        from features.patina_db import patina_stages
+        patina = patina_stages(conn, telegram_id, equipped)
+        if patina:
+            res["patina"] = patina
+        return res
     finally:
         conn.close()
 
@@ -81,9 +87,37 @@ def grant_dacha_parts(telegram_id, now=None, db_path=None):
         conn.close()
 
 
+def grant_patina_items(telegram_id, now=None, db_path=None):
+    """Выдаёт игроку предметы патины при первом заходе в гардероб."""
+    conn = _connect(db_path)
+    try:
+        expected = ("chip_patina", "back_patina", "mine_patina")
+        have = conn.execute("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ? AND item_code IN ('chip_patina', 'back_patina', 'mine_patina')", (telegram_id,)).fetchone()[0]
+        if have >= 3:
+            return 0
+        if now is None:
+            now = int(time.time())
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            before = conn.total_changes
+            for part in expected:
+                conn.execute(
+                    "INSERT OR IGNORE INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, ?, ?, ?, ?)",
+                    (telegram_id, part, "free", None, now))
+            granted = conn.total_changes - before
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        return granted
+    finally:
+        conn.close()
+
+
 def cosmetics_mine(telegram_id, db_path=None):
     """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге."""
     grant_dacha_parts(telegram_id, db_path=db_path)      # лениво: части «Дачного сезона» тем, у кого уровень фермы уже выше порогов
+    grant_patina_items(telegram_id, db_path=db_path)
     conn = _connect(db_path)
     try:
         gift_names = {r["item_code"]: r["from_name"] for r in conn.execute("SELECT item_code, from_name FROM gifts WHERE to_user = ? ORDER BY id", (telegram_id,))} if conn.execute(

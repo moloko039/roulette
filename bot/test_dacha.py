@@ -71,7 +71,7 @@ def buy_income(client, uid, n):
 
 
 def owned_codes(path, uid):
-    return [r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at, item_code", (uid,))]
+    return [r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' AND item_code NOT LIKE '%_patina' ORDER BY acquired_at, item_code", (uid,))]
 
 
 try:
@@ -83,28 +83,28 @@ try:
     # 1. Границы порогов и выдача при реальной покупке
     # Уровень 1 - нет частей
     buy_income(client, A, 1)
-    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 1: нет частей", [r[0] for r in owned], [])
 
     # Уровень 2 - back_rug
     buy_income(client, A, 2)
-    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 2: back_rug", [r[0] for r in owned], ["back_rug"])
 
     # Уровень 3 - ничего нового
     buy_income(client, A, 3)
-    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 3: без изменений", [r[0] for r in owned], ["back_rug"])
 
     # Уровень 4 - chip_cork
     buy_income(client, A, 4)
-    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 4: +chip_cork", [r[0] for r in owned], ["back_rug", "chip_cork"])
 
     # Доходим до 16
     for i in range(5, 17):
         buy_income(client, A, i)
-    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? ORDER BY acquired_at", (A,))
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 16: все 6", set(r[0] for r in owned), set(DACHA_PARTS))
 
     # 2. Идемпотентность повторных и параллельных вызовов
@@ -119,7 +119,7 @@ try:
         granted = list(pool.map(worker, range(12)))
     check("параллельная выдача: все шесть частей выданы ровно один раз (остальные потоки ничего не добавили)", sum(granted), 6)
 
-    owned_b = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (B,))
+    owned_b = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina'", (B,))
     check("Параллельная выдача: без дублей, все 6 частей", len(owned_b), 6)
     check("Параллельная выдача: все правильные", set(r[0] for r in owned_b), set(DACHA_PARTS))
 
@@ -129,12 +129,12 @@ try:
     add_player(path2, B)
     # 4 части: level 2, 4, 6, 9
     mine = db.cosmetics_mine(A, db_path=path2)
-    owned_codes = [c["code"] for c in mine["owned"]]
+    owned_codes = [c["code"] for c in mine["owned"] if not c["code"].endswith("_patina")]
     check("Ленивая выдача (9 уровень): 4 части", set(owned_codes), {"back_rug", "chip_cork", "table_oilcloth", "mine_beetle"})
     
     # Ленивая выдача: вторая проверка (ничего не добавится)
     db.cosmetics_mine(A, db_path=path2)
-    owned_after = sql(path2, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (A,))
+    owned_after = sql(path2, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina'", (A,))
     check("Ленивая выдача 2: без изменений", len(owned_after), 4)
 
     # 4. Части не покупаются и не дарятся
