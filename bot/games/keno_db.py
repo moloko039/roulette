@@ -13,7 +13,6 @@ from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
 from core.kernel import _accrue_write, _add_xp, _record_best_win, _register_player
-from core import achievements
 
 
 def _keno_result(bet, picks, draw, payout, balance, xp_total, replayed):
