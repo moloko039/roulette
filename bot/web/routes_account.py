@@ -43,6 +43,23 @@ def register(app, ctx):
             return limited
 
         now = int(time.time())
+        
+        start_param = info.get("start_param")
+        if start_param:
+            from core.db_conn import _connect
+            conn = _connect(db_path)
+            try:
+                if conn.execute("SELECT 1 FROM players WHERE telegram_id = ?", (user_id,)).fetchone() is None:
+                    conn.execute("BEGIN IMMEDIATE")
+                    try:
+                        db._register_player(conn, user_id, now, start_param=start_param)
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                        raise
+            finally:
+                conn.close()
+
         settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
         settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша

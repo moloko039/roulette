@@ -71,7 +71,7 @@ def set_meta(key, value, db_path=None):
         conn.close()
 
 
-def _register_player(conn, telegram_id, now):
+def _register_player(conn, telegram_id, now, start_param=None):
     """Единственное место, где создаётся строка в players (get_player, spin_roulette, chat_top).
 
     Новый игрок получает START_BALANCE, кроме случая, когда его данные удалили меньше
@@ -83,6 +83,7 @@ def _register_player(conn, telegram_id, now):
         return
     balance = START_BALANCE
     secret = antiabuse.tombstone_secret()
+    cooldown_hit = False
     if secret is not None:
         row = conn.execute(
             "SELECT deleted_at FROM deletion_tombstones WHERE key_hash = ?",
@@ -90,12 +91,21 @@ def _register_player(conn, telegram_id, now):
         ).fetchone()
         if row is not None and row["deleted_at"] + COOLDOWN_SECONDS > now:
             balance = 0
+            cooldown_hit = True
     conn.execute(
         "INSERT OR IGNORE INTO players "
         "(telegram_id, balance, rate, last_accrual, created_at) "
         "VALUES (?, ?, ?, ?, ?)",
         (telegram_id, balance, BASE_RATE, now // economy.TICK * economy.TICK, now),   # метка на границе минуты
     )
+    
+    if start_param and not cooldown_hit:
+        from features.referral_db import bind_referral_in
+        try:
+            bind_referral_in(conn, telegram_id, start_param, now)
+        except Exception:
+            pass
+
 
 
 def _accrue_write(conn, telegram_id, now):

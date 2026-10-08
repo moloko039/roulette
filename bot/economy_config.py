@@ -83,3 +83,16 @@ CHAT_BOOST_MAX_PCT = 25
 
 # Уровни беседы (E4): индекс = уровень - 1 (уровни 1..10)
 CHAT_LEVEL_THRESHOLDS = (0, 10_000, 25_000, 60_000, 150_000, 400_000, 1_000_000, 2_500_000, 6_000_000, 15_000_000)
+
+# Рефералка (E5)
+REFERRAL_INVITEE_CHIPS = 500
+REFERRAL_INVITER_CHIPS = 1000      # шаг 2
+REFERRAL_INVITER_GEMS = 5          # шаг 2
+REFERRAL_QUALIFY_HOURS = 24        # шаг 2
+REFERRAL_QUALIFY_LEVEL = 3         # шаг 2
+REFERRAL_QUALIFY_ROUNDS = 10       # шаг 2
+FOUNDER_CHIPS = 3000               # шаг 2
+FOUNDER_GEMS = 20                  # шаг 2
+FOUNDER_ACTIVE_PLAYERS = 5         # шаг 2
+FOUNDER_PLAYER_LEVEL = 3           # шаг 2
+FOUNDER_WINDOW_DAYS = 7            # шаг 2

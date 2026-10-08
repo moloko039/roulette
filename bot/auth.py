@@ -84,13 +84,13 @@ CHAT_INSTANCE_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
     """Как validate_init_data, но возвращает словарь:
-    {user_id, chat_type, chat_instance, first_name}.
+    {user_id, chat_type, chat_instance, first_name, start_param}.
 
     Подпись проверяет сама validate_init_data (её логика не менялась). Остальные поля
     достаются уже из проверенной строки; отсутствующие или неверного вида дают None.
     """
     user_id = validate_init_data(init_data, bot_token, now=now, max_age=max_age)
-    chat_type = chat_instance = first_name = None
+    chat_type = chat_instance = first_name = start_param = None
     try:
         fields = dict(parse_qsl(init_data, keep_blank_values=True))
         value = fields.get("chat_type")
@@ -102,7 +102,13 @@ def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
         name = json.loads(fields["user"]).get("first_name")
         if isinstance(name, str):
             first_name = name
+        start = fields.get("start_param")
+        if isinstance(start, str) and start:
+            start_param = start
     except Exception:
         pass
-    return {"user_id": user_id, "chat_type": chat_type, "chat_instance": chat_instance,
-            "first_name": first_name}
+    res = {"user_id": user_id, "chat_type": chat_type, "chat_instance": chat_instance,
+           "first_name": first_name}
+    if start_param:
+        res["start_param"] = start_param
+    return res
