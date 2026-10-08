@@ -114,6 +114,13 @@ SLOT_ROUND = {"base": SLOT_SPIN, "freeSpins": [SLOT_SPIN], "freeSpinsLeftAfter":
 SLOT = {"coin": int, "bought": bool, "cost": int, "payout": int, "round": SLOT_ROUND, "balance": int, "level": int, "xp": int, "replayed": bool}
 REFERRAL_RULES = {"invitee_chips": int, "inviter_chips": int, "inviter_gems": int, "qualify_hours": int, "qualify_level": int, "qualify_rounds": int}
 REFERRAL = {"link": OPT(str), "invited": int, "qualified": int, "rules": REFERRAL_RULES}
+CRASH_LIVE_ROUND_RESULT = {"crash_x100": int, "seed": str}
+CRASH_LIVE_ROUND = {"id": int, "phase": str, "seed_hash": str, "bet_open_ms": int, "flight_start_ms": int, "m100": OPT(int), "result": OPT(CRASH_LIVE_ROUND_RESULT), "next_open_ms": OPT(int)}
+CRASH_LIVE_BET_ITEM = {"name": str, "bet": int, "status": str, "cashed_x100": OPT(int), "payout": OPT(int)}
+CRASH_LIVE_ME = {"bet": int, "target_x100": OPT(int), "status": str, "cashed_x100": OPT(int), "payout": OPT(int)}
+CRASH_LIVE_STATE = {"server_ms": int, "history": [{"crash_x100": int, "seed_hash": str, "seed": str}], "round": OPT(CRASH_LIVE_ROUND), "bets": [CRASH_LIVE_BET_ITEM], "me": OPT(CRASH_LIVE_ME)}
+CRASH_LIVE_BET = {"round_id": int, "bet": int, "target_x100": OPT(int), "balance": int, "replayed": bool}
+CRASH_LIVE_CASHOUT = {"round_id": int, "cashed_x100": int, "payout": int, "balance": int, "replayed": bool}
 
 class FixedRng:
     def __init__(self, cells):

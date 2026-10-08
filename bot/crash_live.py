@@ -3,10 +3,13 @@
 import hashlib
 import hmac
 import secrets
+import time
 
 import crash
 import economy_config
 
+def now_ms():
+    return int(time.time() * 1000)
 
 class BettingClosed(crash.CrashError):
     code = "betting_closed"

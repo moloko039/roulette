@@ -19,10 +19,12 @@ DEFAULTS = {
     "WRITE_RATE_BURST": 20,
     "READ_RATE_PER_SEC": 10,
     "READ_RATE_BURST": 40,
+    "LIVE_RATE_PER_SEC": 6,
+    "LIVE_RATE_BURST": 12,
 }
 IDLE_SECONDS = 600       # бакет, которым не пользовались 10 минут, удаляется
 MAX_BUCKETS = 50_000     # общий предел записей; при превышении удаляются самые старые
-GROUPS = ("write", "read")
+GROUPS = ("write", "read", "live")
 
 
 def load_config(env):
@@ -50,7 +52,8 @@ def warn_config(config):
 class RateLimiter:
     def __init__(self, config, clock=time.monotonic):
         self.rates = {"write": (config["WRITE_RATE_PER_SEC"], config["WRITE_RATE_BURST"]),
-                      "read": (config["READ_RATE_PER_SEC"], config["READ_RATE_BURST"])}
+                      "read": (config["READ_RATE_PER_SEC"], config["READ_RATE_BURST"]),
+                      "live": (config["LIVE_RATE_PER_SEC"], config["LIVE_RATE_BURST"])}
         self.clock = clock
         self.buckets = OrderedDict()   # (telegram_id, группа) -> [токены, время последнего обращения]
         self.lock = threading.Lock()
