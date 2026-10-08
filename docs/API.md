@@ -86,9 +86,11 @@
 | top | [объект] | всегда, до 10 элементов |
 | me | объект | всегда |
 | chat_staked | int | всегда |
+| set_names | объект | всегда |
 
 Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int`, `complete_sets [str]` (все всегда).
 `me`: `rank int`, `balance int`, `total int` (число участников рейтинга), `staked int`, `level int` (все всегда).
+Поле `set_names`: объект, сопоставляющий код коллекции с её названием (берётся из реестра коллекций).
 Элемент `top` дополнительно содержит `cosmetics {слот: код}`: только публичные слоты (`avatar_frame`, `badge`), только надетые не стартовые предметы и только если игрок не отключил показ (`show_in_rating`); иначе `{}`. Остальные слоты других игроков не отдаются никогда. Поле `complete_sets` содержит список кодов полностью собранных коллекций игрока (если показ не отключён через `show_in_rating`, иначе `[]`). Пример: `docs/examples/cosmetics.json` (`rating_entry`).
 
 ## GET /api/chat/best-wins
