@@ -1,5 +1,5 @@
 import economy_config
-from features.referral_db import ROUND_COUNT_SQL
+from features.round_counts import ROUND_COUNT_SQL
 
 def patina_counters(conn, telegram_id):
     """Счётчики для патины (используются в тестах)."""

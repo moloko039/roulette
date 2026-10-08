@@ -11,6 +11,7 @@ import cosmetic_sets
 import cosmetics
 import economy_config
 import wallet
+from features.patina_db import patina_stages
 from roulette import InsufficientFunds
 
 from core.db_conn import _connect
@@ -29,6 +30,14 @@ def _show_in_rating(conn, telegram_id):
     return True if row is None else bool(row["show_in_rating"])
 
 
+def _with_patina(conn, telegram_id, response):
+    """К ответу об экипировке добавляет стадии патины надетых вещей (контракт как у /api/me), чтобы клиент применил износ сразу, без лишнего запроса."""
+    stages = patina_stages(conn, telegram_id, response["equipped"])
+    if stages:
+        response["patina"] = stages
+    return response
+
+
 def cosmetics_state(telegram_id, db_path=None):
     """Для /api/me: надетое по всем слотам (стартовые, если записи нет) и показ в рейтинге. Только чтение, игрока не создаёт."""
     conn = _connect(db_path)
@@ -36,7 +45,6 @@ def cosmetics_state(telegram_id, db_path=None):
         equipped = cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))
         res = {"equipped": equipped,
                "show_in_rating": _show_in_rating(conn, telegram_id)}
-        from features.patina_db import patina_stages
         patina = patina_stages(conn, telegram_id, equipped)
         if patina:
             res["patina"] = patina
@@ -237,7 +245,7 @@ def equip_item(telegram_id, request_id, slot, code, now=None, db_path=None):
             if conn.execute("SELECT 1 FROM cosmetic_items WHERE telegram_id = ? AND item_code = ?", (telegram_id, code)).fetchone() is None:
                 raise cosmetics.NotOwned()
             conn.execute("INSERT OR REPLACE INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, ?, ?)", (telegram_id, slot, code))
-        return {"slot": slot, "code": code, "equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))}
+        return _with_patina(conn, telegram_id, {"slot": slot, "code": code, "equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))})
 
     return _run_action(telegram_id, request_id, "equip", {"slot": slot, "code": code}, body, now, db_path)
 
@@ -249,7 +257,7 @@ def unequip_item(telegram_id, request_id, slot, now=None, db_path=None):
 
     def body(conn):
         conn.execute("DELETE FROM cosmetic_equipped WHERE telegram_id = ? AND slot = ?", (telegram_id, slot))
-        return {"slot": slot, "code": cosmetics.STARTERS[slot], "equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))}
+        return _with_patina(conn, telegram_id, {"slot": slot, "code": cosmetics.STARTERS[slot], "equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))})
 
     return _run_action(telegram_id, request_id, "unequip", {"slot": slot}, body, now, db_path)
 
