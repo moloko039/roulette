@@ -362,3 +362,106 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --mines-opening-b: #5a3a1c;
 }
 
+
+/* Наборы за кристаллы: Черновик и Пустота (docs/COLLECTIONS.md) */
+
+/* Черновик: синяя ручка на миллиметровке */
+[data-skin-crash="draft_crash"] {
+  --cr-bg: #f2efe3;
+  --cr-border: #1d3557;
+  --cr-axis: rgba(29, 53, 87, 0.4);
+  --cr-line: #1d3557;
+  --cr-win: #2d6a4f;
+  --cr-win-soft: rgba(45, 106, 79, 0.2);
+  --cr-crash: #c0392b;
+  --cr-crash-soft: rgba(192, 57, 43, 0.2);
+  --cr-label: #1d3557;
+  --cr-label-strong: #1d3557;
+  --cr-history-text: #1d3557;
+  --cr-history-border: #1d3557;
+  --cr-line-glow: none;
+  --cr-win-glow: none;
+  --cr-crash-glow: none;
+}
+
+[data-skin-mine_icons="draft_mines"] {
+  --mines-cell-bg: #f2efe3;
+  --mines-cell-border: #1d3557;
+  --mines-cell-text: #1d3557;
+  --mines-cell-active-bg: #e5e0d0;
+  --mines-safe-bg: #1d3557;
+  --mines-safe-border: #1d3557;
+  --mines-safe-text: #f2efe3;
+  --mines-safe-glow: none;
+  --mines-bomb-bg: #c0392b;
+  --mines-bomb-text: #f2efe3;
+  --mines-muted-bg: #f2efe3;
+  --mines-muted-text: #667b96;
+  --mines-hit-border: #f2efe3;
+  --mines-hit-ring: rgba(192, 57, 43, 0.4);
+  --mines-opening-a: #f2efe3;
+  --mines-opening-b: #e5e0d0;
+}
+
+[data-skin-table="draft_table"] {
+  --table-red: #c0392b;
+  --table-black: #1d3557;
+  --table-green: #2d6a4f;
+  --table-felt: 
+    repeating-linear-gradient(0deg, transparent 0 19px, rgba(29, 53, 87, 0.2) 19px 20px),
+    repeating-linear-gradient(90deg, #f2efe3 0 19px, rgba(29, 53, 87, 0.2) 19px 20px);
+  --wheel-rim-a: #f2efe3;
+  --wheel-rim-b: #1d3557;
+  --wheel-rim-c: #e5e0d0;
+  --wheel-sector-line: rgba(29, 53, 87, 0.4);
+  --wheel-text: #f2efe3;
+  --wheel-edge: #f2efe3;
+  --wheel-hub: #1d3557;
+  --wheel-hub-line: rgba(242, 239, 227, 0.5);
+}
+
+[data-skin-badge="draft_badge"] {
+  --badge-color: #c0392b;
+}
+
+/* Пустота: люкс через отсутствие */
+[data-skin-table="void_table"] {
+  --table-red: #d8d8d8;
+  --table-black: #000000;
+  --table-green: #6a6a6a;
+  --table-felt: #000000;
+  --wheel-rim-a: #1a1a1a;
+  --wheel-rim-b: #6a6a6a;
+  --wheel-rim-c: #333333;
+  --wheel-sector-line: #d8d8d8;
+  --wheel-text: #ffffff;
+  --wheel-edge: #000000;
+  --wheel-hub: #1a1a1a;
+  --wheel-hub-line: rgba(216, 216, 216, 0.5);
+}
+[data-skin-table="void_table"] .cell.red {
+  color: #000000;
+}
+[data-skin-table="void_table"] .cell.black,
+[data-skin-table="void_table"] .cell.green {
+  color: #ffffff;
+}
+
+[data-skin-chip="void_chip"] {
+  --chip-bg: #000000;
+  --chip-text: #ffffff;
+  --chip-ring: #333333;
+  --chip-ring-10: #4d4d4d;
+  --chip-ring-50: #666666;
+  --chip-ring-100: #999999;
+  --chip-ring-500: #cccccc;
+  --chip-on-bg: #ffffff;
+  --chip-on-text: #000000;
+  --chip-on-ring: #ffffff;
+  --chip-on-glow: none;
+  --chip-inner: none;
+}
+
+[data-skin-badge="void_badge"] {
+  --badge-color: #d8d8d8;
+}

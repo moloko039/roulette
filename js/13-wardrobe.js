@@ -9,10 +9,10 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves'], chip: ['chip_plain', 'chip_ring', 'chip_gold'],
-  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn'],
-  keno_ball: ['keno_round', 'keno_hex'], crash: ['crash_line', 'crash_neon'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame']
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines'],
+  keno_ball: ['keno_round', 'keno_hex'], crash: ['crash_line', 'crash_neon', 'draft_crash'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
@@ -20,7 +20,9 @@ const skinStarter = (slot) => SKIN_CODES[slot][0];
 const publicSkin = (slot, code) => ((slot === 'avatar_frame' || slot === 'badge') && skinKnown(slot, code) && code !== skinStarter(slot) ? code : null);
 const BADGE_SVG = {
   badge_spade: BJ_SUIT_SETS.default.S,
-  badge_flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>'
+  badge_flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>',
+  draft_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12l2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  void_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
 };
 const CR_SAMPLE_SVG = '<svg class="cr-svg" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path class="cr-axis" d="M0 149H300M1 0V150"/><path class="cr-curve" d="M0 149L60 140L120 118L180 80L240 30L300 2"/></svg>';
 
