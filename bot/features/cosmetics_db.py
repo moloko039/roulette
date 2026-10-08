@@ -257,6 +257,42 @@ def buy_with_gems(telegram_id, request_id, item_code, now=None, db_path=None):
     return _run_action(telegram_id, request_id, "buy", {"item_code": item_code}, body, now, db_path, throttle=False)
 
 
+def buy_set(telegram_id, request_id, set_code, now=None, db_path=None):
+    """Покупка набора косметики за кристаллы. Одной транзакцией BEGIN IMMEDIATE: набор в каталоге,
+    «уже есть хотя бы одна часть» проверяется ДО списания; затем wallet.gems_debit (reason cosmetic_purchase, ref код набора) 
+    и выдача всех частей (источник gems). Баланс фишек, опыт и ставки не меняются.
+    Идемпотентно по (игрок, request_id). Ошибки: UnknownSet, AlreadyOwned, InsufficientGems, RequestConflict."""
+    if type(set_code) is not str:
+        raise ValueError("invalid")
+    if now is None:
+        now = int(time.time())
+
+    def body(conn):
+        if set_code not in cosmetic_sets.SETS:
+            raise cosmetics.UnknownSet()
+        
+        s = cosmetic_sets.SETS[set_code]
+        parts = s["parts"]
+        price_gems = s["price_gems"]
+        
+        for part_code in parts:
+            if _owns(conn, telegram_id, part_code):
+                raise cosmetics.AlreadyOwned()
+
+        try:
+            gems = wallet.gems_debit(conn, telegram_id, price_gems, "cosmetic_purchase", set_code, now)
+        except wallet.InsufficientGems:
+            raise cosmetics.InsufficientGems()
+            
+        for part_code in parts:
+            _grant_in(conn, telegram_id, part_code, "gems", None, now)
+            
+        return {"set_code": set_code, "items": list(parts), "price_gems": price_gems, 
+                "balance": wallet.get_balance(conn, telegram_id), "gems": gems}
+
+    return _run_action(telegram_id, request_id, "buy_set", {"set_code": set_code}, body, now, db_path, throttle=False)
+
+
 def buy_item(telegram_id, request_id, item_code, now=None, db_path=None):
     """Покупка предмета: за кристаллы или за фишки, как указано в каталоге."""
     it = cosmetics.item(item_code) if type(item_code) is str else None

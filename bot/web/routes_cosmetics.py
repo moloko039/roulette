@@ -5,8 +5,10 @@ from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+import cosmetic_sets
 import cosmetics
 from db import (buy_item, cosmetics_mine, equip_item, set_visibility, unequip_item)
+from features.cosmetics_db import buy_set
 from roulette import validate_request_id
 from web.http import BodyTooLarge, read_body_limited
 
@@ -24,7 +26,10 @@ def register(app, ctx):
         user_id, limited = user_of({"authorization": authorization}, "read")
         if limited is not None:
             return limited
-        return cosmetics.catalog_view()
+        view = cosmetics.catalog_view()
+        view["sets"] = [{"code": c, "name": s["name"], "price_gems": s["price_gems"], "parts": list(s["parts"])}
+                        for c, s in cosmetic_sets.SETS.items()]
+        return view
 
     @app.get("/api/cosmetics/mine")
     def cosmetics_mine_endpoint(authorization: str = Header(default=None)):
@@ -54,6 +59,8 @@ def register(app, ctx):
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         except cosmetics.UnknownItem:
             return JSONResponse({"detail": "unknown_item"}, status_code=404)
+        except cosmetics.UnknownSet:
+            return JSONResponse({"detail": "unknown_set"}, status_code=404)
         except cosmetics.TooFast:
             return JSONResponse({"error": "too_many_requests"}, status_code=429, headers={"Retry-After": "1"})
         except cosmetics.CosmeticsError as exc:
@@ -78,6 +85,11 @@ def register(app, ctx):
     async def cosmetics_buy(request: Request):
         return await _cosmetics_post(request, {"request_id", "item_code"},
                                      lambda uid, rid, d: buy_item(uid, rid, d["item_code"], db_path=db_path))
+
+    @app.post("/api/cosmetics/buy-set")
+    async def cosmetics_buy_set(request: Request):
+        return await _cosmetics_post(request, {"request_id", "set_code"},
+                                     lambda uid, rid, d: buy_set(uid, rid, d["set_code"], db_path=db_path))
 
     @app.post("/api/cosmetics/invoice")
     async def cosmetics_invoice(request: Request):
