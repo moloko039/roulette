@@ -31,3 +31,11 @@
 @keyframes set-shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.72; } }
 [data-set-complete] .lobby-title { animation: set-shimmer 3.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { [data-set-complete] .lobby-title { animation: none; } }
+
+/* бонус и буст беседы к ферме */
+.farm-chat-bonus { display: grid; gap: var(--space-2); }
+.farm-chat-bonus[hidden] { display: none; }
+.farm-chat-bonus-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.farm-chat-bonus-row strong { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: 16px; font-weight: 600; }
+.farm-chat-bonus-note { margin: 0; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.farm-chat-boost-btn { flex: none; width: 100%; }

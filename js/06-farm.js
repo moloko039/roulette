@@ -23,7 +23,15 @@ const farmEls = {
   hint: document.getElementById('farm-hint'),
   staked: document.getElementById('farm-staked'),
   slots: document.getElementById('farm-slots'),
-  cards: document.getElementById('farm-cards')
+  cards: document.getElementById('farm-cards'),
+  chatBonus: document.getElementById('farm-chat-bonus'),
+  chatBonusLabel: document.getElementById('farm-chat-bonus-label'),
+  chatBonusVal: document.getElementById('farm-chat-bonus-val'),
+  chatActiveRow: document.getElementById('farm-chat-active-row'),
+  chatActiveVal: document.getElementById('farm-chat-active-val'),
+  chatBoostUntil: document.getElementById('farm-chat-boost-until'),
+  chatNote: document.getElementById('farm-chat-note'),
+  chatBoostBtn: document.getElementById('farm-chat-boost-btn')
 };
 const FARM_KINDS = { income: 'Доход', storage: 'Хранилище' };
 const FARM_REASONS = {
@@ -124,11 +132,54 @@ function renderFarmIncome() {
   const f = srv.farm;
   const show = !!f && srv.loaded && farmHasData;
   farmEls.income.hidden = !show;
+  renderFarmChatBonus();
   if (!show) return;
   farmEls.incHour.textContent = formatNumber(f.income_per_hour);
   farmEls.incMin.textContent = f.per_minute_estimate;
   farmEls.incTimer.textContent = mmss((srv.deadline - performance.now()) / 1000);
   farmEls.incNote.textContent = 'Пока вас нет, доход копится до ' + f.hours_cap + ' ч, дальше не начисляется.';
+}
+
+let boostInFlight = false;
+
+function renderFarmChatBonus() {
+  const c = srv.chat;
+  const show = !!c && srv.loaded && farmHasData;
+  farmEls.chatBonus.hidden = !show;
+  if (!show) return;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!c.in_chat) {
+    farmEls.chatBonusLabel.textContent = '';
+    farmEls.chatBonusVal.textContent = '';
+    farmEls.chatActiveRow.hidden = true;
+    farmEls.chatBoostUntil.hidden = true;
+    farmEls.chatNote.textContent = 'Бонусы беседы работают только в групповом чате';
+    farmEls.chatNote.hidden = false;
+    farmEls.chatBoostBtn.hidden = true;
+    farmEls.chatBoostBtn.disabled = true;
+  } else {
+    farmEls.chatBonusLabel.textContent = 'Бонус беседы:';
+    farmEls.chatBonusVal.textContent = '+' + c.bonus_pct + ' %';
+    farmEls.chatActiveRow.hidden = false;
+    farmEls.chatActiveVal.textContent = formatNumber(c.active_today);
+    farmEls.chatNote.hidden = true;
+
+    if (c.boost_until && c.boost_until > nowSec) {
+      const dt = new Date(c.boost_until * 1000);
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const mm = String(dt.getMinutes()).padStart(2, '0');
+      farmEls.chatBoostUntil.textContent = 'Буст беседы до ' + hh + ':' + mm;
+      farmEls.chatBoostUntil.hidden = false;
+    } else {
+      farmEls.chatBoostUntil.hidden = true;
+    }
+
+    const cost = c.boost_gems || 50;
+    farmEls.chatBoostBtn.textContent = 'Бустить беседу за ' + cost + ' кристаллов';
+    farmEls.chatBoostBtn.hidden = false;
+    farmEls.chatBoostBtn.disabled = boostInFlight;
+  }
 }
 
 // Балансы игр хранятся у каждой игры отдельно: после минутного начисления подтягиваем их к серверному (игры без запроса и анимации;
@@ -369,10 +420,67 @@ farmEls.hintBtn.addEventListener('click', () => {
   farmEls.hintBtn.setAttribute('aria-expanded', String(open));
 });
 
+function validChatBoost(d) {
+  return !!d && typeof d === 'object' && isCount(d.bonus_pct) && d.bonus_pct <= 45
+    && isCount(d.boost_until) && isCount(d.gems);
+}
+
+async function buyChatBoost() {
+  if (boostInFlight || !(tg && tg.initData) || !srv.chat || !srv.chat.in_chat) return;
+  const id = makeRequestId();
+  if (!id) {
+    setFarmNote('Ошибка', 'lose');
+    return;
+  }
+  boostInFlight = true;
+  renderFarmChatBonus();
+  setFarmNote('Буст беседы…');
+
+  const result = await postWithRetries(() => postMinesOnce('/api/chat/boost', { request_id: id }, validChatBoost));
+  boostInFlight = false;
+
+  if (result && result.kind === 'ok') {
+    const d = result.data;
+    if (srv.chat) {
+      srv.chat.bonus_pct = d.bonus_pct;
+      srv.chat.boost_until = d.boost_until;
+    }
+    if (typeof shop !== 'undefined' && shop && typeof shop.gems !== 'undefined') {
+      shop.gems = d.gems;
+      if (typeof renderShop === 'function') renderShop();
+    }
+    const dt = new Date(d.boost_until * 1000);
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    const untilText = 'Буст беседы до ' + hh + ':' + mm;
+    farmEls.chatBoostUntil.textContent = untilText;
+    farmEls.chatBoostUntil.hidden = false;
+    setFarmNote(untilText, 'win');
+    haptic('success');
+    renderFarmChatBonus();
+    loadServer('after');
+    return;
+  }
+
+  const { note } = actionFailure(result, {
+    no_chat: ['Бусты работают только в групповом чате', false],
+    not_attributed: ['Бустить может игрок этой беседы: откройте игру из неё', false],
+    insufficient_gems: ['Не хватает кристаллов. Их можно купить на странице «Кристаллы»', false],
+    request_conflict: ['Запрос уже обработан, обновите экран', false]
+  });
+
+  setFarmNote(note, 'lose');
+  renderFarmChatBonus();
+  loadServer('after');
+}
+
+farmEls.chatBoostBtn.addEventListener('click', buyChatBoost);
+
 farmEls.retry.addEventListener('click', () => loadFarm('manual'));
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadFarm('visible');
 });
 
 // #endregion
+
 

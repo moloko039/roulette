@@ -12,7 +12,8 @@ const srv = {
   storageLevel: null,
   level: null,        // уровень профиля из /api/me
   farm: null,         // блок фермы из /api/me: {income_per_hour, per_minute_estimate, next_tick_in_s, hours_cap, accrued_now}
-  activeGame: null    // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | "hilo" | null
+  activeGame: null,   // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | "hilo" | null
+  chat: null          // атрибуция и бонусы беседы из /api/me: {in_chat, bonus_pct, active_today, boost_until, boost_gems} | null
 };
 let lobbyStartDecided = false;   // при запуске выбор «титульный экран или активная игра» делается один раз
 
@@ -224,6 +225,10 @@ async function loadServer(reason) {
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
       && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
+    const c = d.chat;
+    srv.chat = c && typeof c === 'object' && typeof c.in_chat === 'boolean'
+      && isCount(c.bonus_pct) && c.bonus_pct <= 45 && isCount(c.active_today)
+      && (c.boost_until === null || isCount(c.boost_until)) && isCount(c.boost_gems) ? c : null;
     renderAll();
     // сумма для «+N»: по accrued_now этого запроса; при возврате в приложение другой запрос (например, экрана фермы) мог подтянуть
     // начисление раньше, тогда берётся прирост баланса (не больше максимума накопления)
