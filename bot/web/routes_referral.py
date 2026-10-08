@@ -37,4 +37,14 @@ def register(app, ctx):
         finally:
             conn.close()
 
-        return {"link": link, "invited": invited, "qualified": qualified}
+        import economy_config
+        rules = {
+            "invitee_chips": economy_config.REFERRAL_INVITEE_CHIPS,
+            "inviter_chips": economy_config.REFERRAL_INVITER_CHIPS,
+            "inviter_gems": economy_config.REFERRAL_INVITER_GEMS,
+            "qualify_hours": economy_config.REFERRAL_QUALIFY_HOURS,
+            "qualify_level": economy_config.REFERRAL_QUALIFY_LEVEL,
+            "qualify_rounds": economy_config.REFERRAL_QUALIFY_ROUNDS
+        }
+
+        return {"link": link, "invited": invited, "qualified": qualified, "rules": rules}

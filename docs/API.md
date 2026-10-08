@@ -457,6 +457,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 | link | str\|null | ссылка вида `https://t.me/Bot/app?startapp=ref_КОД`; null, если базовая ссылка в настройках не задана |
 | invited | int | сколько всего игроков привязаны по вашей ссылке |
 | qualified | int | сколько из них прошли квалификацию (играют >= 24 часов, уровень >= 3, сыграно >= 10 раундов) |
+| rules | dict | параметры экономики для отображения: `invitee_chips`, `inviter_chips`, `inviter_gems`, `qualify_hours`, `qualify_level`, `qualify_rounds` |
 
 ## Выгрузка данных (/mydata)
 Бот отправляет JSON-файл `mydata.json` со всеми собранными данными игрока. Новое поле `referral` содержит статистику по приглашениям:

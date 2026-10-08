@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="css/02-shell.css?v=4a4fbd3b">
   <link rel="stylesheet" href="css/03-table-bets.css?v=f63bad00">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
-  <link rel="stylesheet" href="css/05-profile-rating.css?v=3e28858c">
+  <link rel="stylesheet" href="css/05-profile-rating.css?v=d6419168">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=3c32beb2">
   <link rel="stylesheet" href="css/07-keno.css?v=03063a87">
   <link rel="stylesheet" href="css/08-blackjack.css?v=16e156c1">
@@ -542,6 +542,20 @@
     <div class="skeleton-card" id="profile-skel" hidden aria-hidden="true">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton tall"></div>
     </div>
+    
+    <div class="profile-card" id="referral-card" hidden>
+      <h3>Пригласи друга</h3>
+      <p id="referral-text" class="referral-text"></p>
+      <div class="stat"><span class="stat-label">Приглашено:</span><strong id="referral-invited"></strong></div>
+      <div class="stat"><span class="stat-label">Дошли до награды:</span><strong id="referral-qualified"></strong></div>
+      <div class="referral-actions" id="referral-actions">
+        <button type="button" class="action" id="referral-send">Отправить другу</button>
+        <button type="button" class="action" id="referral-copy">Скопировать ссылку</button>
+      </div>
+      <p class="profile-msg" id="referral-msg" aria-live="polite" hidden></p>
+      <div class="referral-link-text" id="referral-link-text"></div>
+    </div>
+
     <p class="profile-msg" id="profile-msg" aria-live="polite"></p>
     <small class="profile-code" id="profile-code"></small>
     <button type="button" class="action profile-retry" id="profile-retry" hidden>Повторить</button>
@@ -603,7 +617,7 @@
   <script src="js/01-core.js?v=d5a6594e"></script>
   <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
-  <script src="js/04-profile.js?v=86ac87d2"></script>
+  <script src="js/04-profile.js?v=fb1502ea"></script>
   <script src="js/05-rating.js?v=a8f5b7d4"></script>
   <script src="js/06-farm.js?v=231e573c"></script>
   <script src="js/07-mines.js?v=32fadb6a"></script>
