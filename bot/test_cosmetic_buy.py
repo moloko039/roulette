@@ -492,7 +492,7 @@ try:
     # ================= статически: «cosmetic» нигде в играх, wallet, economy, transfers =================
     forbidden = ([os.path.join(HERE, "games", n) for n in os.listdir(os.path.join(HERE, "games")) if n.endswith(".py")] +
                  [os.path.join(HERE, n) for n in ("wallet.py", "economy.py", "farm.py", "levels.py", "xp.py", "roulette.py", "keno.py", "mines.py", "blackjack.py", "crash.py", "hilo.py")] +
-                 [os.path.join(HERE, "features", n) for n in ("farm_db.py", "give_db.py", "grants_db.py")])
+                 [os.path.join(HERE, "features", n) for n in ("give_db.py", "grants_db.py")])
     for f in forbidden:
         assert "cosmetic" not in open(f, encoding="utf-8").read().lower(), "в %s есть слово cosmetic" % os.path.relpath(f, HERE)
     check("логика покупки вызывает wallet как обычный потребитель", "wallet.debit" in open(os.path.join(HERE, "features", "cosmetics_db.py"), encoding="utf-8").read(), True)

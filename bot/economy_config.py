@@ -48,6 +48,7 @@ STREAK_GEMS_BASE = 5               # кристаллы в седьмой ден
 STREAK_GEMS_CYCLE_BONUS_MAX = 3    # +1 за каждый следующий цикл, не больше этого
 # Коллекции (docs/COLLECTIONS.md): на этих днях цикла серии входов выдаётся следующая часть сезонной коллекции (если идёт сезон).
 COLLECTION_STREAK_DAYS = (3, 5, 7)
+DACHA_PARTS_BY_INCOME_LEVEL = ((2, "back_rug"), (4, "chip_cork"), (6, "table_oilcloth"), (9, "mine_beetle"), (12, "keno_lotto"), (16, "crash_barrel"))
 # Бесплатные кристаллы (серия входов, позже рефералка) не больше этого числа за календарный месяц (по тому же часовому поясу): иначе кристаллы печатались бы без платежей.
 FREE_GEMS_MONTHLY_CAP = 100
 FREE_GEM_REASONS = ("streak_gems", "referral_reward")
