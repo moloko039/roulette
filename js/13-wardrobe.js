@@ -84,9 +84,10 @@ const wdEls = {
   pSheet: document.getElementById('wd-prev-sheet'), pDim: document.getElementById('wd-prev-dim'), pTitle: document.getElementById('wd-prev-title'),
   pStatus: document.getElementById('wd-prev-status'), pScene: document.getElementById('wd-prev-scene'), pDesc: document.getElementById('wd-prev-desc'),
   pMsg: document.getElementById('wd-prev-msg'), pNote: document.getElementById('wd-prev-note'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act'),
-  terms: document.getElementById('wd-terms')
+  terms: document.getElementById('wd-terms'),
+  setBox: document.getElementById('wd-set-box'), setDesc: document.getElementById('wd-set-desc'), setAct: document.getElementById('wd-set-act')
 };
-const wd = { open: false, catalog: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, prevMsg: '' };
+const wd = { open: false, catalog: null, sets: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, prevMsg: '', setConfirm: false, setMsg: '' };
 
 const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
 const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
@@ -106,6 +107,20 @@ function wdNormalizeCatalog(d) {
     if (last.available && !last.starter) last.price = wdPrice(i.price);       // цена только из каталога сервера; ненормальное значение = нет цены
   });
   return items;
+}
+
+function wdNormalizeSets(d) {
+  const sets = [];
+  if (!Array.isArray(d.sets)) return sets;
+  d.sets.forEach((s) => {
+    if (!s || typeof s !== 'object' || typeof s.code !== 'string' || typeof s.name !== 'string') return;
+    if (!Number.isSafeInteger(s.price_gems) || s.price_gems <= 0) return;
+    if (!Array.isArray(s.parts) || s.parts.some(p => typeof p !== 'string')) return;
+    sets.push({
+      code: s.code, name: s.name.slice(0, 40), price_gems: s.price_gems, parts: s.parts
+    });
+  });
+  return sets;
 }
 
 // Цена из каталога: валюта gems или chips и разумная целая сумма, иначе null (предмет не продаётся)
@@ -330,9 +345,48 @@ function renderWdPreview() {
   wdEls.pAct.hidden = !act;
   wdEls.pAct.textContent = act;
   wdEls.pAct.disabled = wd.busy;
-  wdEls.pClose.textContent = confirming ? 'Отмена' : 'Закрыть';
+  renderWdSetBox();
+  wdEls.pClose.textContent = confirming || wd.setConfirm ? 'Отмена' : 'Закрыть';
   wdEls.pClose.disabled = wd.busy;
   renderGiftControls();
+}
+
+function renderWdSetBox() {
+  const item = wd.preview;
+  if (!item || !wd.sets || !wd.catalog || !wd.mine) {
+    wdEls.setBox.hidden = true;
+    return;
+  }
+  if (!item.price || item.price.currency !== 'gems' || wd.mine.owned.has(item.code)) {
+    wdEls.setBox.hidden = true;
+    return;
+  }
+  const set = wd.sets.find((s) => s.parts.includes(item.code));
+  if (!set) {
+    wdEls.setBox.hidden = true;
+    return;
+  }
+  const hasAnyPart = set.parts.some((p) => wd.mine.owned.has(p));
+  if (hasAnyPart) {
+    wdEls.setBox.hidden = true;
+    return;
+  }
+  let sum = 0;
+  for (const partCode of set.parts) {
+    const partItem = wd.catalog.find((i) => i.code === partCode);
+    if (partItem && partItem.price && partItem.price.currency === 'gems') {
+      sum += partItem.price.amount;
+    }
+  }
+  wdEls.setBox.hidden = false;
+  wdEls.setDesc.textContent = `Весь набор «${set.name}»: ${set.price_gems} 💎 (вместо ${sum} 💎 за все части)`;
+  if (wd.setConfirm) {
+    wdEls.setAct.textContent = 'Потратить';
+    if (!wd.prevMsg) wdEls.pMsg.textContent = `Потратить ${set.price_gems} 💎? Вернуть набор нельзя`;
+  } else {
+    wdEls.setAct.textContent = 'Купить набор';
+  }
+  wdEls.setAct.disabled = wd.busy;
 }
 
 // тексты ошибок гардероба
@@ -467,7 +521,7 @@ function wdApplyBalance(balance) {
 
 function wdBuy(item) {
   if (!wdBuyable(item)) return;
-  if (!wd.confirm) { wd.confirm = true; wd.prevMsg = ''; renderWdPreview(); return; }
+  if (!wd.confirm) { wd.confirm = true; wd.setConfirm = false; wd.prevMsg = ''; renderWdPreview(); return; }
   wdBuyDirect(item);
 }
 
@@ -488,6 +542,58 @@ async function wdBuyDirect(item) {
   renderWardrobe();
 }
 
+const wdValidSetBuy = (d) => !!d && typeof d.set_code === 'string' && Array.isArray(d.items) && isCount(d.balance);
+
+function wdBuySetErrorText(r, set, status) {
+  if (r.kind === 'conflict') {
+    if (r.detail === 'already_owned') return 'У вас уже есть часть этого набора';
+    if (r.detail === 'insufficient_gems') {
+      const lack = shop.gems !== null ? set.price_gems - shop.gems : 0;
+      return (lack > 0 ? 'Не хватает ' + formatNumber(lack) + ' кристаллов' : 'Не хватает кристаллов') + '. Их можно купить на странице «Кристаллы»';
+    }
+    return ({
+      request_conflict: 'Запрос уже обработан, обновите экран', unknown_set: 'Такого набора нет'
+    })[r.detail] || 'Не удалось выполнить покупку';
+  }
+  if (r.kind === 'retry' && status === 503) return 'Покупки сейчас недоступны. Попробуйте позже';
+  return wdErrorText(r);
+}
+
+async function wdBuySetRequest(path, set, validate) {
+  if (!(tg && tg.initData)) { wd.prevMsg = 'Откройте игру через бота в Telegram'; renderWardrobe(); return null; }
+  const id = makeRequestId();
+  if (!id) { wd.prevMsg = 'Ошибка'; renderWardrobe(); return null; }
+  wd.busy = true;
+  wd.prevMsg = '';
+  renderWardrobe();
+  let lastStatus = null;
+  const result = await postWithRetries(async () => {
+    const r = await wdPostOnce(path, { request_id: id, set_code: set.code }, validate);
+    if (r.kind === 'retry') lastStatus = r.status;
+    return r;
+  });
+  wd.busy = false;
+  return { result: result || { kind: 'retry' }, status: lastStatus };
+}
+
+async function wdBuySetDirect(set) {
+  if (wd.busy) return;
+  const sent = await wdBuySetRequest('/api/cosmetics/buy-set', set, wdValidSetBuy);
+  wd.setConfirm = false;
+  if (!sent) return;
+  if (sent.result.kind === 'ok') {
+    sent.result.data.items.forEach((c) => wd.mine.owned.add(c));
+    wdApplyBalance(sent.result.data.balance);
+    if (Number.isSafeInteger(sent.result.data.gems)) { shop.gems = sent.result.data.gems; renderShop(); }
+    wd.prevMsg = 'Набор «' + set.name + '» куплен';
+    haptic('success');
+  } else {
+    wd.prevMsg = wdBuySetErrorText(sent.result, set, sent.status);
+  }
+  renderWardrobe();
+}
+
+
 // Условия покупки: страница рядом с приложением (тот же каталог GitHub Pages), открывается способом Telegram для внешних ссылок
 function openTerms() {
   const url = new URL('terms.html', window.location.href).href;
@@ -506,6 +612,7 @@ async function loadWardrobe() {
       fetchGameState('/api/cosmetics/catalog', validWdCatalog), fetchGameState('/api/cosmetics/mine', validWdMine)
     ]);
     wd.catalog = wdNormalizeCatalog(cat);
+    wd.sets = wdNormalizeSets(cat);
     wd.mine = wdNormalizeMine(mine);
     setWdMsg('');
   } catch (e) {
@@ -537,7 +644,7 @@ function closeWardrobe() {
 
 wdEls.vis.addEventListener('click', wdToggleVisibility);
 wdEls.pClose.addEventListener('click', () => {
-  if (wd.confirm) { wd.confirm = false; renderWdPreview(); return; }      // «Отмена» в подтверждении покупки
+  if (wd.confirm || wd.setConfirm) { wd.confirm = false; wd.setConfirm = false; renderWdPreview(); return; }      // «Отмена» в подтверждении покупки
   closeWdPreview();
 });
 wdEls.pAct.addEventListener('click', () => {
@@ -547,6 +654,14 @@ wdEls.pAct.addEventListener('click', () => {
   if (kind === 'unequip') wdUnequip(item);
   else if (kind === 'equip') wdEquip(item);
   else if (kind === 'buy') wdBuy(item);
+});
+wdEls.setAct.addEventListener('click', () => {
+  const item = wd.preview;
+  if (!item || wd.busy) return;
+  const set = wd.sets && wd.sets.find((s) => s.parts.includes(item.code));
+  if (!set) return;
+  if (!wd.setConfirm) { wd.setConfirm = true; wd.confirm = false; wd.prevMsg = ''; renderWdPreview(); return; }
+  wdBuySetDirect(set);
 });
 wdEls.terms.addEventListener('click', openTerms);
 closeOnBackdropTap(wdEls.pDim, closeWdPreview);
