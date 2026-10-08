@@ -6,6 +6,7 @@ import cosmetic_sets
 import cosmetics
 from levels import profile_level
 from roulette import MAX_SAFE_INT
+from economy_config import CHAT_LEVEL_THRESHOLDS
 
 from core.db_conn import _connect
 from core.kernel import _pending_accrual, _register_player
@@ -83,6 +84,17 @@ def _public_sets(db_path, ids):
     return out
 
 
+def chat_level(points):
+    """Возвращает уровень беседы (1..10) по количеству очков (chat_staked)."""
+    level = 1
+    for i, threshold in enumerate(CHAT_LEVEL_THRESHOLDS):
+        if points >= threshold:
+            level = i + 1
+        else:
+            break
+    return level
+
+
 def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     """Рейтинг беседы: до 10 лучших и позиция вызвавшего.
 
@@ -142,7 +154,15 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     # сумма ставок всех участников того же набора, по которому строится рейтинг (без разбивки по людям)
     chat_staked = min(sum(e[4] for e in entries), MAX_SAFE_INT)
     set_names = {code: c["name"] for code, c in cosmetic_sets.COLLECTIONS.items()}
-    return {"scope": "chat", "top": top, "me": me, "chat_staked": chat_staked, "set_names": set_names}
+    return {
+        "scope": "chat",
+        "top": top,
+        "me": me,
+        "chat_staked": chat_staked,
+        "chat_level": chat_level(chat_staked),
+        "chat_points": chat_staked,
+        "set_names": set_names
+    }
 
 
 def chat_best_wins(chat_instance, telegram_id, db_path=None):

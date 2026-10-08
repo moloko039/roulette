@@ -86,6 +86,8 @@
 | top | [объект] | всегда, до 10 элементов |
 | me | объект | всегда |
 | chat_staked | int | всегда |
+| chat_level | int | всегда |
+| chat_points | int | всегда |
 | set_names | объект | всегда |
 
 Элемент `top`: `rank int`, `name str`, `balance int`, `is_me bool`, `staked int`, `level int`, `complete_sets [str]` (все всегда).

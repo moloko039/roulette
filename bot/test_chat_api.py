@@ -180,7 +180,7 @@ try:
     body = r.json()
     check("поля записи", sorted(body["top"][0]), ["balance", "complete_sets", "cosmetics", "is_me", "level", "name", "rank", "staked"])
     check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])
-    check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "set_names", "top"])
+    check("поля ответа", sorted(body), sorted(["chat_staked", "chat_level", "chat_points", "me", "scope", "set_names", "top"]))
 
     # ---------- полная коллекция «Листопад» и скрытый показ ----------
     # игрок 987654321 собирает Листопад: back_leaves, table_autumn, mine_acorn
