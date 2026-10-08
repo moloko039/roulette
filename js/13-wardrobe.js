@@ -9,8 +9,8 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork'],
-  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle'],
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina'],
   keno_ball: ['keno_round', 'keno_hex', 'keno_lotto'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel'],
   avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge']
 };
@@ -28,6 +28,7 @@ const CR_SAMPLE_SVG = '<svg class="cr-svg" viewBox="0 0 300 150" preserveAspectR
 
 // рамка и значок самого игрока (из cosmetics.equipped в /api/me и после смены в гардеробе)
 let ownEquipped = { avatar_frame: null, badge: null };
+let ownPatina = {};
 let ratingLast = null;   // последний ответ рейтинга: перерисовывается при смене своих рамки и значка
 
 function decorateAvatar(el, frame) {
@@ -70,6 +71,14 @@ function renderOwnCosmetics() {
 }
 
 function setOwnCosmetics(c) {
+  if (c && c.patina && typeof c.patina === 'object') {
+    ownPatina = {};
+    for (const [k, v] of Object.entries(c.patina)) {
+      if (Number.isInteger(v) && v >= 0 && v <= 4) ownPatina[k] = v;
+    }
+  } else if (c && (!c.patina || typeof c.patina !== 'object')) {
+    ownPatina = {};
+  }
   const eq = c && c.equipped && typeof c.equipped === 'object' ? c.equipped : {};
   const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), badge: publicSkin('badge', eq.badge) };
   if (next.avatar_frame === ownEquipped.avatar_frame && next.badge === ownEquipped.badge) return;
@@ -181,6 +190,10 @@ function wdScene(slot, code, mini) {
   const box = document.createElement('div');
   box.className = mini ? 'wd-mini' : 'wd-scene';
   box.setAttribute('data-skin-' + slot, code);
+  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina') {
+    const stage = ownPatina[slot];
+    if (stage !== undefined) box.setAttribute('data-patina-' + slot, String(stage));
+  }
   const add = (cls, text, tag) => {
     const e = document.createElement(tag || 'div');
     e.className = cls;
