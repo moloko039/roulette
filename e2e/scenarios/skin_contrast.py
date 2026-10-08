@@ -15,7 +15,8 @@ SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "
          ("badge", "draft_badge", "badge_none"), ("table", "void_table", "table_green"), ("chip", "void_chip", "chip_plain"),
          ("badge", "void_badge", "badge_none"),
          ("card_back", "back_rug", "back_classic"), ("chip", "chip_cork", "chip_plain"), ("table", "table_oilcloth", "table_green"),
-         ("mine_icons", "mine_beetle", "mine_classic"), ("keno_ball", "keno_lotto", "keno_round"), ("crash", "crash_barrel", "crash_line")]     # наборы за кристаллы: Черновик, Пустота, Дачный сезон
+         ("mine_icons", "mine_beetle", "mine_classic"), ("keno_ball", "keno_lotto", "keno_round"), ("crash", "crash_barrel", "crash_line"),
+         ("chip", "chip_patina", "chip_plain"), ("card_back", "back_patina", "back_classic"), ("mine_icons", "mine_patina", "mine_classic")]     # наборы за кристаллы: Черновик, Пустота, Дачный сезон
 
 # (пара, цвет A, цвет B, режим): режим «>=3» требует контраст не ниже 3:1; «shape» только документирует, чем пара различается (текст)
 PAIRS = {
