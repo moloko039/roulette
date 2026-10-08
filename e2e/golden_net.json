@@ -147,6 +147,7 @@
 "GET /api/streak",
 "GET /api/farm",
 "GET /api/me",
+"GET /api/referral",
 "GET /api/me",
 "GET /api/streak",
 "GET /api/cosmetics/catalog",
@@ -159,6 +160,7 @@
 "GET /api/streak",
 "GET /api/farm",
 "GET /api/me",
+"GET /api/referral",
 "GET /api/me",
 "GET /api/streak",
 "GET /api/cosmetics/catalog",
@@ -170,6 +172,7 @@
 "GET /api/chat/best-wins",
 "GET /api/streak",
 "GET /api/farm",
+"GET /api/referral",
 "GET /api/me",
 "GET /api/streak",
 "GET /api/chat/top",
@@ -178,7 +181,8 @@
 "GET /api/streak",
 "GET /api/chat/top",
 "GET /api/chat/best-wins",
-"GET /api/farm"
+"GET /api/farm",
+"GET /api/referral"
 ],
 "gift_send": [
 "GET /api/me",
@@ -334,6 +338,7 @@
 "GET /api/streak",
 "GET /api/me",
 "GET /api/streak",
+"GET /api/referral",
 "GET /api/me"
 ],
 "skin_contrast": [
@@ -359,6 +364,7 @@
 "style_tab": [
 "GET /api/me",
 "GET /api/streak",
+"GET /api/referral",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -431,6 +437,7 @@
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":false}",
 "POST /api/cosmetics/visibility {\"request_id\":\"<rid:36>\",\"show_in_rating\":true}",
 "GET /api/me",
+"GET /api/referral",
 "GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine",
 "GET /api/gems/packs",
@@ -445,7 +452,8 @@
 "GET /api/me",
 "GET /api/streak",
 "GET /api/chat/top",
-"GET /api/chat/best-wins"
+"GET /api/chat/best-wins",
+"GET /api/referral"
 ],
 "wardrobe_safety": [
 "GET /api/me",
