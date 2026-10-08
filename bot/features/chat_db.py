@@ -2,6 +2,7 @@
 
 import time
 
+import cosmetic_sets
 import cosmetics
 from levels import profile_level
 from roulette import MAX_SAFE_INT
@@ -56,6 +57,32 @@ def _public_cosmetics(db_path, ids):
     return out
 
 
+def _public_sets(db_path, ids):
+    """{telegram_id: [код_коллекции]} полностью собранных коллекций игрока, если показ не скрыт.
+    Для скрывших показ (show_in_rating = 0) и игроков без собранных коллекций список пуст."""
+    if not ids:
+        return {}
+    conn = _connect(db_path)
+    try:
+        marks = ",".join("?" * len(ids))
+        rows = conn.execute(
+            "SELECT i.telegram_id, i.item_code FROM cosmetic_items i "
+            "LEFT JOIN cosmetic_prefs p ON p.telegram_id = i.telegram_id "
+            "WHERE i.telegram_id IN (" + marks + ") AND COALESCE(p.show_in_rating, 1) = 1",
+            list(ids)).fetchall()
+    finally:
+        conn.close()
+    items_by_id = {}
+    for r in rows:
+        items_by_id.setdefault(r["telegram_id"], set()).add(r["item_code"])
+    out = {}
+    for uid, codes in items_by_id.items():
+        done = [c["code"] for c in cosmetic_sets.progress(codes) if c["complete"]]
+        if done:
+            out[uid] = done
+    return out
+
+
 def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     """Рейтинг беседы: до 10 лучших и позиция вызвавшего.
 
@@ -97,9 +124,11 @@ def chat_top(chat_instance, telegram_id, first_name, now=None, db_path=None):
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
 
     shown = _public_cosmetics(db_path, [e[2] for e in entries[:TOP_SIZE]])
+    shown_sets = _public_sets(db_path, [e[2] for e in entries[:TOP_SIZE]])
     top = [
         {"rank": i + 1, "name": e[3], "balance": -e[0], "is_me": e[2] == telegram_id, "staked": e[4],
          "cosmetics": shown.get(e[2], {}),   # только публичные слоты (рамка, значок), если надеты и игрок их не скрыл
+         "complete_sets": shown_sets.get(e[2], []),
          "level": profile_level(e[5]),   # уровень по опыту, поле staked остаётся информацией
          }
         for i, e in enumerate(entries[:TOP_SIZE])

@@ -176,9 +176,22 @@ try:
     for secret in ["987654321", "987654322", "chat-secret-77", "secret_user", "username", "telegram_id", "chat_instance"]:
         assert secret not in raw, "в ответе есть " + secret
     body = r.json()
-    check("поля записи", sorted(body["top"][0]), ["balance", "cosmetics", "is_me", "level", "name", "rank", "staked"])
+    check("поля записи", sorted(body["top"][0]), ["balance", "complete_sets", "cosmetics", "is_me", "level", "name", "rank", "staked"])
     check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])
     check("поля ответа", sorted(body), ["chat_staked", "me", "scope", "top"])
+
+    # ---------- полная коллекция «Листопад» и скрытый показ ----------
+    # игрок 987654321 собирает Листопад: back_leaves, table_autumn, mine_acorn
+    for item_code in ("back_leaves", "table_autumn", "mine_acorn"):
+        sql(path, "INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (987654321, ?, 'collection', ?)", (item_code, now))
+    r = top(987654321, chat_instance="chat-secret-77", first_name="Имя")
+    entry = [e for e in r.json()["top"] if e["is_me"]][0]
+    check("полная коллекция: видит leaves", entry["complete_sets"], ["leaves"])
+    # скрывает показ (show_in_rating = 0)
+    sql(path, "INSERT OR REPLACE INTO cosmetic_prefs (telegram_id, show_in_rating) VALUES (987654321, 0)")
+    r = top(987654321, chat_instance="chat-secret-77", first_name="Имя")
+    entry = [e for e in r.json()["top"] if e["is_me"]][0]
+    check("скрытый показ: complete_sets пуст", entry["complete_sets"], [])
 
     # ---------- запрос без подписи ----------
     for h in [{}, {"Authorization": ""}, {"Authorization": "tma garbage"}]:

@@ -174,6 +174,18 @@ async function loadBestWins() {
   }
 }
 
+const SET_NAMES = { leaves: 'Листопад' };
+
+function ratingSetBadge(sets) {
+  if (!Array.isArray(sets) || sets.length === 0) return null;
+  const el = document.createElement('span');
+  el.className = 'rating-set-badge';
+  el.textContent = 'коллекция';
+  const title = sets.map((c) => SET_NAMES[c] || c).join(', ');
+  if (title) el.title = title;
+  return el;
+}
+
 // Все тексты с сервера (в том числе имена) выводятся только через textContent
 function levelBadge(level) {
   const el = document.createElement('span');
@@ -225,6 +237,8 @@ function showRating(d) {
     who.appendChild(name);
     const badge = badgeEl(pub.badge);
     if (badge) who.appendChild(badge);
+    const setBadge = ratingSetBadge(e.complete_sets);
+    if (setBadge) who.appendChild(setBadge);
     if (isCount(e.level)) who.appendChild(levelBadge(e.level)); // без поля level подписи нет
     const bal = document.createElement('span');
     bal.className = 'rating-bal';

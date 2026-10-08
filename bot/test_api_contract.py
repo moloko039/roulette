@@ -85,7 +85,8 @@ ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income
       "chat": {"in_chat": bool, "bonus_pct": int, "active_today": int, "boost_until": OPT(int), "boost_gems": int}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
 TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int,
-            "cosmetics": dict}     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
+            "cosmetics": dict,     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
+            "complete_sets": [str]}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
 CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int}
 BEST_ITEM = {"rank": int, "name": str, "net_amount": int, "game": str, "is_me": bool, "cosmetics": dict}
@@ -210,6 +211,24 @@ try:
     contract("chat/top chat", r.json(), CHAT_TOP)
     assert r.json()["scope"] == "chat" and 1 <= len(r.json()["top"]) <= 10
     assert r.json()["me"] is not None
+
+    # игрок с полной «Листопад» (back_leaves, table_autumn, mine_acorn) видит complete_sets ["leaves"]
+    for item_code in ("back_leaves", "table_autumn", "mine_acorn"):
+        sql(path, "INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (2001, ?, 'collection', ?)", (item_code, NOW))
+    r = client.get("/api/chat/top", headers=auth(2001, group=True))
+    assert r.status_code == 200
+    contract("chat/top с собранной коллекцией", r.json(), CHAT_TOP)
+    top_2001 = [e for e in r.json()["top"] if e["is_me"]][0]
+    assert top_2001["complete_sets"] == ["leaves"], "ожидали ['leaves'], получили %r" % top_2001["complete_sets"]
+
+    # игрок со скрытым показом (show_in_rating = 0) видит []
+    sql(path, "INSERT OR REPLACE INTO cosmetic_prefs (telegram_id, show_in_rating) VALUES (2001, 0)")
+    r = client.get("/api/chat/top", headers=auth(2001, group=True))
+    assert r.status_code == 200
+    contract("chat/top со скрытым показом", r.json(), CHAT_TOP)
+    top_2001_hidden = [e for e in r.json()["top"] if e["is_me"]][0]
+    assert top_2001_hidden["complete_sets"] == [], "ожидали [], получили %r" % top_2001_hidden["complete_sets"]
+
     r = client.get("/api/chat/top")
     assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
 
