@@ -220,6 +220,42 @@ def init_db(db_path=None):
             )
             """
         )
+        # живой краш: раунды комнат
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crash_rounds (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_key        TEXT    NOT NULL,
+                seed_hash       TEXT    NOT NULL,
+                seed            BLOB    NOT NULL,
+                crash_x100      INTEGER NOT NULL,
+                bet_open_ms     INTEGER NOT NULL,
+                flight_start_ms INTEGER NOT NULL,
+                crash_ms        INTEGER NOT NULL,
+                status          TEXT    NOT NULL,
+                settled_at_ms   INTEGER
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_crash_rounds_room ON crash_rounds(room_key, id)")
+        # живой краш: ставки в раундах
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS crash_bets (
+                round_id      INTEGER NOT NULL,
+                telegram_id   INTEGER NOT NULL,
+                bet           INTEGER NOT NULL,
+                target_x100   INTEGER,
+                cashed_x100   INTEGER,
+                payout        INTEGER NOT NULL DEFAULT 0,
+                status        TEXT    NOT NULL,
+                request_id    TEXT    NOT NULL,
+                created_at_ms INTEGER NOT NULL,
+                PRIMARY KEY (round_id, telegram_id)
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_player ON crash_bets(telegram_id)")
         # хило: следующая карта нигде не хранится (выбирается в момент хода); множитель дробью из двух целых (текстом: числа
         # бывают длиннее 64 бит); hist_json: последние карты раунда [достоинство, масть, как выпала], текущая карта последняя
         conn.execute(
