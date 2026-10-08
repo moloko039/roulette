@@ -227,7 +227,7 @@ try:
     check("порядок прежний", [e["name"] for e in body["top"]],
           ["P%d" % i for i in range(1, 11)])
     check("у каждого staked", [e["staked"] for e in body["top"]], [0] + [i * 1000 for i in range(2, 11)])
-    check("поля записи", sorted(body["top"][0]), ["balance", "cosmetics", "is_me", "level", "name", "rank", "staked"])
+    check("поля записи", sorted(body["top"][0]), ["balance", "complete_sets", "cosmetics", "is_me", "level", "name", "rank", "staked"])
     check("me: staked 0 без вращений", body["me"]["staked"], 0)
     check("me.total по-прежнему число участников", body["me"]["total"], 14)
     check("поля me", sorted(body["me"]), ["balance", "level", "rank", "staked", "total"])

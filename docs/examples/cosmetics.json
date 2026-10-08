@@ -179,7 +179,8 @@
     "cosmetics": {
       "avatar_frame": "frame_thin",
       "badge": "badge_spade"
-    }
+    },
+    "complete_sets": []
   },
   "buy": {
     "item_code": "chip_ring",

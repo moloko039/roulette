@@ -104,3 +104,14 @@
 .streak-dot.gem { height: 8px; margin-top: -1px; }
 .streak-msg { min-height: 0; text-align: center; }
 .streak-msg:empty { display: none; }
+
+.rating-set-badge {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 4px;
+  color: var(--text-muted);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
