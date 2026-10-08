@@ -25,7 +25,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     member_days = max(int(member_days), 7)
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
-               "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0, "hilo_games": 0, "hilo_actions": 0,
+               "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0,
+               "crash_bets": 0, "crash_rounds": 0, "hilo_games": 0, "hilo_actions": 0,
                "transfers": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
@@ -97,6 +98,17 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM crash_actions WHERE rowid IN "
                 "(SELECT rowid FROM crash_actions WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "crash_bets" in present:
+            deleted["crash_bets"] = batches(
+                "DELETE FROM crash_bets WHERE rowid IN "
+                "(SELECT rowid FROM crash_bets WHERE created_at_ms < ? LIMIT ?)",
+                ((now - rounds_days * 86400) * 1000, batch))
+        if "crash_rounds" in present:
+            deleted["crash_rounds"] = batches(
+                "DELETE FROM crash_rounds WHERE id IN "
+                "(SELECT id FROM crash_rounds WHERE status = 'closed' AND bet_open_ms < ? "
+                "AND id NOT IN (SELECT round_id FROM crash_bets) LIMIT ?)",
+                ((now - rounds_days * 86400) * 1000, batch))
         if "hilo_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
             deleted["hilo_games"] = batches(
                 "DELETE FROM hilo_games WHERE id IN "
@@ -145,6 +157,6 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     logger.info("Очистка старых данных: раунды=%d участники=%d надгробия=%d покупки=%d игры=%d кено=%d слот=%d блэкджек=%d краш=%d хило=%d переводы=%d",
                 deleted["roulette_rounds"], deleted["chat_members"], deleted["deletion_tombstones"],
                 deleted["farm_purchases"], deleted["mines_games"] + deleted["mines_actions"], deleted["keno_rounds"], deleted["slot_rounds"],
-                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"],
+                deleted["blackjack_games"] + deleted["blackjack_actions"], deleted["crash_games"] + deleted["crash_actions"] + deleted["crash_bets"] + deleted["crash_rounds"],
                 deleted["hilo_games"] + deleted["hilo_actions"], deleted["transfers"])
     return deleted
