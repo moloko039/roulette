@@ -1,8 +1,15 @@
-"""Рейтинг беседы и рекорды выигрыша."""
-from fastapi import Header
+"""Рейтинг беседы, рекорды выигрыша и буст беседы."""
+import json
 
+from fastapi import Header, Request
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
+import wallet
+from core.chat_bonus import NoChat, NotAttributed, buy_chat_boost
 from db import chat_best_wins, chat_top
-from web.http import _in_group
+from roulette import validate_request_id
+from web.http import BodyTooLarge, _in_group, read_body_limited
 
 
 def register(app, ctx):
@@ -32,31 +39,30 @@ def register(app, ctx):
             return {"scope": "none"}
         return chat_best_wins(info["chat_instance"], info["user_id"], db_path=db_path)
 
-    from pydantic import BaseModel
-    from fastapi.responses import JSONResponse
-    from core.chat_bonus import buy_chat_boost, NoChat, NotAttributed
-    import wallet
-
-    class BoostRequest(BaseModel):
-        request_id: str
-
     @app.post("/api/chat/boost")
-    def chat_boost_endpoint(req: BoostRequest, authorization: str = Header(default=None)):
-        info = ctx.auth_full(authorization)
+    async def chat_boost_endpoint(request: Request):
+        info = ctx.auth_full(request.headers.get("authorization"))
         limited = throttled(info["user_id"], "write")
         if limited is not None:
             return limited
-
+        try:
+            raw = await read_body_limited(request)
+        except BodyTooLarge:
+            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+        try:
+            data = json.loads(raw)
+            if type(data) is not dict or set(data) != {"request_id"}:
+                raise ValueError()
+            request_id = validate_request_id(data["request_id"])
+        except Exception:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
         if not _in_group(info):
             return JSONResponse({"detail": "no_chat"}, status_code=409)
-
         try:
-            res = buy_chat_boost(info["user_id"], req.request_id, info["chat_instance"], db_path=db_path)
-            return res
+            return await run_in_threadpool(buy_chat_boost, info["user_id"], request_id, info["chat_instance"], None, db_path)
         except NotAttributed:
             return JSONResponse({"detail": "not_attributed"}, status_code=409)
         except NoChat:
             return JSONResponse({"detail": "no_chat"}, status_code=409)
         except wallet.InsufficientGems:
             return JSONResponse({"detail": "insufficient_gems"}, status_code=409)
-
