@@ -88,7 +88,7 @@ TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": i
             "cosmetics": dict,     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
             "complete_sets": [str]}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
-CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int, "chat_level": int, "chat_points": int, "chat_next_points": OPT(int), "set_names": dict}
+CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int, "chat_level": int, "chat_points": int, "chat_level_start_points": int, "chat_next_points": OPT(int), "set_names": dict}
 BEST_ITEM = {"rank": int, "name": str, "net_amount": int, "game": str, "is_me": bool, "cosmetics": dict}
 BEST_WINS = {"scope": str, "top": [BEST_ITEM], "me": OPT({"rank": int, "net_amount": int, "game": str, "total": int}), "total": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}

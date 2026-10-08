@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 import time
 
-from features.chat_db import chat_level, chat_top, chat_next_points
+from features.chat_db import chat_level, chat_top, chat_next_points, chat_level_start_points
 from core.db_conn import _connect
 from db import init_db
 
@@ -54,6 +54,11 @@ def test_chat_level_bounds():
     check("14_999_999", chat_next_points(14_999_999), 15_000_000)
     check("15_000_000", chat_next_points(15_000_000), None)
     check("100_000_000", chat_next_points(100_000_000), None)
+
+    # chat_level_start_points: порог текущего уровня (начало отрезка прогресса)
+    for points, start in ((0, 0), (9_999, 0), (10_000, 10_000), (24_999, 10_000), (25_000, 25_000), (59_999, 25_000), (60_000, 60_000),
+                          (14_999_999, 6_000_000), (15_000_000, 15_000_000), (100_000_000, 15_000_000)):
+        check("начало уровня при %d очках" % points, chat_level_start_points(points), start)
 
 def test_chat_top_includes_level_and_points():
     fd, path = tempfile.mkstemp()

@@ -200,7 +200,8 @@ function validChatLevel(d) {
   return d && typeof d === 'object' && d.scope === 'chat' && 
          Number.isInteger(d.chat_level) && d.chat_level >= 1 && d.chat_level <= 10 &&
          Number.isInteger(d.chat_points) && d.chat_points >= 0 &&
-         (d.chat_next_points === null || Number.isInteger(d.chat_next_points));
+         Number.isInteger(d.chat_level_start_points) && d.chat_level_start_points >= 0 && d.chat_level_start_points <= d.chat_points &&
+         (d.chat_next_points === null || (Number.isInteger(d.chat_next_points) && d.chat_next_points > d.chat_level_start_points));
 }
 
 function showRating(d) {
@@ -233,8 +234,11 @@ function showRating(d) {
       fill.style.width = '100%';
     } else {
       score.textContent = formatNumber(d.chat_points) + ' из ' + formatNumber(d.chat_next_points) + ' очков';
-      let progress = (d.chat_points / d.chat_next_points) * 100;
+      // прогресс внутри текущего уровня: от начала уровня до порога следующего
+      let progress = ((d.chat_points - d.chat_level_start_points) / (d.chat_next_points - d.chat_level_start_points)) * 100;
       if (progress > 100) progress = 100;
+      if (progress < 0) progress = 0;
+      progress = Math.round(progress * 10) / 10;      // 0.1 % достаточно: ровная запись ширины
       bar.setAttribute('aria-valuenow', Math.floor(progress));
       fill.style.width = progress + '%';
     }
