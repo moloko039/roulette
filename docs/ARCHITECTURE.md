@@ -132,4 +132,4 @@
 
 ## 9. Деплой
 `bot/railway.toml` (команда uvicorn с `--no-access-log --no-server-header`, `/health`), Python 3.12 везде (Railway: `RAILPACK_PYTHON_VERSION`, локально и в CI: `bot/.python-version`),
-`requirements.txt` с одним набором версий. Переменные окружения: `bot/DEPLOY.md`. **Перед деплоем с миграцией: `/backupnow`.**
+`requirements.txt` с одним набором версий. Переменные окружения: `bot/DEPLOY.md`. Перед деплоем с миграцией `/backupnow` больше не обязателен (решение владельца 2026-10-08, проект закрытый); для миграций, меняющих данные, спрашивай владельца.
