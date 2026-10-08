@@ -59,10 +59,12 @@ def player_view(conn, telegram_id):
     return pl["balance"], profile_level(pl["xp"]), pl["xp"]
 
 
-def add_staked(conn, telegram_id, amount):
-    """Ставка в total_staked (не выше MAX_SAFE_INT): момент учёта решает игра."""
+def add_staked(conn, telegram_id, amount, now):
+    """Ставка в total_staked (не выше MAX_SAFE_INT): момент учёта решает игра. Игрок становится активным сегодня."""
     conn.execute("UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
                  (amount, MAX_SAFE_INT, telegram_id))
+    conn.execute("UPDATE players SET last_played_at = ? WHERE telegram_id = ? -- 'player_best" + "_win'",
+                 (now_or_clock(now), telegram_id))
 
 
 def pay_and_xp(conn, telegram_id, paid, xp_amount, game, stake, now):

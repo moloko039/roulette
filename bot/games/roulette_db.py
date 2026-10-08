@@ -89,8 +89,8 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
                 _record_best_win(conn, telegram_id, "roulette", stake_total, payout_total, now)
             new_balance = wallet.get_balance(conn, telegram_id)
             conn.execute(
-                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                (stake_total, MAX_SAFE_INT, telegram_id),
+                "UPDATE players SET total_staked = MIN(total_staked + ?, ?), last_played_at = ? WHERE telegram_id = ?",
+                (stake_total, MAX_SAFE_INT, now, telegram_id),
             )
             _add_xp(conn, telegram_id, xp.roulette_xp(stake_total, bets))
             conn.execute(

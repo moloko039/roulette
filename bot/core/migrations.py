@@ -128,3 +128,20 @@ def _migrate_minute_accrual(conn, now=None):
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def _migrate_last_played_at(conn):
+    """Добавляет players.last_played_at в старую базу (идемпотентно)."""
+    def columns():
+        return {r["name"] for r in conn.execute("PRAGMA table_info(players)")}
+
+    if "last_played_at" in columns():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if "last_played_at" not in columns():
+            conn.execute("ALTER TABLE players ADD COLUMN last_played_at INTEGER NOT NULL DEFAULT 0")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise

@@ -6,7 +6,7 @@ from antiabuse import COOLDOWN_SECONDS
 
 from core.db_conn import _apply_journal_mode, _connect, _resolve_path
 from core.migrations import (
-    _migrate_farm_levels, _migrate_minute_accrual, _migrate_total_staked, _migrate_transfers_seen, _migrate_xp,
+    _migrate_farm_levels, _migrate_last_played_at, _migrate_minute_accrual, _migrate_total_staked, _migrate_transfers_seen, _migrate_xp,
 )
 
 
@@ -27,7 +27,8 @@ def init_db(db_path=None):
                 xp           INTEGER NOT NULL DEFAULT 0,
                 income_level INTEGER NOT NULL DEFAULT 0,
                 storage_level INTEGER NOT NULL DEFAULT 0,
-                transfers_seen_at INTEGER NOT NULL DEFAULT 0
+                transfers_seen_at INTEGER NOT NULL DEFAULT 0,
+                last_played_at INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -495,11 +496,26 @@ def init_db(db_path=None):
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user, created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_gifts_from ON gifts(from_user, created_at)")
+        # бусты бесед (E4)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_boosts (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_instance TEXT    NOT NULL,
+                telegram_id   INTEGER NOT NULL,
+                created_at    INTEGER NOT NULL,
+                expires_at    INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_boosts_chat ON chat_boosts(chat_instance)")
+        
         _migrate_total_staked(conn)
         _migrate_xp(conn)
         _migrate_farm_levels(conn)
         _migrate_transfers_seen(conn)
         _migrate_minute_accrual(conn)
+        _migrate_last_played_at(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",

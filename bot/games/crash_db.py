@@ -130,7 +130,7 @@ def crash_start(telegram_id, request_id, bet, target_x100=None, now_ms=None, db_
         if _crash_active(conn, telegram_id) is not None:
             raise crash.ActiveGameExists()
         wallet.debit(conn, telegram_id, bet)   # InsufficientFunds, если фишек не хватает
-        add_staked(conn, telegram_id, bet)
+        add_staked(conn, telegram_id, bet, now)
         crash_x100 = crash.new_crash(rng)
         mode = "manual" if target_x100 is None else "auto"
         cur = conn.execute(

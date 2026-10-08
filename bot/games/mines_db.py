@@ -151,7 +151,7 @@ def mines_reveal(telegram_id, request_id, cell, now=None, db_path=None):
         if game["revealed_mask"] & bit:
             raise mines.AlreadyRevealed()
         if not game["staked_counted"]:
-            add_staked(conn, telegram_id, game["bet"])
+            add_staked(conn, telegram_id, game["bet"], now)
             conn.execute("UPDATE mines_games SET staked_counted = 1 WHERE id = ?", (game["id"],))
         if game["mine_mask"] & bit:
             _finish_game(conn, game["id"], "lost", 0, now_)

@@ -73,8 +73,8 @@ def play_keno(telegram_id, request_id, bet, picks, now=None, db_path=None, rng=N
                 wallet.credit(conn, telegram_id, payout)
                 _record_best_win(conn, telegram_id, "keno", bet, payout, now)
             conn.execute(
-                "UPDATE players SET total_staked = MIN(total_staked + ?, ?) WHERE telegram_id = ?",
-                (bet, MAX_SAFE_INT, telegram_id),
+                "UPDATE players SET total_staked = MIN(total_staked + ?, ?), last_played_at = ? WHERE telegram_id = ?",
+                (bet, MAX_SAFE_INT, now, telegram_id),
             )
             _add_xp(conn, telegram_id, xp.keno_xp(bet, len(picks)))
             conn.execute(
