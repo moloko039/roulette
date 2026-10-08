@@ -94,6 +94,7 @@ def get_chat_bonus(conn, telegram_id, now=None, db_path=None):
 
 class NoChat(Exception): pass
 class NotAttributed(Exception): pass
+class BoostCapReached(Exception): pass
 
 def buy_chat_boost(telegram_id, request_id, expected_chat_instance, now=None, db_path=None):
     if now is None:
@@ -131,6 +132,14 @@ def buy_chat_boost(telegram_id, request_id, expected_chat_instance, now=None, db
                     "boost_until": bonus["boost_until"],
                     "gems": balance
                 }
+
+            # Потолок бустов уже достигнут: новый буст не добавит бонуса, поэтому кристаллы не списываем
+            active = conn.execute(
+                "SELECT COUNT(*) FROM chat_boosts WHERE chat_instance = ? AND expires_at > ?",
+                (chat_instance, now)
+            ).fetchone()[0]
+            if active * CHAT_BOOST_PCT >= CHAT_BOOST_MAX_PCT:
+                raise BoostCapReached()
 
             expires_at = now + CHAT_BOOST_HOURS * 3600
             cur = conn.execute(

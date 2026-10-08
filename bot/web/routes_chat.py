@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 import wallet
-from core.chat_bonus import NoChat, NotAttributed, buy_chat_boost
+from core.chat_bonus import BoostCapReached, NoChat, NotAttributed, buy_chat_boost
 from db import chat_best_wins, chat_top
 from roulette import validate_request_id
 from web.http import BodyTooLarge, _in_group, read_body_limited
@@ -64,5 +64,7 @@ def register(app, ctx):
             return JSONResponse({"detail": "not_attributed"}, status_code=409)
         except NoChat:
             return JSONResponse({"detail": "no_chat"}, status_code=409)
+        except BoostCapReached:
+            return JSONResponse({"detail": "boost_cap_reached"}, status_code=409)
         except wallet.InsufficientGems:
             return JSONResponse({"detail": "insufficient_gems"}, status_code=409)

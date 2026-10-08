@@ -25,7 +25,7 @@ from economy_config import (
     CHAT_BOOST_HOURS,
     STREAK_UTC_OFFSET_HOURS,
 )
-from core.chat_bonus import get_chat_bonus, buy_chat_boost, NoChat, NotAttributed
+from core.chat_bonus import get_chat_bonus, buy_chat_boost, NoChat, NotAttributed, BoostCapReached
 
 NOW = int(time.time())
 TOKEN = "123456:TEST-TOKEN-not-real"
@@ -155,6 +155,23 @@ def test_buy_boost():
     gems = conn.execute("SELECT gems FROM gem_balances WHERE telegram_id = 1").fetchone()["gems"]
     assert gems == 50 # Не списано
 
+    # Потолок бустов (+25 % от бустов = пять бустов): шестой не списывает кристаллы
+    path = new_db()
+    player(path, 1, gems=1000)
+    add_chat(path, 1, "chat-C", NOW, played_at=NOW)
+    for i in range(5):
+        buy_chat_boost(1, "cap-%03d" % i, "chat-C", now=NOW, db_path=path)
+    before = _connect(path).execute("SELECT gems FROM gem_balances WHERE telegram_id = 1").fetchone()["gems"]
+    try:
+        buy_chat_boost(1, "cap-999", "chat-C", now=NOW, db_path=path)
+        assert False, "Should raise BoostCapReached"
+    except BoostCapReached:
+        pass
+    after = _connect(path).execute("SELECT gems FROM gem_balances WHERE telegram_id = 1").fetchone()["gems"]
+    assert after == before, "кристаллы списаны при полном бусте"
+    count = _connect(path).execute("SELECT COUNT(*) FROM chat_boosts WHERE chat_instance = 'chat-C'").fetchone()[0]
+    assert count == 5, "лишний буст записан"
+
 def test_accrual_with_bonus():
     path = new_db()
     player(path, 1)
@@ -215,11 +232,14 @@ def test_concurrency():
     with ThreadPoolExecutor(20) as pool:
         codes = list(pool.map(race, range(20)))
         
-    assert codes.count(200) == 20
-    
+    # Потолок бустов: ровно пять проходят (5 * 5 % = 25 %), остальные 15 получают 409 и кристаллы не списываются
+    assert codes.count(200) == 5, codes
+    assert codes.count(409) == 15, codes
     conn = _connect(path)
     boosts = conn.execute("SELECT count(*) as c FROM chat_boosts").fetchone()["c"]
-    assert boosts == 20
+    assert boosts == 5
+    gems = conn.execute("SELECT gems FROM gem_balances WHERE telegram_id = 1").fetchone()["gems"]
+    assert gems == 50 * 20 - 50 * 5, gems
 
 def test_data_rights():
     path = new_db()

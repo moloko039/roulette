@@ -74,7 +74,7 @@
 ### POST /api/chat/boost
 Группа write. Покупка буста беседы за кристаллы. Тело: `{"request_id": str}`.
 200: `{"bonus_pct" int, "boost_until" int, "gems" int (баланс после покупки)}`.
-Ошибки: 400 `invalid_request`; 409 `no_chat` (открыто не из беседы), `not_attributed` (игрок привязан к другой беседе по атрибуции), `insufficient_gems`, `request_conflict`; 429. Пример: `docs/examples/chat_boost.json`.
+Ошибки: 400 `invalid_request`; 409 `no_chat` (открыто не из беседы), `boost_cap_reached` (активные бусты уже дают максимум +25 %, кристаллы не списываются), `not_attributed` (игрок привязан к другой беседе по атрибуции), `insufficient_gems`, `request_conflict`; 429. Пример: `docs/examples/chat_boost.json`.
 
 ## GET /api/chat/top
 Группа read. Вне группового чата (личная переписка) 200 `{"scope": "none"}`: **других полей нет**.
