@@ -149,9 +149,7 @@ function wdNormalizeCollections(list) {
   (Array.isArray(list) ? list : []).forEach((c) => {
     if (!c || typeof c.code !== 'string' || typeof c.name !== 'string' || !Array.isArray(c.parts)) return;
     if (!Number.isSafeInteger(c.owned) || !Number.isSafeInteger(c.total) || c.total < 1 || c.owned < 0 || c.owned > c.total) return;
-    const season = Array.isArray(c.season) && c.season.length === 2 ? c.season : null;
     out.push({ code: c.code.slice(0, 30), name: c.name.slice(0, 40), how: typeof c.how === 'string' ? c.how.slice(0, 160) : '',
-      season: season,
       parts: c.parts.filter((x) => typeof x === 'string').slice(0, 20), owned: c.owned, total: c.total, complete: c.owned === c.total });
   });
   return out;
@@ -239,9 +237,6 @@ function renderWdCollections() {
     box.dataset.code = c.code;
     const head = document.createElement('strong');
     head.textContent = c.name + ': ' + c.owned + ' из ' + c.total + (c.complete ? ' (собрана)' : '');
-    if (c.season) {
-      head.textContent += ' (' + c.season[0] + ' — ' + c.season[1] + ')';
-    }
     const how = document.createElement('small');
     how.textContent = c.how;
     box.append(head, how);
