@@ -19,6 +19,24 @@ COLLECTIONS = {
 
 PART_TO_COLLECTION = {part: code for code, c in COLLECTIONS.items() for part in c["parts"]}
 
+SETS = {
+    "draft": {"name": "Черновик", "parts": ("draft_crash", "draft_mines", "draft_table", "draft_badge"), "price_gems": 200},
+    "void": {"name": "Пустота", "parts": ("void_table", "void_chip", "void_badge"), "price_gems": 400},
+}
+
+
+def set_of(code):
+    """Код набора, к которому относится часть, или None."""
+    for set_code, s in SETS.items():
+        if code in s["parts"]:
+            return set_code
+    return None
+
+
+def parts(set_code):
+    """Части набора по коду или пустой кортеж."""
+    return SETS[set_code]["parts"] if set_code in SETS else ()
+
 
 def _day(text):
     d = datetime.date.fromisoformat(text)

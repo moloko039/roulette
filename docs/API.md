@@ -373,7 +373,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Внутренние `payment_ref` и `charge_id` (идентификатор платежа) в API не отдаются. Примеры: `docs/examples/cosmetics.json`.
 
 ### GET /api/cosmetics/catalog
-Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price" ({"currency": "gems"|"chips", "amount": int} или null), "starter bool", "available bool"}]}`.
+Группа read. 200: `{"slots": [{"slot", "name", "starter", "public"}], "items": [{"code", "slot", "name", "description", "rarity" ("starter"|"common"|"rare"|"premium"), "price" ({"currency": "gems"|"chips", "amount": int} или null), "starter bool", "available bool"}], "sets": [{"code", "name", "price_gems", "parts": [str]}]`.
 Цена есть только у восьми доступных нестартовых предметов (константы в `bot/cosmetics.py`, `PRICES`); у стартовых и недоступных `price` null.
 Одинаков для всех игроков. `available: false`: предмет в каталоге есть, но надеть его нельзя (`item_unavailable`).
 
@@ -389,6 +389,10 @@ casinch с пресетом original-like): 6 барабанов высотой 
 
 ### POST /api/cosmetics/visibility
 Группа write. Тело: `{"request_id", "show_in_rating": bool}`. 200: `{"show_in_rating", "replayed"}`. Выключенный показ скрывает рамку и значок игрока в рейтинге беседы. Ошибки: 400, 409 `request_conflict`, 429.
+
+### POST /api/cosmetics/buy-set
+Группа write. Покупка набора косметики (сразу все части) за кристаллы. Тело: `{"request_id", "set_code"}`. 200: `{"set_code", "items": [коды частей], "price_gems", "balance", "gems", "replayed"}`.
+Одна транзакция: неизвестный набор (ошибка 404 `unknown_set`); если хотя бы одна часть уже есть, ошибка 409 `already_owned` (до списания); затем списание кристаллов (ОДНИМ вызовом на сумму `price_gems`) и выдача всех частей. Идемпотентно.
 
 ### POST /api/cosmetics/buy
 Группа write. Покупка предмета за кристаллы или за фишки (по цене из каталога). Тело: `{"request_id", "item_code"}`. 200: `{"item_code", "price": {"currency": "gems"|"chips", "amount"}, "balance" (фишки после покупки), "gems" (кристаллы после покупки), "replayed"}`.
