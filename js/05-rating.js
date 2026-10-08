@@ -195,7 +195,7 @@ function showRating(d) {
     ratingEls.card.hidden = true;
     bestEls.card.hidden = true;
     ratingEls.title.textContent = 'Рейтинг';
-    ratingEls.msg.textContent = 'Рейтинг работает в беседах. Откройте игру по ссылке из группового чата, и здесь появится рейтинг участников';
+    ratingEls.msg.textContent = 'Рейтинг работает в беседах. Откройте игру по ссылке из группового чата, и здесь появится рейтинг участников. Бусты беседы и бонус беседы к ферме работают только когда игра открыта из группового чата: из личного чата они не действуют.';
     return;
   }
   ratingEls.title.textContent = 'Рейтинг беседы';

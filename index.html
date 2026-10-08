@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="css/10-hilo.css?v=4cf770b5">
   <link rel="stylesheet" href="css/11-lobby.css?v=57c8af13">
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=511f8c12">
-  <link rel="stylesheet" href="css/13-shop.css?v=289f295b">
+  <link rel="stylesheet" href="css/13-shop.css?v=4ad2006e">
 </head>
 <body>
   <div class="shell">
@@ -162,6 +162,13 @@
         <div class="farm-income-row"><span class="stat-label">В минуту ≈</span><strong id="farm-inc-min"></strong></div>
         <div class="farm-income-row"><span class="stat-label">Следующее начисление через</span><strong id="farm-inc-timer"></strong></div>
         <p class="farm-income-note" id="farm-inc-note"></p>
+      </div>
+      <div class="farm-card farm-chat-bonus" id="farm-chat-bonus" hidden>
+        <div class="farm-chat-bonus-row"><span class="stat-label" id="farm-chat-bonus-label"></span><strong id="farm-chat-bonus-val"></strong></div>
+        <div class="farm-chat-bonus-row" id="farm-chat-active-row" hidden><span class="stat-label">Активных сегодня:</span><strong id="farm-chat-active-val"></strong></div>
+        <p class="farm-chat-bonus-note" id="farm-chat-boost-until" hidden></p>
+        <p class="farm-chat-bonus-note" id="farm-chat-note"></p>
+        <button type="button" class="action farm-buy farm-chat-boost-btn" id="farm-chat-boost-btn" hidden></button>
       </div>
       <div class="farm-cards" id="farm-cards"></div>
       <p class="farm-note" id="farm-note" aria-live="polite"></p>
@@ -592,13 +599,13 @@
   </div>
   <nav class="nav" id="nav" aria-label="Разделы"></nav>
   </div>
-  <script src="js/00-config.js?v=e07eea8f"></script>
+  <script src="js/00-config.js?v=f44ee6d4"></script>
   <script src="js/01-core.js?v=d5a6594e"></script>
   <script src="js/02-bet.js?v=3084d651"></script>
   <script src="js/03-roulette.js?v=39102d34"></script>
-  <script src="js/04-profile.js?v=086d0005"></script>
-  <script src="js/05-rating.js?v=507243c8"></script>
-  <script src="js/06-farm.js?v=f6c02370"></script>
+  <script src="js/04-profile.js?v=86ac87d2"></script>
+  <script src="js/05-rating.js?v=d995ac6c"></script>
+  <script src="js/06-farm.js?v=e28e4e05"></script>
   <script src="js/07-mines.js?v=32fadb6a"></script>
   <script src="js/08-keno.js?v=e8d2f354"></script>
   <script src="js/09-blackjack.js?v=6d9fd117"></script>
