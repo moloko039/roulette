@@ -24,13 +24,8 @@ def register(app, ctx):
             return limited
         if not _in_group(info):
             return {"scope": "none"}
-        # возвращает chat_level, chat_points, chat_staked, me, top (ни telegram_id, ни chat_instance, ни username)
-        res = chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
-        import sys
-        if "test_total_staked.py" in sys.argv[0] or "test_total_staked" in getattr(sys.modules.get("__main__"), "__file__", ""):
-            res.pop("chat_level", None)
-            res.pop("chat_points", None)
-        return res
+        # в ответе только rank, name, balance, is_me, staked и chat_staked: ни telegram_id, ни chat_instance, ни username
+        return chat_top(info["chat_instance"], info["user_id"], info["first_name"], db_path=db_path)
 
     @app.get("/api/chat/best-wins")
     def chat_best_wins_endpoint(authorization: str = Header(default=None)):
