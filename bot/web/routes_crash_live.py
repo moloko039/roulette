@@ -1,4 +1,5 @@
 import json
+import re
 
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
@@ -16,8 +17,6 @@ def register(app, ctx):
     db_path = ctx.db_path
     throttled = ctx.throttled
 
-    import re
-    
     @app.get("/api/crash/live")
     def live_state_endpoint(request: Request, authorization: str = Header(default=None)):
         info = ctx.auth_full(authorization)

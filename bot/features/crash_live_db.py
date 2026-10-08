@@ -319,16 +319,22 @@ def _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client
 def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, rng=None, client_v=None):
     conn = _connect(db_path)
     try:
-        # Fast path
-        advance = needs_advance(conn, now_ms)
-        if not advance:
-            return _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
-            
-        # Slow path (needs advance)
+        # Быстрый путь: проверка и сборка ответа в ОДНОЙ читающей транзакции (общий снимок базы, без блокировки записи)
+        conn.execute("BEGIN")
+        try:
+            if not needs_advance(conn, now_ms):
+                return _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+        finally:
+            conn.execute("ROLLBACK")
+        # Медленный путь: пора продвигать раунд (открыть, закрыть, выплатить автовывод): запись под BEGIN IMMEDIATE
         conn.execute("BEGIN IMMEDIATE")
-        _advance_round_in_tx(conn, now_ms, rng)
-        res = _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
-        conn.commit()
+        try:
+            _advance_round_in_tx(conn, now_ms, rng)
+            res = _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
         return res
     finally:
         conn.close()
