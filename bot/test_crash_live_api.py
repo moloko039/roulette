@@ -17,7 +17,7 @@ from features import purge_db
 from tg_testutil import make_init_data
 
 TOKEN = "123456:TEST-TOKEN-not-real"
-A, B, C = 1001, 1002, 1003
+A, B, C, D = 1001, 1002, 1003, 1004
 
 _ENV_KEYS = ("DB_PATH", "TOMBSTONE_SECRET")
 _saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
@@ -39,7 +39,7 @@ try:
     # Даем баланс и чаты
     conn = sqlite3.connect(path)
     now = int(time.time())
-    for uid in (A, B, C):
+    for uid in (A, B, C, D):
         conn.execute("INSERT INTO players (telegram_id, balance, rate, last_accrual, accrual_acc, created_at, income_level, storage_level) VALUES (?, 1000, 100, ?, 0, ?, 1, 1)", (uid, now, now))
         conn.execute("INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES (?, ?, 'Name', ?, ?)", (f"chat_{uid}", uid, now, now))
     conn.commit()
@@ -116,12 +116,16 @@ try:
         st_B = ca.get("/api/crash/live", headers=auth(B, f"chat_{B}")).json()
         st_A = ca.get("/api/crash/live", headers=auth(A)).json()
         
-        check("A видит свою", len(st_A["bets"]), 1)
-        check("C видит свою", len(st_C["bets"]), 1)
-        check("B видит свою", len(st_B["bets"]), 1)
-        
-        check("Имена в личной", st_A["bets"][0]["name"], "Игрок")
-        check("Имена в группе C", st_C["bets"][0]["name"], "Name")
+        # игрок D тоже вне беседы: A и D видят ставки друг друга в общей АНОНИМНОЙ ленте (Игрок N по порядку подачи), беседы B и C их не видят
+        ca.post("/api/crash/live/bet", headers=auth(D), json={"request_id": "req-0009", "bet": 7})
+        st_A = ca.get("/api/crash/live", headers=auth(A)).json()
+        st_D = ca.get("/api/crash/live", headers=auth(D)).json()
+        check("вне бесед: общая лента A", [(b["name"], b["bet"]) for b in st_A["bets"]], [("Игрок 1", 10), ("Игрок 2", 7)])
+        check("вне бесед: та же лента у D", [(b["name"], b["bet"]) for b in st_D["bets"]], [("Игрок 1", 10), ("Игрок 2", 7)])
+        check("в общей ленте нет имён и идентификаторов", ("Name" in str(st_A), str(D) in str(st_A["bets"]), str(A) in str(st_A["bets"])), (False, False, False))
+        check("своя ставка в me у A и у D", (st_A["me"]["bet"], st_D["me"]["bet"]), (10, 7))
+        check("C видит только свою ставку (беседа)", [(b["name"], b["bet"]) for b in st_C["bets"]], [("Name", 5)])
+        check("B видит только свою ставку (беседа)", [(b["name"], b["bet"]) for b in st_B["bets"]], [("Name", 20)])
         
         check("Одинаковый раунд ID", st_C["round"]["id"], st_B["round"]["id"])
         check("Одинаковый хэш", st_C["round"]["seed_hash"], st_B["round"]["seed_hash"])
@@ -165,7 +169,7 @@ try:
     conn.close()
 
     deleted = db.purge_old_data(rounds_days=30, member_days=30, now=100 * 86400, db_path=path)
-    check("purge bets", deleted["crash_bets"], 2)
+    check("purge bets (остались ставки B, C и D после удаления данных игрока A)", deleted["crash_bets"], 3)
     check("purge rounds", deleted["crash_rounds"], 1)
 
     print("Все проверки прошли")
