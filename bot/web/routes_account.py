@@ -64,6 +64,19 @@ def register(app, ctx):
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
         settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша
         settle_expired_hilo(user_id, now=now, db_path=db_path)  # и просроченная партия в хило
+
+        try:
+            from core.db_conn import _connect
+            conn = _connect(db_path)
+            try:
+                is_unqualified = conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND qualified_at IS NULL", (user_id,)).fetchone() is not None
+            finally:
+                conn.close()
+            if is_unqualified:
+                db.check_qualification(user_id, now=now, db_path=db_path)
+        except Exception:
+            logger.error("check_qualification error", exc_info=True)
+
         player = get_player(user_id, now=now, db_path=db_path)
         if _in_group(info):
             try:

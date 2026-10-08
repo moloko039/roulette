@@ -4,6 +4,10 @@ import sqlite3
 import time
 
 from core.db_conn import _connect
+import wallet
+import economy_config
+import levels
+from features.streak_db import _free_gems_used
 
 _CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 CODE_LENGTH = 10
@@ -37,3 +41,76 @@ def link_for(code, game_link):
     if not game_link or not code:
         return None
     return "%s?startapp=ref_%s" % (game_link, code)
+
+
+def check_qualification(invitee_id, now=None, db_path=None):
+    """Проверяет квалификацию приглашённого (E5 шаг 2). Если условия выполнены (время, уровень, раунды) и награда
+    ещё не выдана, устанавливает qualified_at = now и начисляет награду пригласившему. Одна транзакция."""
+    if now is None:
+        now = int(time.time())
+    conn = _connect(db_path)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = conn.execute("SELECT rowid, referrer_id, qualified_at FROM referrals WHERE invitee_id = ?", (invitee_id,)).fetchone()
+            if row is None or row["qualified_at"] is not None or row["referrer_id"] == 0:
+                conn.execute("COMMIT")
+                return
+            referrer_id = row["referrer_id"]
+            ref_rowid = row[0]
+            
+            p_row = conn.execute("SELECT 1 FROM players WHERE telegram_id = ?", (referrer_id,)).fetchone()
+            if p_row is None:
+                conn.execute("COMMIT")
+                return
+            
+            p_row = conn.execute("SELECT created_at, xp FROM players WHERE telegram_id = ?", (invitee_id,)).fetchone()
+            if p_row is None:
+                conn.execute("COMMIT")
+                return
+            created_at, xp = p_row["created_at"], p_row["xp"]
+            
+            if now - created_at < economy_config.REFERRAL_QUALIFY_HOURS * 3600:
+                conn.execute("COMMIT")
+                return
+            
+            if levels.profile_level(xp) < economy_config.REFERRAL_QUALIFY_LEVEL:
+                conn.execute("COMMIT")
+                return
+            
+            tables = ("roulette_rounds", "keno_rounds", "slot_rounds", "mines_games", "blackjack_games", "crash_games", "hilo_games")
+            total_rounds = 0
+            present_tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            
+            for table in tables:
+                if table in present_tables:
+                    c = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE telegram_id = ?", (invitee_id,)).fetchone()[0]
+                    total_rounds += c
+                    if total_rounds >= economy_config.REFERRAL_QUALIFY_ROUNDS:
+                        break
+            
+            if total_rounds < economy_config.REFERRAL_QUALIFY_ROUNDS:
+                conn.execute("COMMIT")
+                return
+            
+            changed = conn.execute("UPDATE referrals SET qualified_at = ? WHERE invitee_id = ?", (now, invitee_id)).rowcount
+            if changed == 0:
+                conn.execute("COMMIT")
+                return
+            
+            wallet.credit(conn, referrer_id, economy_config.REFERRAL_INVITER_CHIPS)
+            
+            gems_reward = economy_config.REFERRAL_INVITER_GEMS
+            if gems_reward > 0:
+                left = max(0, economy_config.FREE_GEMS_MONTHLY_CAP - _free_gems_used(conn, referrer_id, now))
+                if gems_reward > left:
+                    gems_reward = left
+                if gems_reward > 0:
+                    wallet.gems_credit(conn, referrer_id, gems_reward, "referral_reward", f"invitee-{ref_rowid}", now)
+            
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    finally:
+        conn.close()
