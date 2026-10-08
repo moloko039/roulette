@@ -9,6 +9,7 @@ import time
 
 import cosmetic_sets
 import cosmetics
+import economy_config
 import wallet
 from roulette import InsufficientFunds
 
@@ -39,36 +40,52 @@ def cosmetics_state(telegram_id, db_path=None):
 
 
 def grant_dacha_parts_in(conn, telegram_id, income_level, now):
-    import economy_config
+    """Внутри открытой транзакции: недостающие части «Дачного сезона» по уровню дохода фермы (INSERT OR IGNORE, идемпотентно)."""
     for level, part in economy_config.DACHA_PARTS_BY_INCOME_LEVEL:
         if income_level >= level:
             conn.execute(
                 "INSERT OR IGNORE INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, ?, ?, ?, ?)",
-                (telegram_id, part, "collection", None, now)
-            )
+                (telegram_id, part, "collection", None, now))
+
+
+def grant_dacha_parts(telegram_id, now=None, db_path=None):
+    """Выдаёт игроку положенные по уровню дохода фермы части «Дачного сезона». Вызывается после покупки улучшения дохода (маршрут фермы) и лениво
+    из cosmetics_mine (игроки, у которых уровень уже выше порогов; страховка, если выдача после покупки не прошла). Транзакция фермы косметики не касается
+    (проверяет test_cosmetics: деньги и ферма не знают о косметике). Возвращает число выданных частей. Быстрая проверка без записи, если всё выдано."""
+    conn = _connect(db_path)
+    try:
+        player = conn.execute("SELECT income_level FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+        if player is None:
+            return 0
+        income_level = player["income_level"]
+        expected = [part for level, part in economy_config.DACHA_PARTS_BY_INCOME_LEVEL if income_level >= level]
+        if not expected:
+            return 0
+        marks = ",".join("?" for _ in expected)
+        have = conn.execute("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ? AND item_code IN (" + marks + ")", (telegram_id, *expected)).fetchone()[0]
+        if have >= len(expected):
+            return 0
+        if now is None:
+            now = int(time.time())
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            before = conn.total_changes
+            grant_dacha_parts_in(conn, telegram_id, income_level, now)
+            granted = conn.total_changes - before       # сколько частей вставлено именно этим вызовом (параллельные вызовы не засчитывают чужое)
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        return granted
+    finally:
+        conn.close()
 
 
 def cosmetics_mine(telegram_id, db_path=None):
     """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге."""
-    import economy_config
+    grant_dacha_parts(telegram_id, db_path=db_path)      # лениво: части «Дачного сезона» тем, у кого уровень фермы уже выше порогов
     conn = _connect(db_path)
     try:
-        player = conn.execute("SELECT income_level FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
-        if player is not None:
-            income_level = player["income_level"]
-            first_threshold = economy_config.DACHA_PARTS_BY_INCOME_LEVEL[0][0]
-            if income_level >= first_threshold:
-                expected_parts = [part for level, part in economy_config.DACHA_PARTS_BY_INCOME_LEVEL if income_level >= level]
-                owned_dacha = set(r["item_code"] for r in conn.execute(
-                    "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code IN ({})".format(
-                        ",".join("?" for _ in expected_parts)
-                    ), (telegram_id, *expected_parts)).fetchall())
-                if len(owned_dacha) < len(expected_parts):
-                    now = int(time.time())
-                    conn.execute("BEGIN IMMEDIATE")
-                    grant_dacha_parts_in(conn, telegram_id, income_level, now)
-                    conn.execute("COMMIT")
-
         gift_names = {r["item_code"]: r["from_name"] for r in conn.execute("SELECT item_code, from_name FROM gifts WHERE to_user = ? ORDER BY id", (telegram_id,))} if conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gifts'").fetchone() else {}
         owned = []
@@ -155,7 +172,7 @@ def _run_action(telegram_id, request_id, action, params, body, now, db_path, thr
                 raise cosmetics.TooFast()     # откат: смена не применяется
             response["replayed"] = False
             conn.execute(
-                "INSERT OR IGNORE INTO cosmetic_actions (telegram_id, request_id, action, params, response_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO cosmetic_actions (telegram_id, request_id, action, params, response_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (telegram_id, request_id, action, params_json, json.dumps(response, separators=(",", ":")), now))
             conn.execute("COMMIT")
             return response
@@ -209,7 +226,7 @@ def set_visibility(telegram_id, request_id, show_in_rating, now=None, db_path=No
         raise ValueError("invalid")
 
     def body(conn):
-        conn.execute("INSERT OR IGNORE INTO cosmetic_prefs (telegram_id, show_in_rating) VALUES (?, ?) "
+        conn.execute("INSERT INTO cosmetic_prefs (telegram_id, show_in_rating) VALUES (?, ?) "
                      "ON CONFLICT(telegram_id) DO UPDATE SET show_in_rating = excluded.show_in_rating",
                      (telegram_id, 1 if show_in_rating else 0))
         return {"show_in_rating": show_in_rating}
@@ -368,7 +385,7 @@ def record_stars_payment(telegram_id, charge_id, item_code, amount, now=None, db
                 conn.execute("COMMIT")
                 return {"result": "duplicate", "status": old["status"]}
             _register_player(conn, telegram_id, now)
-            conn.execute("INSERT OR IGNORE INTO cosmetic_purchases (charge_id, telegram_id, item_code, amount_stars, status, created_at) VALUES (?, ?, ?, ?, 'paid', ?)",
+            conn.execute("INSERT INTO cosmetic_purchases (charge_id, telegram_id, item_code, amount_stars, status, created_at) VALUES (?, ?, ?, ?, 'paid', ?)",
                          (charge_id, telegram_id, item_code, amount, now))
             if _grant_in(conn, telegram_id, item_code, "stars", charge_id, now):
                 result = "granted"
