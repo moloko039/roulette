@@ -453,3 +453,106 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 [data-skin-badge="void_badge"] {
   --badge-color: #d8d8d8;
 }
+
+/* Дачный сезон (docs/COLLECTIONS.md) */
+[data-skin-card_back="back_rug"] {
+  --card-back-a: #5c1e28;
+  --card-back-b: #3d131a;
+  --card-back-border: #d4bb8c;
+  --card-back-image:
+    repeating-linear-gradient(45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 10px),
+    repeating-linear-gradient(-45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 10px),
+    linear-gradient(160deg, #3d131a, #5c1e28);
+  --card-back-image-hl:
+    repeating-linear-gradient(45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 14px),
+    linear-gradient(160deg, #3d131a, #5c1e28);
+  --card-back-outline: 1px dashed rgba(212, 187, 140, 0.7);
+  --card-back-inset-bj: -6px;
+  --card-back-inset-hl: -10px;
+}
+
+[data-skin-chip="chip_cork"] {
+  --chip-bg: #3a572a;
+  --chip-text: #f5f5f2;
+  --chip-ring: #547542;
+  --chip-ring-10: #547542;
+  --chip-ring-50: #70965b;
+  --chip-ring-100: #93bf7c;
+  --chip-ring-500: #bedeab;
+  --chip-inner: inset 0 0 0 2px #d4bb8c;
+}
+
+[data-skin-table="table_oilcloth"] {
+  --table-red: #c93636;
+  --table-black: #2b1a13;
+  --table-green: #448035;
+  --table-felt: 
+    repeating-linear-gradient(0deg, transparent 0 19px, rgba(201, 54, 54, 0.2) 19px 20px),
+    repeating-linear-gradient(90deg, #e3d5c8 0 19px, rgba(201, 54, 54, 0.2) 19px 20px);
+  --wheel-rim-a: #85604a;
+  --wheel-rim-b: #e3d5c8;
+  --wheel-rim-c: #b58c74;
+  --wheel-sector-line: rgba(227, 213, 200, 0.5);
+  --wheel-edge: #2b1a13;
+  --wheel-hub: #593724;
+  --wheel-hub-line: rgba(227, 213, 200, 0.6);
+}
+
+[data-skin-mine_icons="mine_beetle"] {
+  --mines-cell-bg: #382516;
+  --mines-cell-border: #5c3d24;
+  --mines-cell-text: #b39b86;
+  --mines-cell-active-bg: #4f3520;
+  --mines-safe-bg: #386629;
+  --mines-safe-border: #a6d678;
+  --mines-safe-text: #f5f5f2;
+  --mines-safe-glow: rgba(166, 214, 120, 0.5);
+  --mines-bomb-bg: #b34e17;
+  --mines-bomb-text: #f5f5f2;
+  --mines-muted-bg: #382516;
+  --mines-muted-text: #856a54;
+  --mines-hit-border: #f5f5f2;
+  --mines-hit-ring: rgba(179, 78, 23, 0.4);
+  --mines-opening-a: #382516;
+  --mines-opening-b: #5c3d24;
+}
+
+[data-skin-keno_ball="keno_lotto"] {
+  --keno-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='4' y='8' width='32' height='24' rx='8' fill='%23e3b878' stroke='%238a5e30' stroke-width='2'/%3E%3C/svg%3E");
+  --keno-img-sel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='4' y='8' width='32' height='24' rx='8' fill='%2385521c' stroke='%23e8c76a' stroke-width='2'/%3E%3C/svg%3E");
+  --keno-img-drawn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='4' y='8' width='32' height='24' rx='8' fill='%23e3b878' stroke='%23fca13d' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-img-hit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='4' y='8' width='32' height='24' rx='8' fill='%23376e1a' stroke='%2399fc6d' stroke-width='3'/%3E%3C/svg%3E");
+  --keno-bg: transparent;
+  --keno-border: transparent;
+  --keno-text: #2e1805;
+  --keno-active-bg: transparent;
+  --keno-sel-text: #f7e8cf;
+  --keno-sel-bg: transparent;
+  --keno-sel-border: transparent;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #2e1805;
+  --keno-drawn-ring: none;
+  --keno-hit-text: #f5f5f5;
+  --keno-hit-bg: transparent;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+
+[data-skin-crash="crash_barrel"] {
+  --cr-bg: #1c1109;
+  --cr-border: #472b15;
+  --cr-axis: rgba(71, 43, 21, 0.5);
+  --cr-line: #fca13d;
+  --cr-win: #99fc6d;
+  --cr-win-soft: rgba(153, 252, 109, 0.2);
+  --cr-crash: #de3131;
+  --cr-crash-soft: rgba(222, 49, 49, 0.2);
+  --cr-label: #b89a7d;
+  --cr-label-strong: var(--text);
+  --cr-history-text: #b89a7d;
+  --cr-history-border: #472b15;
+  --cr-line-glow: none;
+  --cr-win-glow: none;
+  --cr-crash-glow: none;
+}

@@ -9,9 +9,9 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip'],
-  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines'],
-  keno_ball: ['keno_round', 'keno_hex'], crash: ['crash_line', 'crash_neon', 'draft_crash'],
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle'],
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel'],
   avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
@@ -149,7 +149,9 @@ function wdNormalizeCollections(list) {
   (Array.isArray(list) ? list : []).forEach((c) => {
     if (!c || typeof c.code !== 'string' || typeof c.name !== 'string' || !Array.isArray(c.parts)) return;
     if (!Number.isSafeInteger(c.owned) || !Number.isSafeInteger(c.total) || c.total < 1 || c.owned < 0 || c.owned > c.total) return;
+    const season = Array.isArray(c.season) && c.season.length === 2 ? c.season : null;
     out.push({ code: c.code.slice(0, 30), name: c.name.slice(0, 40), how: typeof c.how === 'string' ? c.how.slice(0, 160) : '',
+      season: season,
       parts: c.parts.filter((x) => typeof x === 'string').slice(0, 20), owned: c.owned, total: c.total, complete: c.owned === c.total });
   });
   return out;
@@ -237,6 +239,9 @@ function renderWdCollections() {
     box.dataset.code = c.code;
     const head = document.createElement('strong');
     head.textContent = c.name + ': ' + c.owned + ' из ' + c.total + (c.complete ? ' (собрана)' : '');
+    if (c.season) {
+      head.textContent += ' (' + c.season[0] + ' — ' + c.season[1] + ')';
+    }
     const how = document.createElement('small');
     how.textContent = c.how;
     box.append(head, how);
