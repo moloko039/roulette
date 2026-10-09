@@ -339,9 +339,9 @@ try:
 
     # /api/me
     me = client.get("/api/me", headers=auth(A)).json()
-    check("/api/me: косметика", sorted(me["cosmetics"]), ["equipped", "show_in_rating"])
+    check("/api/me: косметика", sorted(me["cosmetics"]), ["complete_sets", "equipped", "show_in_rating"])
     check("/api/me: надетое по слотам", sorted(me["cosmetics"]["equipped"]), sorted(cosmetics.SLOTS))
-    check("/api/me: новый игрок со стартовыми", client.get("/api/me", headers=auth(C)).json()["cosmetics"], {"equipped": cosmetics.STARTERS, "show_in_rating": True})
+    check("/api/me: новый игрок со стартовыми", client.get("/api/me", headers=auth(C)).json()["cosmetics"], {"equipped": cosmetics.STARTERS, "show_in_rating": True, "complete_sets": []})
 
     # ================= рейтинг: публичные слоты =================
     for uid, name in ((A, "Аня"), (B, "Борис"), (C, "Вера")):

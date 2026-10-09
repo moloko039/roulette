@@ -162,7 +162,7 @@ function skinSync(slot) {
   host.insertBefore(root, host.firstChild);
   host.dataset.scene = want;
   const offs = [];
-  const rt = { root, host, still: skinStill, on: (name, fn) => { const off = skinEvents.on(name, fn); offs.push(off); return off; } };
+  const rt = { root, host, still: skinStill, hasSet: skinHasSet, on: (name, fn) => { const off = skinEvents.on(name, fn); offs.push(off); return off; } };
   skinMounted[slot] = { code: want, root, inst: null, offs, link, host };
   try {
     skinMounted[slot].inst = def.mount(rt) || null;
@@ -184,5 +184,20 @@ function skinScreenChanged(screen) {
   const wanted = new Set(SKIN_SCREEN_SLOTS[screen] || []);
   SKIN_SLOTS.forEach((slot) => skinSetActive(slot, wanted.has(slot)));
 }
+
+// ----- эффект полного набора (DESIGN.md): собранные коллекции игрока приходят в /api/me (cosmetics.complete_sets); пока смонтирована любая сцена и приложение видно, раз в
+// SKIN_EFFECT_EVERY_MS среда шлёт каждой собранной коллекции событие skin:effect {set}: сцена решает, что нарисовать (ворона у «Дачного сезона» и т.д.). Без движения событий нет.
+const SKIN_EFFECT_EVERY_MS = 180000;
+let skinOwnSets = new Set();
+let skinEffectTimer = 0;
+function skinSetOwnSets(list) {
+  skinOwnSets = new Set(Array.isArray(list) ? list.filter((c) => typeof c === 'string' && SKIN_CODE_RE.test(c)) : []);
+}
+const skinHasSet = (code) => skinOwnSets.has(code);
+function skinEffectTick() {
+  if (skinRt.paused || skinStill() || !Object.keys(skinMounted).length) return;
+  skinOwnSets.forEach((set) => skinEvents.emit('skin:effect', { set }));
+}
+skinEffectTimer = setInterval(skinEffectTick, SKIN_EFFECT_EVERY_MS);
 
 // #endregion

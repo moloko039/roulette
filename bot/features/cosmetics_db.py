@@ -48,6 +48,8 @@ def cosmetics_state(telegram_id, db_path=None):
         patina = patina_stages(conn, telegram_id, equipped)
         if patina:
             res["patina"] = patina
+        owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
+        res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["complete"]]      # собранные коллекции: клиент показывает эффект полного набора (DESIGN.md)
         return res
     finally:
         conn.close()
