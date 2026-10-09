@@ -891,3 +891,54 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   z-index: 1;
 }
 [data-skin-badge="badge_pumpkin"] { --badge-color: #E8812E; }
+
+/* ========================================================================== */
+/* Черновик (DESIGN.md раздел 4): палитры новых частей; рисунок и сцены делает задача пула */
+/* ========================================================================== */
+[data-skin-chip="draft_chip"] {
+  --chip-bg: #24409E;
+  --chip-text: #F7F5EE;
+  --chip-ring: #BFD8E8;
+  --chip-ring-10: #BFD8E8;
+  --chip-ring-50: #F6EB61;
+  --chip-ring-100: #F4B8B8;
+  --chip-ring-500: #FFFFFF;
+  --chip-inner: inset 0 0 0 2px rgba(191, 216, 232, 0.55);
+}
+[data-skin-keno_ball="draft_keno"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #F7F5EE;
+  --keno-border: #BFD8E8;
+  --keno-text: #1F3A93;
+  --keno-active-bg: #E8E4D6;
+  --keno-sel-text: #1F3A93;
+  --keno-sel-bg: #F7F5EE;
+  --keno-sel-border: #1F3A93;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #1F3A93;
+  --keno-drawn-ring: 0 0 0 2px #5A5A5A;
+  --keno-hit-text: #F7F5EE;
+  --keno-hit-bg: #2E4FB8;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-card_back="draft_back"] {
+  --card-back-a: #5B7DB8;
+  --card-back-b: #4A6CA8;
+  --card-back-border: #0F1F5C;
+  --card-back-image:
+    repeating-linear-gradient(0deg, rgba(191, 216, 232, 0.55) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(90deg, rgba(191, 216, 232, 0.55) 0 1px, transparent 1px 8px),
+    linear-gradient(160deg, #5B7DB8, #4A6CA8);
+  --card-back-image-hl:
+    repeating-linear-gradient(0deg, rgba(191, 216, 232, 0.55) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, rgba(191, 216, 232, 0.55) 0 1px, transparent 1px 16px),
+    linear-gradient(160deg, #5B7DB8, #4A6CA8);
+  --card-back-outline: 1px solid rgba(31, 58, 147, 0.7);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+[data-skin-avatar_frame="draft_frame"] { --avatar-frame: 0 0 0 2px #F7F5EE, 0 0 0 4px #1F3A93, 0 0 0 5px #F6EB61; }

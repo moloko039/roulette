@@ -44,7 +44,7 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб открыт")
     check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent, c.classList.contains('dim')])"
-    check("слот «Рубашка карт»: надето, есть, скоро", await p.ev(cards), [["Классика", "Надето", False], ["Полночь", "Есть", False], ["Уголь", "Скоро", True], ["Листопад", "Коллекция", True], ["Ковёр", "Коллекция", True], ["Патина", "400 кристаллов", True]])
+    check("слот «Рубашка карт»: надето, есть, скоро", await p.ev(cards), [["Классика", "Надето", False], ["Полночь", "Есть", False], ["Уголь", "Скоро", True], ["Листопад", "Коллекция", True], ["Ковёр", "Коллекция", True], ["Патина", "400 кристаллов", True], ["Черновик", "100 кристаллов", True]])
     await p.tap("#wd-tabs .wd-tab:nth-child(3)")
     check("слот «Стол»: стартовый надет, у недостающего цена из каталога, у «Скоро» цены нет", await p.ev(
         "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent.replace(/\\s/g, ' '), c.classList.contains('dim')])"),

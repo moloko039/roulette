@@ -32,13 +32,13 @@ def main():
         assert resp["set_code"] == "draft"
         assert resp["price_gems"] == 200
         assert resp["gems"] == 800
-        assert set(resp["items"]) == {"draft_crash", "draft_mines", "draft_table", "draft_badge"}
+        assert set(resp["items"]) == set(cosmetic_sets.SETS["draft"]["parts"])
         assert not resp.get("replayed")
 
         # Проверка базы: все предметы выданы, списание в gems_ledger
         conn = _connect(path)
         owned = [r["item_code"] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = 1")]
-        assert set(owned) == {"draft_crash", "draft_mines", "draft_table", "draft_badge"}
+        assert set(owned) == set(cosmetic_sets.SETS["draft"]["parts"])
         
         ledger = conn.execute("SELECT delta, reason, ref FROM gems_ledger WHERE telegram_id = 1").fetchall()
         assert len(ledger) == 2 # 1 grant + 1 debit

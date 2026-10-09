@@ -88,6 +88,7 @@ PRICES = {
     "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000),
     # части наборов «Черновик» (200 💎 за набор) и «Пустота» (400 💎): по отдельности дороже набора, см. cosmetic_sets.SETS
     "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100),
+    "draft_chip": ("gems", 100), "draft_keno": ("gems", 100), "draft_back": ("gems", 100), "draft_frame": ("gems", 100),      # новые части «Черновика» по DESIGN.md (набор из восьми частей 200 💎)
     "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
     # «Патина» (набор 1000 💎, решение владельца 2026-10-09; части по 400 💎, чтобы купившие бесплатные части раньше могли добрать рамку) и «Глубина» (набор 500 💎, части по 150 💎)
     "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400),
@@ -162,6 +163,10 @@ _ROWS = (
     ("crash_maple", "crash", "Клён", "Кленовый лист несёт порыв ветра", "rare", True),
     ("frame_wreath", "avatar_frame", "Венок", "Венок из кленовых листьев", "rare", True),
     ("badge_pumpkin", "badge", "Тыква", "Тыква с вырезанной улыбкой", "rare", True),
+    ("draft_chip", "chip", "Черновик", "Монета, нарисованная синей ручкой", "common", True),
+    ("draft_keno", "keno_ball", "Черновик", "Лотерейный бланк с обведёнными числами", "common", True),
+    ("draft_back", "card_back", "Черновик", "Скучающие каракули на обороте", "common", True),
+    ("draft_frame", "avatar_frame", "Черновик", "Аватар на скотче рядом с жёлтым стикером", "common", True),
 )
 
 CATALOG = tuple(
