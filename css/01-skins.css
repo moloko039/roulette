@@ -465,18 +465,16 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 
 /* Дачный сезон (docs/COLLECTIONS.md) */
 [data-skin-card_back="back_rug"] {
-  --card-back-a: #5c1e28;
-  --card-back-b: #3d131a;
-  --card-back-border: #d4bb8c;
+  --card-back-a: #2b1a13;
+  --card-back-b: #7e2533;
+  --card-back-border: #e3a33b;
   --card-back-image:
-    repeating-linear-gradient(45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 10px),
-    repeating-linear-gradient(-45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 10px),
-    linear-gradient(160deg, #3d131a, #5c1e28);
+    repeating-radial-gradient(circle at 50% 50%, rgba(227, 163, 59, 0.08) 0 1px, transparent 1px 3px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 128' width='92' height='128'%3E%3Crect width='92' height='128' fill='%232B1A13'/%3E%3Cpath d='M6 1v5M9 1v5M12 1v5M15 1v5M18 1v5M21 1v5M24 1v5M27 1v5M30 1v5M33 1v5M36 1v5M39 1v5M42 1v5M45 1v5M48 1v5M51 1v5M54 1v5M57 1v5M60 1v5M63 1v5M66 1v5M69 1v5M72 1v5M75 1v5M78 1v5M81 1v5M84 1v5M87 1v5M6 122v5M9 122v5M12 122v5M15 122v5M18 122v5M21 122v5M24 122v5M27 122v5M30 122v5M33 122v5M36 122v5M39 122v5M42 122v5M45 122v5M48 122v5M51 122v5M54 122v5M57 122v5M60 122v5M63 122v5M66 122v5M69 122v5M72 122v5M75 122v5M78 122v5M81 122v5M84 122v5M87 122v5' stroke='%23E3A33B' stroke-width='1.2' stroke-linecap='round'/%3E%3Cpath d='M5 6h82M5 122h82' stroke='%23E3A33B' stroke-width='1.5'/%3E%3Crect x='6' y='7' width='80' height='114' fill='%237E2533'/%3E%3Crect x='9' y='10' width='74' height='108' fill='none' stroke='%23E3A33B' stroke-width='1.2'/%3E%3Crect x='12' y='13' width='68' height='102' fill='%232B1A13' stroke='%235B3A1F' stroke-width='1'/%3E%3Cg stroke='%23E3A33B' stroke-width='1' fill='none'%3E%3Cpath d='M14 26h64M14 102h64M20 14v100M72 14v100'/%3E%3Cpolygon points='22,16 26,20 22,24 18,20' fill='%237E2533'/%3E%3Cpolygon points='70,16 74,20 70,24 66,20' fill='%237E2533'/%3E%3Cpolygon points='22,104 26,108 22,112 18,108' fill='%237E2533'/%3E%3Cpolygon points='70,104 74,108 70,112 66,108' fill='%237E2533'/%3E%3Cpolygon points='46,16 51,21 46,26 41,21' fill='%235B3A1F'/%3E%3Cpolygon points='46,102 51,107 46,112 41,107' fill='%235B3A1F'/%3E%3Cpolygon points='16,64 21,59 26,64 21,69' fill='%235B3A1F'/%3E%3Cpolygon points='76,64 71,59 66,64 71,69' fill='%235B3A1F'/%3E%3C/g%3E%3Cg%3E%3Cpolygon points='46,28 78,64 46,100 14,64' fill='%237E2533' stroke='%23E3A33B' stroke-width='1.5'/%3E%3Cpolygon points='46,34 72,64 46,94 20,64' fill='%235B3A1F' stroke='%23E3A33B' stroke-width='1'/%3E%3Cpolygon points='46,40 66,64 46,88 26,64' fill='%237E2533' stroke='%23E3A33B' stroke-width='1.2'/%3E%3Cpolygon points='46,46 60,64 46,82 32,64' fill='%232B1A13' stroke='%235B3A1F' stroke-width='1'/%3E%3Cpolygon points='46,50 50,59 60,64 50,69 46,78 42,69 32,64 42,59' fill='%23E3A33B'/%3E%3Cpolygon points='46,54 48,60 55,64 48,68 46,74 44,68 37,64 44,60' fill='%237E2533'/%3E%3Ccircle cx='46' cy='64' r='4' fill='%232B1A13' stroke='%23E3A33B' stroke-width='1'/%3E%3Ccircle cx='46' cy='64' r='2' fill='%23E3A33B'/%3E%3C/g%3E%3Cg stroke='%23E3A33B' stroke-width='1' fill='%235B3A1F'%3E%3Cpolygon points='34,42 38,46 34,50 30,46'/%3E%3Cpolygon points='58,42 62,46 58,50 54,46'/%3E%3Cpolygon points='34,78 38,82 34,86 30,82'/%3E%3Cpolygon points='58,78 62,82 58,86 54,82'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
   --card-back-image-hl:
-    repeating-linear-gradient(45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 14px),
-    repeating-linear-gradient(-45deg, rgba(212, 187, 140, 0.25) 0 2px, transparent 2px 14px),
-    linear-gradient(160deg, #3d131a, #5c1e28);
-  --card-back-outline: 1px dashed rgba(212, 187, 140, 0.7);
+    repeating-radial-gradient(circle at 50% 50%, rgba(227, 163, 59, 0.08) 0 1.5px, transparent 1.5px 4px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 128' width='92' height='128'%3E%3Crect width='92' height='128' fill='%232B1A13'/%3E%3Cpath d='M6 1v5M9 1v5M12 1v5M15 1v5M18 1v5M21 1v5M24 1v5M27 1v5M30 1v5M33 1v5M36 1v5M39 1v5M42 1v5M45 1v5M48 1v5M51 1v5M54 1v5M57 1v5M60 1v5M63 1v5M66 1v5M69 1v5M72 1v5M75 1v5M78 1v5M81 1v5M84 1v5M87 1v5M6 122v5M9 122v5M12 122v5M15 122v5M18 122v5M21 122v5M24 122v5M27 122v5M30 122v5M33 122v5M36 122v5M39 122v5M42 122v5M45 122v5M48 122v5M51 122v5M54 122v5M57 122v5M60 122v5M63 122v5M66 122v5M69 122v5M72 122v5M75 122v5M78 122v5M81 122v5M84 122v5M87 122v5' stroke='%23E3A33B' stroke-width='1.2' stroke-linecap='round'/%3E%3Cpath d='M5 6h82M5 122h82' stroke='%23E3A33B' stroke-width='1.5'/%3E%3Crect x='6' y='7' width='80' height='114' fill='%237E2533'/%3E%3Crect x='9' y='10' width='74' height='108' fill='none' stroke='%23E3A33B' stroke-width='1.2'/%3E%3Crect x='12' y='13' width='68' height='102' fill='%232B1A13' stroke='%235B3A1F' stroke-width='1'/%3E%3Cg stroke='%23E3A33B' stroke-width='1' fill='none'%3E%3Cpath d='M14 26h64M14 102h64M20 14v100M72 14v100'/%3E%3Cpolygon points='22,16 26,20 22,24 18,20' fill='%237E2533'/%3E%3Cpolygon points='70,16 74,20 70,24 66,20' fill='%237E2533'/%3E%3Cpolygon points='22,104 26,108 22,112 18,108' fill='%237E2533'/%3E%3Cpolygon points='70,104 74,108 70,112 66,108' fill='%237E2533'/%3E%3Cpolygon points='46,16 51,21 46,26 41,21' fill='%235B3A1F'/%3E%3Cpolygon points='46,102 51,107 46,112 41,107' fill='%235B3A1F'/%3E%3Cpolygon points='16,64 21,59 26,64 21,69' fill='%235B3A1F'/%3E%3Cpolygon points='76,64 71,59 66,64 71,69' fill='%235B3A1F'/%3E%3C/g%3E%3Cg%3E%3Cpolygon points='46,28 78,64 46,100 14,64' fill='%237E2533' stroke='%23E3A33B' stroke-width='1.5'/%3E%3Cpolygon points='46,34 72,64 46,94 20,64' fill='%235B3A1F' stroke='%23E3A33B' stroke-width='1'/%3E%3Cpolygon points='46,40 66,64 46,88 26,64' fill='%237E2533' stroke='%23E3A33B' stroke-width='1.2'/%3E%3Cpolygon points='46,46 60,64 46,82 32,64' fill='%232B1A13' stroke='%235B3A1F' stroke-width='1'/%3E%3Cpolygon points='46,50 50,59 60,64 50,69 46,78 42,69 32,64 42,59' fill='%23E3A33B'/%3E%3Cpolygon points='46,54 48,60 55,64 48,68 46,74 44,68 37,64 44,60' fill='%237E2533'/%3E%3Ccircle cx='46' cy='64' r='4' fill='%232B1A13' stroke='%23E3A33B' stroke-width='1'/%3E%3Ccircle cx='46' cy='64' r='2' fill='%23E3A33B'/%3E%3C/g%3E%3Cg stroke='%23E3A33B' stroke-width='1' fill='%235B3A1F'%3E%3Cpolygon points='34,42 38,46 34,50 30,46'/%3E%3Cpolygon points='58,42 62,46 58,50 54,46'/%3E%3Cpolygon points='34,78 38,82 34,86 30,82'/%3E%3Cpolygon points='58,78 62,82 58,86 54,82'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  --card-back-outline: 1px dashed rgba(227, 163, 59, 0.7);
   --card-back-inset-bj: -6px;
   --card-back-inset-hl: -10px;
 }
@@ -493,19 +491,28 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 
 [data-skin-table="table_oilcloth"] {
-  --table-red: #c93636;
-  --table-black: #2b1a13;
+  --table-red: #B8323A;
+  --table-black: #1A100B;
   --table-green: #448035;
-  --table-felt: 
-    repeating-linear-gradient(0deg, transparent 0 19px, rgba(201, 54, 54, 0.2) 19px 20px),
-    repeating-linear-gradient(90deg, #e3d5c8 0 19px, rgba(201, 54, 54, 0.2) 19px 20px);
-  --wheel-rim-a: #85604a;
-  --wheel-rim-b: #e3d5c8;
-  --wheel-rim-c: #b58c74;
-  --wheel-sector-line: rgba(227, 213, 200, 0.5);
-  --wheel-edge: #2b1a13;
+  --table-felt:
+    linear-gradient(to right, #8A5A35 0 3px, transparent 3px calc(100% - 3px), #8A5A35 calc(100% - 3px) 100%),
+    linear-gradient(to bottom, #8A5A35 0 3px, transparent 3px calc(100% - 3px), #8A5A35 calc(100% - 3px) 100%),
+    radial-gradient(circle 28px at 88% 18%, transparent 23px, rgba(138, 90, 53, 0.42) 24px, rgba(110, 60, 30, 0.5) 25.5px, rgba(138, 90, 53, 0.28) 27px, transparent 28.5px),
+    radial-gradient(circle 2px at 84% 14%, #5B3A1F 1.5px, transparent 2px),
+    radial-gradient(circle 1.5px at 91% 23%, #7A4A2A 1.2px, transparent 1.5px),
+    radial-gradient(circle 2px at 86% 25%, #8A5A35 1.5px, transparent 2px),
+    radial-gradient(circle 1px at 80% 20%, #4A2E18 1px, transparent 1.2px),
+    linear-gradient(125deg, transparent calc(32% - 3px), rgba(255, 255, 255, 0.35) calc(32% - 1px), rgba(59, 42, 30, 0.32) 32%, transparent calc(32% + 3px)),
+    linear-gradient(125deg, transparent calc(68% - 3px), rgba(255, 255, 255, 0.35) calc(68% - 1px), rgba(59, 42, 30, 0.32) 68%, transparent calc(68% + 3px)),
+    linear-gradient(40deg, transparent calc(50% - 3px), rgba(255, 255, 255, 0.3) calc(50% - 1px), rgba(59, 42, 30, 0.3) 50%, transparent calc(50% + 3px)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='168' viewBox='0 0 168 168'%3E%3Cdefs%3E%3Cg id='c'%3E%3Cpath d='M8 3c-2 4-5 8-6 13M8 3c1 4 4 8 7 12' stroke='%235C8A3A' stroke-width='1.2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M8 3c3-3 7-2 8 1c-1 3-5 3-8-1' fill='%235C8A3A'/%3E%3Ccircle cx='3' cy='16' r='3.5' fill='%23B8323A'/%3E%3Ccircle cx='2' cy='15' r='1' fill='%23FFF' opacity='0.7'/%3E%3Ccircle cx='15' cy='15' r='3.5' fill='%23B8323A'/%3E%3Ccircle cx='14' cy='14' r='1' fill='%23FFF' opacity='0.7'/%3E%3C/g%3E%3Cpattern id='oil' width='168' height='168' patternUnits='userSpaceOnUse'%3E%3Crect width='168' height='168' fill='%23F3E7CF'/%3E%3Cpath d='M0 0h168v28H0zM0 56h168v28H0zM0 112h168v28H0z' fill='%23B8323A' fill-opacity='0.22'/%3E%3Cpath d='M0 0v168h28V0zM56 0v168h28V0zM112 0v168h28V0z' fill='%23B8323A' fill-opacity='0.22'/%3E%3Cpath d='M0 28h168M0 56h168M0 84h168M0 112h168M0 140h168M28 0v168M56 0v168M84 0v168M112 0v168M140 0v168' stroke='%23B8323A' stroke-opacity='0.18' stroke-width='1'/%3E%3Cuse href='%23c' x='4' y='4'/%3E%3Cuse href='%23c' x='88' y='4'/%3E%3Cuse href='%23c' x='32' y='32'/%3E%3Cuse href='%23c' x='116' y='32'/%3E%3Cuse href='%23c' x='60' y='60'/%3E%3Cuse href='%23c' x='144' y='60'/%3E%3Cuse href='%23c' x='4' y='88'/%3E%3Cuse href='%23c' x='88' y='88'/%3E%3Cuse href='%23c' x='32' y='116'/%3E%3Cuse href='%23c' x='116' y='116'/%3E%3Cuse href='%23c' x='60' y='144'/%3E%3Cuse href='%23c' x='144' y='144'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='168' height='168' fill='url(%23oil)'/%3E%3C/svg%3E") 0 0 / 168px 168px repeat #F3E7CF;
+  --wheel-rim-a: #8A5A35;
+  --wheel-rim-b: #F3E7CF;
+  --wheel-rim-c: #B88A5A;
+  --wheel-sector-line: rgba(243, 231, 207, 0.45);
+  --wheel-edge: #1A100B;
   --wheel-hub: #593724;
-  --wheel-hub-line: rgba(227, 213, 200, 0.6);
+  --wheel-hub-line: rgba(243, 231, 207, 0.6);
 }
 
 [data-skin-mine_icons="mine_beetle"] {
