@@ -1,1 +1,174 @@
-/* Скин фишки «Пробки» (коллекция «Дачный сезон»): заготовка, заполняется задачей пула */
+/* Скин фишки «Пробки» (коллекция «Дачный сезон», DESIGN.md раздел 2).
+   Крышка-пробка от бутылки с 21 зубцом по краю (SVG-контур), блик на металле
+   (radial-gradient полумесяцем), вмятина от открывашки, выпуклая эмблема.
+   Номиналы-напитки: лимонад (жёлтая, 10), квас (коричневая, 50), ситро (зелёная, 100),
+   тархун (изумрудная, 500), минералка (синяя, fallback).
+   Событие ставки: анимация падения .stack.drop с подскоком и поворотом (только transform и opacity).
+   Отключение анимаций при html.perf-lite, html.skin-paused и prefers-reduced-motion. */
+
+/* 1. Базовые стили фишки .chip и стопки .stack */
+[data-scene="chip_cork"] .chip,
+[data-scene="chip_cork"] .stack {
+  --cork-glare: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.15) 24%, transparent 48%);
+}
+
+[data-scene="chip_cork"] .chip {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  color: #f5f5f2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 40px 40px, 40px 40px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+[data-scene="chip_cork"] .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-scene="chip_cork"] .chip[aria-pressed="true"] {
+  border-color: #f7c27a;
+  box-shadow: 0 0 0 2px #f7c27a, 0 2px 8px rgba(247, 194, 122, 0.45);
+}
+
+/* Прямоугольные кнопки фишек в доке ставок: крышка по левому краю + читаемая сумма */
+[data-scene="chip_cork"] .bets-dock .chip {
+  padding-left: 32px;
+  padding-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-position: left 6px center, left 6px center;
+  background-size: 28px 28px, 28px 28px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* Стопка .stack на клетке стола рулетки: круглая крышка-пробка */
+[data-scene="chip_cork"] .stack {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 9.5px;
+  line-height: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #f5f5f2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 100% 100%, 100% 100%;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+}
+
+/* 2. Номиналы: напитки (цвет, блик полумесяцем, эмблема) */
+/* Fallback: Минералка (синяя, капля) */
+[data-scene="chip_cork"] .chip,
+[data-scene="chip_cork"] .stack {
+  background-color: #1E4E75;
+  border-color: #5682A3;
+  background-image: var(--cork-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M47,2L53,2L56,8L61,3L67,5L68,12L74,9L80,12L79,19L85,18L89,23L87,29L93,30L96,35L91,41L98,43L98,50L92,53L97,58L96,64L90,66L93,71L90,77L83,76L85,83L80,87L74,85L74,92L68,95L63,91L60,97L54,98L50,92L46,98L40,97L37,91L32,95L26,92L26,85L20,87L15,83L17,76L10,77L7,71L10,66L4,64L3,58L8,53L2,50L2,43L9,41L4,35L7,30L13,29L11,23L15,18L21,19L20,12L26,9L32,12L33,5L39,3L44,8Z' fill='%235682A3' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Cpath d='M56,8L55,15M68,12L65,18M79,19L74,24M87,29L80,32M91,41L84,42M92,53L85,53M90,66L83,63M83,76L77,72M74,85L70,79M63,91L60,83M50,92L50,85M37,91L40,83M26,85L30,79M17,76L23,72M10,66L17,63M8,53L15,53M9,41L16,42M13,29L20,32M21,19L26,24M32,12L35,18M44,8L45,15' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='35' fill='%231E4E75' stroke='rgba(255,255,255,.3)' stroke-width='1'/%3E%3Cpath d='M65,27Q57,35 49,33' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4'/%3E%3Cpath d='M64,28Q56,36 48,34' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.8'/%3E%3Cpath d='M50,36C45,44 42,48 42,53A8,8 0 0,0 58,53C58,48 55,44 50,36Z' fill='rgba(255,255,255,.2)' stroke='rgba(255,255,255,.5)' stroke-width='1'/%3E%3Cpath d='M50,37C45,45 42,49 42,54A8,8 0 0,0 58,54C58,49 55,45 50,37Z' fill='none' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Ccircle cx='50' cy='54' r='3' fill='none' stroke='rgba(255,255,255,.4)' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+/* Номинал 10: Лимонад (жёлтая / золотистая охра, звезда) */
+[data-scene="chip_cork"] .chip:is([data-amount="10"], [data-bet="10"], [data-kbet="10"], [data-jbet="10"], [data-cbet="10"], [data-hbet="10"]) {
+  background-color: #8A6008;
+  border-color: #C99B3B;
+  background-image: var(--cork-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M47,2L53,2L56,8L61,3L67,5L68,12L74,9L80,12L79,19L85,18L89,23L87,29L93,30L96,35L91,41L98,43L98,50L92,53L97,58L96,64L90,66L93,71L90,77L83,76L85,83L80,87L74,85L74,92L68,95L63,91L60,97L54,98L50,92L46,98L40,97L37,91L32,95L26,92L26,85L20,87L15,83L17,76L10,77L7,71L10,66L4,64L3,58L8,53L2,50L2,43L9,41L4,35L7,30L13,29L11,23L15,18L21,19L20,12L26,9L32,12L33,5L39,3L44,8Z' fill='%23C99B3B' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Cpath d='M56,8L55,15M68,12L65,18M79,19L74,24M87,29L80,32M91,41L84,42M92,53L85,53M90,66L83,63M83,76L77,72M74,85L70,79M63,91L60,83M50,92L50,85M37,91L40,83M26,85L30,79M17,76L23,72M10,66L17,63M8,53L15,53M9,41L16,42M13,29L20,32M21,19L26,24M32,12L35,18M44,8L45,15' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='35' fill='%238A6008' stroke='rgba(255,255,255,.3)' stroke-width='1'/%3E%3Cpath d='M65,27Q57,35 49,33' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4'/%3E%3Cpath d='M64,28Q56,36 48,34' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.8'/%3E%3Cpolygon points='50,35 53,45 64,45 55,51 59,61 50,55 41,61 45,51 36,45 47,45' fill='rgba(255,255,255,.22)' stroke='rgba(255,255,255,.45)' stroke-width='.8'/%3E%3Cpolygon points='50,36 53,46 64,46 55,52 59,62 50,56 41,62 45,52 36,46 47,46' fill='none' stroke='rgba(0,0,0,.35)' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+/* Номинал 50: Квас (коричневая, колос) */
+[data-scene="chip_cork"] .chip:is([data-amount="50"], [data-bet="50"], [data-kbet="50"], [data-jbet="50"], [data-cbet="50"], [data-hbet="50"]) {
+  background-color: #54321A;
+  border-color: #946338;
+  background-image: var(--cork-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M47,2L53,2L56,8L61,3L67,5L68,12L74,9L80,12L79,19L85,18L89,23L87,29L93,30L96,35L91,41L98,43L98,50L92,53L97,58L96,64L90,66L93,71L90,77L83,76L85,83L80,87L74,85L74,92L68,95L63,91L60,97L54,98L50,92L46,98L40,97L37,91L32,95L26,92L26,85L20,87L15,83L17,76L10,77L7,71L10,66L4,64L3,58L8,53L2,50L2,43L9,41L4,35L7,30L13,29L11,23L15,18L21,19L20,12L26,9L32,12L33,5L39,3L44,8Z' fill='%23946338' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Cpath d='M56,8L55,15M68,12L65,18M79,19L74,24M87,29L80,32M91,41L84,42M92,53L85,53M90,66L83,63M83,76L77,72M74,85L70,79M63,91L60,83M50,92L50,85M37,91L40,83M26,85L30,79M17,76L23,72M10,66L17,63M8,53L15,53M9,41L16,42M13,29L20,32M21,19L26,24M32,12L35,18M44,8L45,15' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='35' fill='%2354321A' stroke='rgba(255,255,255,.3)' stroke-width='1'/%3E%3Cpath d='M65,27Q57,35 49,33' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4'/%3E%3Cpath d='M64,28Q56,36 48,34' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.8'/%3E%3Cpath d='M50,64V36M46,40C44,38 46,35 50,38M54,40C56,38 54,35 50,38M45,48C43,46 45,43 50,46M55,48C57,46 55,43 50,46M46,56C44,54 46,51 50,54M54,56C56,54 54,51 50,54' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.2' stroke-linecap='round'/%3E%3Cpath d='M50,65V37M46,41C44,39 46,36 50,39M54,41C56,39 54,36 50,39M45,49C43,47 45,44 50,47M55,49C57,47 55,44 50,47M46,57C44,55 46,52 50,55M54,57C56,55 54,52 50,55' fill='none' stroke='rgba(0,0,0,.35)' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Номинал 100: Ситро (зелёная, цитрус / солнце) */
+[data-scene="chip_cork"] .chip:is([data-amount="100"], [data-bet="100"], [data-kbet="100"], [data-jbet="100"], [data-cbet="100"], [data-hbet="100"]) {
+  background-color: #2E5C26;
+  border-color: #6D9652;
+  background-image: var(--cork-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M47,2L53,2L56,8L61,3L67,5L68,12L74,9L80,12L79,19L85,18L89,23L87,29L93,30L96,35L91,41L98,43L98,50L92,53L97,58L96,64L90,66L93,71L90,77L83,76L85,83L80,87L74,85L74,92L68,95L63,91L60,97L54,98L50,92L46,98L40,97L37,91L32,95L26,92L26,85L20,87L15,83L17,76L10,77L7,71L10,66L4,64L3,58L8,53L2,50L2,43L9,41L4,35L7,30L13,29L11,23L15,18L21,19L20,12L26,9L32,12L33,5L39,3L44,8Z' fill='%236D9652' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Cpath d='M56,8L55,15M68,12L65,18M79,19L74,24M87,29L80,32M91,41L84,42M92,53L85,53M90,66L83,63M83,76L77,72M74,85L70,79M63,91L60,83M50,92L50,85M37,91L40,83M26,85L30,79M17,76L23,72M10,66L17,63M8,53L15,53M9,41L16,42M13,29L20,32M21,19L26,24M32,12L35,18M44,8L45,15' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='35' fill='%232E5C26' stroke='rgba(255,255,255,.3)' stroke-width='1'/%3E%3Cpath d='M65,27Q57,35 49,33' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4'/%3E%3Cpath d='M64,28Q56,36 48,34' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.8'/%3E%3Ccircle cx='50' cy='50' r='13' fill='rgba(255,255,255,.12)' stroke='rgba(255,255,255,.45)' stroke-width='1'/%3E%3Cpath d='M50,37V63M37,50H63M41,41L59,59M41,59L59,41' stroke='rgba(255,255,255,.45)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='3.5' fill='rgba(255,255,255,.3)' stroke='rgba(0,0,0,.35)' stroke-width='.8'/%3E%3C/svg%3E");
+}
+
+/* Номинал 500: Тархун (изумрудная, веточка) */
+[data-scene="chip_cork"] .chip:is([data-amount="500"], [data-bet="500"], [data-kbet="500"], [data-jbet="500"], [data-cbet="500"], [data-hbet="500"]) {
+  background-color: #15543B;
+  border-color: #3E8A66;
+  background-image: var(--cork-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M47,2L53,2L56,8L61,3L67,5L68,12L74,9L80,12L79,19L85,18L89,23L87,29L93,30L96,35L91,41L98,43L98,50L92,53L97,58L96,64L90,66L93,71L90,77L83,76L85,83L80,87L74,85L74,92L68,95L63,91L60,97L54,98L50,92L46,98L40,97L37,91L32,95L26,92L26,85L20,87L15,83L17,76L10,77L7,71L10,66L4,64L3,58L8,53L2,50L2,43L9,41L4,35L7,30L13,29L11,23L15,18L21,19L20,12L26,9L32,12L33,5L39,3L44,8Z' fill='%233E8A66' stroke='rgba(0,0,0,.35)' stroke-width='1'/%3E%3Cpath d='M56,8L55,15M68,12L65,18M79,19L74,24M87,29L80,32M91,41L84,42M92,53L85,53M90,66L83,63M83,76L77,72M74,85L70,79M63,91L60,83M50,92L50,85M37,91L40,83M26,85L30,79M17,76L23,72M10,66L17,63M8,53L15,53M9,41L16,42M13,29L20,32M21,19L26,24M32,12L35,18M44,8L45,15' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='.9'/%3E%3Ccircle cx='50' cy='50' r='35' fill='%2315543B' stroke='rgba(255,255,255,.3)' stroke-width='1'/%3E%3Cpath d='M65,27Q57,35 49,33' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4'/%3E%3Cpath d='M64,28Q56,36 48,34' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.8'/%3E%3Cpath d='M50,64Q49,50 50,36M44,42Q47,43 50,44M56,47Q53,48 50,49M43,51Q46,52 50,53M57,56Q54,57 50,58' fill='none' stroke='rgba(255,255,255,.45)' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M50,65Q49,51 50,37M44,43Q47,44 50,45M56,48Q53,49 50,50M43,52Q46,53 50,54M57,57Q54,58 50,59' fill='none' stroke='rgba(0,0,0,.3)' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 3. Событие «ставка» (.stack.drop) */
+[data-scene="chip_cork"] .stack.drop {
+  animation: cork-drop 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1) forwards;
+}
+
+@keyframes cork-drop {
+  0% {
+    transform: translate(-50%, -85%) scale(1.4) rotate(-22deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(-50%, -48%) scale(0.95) rotate(4deg);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(-50%, -55%) scale(1.04) rotate(-2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* 4. Пауза и облегчённый режим (perf-lite, reduced-motion, skin-paused) */
+html.perf-lite [data-scene="chip_cork"] .stack.drop {
+  animation: none !important;
+}
+
+html.perf-lite [data-scene="chip_cork"] .stack,
+html.perf-lite [data-scene="chip_cork"] .chip,
+html.perf-lite [data-scene="chip_cork"] .stack::before,
+html.perf-lite [data-scene="chip_cork"] .stack::after,
+html.perf-lite [data-scene="chip_cork"] .chip::before,
+html.perf-lite [data-scene="chip_cork"] .chip::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="chip_cork"] .stack.drop {
+    animation: none !important;
+  }
+  [data-scene="chip_cork"] .stack,
+  [data-scene="chip_cork"] .chip,
+  [data-scene="chip_cork"] .stack::before,
+  [data-scene="chip_cork"] .stack::after,
+  [data-scene="chip_cork"] .chip::before,
+  [data-scene="chip_cork"] .chip::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+html.skin-paused [data-scene="chip_cork"] .stack.drop {
+  animation-play-state: paused !important;
+}
+
+html.skin-paused [data-scene="chip_cork"] .stack,
+html.skin-paused [data-scene="chip_cork"] .chip,
+html.skin-paused [data-scene="chip_cork"] .stack::before,
+html.skin-paused [data-scene="chip_cork"] .stack::after,
+html.skin-paused [data-scene="chip_cork"] .chip::before,
+html.skin-paused [data-scene="chip_cork"] .chip::after {
+  animation-play-state: paused !important;
+}
