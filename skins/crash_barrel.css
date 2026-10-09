@@ -1,0 +1,39 @@
+/* Сцена скина краша «Бочка» (коллекция «Дачный сезон», DESIGN.md раздел 2). Загружается при надевании скина и снимается вместе со сценой. Только transform и opacity. */
+.cr-chart[data-scene="crash_barrel"] .cr-smoke { display: block; stroke: rgba(243, 231, 207, 0.36); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.cr-chart[data-scene="crash_barrel"][data-tone="idle"] .cr-curve { stroke: #FFE08A; stroke-width: 2.5; }
+/* множитель и подпись остаются читаемыми на любой зоне: тёмная подложка под цифрами (цифры не перекрываются декором) */
+.cr-chart[data-scene="crash_barrel"] .cr-mult, .cr-chart[data-scene="crash_barrel"] .cr-label { background: rgba(28, 17, 9, 0.86); border-radius: 12px; padding: 2px 12px; }
+.cr-chart[data-scene="crash_barrel"] .cr-label { color: #F3E7CF; }
+.cr-chart[data-scene="crash_barrel"][data-tone="crash"] .cr-mult { color: #FF9C8F; }
+.cr-chart[data-scene="crash_barrel"][data-tone="crash"] .cr-label, .cr-chart[data-scene="crash_barrel"][data-tone="win"] .cr-label { color: #F3E7CF; }
+
+.scb-defs { position: absolute; width: 0; height: 0; }
+.scb-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scb-zone { opacity: 0; transition: opacity 0.52s ease; }
+.scb-zone.in { opacity: 1; }
+.scb-zone.out { opacity: 0; }
+
+.scb-r { position: absolute; left: 0; top: 0; width: 56px; height: 80px; transform-origin: 28px 40px; }
+.scb-r.flying { will-change: transform; }
+.scb-r.gone { opacity: 0; }
+.scb-rocket { position: absolute; left: 8px; top: 8px; display: block; }
+.scb-r.broken .scb-rocket { transform: rotate(78deg) translate(0, 6px); transform-origin: 50% 70%; }
+.scb-r:not(.flying) .scb-flame { display: none; }
+.scb-flame { transform-origin: 16px 43px; animation: scb-flick 0.16s ease-in-out infinite alternate; }
+.scb-chute { position: absolute; left: 0; top: -34px; display: block; opacity: 0; transform: scale(0.3); transform-origin: 50% 100%; transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.2s; }
+.scb-r.open .scb-chute { opacity: 1; transform: scale(1); }
+
+.scb-fx { position: absolute; inset: 0; }
+.scb-p { position: absolute; display: none; }
+.scb-p.on { display: block; }
+
+.scb-smoke { animation: scb-puff 3.2s ease-in-out infinite; }
+.scb-fly { animation: scb-glide 10s ease-in-out infinite alternate; }
+.scb-drift { animation: scb-drift 16s ease-in-out infinite alternate; }
+.scb-sat { animation: scb-bob 6s ease-in-out infinite alternate; }
+
+@keyframes scb-flick { from { transform: scaleY(0.82); } to { transform: scaleY(1.18); } }
+@keyframes scb-puff { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-7px); opacity: 0.45; } }
+@keyframes scb-glide { from { transform: translateX(-26px); } to { transform: translateX(46px); } }
+@keyframes scb-drift { from { transform: translateX(10px); } to { transform: translateX(-30px); } }
+@keyframes scb-bob { from { transform: translateY(0); } to { transform: translateY(-6px); } }

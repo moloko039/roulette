@@ -26,6 +26,8 @@ const crEls = {
   retry: document.getElementById('cr-retry'),
   chart: document.getElementById('cr-chart'),
   curve: document.getElementById('cr-curve'),
+  smoke: document.getElementById('cr-smoke'),
+  smoke: document.getElementById('cr-smoke'),
   mult: document.getElementById('cr-mult'),
   label: document.getElementById('cr-label'),
   history: document.getElementById('cr-history'),
@@ -45,6 +47,10 @@ const crEls = {
 };
 
 const cr = {
+  phaseShown: '',       // показанная фаза и раунд: для события crash:phase скинов
+  phaseRound: 0,
+  flightSeen: 0,        // раунд, который эта сессия видела в полёте (итог без полёта сцена показывает без анимации краха)
+  crashSeen: new Set(),
   loaded: false,
   error: false,
   state: null,          // последний ПОЛНЫЙ ответ GET /api/crash/live
@@ -195,13 +201,37 @@ function crDrawCurve(elapsedMs) {
   const ymax = Math.max(2, m * 1.15);
   const pts = [];
   const N = 36;
+  let px = 0, py = 149, x = 0, y = 149;
   for (let i = 0; i <= N; i++) {
     const t = (elapsedMs * i) / N;
-    const x = (t / xmax) * 300;
-    const y = 149 - ((Math.pow(2, t / CR_DOUBLING_MS) - 1) / (ymax - 1)) * 148;
+    px = x; py = y;
+    x = (t / xmax) * 300;
+    y = 149 - ((Math.pow(2, t / CR_DOUBLING_MS) - 1) / (ymax - 1)) * 148;
     pts.push((i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1));
   }
-  crEls.curve.setAttribute('d', pts.join(''));
+  crTip.x = x; crTip.y = y; crTip.px = px; crTip.py = py;      // конец линии и предыдущий узел
+  const d = pts.join('');
+  crEls.curve.setAttribute('d', d);
+  if (crEls.smoke) crEls.smoke.setAttribute('d', d);       // толстый дымный след (виден только в скинах, которым он нужен)
+}
+
+// Конец линии в координатах графика 300×150 (x, y) и предыдущий узел (px, py): сцены скинов ставят ракету по ним
+const crTip = { x: 0, y: 149, px: 0, py: 149 };
+
+// События для сцен скинов (js/01a-skin-runtime.js): смена показанной фазы и раунда, кадр (только если на него кто-то подписан). Объект кадра один и тот же, сцена его не хранит.
+const crFrame = { phase: '', roundId: 0, x100: 100, elapsed: 0, x: 0, y: 149, px: 0, py: 149 };
+function crEmitSkin(phase, r, x100, elapsed) {
+  if (cr.phaseShown !== phase || cr.phaseRound !== r.id) {
+    cr.phaseShown = phase;
+    cr.phaseRound = r.id;
+    if (phase === 'flight') cr.flightSeen = r.id;
+    skinEvents.emit('crash:phase', { phase, roundId: r.id, x100 });
+  }
+  if (skinEvents.has('crash:frame')) {
+    crFrame.phase = phase; crFrame.roundId = r.id; crFrame.x100 = x100; crFrame.elapsed = elapsed;
+    crFrame.x = crTip.x; crFrame.y = crTip.y; crFrame.px = crTip.px; crFrame.py = crTip.py;
+    skinEvents.emit('crash:frame', crFrame);
+  }
 }
 
 function crSetTone(tone) { crEls.chart.dataset.tone = tone; }
@@ -228,17 +258,20 @@ function crDraw() {
     crSetTone('idle');
     crShowMult(x100);
     crDrawCurve(elapsed);
+    crEmitSkin('flight', r, x100, elapsed);
     crEls.label.textContent = me && me.status === 'open' ? (me.target_x100 === null ? 'Нажмите «Забрать» до краха' : 'авто ' + crText(me.target_x100)) : 'Раунд идёт';
     if (me && me.status === 'open' && !cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(me.bet * x100 / 100));
   } else if (phase === 'betting') {
     crSetTone('idle');
     crShowMult(100);
     crDrawCurve(0);
+    crEmitSkin('betting', r, 100, 0);
     crEls.label.textContent = 'Приём ставок: ' + crSeconds(r.flight_start_ms - crServerNow()) + ' с';
   } else if (r.result) {
     crSetTone('crash');
     crShowMult(r.result.crash_x100);
     crDrawCurve(CR_DOUBLING_MS * Math.log2(Math.max(1, r.result.crash_x100 / 100)));
+    crEmitSkin('result', r, r.result.crash_x100, CR_DOUBLING_MS * Math.log2(Math.max(1, r.result.crash_x100 / 100)));
     const next = typeof r.next_open_ms === 'number' ? ' · следующий раунд через ' + crSeconds(r.next_open_ms - crServerNow()) + ' с' : '';
     crEls.label.textContent = 'Крах ' + crText(r.result.crash_x100) + next;
   }
@@ -298,13 +331,17 @@ async function crPoll() {
 }
 
 function crPause() {
+  skinSetActive('crash', false);
   crStopLoop();
   clearTimeout(cr.pollTimer);
   cr.pollTimer = 0;
 }
 
+skinSetHost('crash', () => crEls.chart);
+
 function crResume() {
   if (!crOnScreen()) return;
+  skinSetActive('crash', true);
   cr.resync = true;
   crStartLoop();
   clearTimeout(cr.pollTimer);
@@ -351,6 +388,11 @@ function crApply(d) {
   const r = d.round;
   if (r && r.result) crCheckProof(r);
   crSettle(r, d.me);
+  if (r && r.result && !cr.crashSeen.has(r.id)) {
+    if (cr.crashSeen.size > 30) cr.crashSeen.clear();
+    cr.crashSeen.add(r.id);
+    skinEvents.emit('crash:crash', { roundId: r.id, x100: r.result.crash_x100, fresh: cr.flightSeen === r.id, mine: d.me ? d.me.status : null });
+  }
   renderCrash();
 }
 
@@ -359,6 +401,7 @@ function crSettle(r, me) {
   if (!r || !me) return;
   if (me.status === 'cashed' && !cr.cashSeen.has(r.id)) {
     cr.cashSeen.add(r.id);
+    skinEvents.emit('crash:cashout', { roundId: r.id, x100: me.cashed_x100, fresh: cr.flightSeen === r.id });
     haptic('success');
     loadServer('after');
   } else if (me.status === 'lost' && r.result && !cr.settled.has(r.id)) {
@@ -552,6 +595,7 @@ function crBet() {
   const body = target === null ? { bet } : { bet, target_x100: target };
   crAct('/api/crash/live/bet', body, validCrBetDone, (d) => {
     cr.balance = d.balance;
+    skinEvents.emit('crash:bet', { roundId: d.round_id });
     haptic('light');
   }, {
     betting_closed: 'Приём ставок закрыт: дождитесь следующего раунда',
