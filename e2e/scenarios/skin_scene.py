@@ -32,6 +32,8 @@ async def run(w):
     w.sql("INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, 'crash', 'crash_barrel')", (uid,))
     w.server.script(crash_live=[400, 150, 150, 150])
     await w.reload()
+    # настоящий монитор кадров на медленной машине сам мог бы включить perf-lite посреди сценария: его запуск отключаем, монитор проверяется ниже вручную поданными кадрами
+    await p.ev("skinFpsStop(); skinFpsStart = () => {}")
     check("до открытия краша сцены и css скина в DOM нет", [await p.ev(SCENE), await p.ev(LINK)], [0, 0])
     await open_game(p, "crash")
     await p.wait(READY, 10, "панель ставки")
