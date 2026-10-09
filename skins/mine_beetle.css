@@ -1,1 +1,225 @@
-/* Сцена скина мин «Жуки» (коллекция «Дачный сезон»): заготовка, заполняется задачей пула */
+/* Сцена скина мин «Жуки» (коллекция «Дачный сезон», DESIGN.md раздел 2).
+   Загружается при надевании скина и открытии экрана мин, снимается вместе со сценой.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. */
+
+/* 1. Поле — ГРЯДКА: деревянные бортики по краям (#8A5A35) */
+#mines-board-wrap[data-scene="mine_beetle"] {
+  position: relative;
+}
+
+#mines-board-wrap[data-scene="mine_beetle"] .mines-grid {
+  position: relative;
+  box-sizing: border-box;
+  padding: 4px;
+  background-color: #3B2A1E;
+  border: 5px solid #8A5A35;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px #5B3A1F,
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* 2. Клетка — комок земли с бороздкой (#5B3A1F и #3B2A1E) */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #5B3A1F;
+  background-color: #3B2A1E;
+  background-image:
+    /* бороздка */
+    linear-gradient(135deg, transparent 45%, #281B13 47%, #4A2E19 53%, transparent 55%),
+    /* комок земли */
+    radial-gradient(circle at 45% 45%, #5B3A1F 0%, #442B1A 65%, #3B2A1E 100%);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+}
+
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell:active:not(:disabled) {
+  transform: scale(0.96);
+  background-color: #2F1E14;
+}
+
+/* Скрываем стандартные svg-значки игры и гасим filter safe-значка */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell svg {
+  display: none;
+  filter: none;
+}
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe svg {
+  filter: none;
+}
+
+/* 3. Закрытая клетка: росток с 2 листиками (#5C8A3A), тихий покой */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell:not(.safe):not(.mine)::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 22v-9' stroke='%233D6024' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M12 15C8 14 5 11 6 7c4 0 6 5 6 8z' fill='%235C8A3A' stroke='%233D6024' stroke-width='0.8'/%3E%3Cpath d='M12 15C16 14 19 11 18 7c-4 0-6 5-6 8z' fill='%236BA043' stroke='%233D6024' stroke-width='0.8'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  pointer-events: none;
+  transform-origin: 50% 90%;
+  animation: mine-sprout-idle 3s ease-in-out infinite alternate;
+  animation-delay: calc(var(--ci, 0) * -170ms);
+}
+
+@keyframes mine-sprout-idle {
+  0%   { transform: rotate(-2.5deg); }
+  50%  { transform: rotate(1.5deg); }
+  100% { transform: rotate(2.5deg); }
+}
+
+/* Взрыв: соседние ростки никнут */
+#mines-board-wrap[data-scene="mine_beetle"][data-status="lost"] .mines-cell:not(.safe):not(.mine)::before {
+  animation: mine-sprout-wilt 0.5s ease-out forwards;
+}
+
+@keyframes mine-sprout-wilt {
+  0%   { transform: rotate(0deg); opacity: 1; }
+  100% { transform: rotate(45deg) translateY(4px) scale(0.85); opacity: 0.6; }
+}
+
+/* 4. Безопасная клетка (.safe): выкапывается и показывает овощ */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe {
+  background-color: #4A2E19;
+  background-image: radial-gradient(circle at 50% 50%, #5B3A1F 0%, #3B2A1E 85%);
+  border-color: #8A5A35;
+  animation: mine-safe-reveal 0.35s ease-out;
+}
+
+@keyframes mine-safe-reveal {
+  0%   { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+/* 3-4 комочка земли коротко разлетаются (частицы) */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='7' cy='7' r='2.2' fill='%235B3A1F'/%3E%3Ccircle cx='25' cy='8' r='2.5' fill='%233B2A1E'/%3E%3Ccircle cx='6' cy='24' r='2' fill='%23442B1A'/%3E%3Ccircle cx='26' cy='25' r='2.4' fill='%235B3A1F'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: mine-soil-burst 0.4s ease-out forwards;
+}
+
+@keyframes mine-soil-burst {
+  0%   { transform: scale(0.3); opacity: 1; }
+  60%  { transform: scale(1.3); opacity: 0.8; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+/* Овощи на открытых клетках (по кругу: картошка, морковка, редиска, огурец) */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+  animation: mine-veg-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes mine-veg-pop {
+  0%   { transform: scale(0.3) translateY(6px); opacity: 0; }
+  60%  { transform: scale(1.15) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Картошка */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe:nth-child(4n+1)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M10 9 C16 6 25 8 26 14 C27 20 22 25 15 25 C8 25 5 21 6 15 C7 11 8 10 10 9 Z' fill='%23C6924B' stroke='%238A5A20' stroke-width='1.5'/%3E%3Ccircle cx='12' cy='13' r='1' fill='%237A4810'/%3E%3Ccircle cx='18' cy='12' r='1.2' fill='%237A4810'/%3E%3Ccircle cx='15' cy='18' r='1' fill='%237A4810'/%3E%3Ccircle cx='21' cy='19' r='0.9' fill='%237A4810'/%3E%3Ccircle cx='10' cy='18' r='0.8' fill='%237A4810'/%3E%3C/svg%3E");
+}
+
+/* Морковка */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe:nth-child(4n+2)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 11 C14 5 11 4 10 4 C10 7 13 9 15 11' fill='none' stroke='%235C8A3A' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M16 11 C16 4 17 3 18 3 C18 6 17 9 16 11' fill='none' stroke='%236BA043' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M16 11 C18 6 21 5 22 5 C21 8 19 10 17 11' fill='none' stroke='%235C8A3A' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M11 11 C13 10 19 10 21 11 C20 18 17 26 16 28 C15 26 12 18 11 11 Z' fill='%23E8681E' stroke='%23BA4609' stroke-width='1.5'/%3E%3Cpath d='M13 15h4M14 19h3M15 23h2' stroke='%23BA4609' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Редиска */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe:nth-child(4n+3)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 12 C13 6 9 5 8 6 C8 9 12 11 15 12' fill='none' stroke='%235C8A3A' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M16 12 C19 6 23 5 24 6 C24 9 20 11 17 12' fill='none' stroke='%236BA043' stroke-width='1.8' stroke-linecap='round'/%3E%3Cellipse cx='16' cy='18' rx='7' ry='6.5' fill='%23C92A42' stroke='%23911628' stroke-width='1.5'/%3E%3Cpath d='M13.5 22.5 Q16 25 18.5 22.5 Q16 24 13.5 22.5 Z' fill='%23EDE0D4'/%3E%3Cpath d='M16 23.5 Q16.5 26 15.5 28' fill='none' stroke='%23D4BAA0' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Огурец */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.safe:nth-child(4n)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M7 9 Q8 11 10 12' fill='none' stroke='%23345A1A' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M9 12 C13 8 22 9 25 14 C27 18 24 23 20 24 C14 25 8 20 7 16 C6 14 7 13 9 12 Z' fill='%23448429' stroke='%23285614' stroke-width='1.5'/%3E%3Ccircle cx='13' cy='13' r='0.8' fill='%2320420E'/%3E%3Ccircle cx='18' cy='14' r='0.8' fill='%2320420E'/%3E%3Ccircle cx='14' cy='18' r='0.8' fill='%2320420E'/%3E%3Ccircle cx='20' cy='19' r='0.8' fill='%2320420E'/%3E%3Ccircle cx='10' cy='16' r='0.8' fill='%2320420E'/%3E%3C/svg%3E");
+}
+
+/* 5. Мина: садовый полосатый жук */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.mine::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M13 8 Q10 5 8 5M19 8 Q22 5 24 5' fill='none' stroke='%232B1A0E' stroke-width='1.2' stroke-linecap='round'/%3E%3Cpath d='M10 12 L5 10M10 16 L4 16M10 20 L5 22M22 12 L27 10M22 16 L28 16M22 20 L27 22' fill='none' stroke='%232B1A0E' stroke-width='1.4' stroke-linecap='round'/%3E%3Cellipse cx='16' cy='9' rx='3.5' ry='2.5' fill='%232B1A0E'/%3E%3Cpath d='M11 11 C11 9 21 9 21 11 L22 13 C22 14 10 14 10 13 Z' fill='%23D47A22' stroke='%232B1A0E' stroke-width='0.8'/%3E%3Cellipse cx='16' cy='20' rx='7' ry='8.5' fill='%23E5A93C' stroke='%232B1A0E' stroke-width='1.2'/%3E%3Cpath d='M16 11.5v17' stroke='%232B1A0E' stroke-width='1.2'/%3E%3Cpath d='M13 13 C12.5 16 12.5 24 14 27' fill='none' stroke='%232B1A0E' stroke-width='1.2'/%3E%3Cpath d='M19 13 C19.5 16 19.5 24 18 27' fill='none' stroke='%232B1A0E' stroke-width='1.2'/%3E%3Cpath d='M10.5 16 C10.5 19 11.5 23 12 25' fill='none' stroke='%232B1A0E' stroke-width='1.1'/%3E%3Cpath d='M21.5 16 C21.5 19 20.5 23 20 25' fill='none' stroke='%232B1A0E' stroke-width='1.1'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+}
+
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.mine.muted::before {
+  opacity: 0.55;
+}
+
+/* Взрыв (.mine.hit): жук выползает */
+#mines-board-wrap[data-scene="mine_beetle"] .mines-cell.mine.hit::before {
+  animation: mine-beetle-crawl 0.45s cubic-bezier(0.2, 0.8, 0.4, 1.2) forwards;
+  opacity: 1;
+}
+
+@keyframes mine-beetle-crawl {
+  0% {
+    transform: translateY(12px) scale(0.4);
+    opacity: 0;
+  }
+  40% {
+    transform: translateY(4px) scale(0.85) rotate(-5deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-2px) scale(1.1) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Взрыв: поле вздрагивает */
+#mines-board-wrap[data-scene="mine_beetle"][data-status="lost"] {
+  animation: mine-field-quake 0.35s ease-out;
+}
+
+@keyframes mine-field-quake {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-3px, 2px); }
+  40%  { transform: translate(3px, -2px); }
+  60%  { transform: translate(-2px, 1px); }
+  80%  { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* 6. Выигрыш / Забрать: овощи подпрыгивают волной */
+#mines-board-wrap[data-scene="mine_beetle"][data-view="result"]:not([data-status="lost"]):not([data-status=""]) .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_beetle"][data-view="result"][data-status="cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_beetle"][data-view="result"][data-status="auto_cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_beetle"][data-view="result"][data-status="refunded"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_beetle"][data-view="result"][data-status="auto_refunded"] .mines-cell.safe::before {
+  animation: mine-veg-wave 0.5s ease-out;
+  animation-delay: calc(var(--ci, 0) * 40ms);
+}
+
+@keyframes mine-veg-wave {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-8px) scale(1.18); }
+  65%  { transform: translateY(2px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
