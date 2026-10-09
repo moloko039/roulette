@@ -177,6 +177,9 @@ function skinSync(slot) {
 const SKIN_SCREEN_SLOTS = {
   crash: ['crash', 'chip'], mines: ['mine_icons', 'chip'], keno: ['keno_ball', 'chip'], blackjack: ['card_back', 'chip'], hilo: ['card_back', 'chip'], roulette: ['table', 'chip']
 };
+// Фишки встречаются на всех игровых экранах (кнопки панели ставки, стопки на столе рулетки): контейнер сцены слота chip это body (правила паузы и perf-lite базового css его не трогают, скин сам гасит свои анимации)
+skinSetHost('chip', () => document.body);
+
 function skinScreenChanged(screen) {
   const wanted = new Set(SKIN_SCREEN_SLOTS[screen] || []);
   SKIN_SLOTS.forEach((slot) => skinSetActive(slot, wanted.has(slot)));
