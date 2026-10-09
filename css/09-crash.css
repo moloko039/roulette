@@ -9,7 +9,7 @@
   transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
 }
 .cr-chart[hidden], .cr-history[hidden], .cr-banner[hidden], .cr-bets[hidden], .cr-actions[hidden], .cr-proof[hidden] { display: none; }
-.cr-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; }
+.cr-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; transform: var(--cr-flip, none); }   /* скин «Глубина» отражает график по вертикали: линия идёт вниз */
 .cr-axis { fill: none; stroke: var(--cr-axis); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .cr-curve { filter: var(--cr-line-glow, none); fill: none; stroke: var(--cr-line); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .cr-readout { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; text-align: center; pointer-events: none; }
