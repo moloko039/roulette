@@ -1,1 +1,57 @@
-/* Сцена скина стола «Октябрь» (коллекция «Листопад»): заготовка, заполняется задачей пула */
+/* Сцена скина стола «Октябрь» (коллекция «Листопад», DESIGN.md раздел 7, подраздел «Стол»).
+   Загружается при надевании скина и открытии экрана рулетки, снимается вместе со сценой.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. */
+
+#table[data-scene="table_autumn"] {
+  position: relative;
+  padding: 10px 8px;
+  background:
+    radial-gradient(ellipse 60% 40% at 25% 30%, rgba(201, 194, 181, 0.08), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 75% 65%, rgba(227, 163, 59, 0.06), transparent 70%),
+    radial-gradient(ellipse 70% 50% at 50% 85%, rgba(201, 194, 181, 0.05), transparent 75%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 3px),
+    var(--table-felt, #3a3a3d);
+}
+
+#table[data-scene="table_autumn"] .skin-scene {
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sta-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.sta-edge-leaves,
+.sta-pile,
+.sta-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.sta-leaf {
+  position: absolute;
+  pointer-events: none;
+  display: block;
+}
+
+.sta-leaf svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sta-p {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+}
+
+.sta-p.on {
+  display: block;
+}
