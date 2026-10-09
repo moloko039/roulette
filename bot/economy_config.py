@@ -55,7 +55,7 @@ STREAK_GEMS_BASE = 5               # кристаллы в седьмой ден
 STREAK_GEMS_CYCLE_BONUS_MAX = 3    # +1 за каждый следующий цикл, не больше этого
 # Коллекции (docs/COLLECTIONS.md): на этих днях цикла серии входов выдаётся следующая часть сезонной коллекции (если идёт сезон).
 COLLECTION_STREAK_DAYS = (3, 5, 7)
-DACHA_PARTS_BY_INCOME_LEVEL = ((2, "back_rug"), (4, "chip_cork"), (6, "table_oilcloth"), (9, "mine_beetle"), (12, "keno_lotto"), (16, "crash_barrel"))
+DACHA_PARTS_BY_INCOME_LEVEL = ((2, "back_rug"), (4, "chip_cork"), (6, "table_oilcloth"), (9, "mine_beetle"), (12, "keno_lotto"), (16, "crash_barrel"), (18, "frame_dacha"), (20, "badge_dacha"))
 PATINA_STAGE_THRESHOLDS = {"chip": (1, 5, 15, 40), "card_back": (200, 1000, 3000, 8000), "mine_icons": (10, 40, 120, 300)}
 PATINA_BIG_CRASH_X100 = 5000
 PATINA_FRAME_DAYS = (30, 90, 180, 365)      # рамка «Патина» темнеет по стажу аккаунта (дней с первого входа): стадии 1-4

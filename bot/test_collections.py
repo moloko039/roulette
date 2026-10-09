@@ -94,7 +94,7 @@ try:
     owned = sql(path, "SELECT item_code, source FROM cosmetic_items WHERE telegram_id = ? ORDER BY item_code", (A,))
     check("предметы у игрока с источником collection", owned, [("back_leaves", "collection"), ("mine_acorn", "collection"), ("table_autumn", "collection")])
     mine = db.cosmetics_mine(A, db_path=path)
-    check("в /mine прогресс: собрана", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, 3, True), ("dacha", 0, 6, False)])
+    check("в /mine прогресс: собрана", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, 3, True), ("dacha", 0, 8, False)])
     r = db.claim_streak(A, now=moscow_noon(6) + 60, db_path=path)
     check("повтор сбора в тот же день: части заново нет", (r["replayed"], r["collection_part"]), (True, None))
     # описание части в ответе

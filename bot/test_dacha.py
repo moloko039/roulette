@@ -21,7 +21,7 @@ from tg_testutil import make_init_data
 TOKEN = "123456:TEST-TOKEN-not-real"
 A, B = 424242422, 424242423
 NOW = int(time.time())
-DACHA_PARTS = ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel")
+DACHA_PARTS = ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel", "frame_dacha", "badge_dacha")
 
 _ENV_KEYS = ("DB_PATH", "TOMBSTONE_SECRET", "MEMBER_REF_SECRET", "OWNER_CHAT_ID")
 _saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
@@ -101,14 +101,18 @@ try:
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
     check("Уровень 4: +chip_cork", [r[0] for r in owned], ["back_rug", "chip_cork"])
 
-    # Доходим до 16
+    # Доходим до 16: шесть частей; рамка и значок только на 18 и 20
     for i in range(5, 17):
         buy_income(client, A, i)
     owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
-    check("Уровень 16: все 6", set(r[0] for r in owned), set(DACHA_PARTS))
+    check("Уровень 16: первые шесть частей", set(r[0] for r in owned), set(DACHA_PARTS[:6]))
+    for i in range(17, 21):
+        buy_income(client, A, i)
+    owned = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina' ORDER BY acquired_at", (A,))
+    check("Уровень 18 и 20: рамка и значок, все 8", set(r[0] for r in owned), set(DACHA_PARTS))
 
     # 2. Идемпотентность повторных и параллельных вызовов
-    sql(path, "UPDATE players SET income_level = 16 WHERE telegram_id = ?", (B,))     # игроку B положены все шесть частей
+    sql(path, "UPDATE players SET income_level = 20 WHERE telegram_id = ?", (B,))     # игроку B положены все восемь частей
     gate = threading.Barrier(12)
 
     def worker(i):
@@ -117,10 +121,10 @@ try:
 
     with ThreadPoolExecutor(12) as pool:
         granted = list(pool.map(worker, range(12)))
-    check("параллельная выдача: все шесть частей выданы ровно один раз (остальные потоки ничего не добавили)", sum(granted), 6)
+    check("параллельная выдача: все восемь частей выданы ровно один раз (остальные потоки ничего не добавили)", sum(granted), 8)
 
     owned_b = sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ? AND item_code NOT LIKE '%_patina'", (B,))
-    check("Параллельная выдача: без дублей, все 6 частей", len(owned_b), 6)
+    check("Параллельная выдача: без дублей, все 8 частей", len(owned_b), 8)
     check("Параллельная выдача: все правильные", set(r[0] for r in owned_b), set(DACHA_PARTS))
 
     # 3. Ленивая выдача через cosmetics_mine
@@ -147,10 +151,10 @@ try:
 
     # 5. Прогресс коллекции (season null)
     dacha_prog = [c for c in mine["collections"] if c["code"] == "dacha"][0]
-    check("Прогресс коллекции (9 уровень)", (dacha_prog["owned"], dacha_prog["total"], dacha_prog["complete"], dacha_prog["season"]), (4, 6, False, None))
+    check("Прогресс коллекции (9 уровень)", (dacha_prog["owned"], dacha_prog["total"], dacha_prog["complete"], dacha_prog["season"]), (4, 8, False, None))
     
     # 6. В рейтинге беседы: полная коллекция
-    sql(path2, "UPDATE players SET income_level = 16 WHERE telegram_id = ?", (A,))
+    sql(path2, "UPDATE players SET income_level = 20 WHERE telegram_id = ?", (A,))
     db.cosmetics_mine(A, db_path=path2)  # ленивая выдача остальных
     top = db.chat_top("room", A, "PlayerA", db_path=path2)
     my_top = [e for e in top["top"] if e["is_me"]][0]

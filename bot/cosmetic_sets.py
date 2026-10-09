@@ -17,7 +17,7 @@ COLLECTIONS = {
     },
     "dacha": {
         "name": "Дачный сезон",
-        "parts": ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel"),
+        "parts": ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel", "frame_dacha", "badge_dacha"),
         "source": "farm",
         "season": None,
         "how": "За улучшения дохода фермы",

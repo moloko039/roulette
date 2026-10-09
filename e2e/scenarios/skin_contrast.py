@@ -16,7 +16,7 @@ SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "
          ("badge", "void_badge", "badge_none"),
          ("card_back", "back_rug", "back_classic"), ("chip", "chip_cork", "chip_plain"), ("table", "table_oilcloth", "table_green"),
          ("mine_icons", "mine_beetle", "mine_classic"), ("keno_ball", "keno_lotto", "keno_round"), ("crash", "crash_barrel", "crash_line"),
-         ("avatar_frame", "frame_patina", "frame_plain"), ("table", "table_deep", "table_green"), ("chip", "chip_pearl", "chip_plain"),
+         ("avatar_frame", "frame_patina", "frame_plain"), ("avatar_frame", "frame_dacha", "frame_plain"), ("badge", "badge_dacha", "badge_none"), ("table", "table_deep", "table_green"), ("chip", "chip_pearl", "chip_plain"),
          ("mine_icons", "mine_urchin", "mine_classic"), ("keno_ball", "keno_bubble", "keno_round"), ("crash", "crash_deep", "crash_line"),     # «Патина» (рамка) и «Глубина»
          ("badge", "ref_scout", "badge_none"), ("avatar_frame", "ref_beacon", "frame_plain"), ("crash", "ref_comet", "crash_line"),     # вехи приглашений
          ("chip", "chip_patina", "chip_plain"), ("card_back", "back_patina", "back_classic"), ("mine_icons", "mine_patina", "mine_classic")]     # наборы за кристаллы: Черновик, Пустота, Дачный сезон
