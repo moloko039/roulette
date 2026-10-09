@@ -273,6 +273,7 @@ const refEls = {
   invited: document.getElementById('referral-invited'),
   qualified: document.getElementById('referral-qualified'),
   commission: document.getElementById('referral-commission'),
+  milestones: document.getElementById('referral-milestones'),
   send: document.getElementById('referral-send'),
   copy: document.getElementById('referral-copy'),
   msg: document.getElementById('referral-msg'),
@@ -284,12 +285,18 @@ let refLastRequest = -Infinity;    // performance.now() последнего з�
 let refData = null;
 let refError = false;
 
+const REF_MILESTONE_NAMES = { ref_scout: 'значок «Гонец»', ref_beacon: 'рамка «Маяк»', ref_comet: 'скин краша «Комета»' };
+
 function validReferral(d) {
   if (!d || typeof d !== 'object') return false;
   if (!Number.isInteger(d.invited) || d.invited < 0) return false;
   if (!Number.isInteger(d.qualified) || d.qualified < 0) return false;
   if (!Number.isInteger(d.commission_earned) || d.commission_earned < 0) return false;
   if (d.link !== null && (typeof d.link !== 'string' || !d.link.startsWith('https://t.me/') || d.link.length > 400)) return false;
+  if (!Array.isArray(d.milestones) || d.milestones.length > 10) return false;
+  for (const m of d.milestones) {
+    if (!m || !Number.isInteger(m.count) || m.count <= 0 || typeof m.item !== 'string' || typeof m.reached !== 'boolean') return false;
+  }
   const r = d.rules;
   if (!r || typeof r !== 'object') return false;
   const keys = ['invitee_chips', 'inviter_chips', 'inviter_gems', 'qualify_hours', 'qualify_level', 'qualify_rounds', 'commission_pct', 'commission_days', 'commission_cap', 'founder_chips', 'founder_gems', 'founder_players', 'founder_level'];
@@ -327,6 +334,7 @@ function renderReferral() {
   refEls.invited.textContent = refData.invited;
   refEls.qualified.textContent = refData.qualified;
   refEls.commission.textContent = refData.commission_earned;
+  refEls.milestones.textContent = 'Награды за друзей, дошедших до награды: ' + refData.milestones.map((m) => `${m.count} — ${REF_MILESTONE_NAMES[m.item] || 'награда'}${m.reached ? ' ✓' : ''}`).join('; ') + '.';
 
   if (refData.link === null) {
     refEls.actions.hidden = true;

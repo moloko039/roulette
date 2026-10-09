@@ -245,6 +245,12 @@
 /* frame_thin: тонкая двойная рамка (два кольца по 1 px с тёмным зазором), аватар того же размера */
 [data-skin-avatar_frame="frame_thin"] { --avatar-frame: 0 0 0 1px #cbd6e6, 0 0 0 3px #08080a, 0 0 0 4px #cbd6e6; }
 
+/* ref_beacon (награда за 10 приглашённых): золотое кольцо, тёмный зазор и тёплое свечение */
+[data-skin-avatar_frame="ref_beacon"] { --avatar-frame: 0 0 0 2px #f2c14e, 0 0 0 4px #08080a, 0 0 8px 5px rgba(242, 193, 78, 0.5); }
+
+/* ref_scout (награда за 3 приглашённых): значок-бумажный самолётик, тёплый песочный */
+[data-skin-badge="ref_scout"] { --badge-color: #f2c14e; }
+
 /* badge_spade: значок-пика (SVG в script.js) холодного серебристого цвета */
 [data-skin-badge="badge_spade"] { --badge-color: #b9c7e0; }
 
@@ -555,6 +561,25 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --cr-line-glow: none;
   --cr-win-glow: none;
   --cr-crash-glow: none;
+}
+
+/* ref_comet (награда за 30 приглашённых): золотая линия с мягким свечением на тёмно-синем; выигрыш голубой, крах малиновый */
+[data-skin-crash="ref_comet"] {
+  --cr-bg: #0a0f1c;
+  --cr-border: rgba(242, 193, 78, 0.35);
+  --cr-axis: rgba(242, 193, 78, 0.25);
+  --cr-line: #ffd37a;
+  --cr-line-glow: drop-shadow(0 0 3px #f2c14e) drop-shadow(0 0 8px rgba(242, 193, 78, 0.6));
+  --cr-win: #7ee8fa;
+  --cr-win-soft: rgba(126, 232, 250, 0.24);
+  --cr-win-glow: drop-shadow(0 0 3px #7ee8fa) drop-shadow(0 0 8px rgba(126, 232, 250, 0.6));
+  --cr-crash: #dc1b6f;
+  --cr-crash-soft: rgba(220, 27, 111, 0.3);
+  --cr-crash-glow: drop-shadow(0 0 3px #dc1b6f) drop-shadow(0 0 8px rgba(220, 27, 111, 0.7));
+  --cr-label: #a8b3c9;
+  --cr-history-text: #a8b3c9;
+  --cr-history-border: rgba(242, 193, 78, 0.3);
+  --cr-label-strong: var(--text);
 }
 
 /* ========================================================================== */

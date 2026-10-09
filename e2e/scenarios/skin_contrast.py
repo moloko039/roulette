@@ -16,6 +16,7 @@ SKINS = [("card_back", "back_midnight", "back_classic"), ("chip", "chip_ring", "
          ("badge", "void_badge", "badge_none"),
          ("card_back", "back_rug", "back_classic"), ("chip", "chip_cork", "chip_plain"), ("table", "table_oilcloth", "table_green"),
          ("mine_icons", "mine_beetle", "mine_classic"), ("keno_ball", "keno_lotto", "keno_round"), ("crash", "crash_barrel", "crash_line"),
+         ("badge", "ref_scout", "badge_none"), ("avatar_frame", "ref_beacon", "frame_plain"), ("crash", "ref_comet", "crash_line"),     # вехи приглашений
          ("chip", "chip_patina", "chip_plain"), ("card_back", "back_patina", "back_classic"), ("mine_icons", "mine_patina", "mine_classic")]     # наборы за кристаллы: Черновик, Пустота, Дачный сезон
 
 # (пара, цвет A, цвет B, режим): режим «>=3» требует контраст не ниже 3:1; «shape» только документирует, чем пара различается (текст)

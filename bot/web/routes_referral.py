@@ -56,4 +56,5 @@ def register(app, ctx):
             "founder_level": economy_config.FOUNDER_PLAYER_LEVEL
         }
 
-        return {"link": link, "invited": invited, "qualified": qualified, "commission_earned": commission, "rules": rules}
+        milestones = [{"count": need, "item": code, "reached": qualified >= need} for need, code in economy_config.REFERRAL_MILESTONES]
+        return {"link": link, "invited": invited, "qualified": qualified, "commission_earned": commission, "milestones": milestones, "rules": rules}

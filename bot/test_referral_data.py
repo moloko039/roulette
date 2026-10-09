@@ -58,7 +58,7 @@ try:
     r = client.get("/api/referral", headers=auth(U_INVITER))
     check("GET /api/referral status 200", r.status_code, 200)
     data = r.json()
-    check("Keys in response", sorted(data.keys()), ["commission_earned", "invited", "link", "qualified", "rules"])
+    check("Keys in response", sorted(data.keys()), ["commission_earned", "invited", "link", "milestones", "qualified", "rules"])
     check("invited is 0", data["invited"], 0)
     check("qualified is 0", data["qualified"], 0)
     check("rules has invitee_chips", "invitee_chips" in data["rules"], True)
