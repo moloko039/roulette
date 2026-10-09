@@ -228,6 +228,7 @@ async function loadServer(reason) {
       }
     }
     applySkins(d.cosmetics && d.cosmetics.equipped, patinaObj);       // внешний вид по надетому (только оформление)
+    skinSetOwnSets(d.cosmetics && d.cosmetics.complete_sets);       // собранные коллекции: эффекты полного набора в сценах
     setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)

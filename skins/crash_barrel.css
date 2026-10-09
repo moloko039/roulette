@@ -24,6 +24,7 @@
 .scb-r.open .scb-chute { opacity: 1; transform: scale(1); }
 
 .scb-fx { position: absolute; inset: 0; }
+.scb-crow { position: absolute; left: 0; top: 0; display: none; opacity: 0; }
 .scb-p { position: absolute; display: none; }
 .scb-p.on { display: block; }
 

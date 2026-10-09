@@ -30,6 +30,8 @@ async def run(w):
     now = int(time.time())
     w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, 'crash_barrel', 'free', NULL, ?)", (uid, now))
     w.sql("INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, 'crash', 'crash_barrel')", (uid,))
+    for code in ("back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "frame_dacha", "badge_dacha"):      # с «Бочкой» это все восемь частей «Дачного сезона»: эффект полного набора
+        w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, ?, 'free', NULL, ?)", (uid, code, now))
     w.server.script(crash_live=[400, 150, 150, 150])
     await w.reload()
     # настоящий монитор кадров на медленной машине сам мог бы включить perf-lite посреди сценария: его запуск отключаем, монитор проверяется ниже вручную поданными кадрами
@@ -44,6 +46,17 @@ async def run(w):
                      "return [r.left + r.width / 2 - (c.left + 8), r.top + r.height / 2 - (c.top + 8 + 149 / 150 * (c.height - 16))]; })()")
     check("бочка в начале стоит на начале линии (сцена монтируется при скрытом графике, размер берётся по факту)", [abs(off[0]) < 4, abs(off[1]) < 4], [True, True])
     check("вес сцены: узлов в DOM немного", await p.ev("document.querySelector('.skin-scene').querySelectorAll('*').length") < 260, True)
+
+    # --- эффект полного набора: ворона раз в несколько минут (событие skin:effect шлёт таймер среды; здесь событие подаётся вручную)
+    check("собран полный набор «Дачный сезон»", await p.ev("skinHasSet('dacha')"), True)
+    await p.ev("skinEvents.emit('skin:effect', { set: 'dacha' })")
+    await p.wait("document.querySelector('.scb-crow').getAnimations().length > 0", 5, "ворона полетела")
+    check("ворона показана и анимирована", [await p.ev("getComputedStyle(document.querySelector('.scb-crow')).display"), await p.ev("document.querySelector('.scb-crow').getAnimations().length")], ["block", 1])
+    await p.send("Emulation.setEmulatedMedia", STILL)
+    await p.ev("document.querySelector('.scb-crow').getAnimations().forEach((a) => a.cancel())")
+    await p.ev("skinEvents.emit('skin:effect', { set: 'dacha' })")
+    check("reduced-motion: вороны нет (событие эффекта игнорируется)", await p.ev("document.querySelector('.scb-crow').getAnimations().length"), 0)
+    await p.send("Emulation.setEmulatedMedia", NORMAL)
 
     # --- раунд 1 (точка ×4.00): зоны по множителю, пауза, вывод (парашют), краш (обломки)
     await bet(p, 100, "")

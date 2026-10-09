@@ -111,6 +111,9 @@
     '<path d="M7 24Q16 27.4 25 24v3Q16 30.4 7 27z" fill="#3B3F45"/><path d="M6.6 36Q16 39.4 25.4 36v3Q16 42.4 6.6 39z" fill="#3B3F45"/>' +
     '<path d="M9 18L16 2l7 16z" fill="#C8CED4"/><path d="M16 2l-4 16H9z" fill="#E4E8EC"/>' +
     '<rect x="11" y="42" width="10" height="3" rx="1" fill="#2B2D31"/></svg>';
+  const CROW = '<svg class="scb-crow" viewBox="0 0 30 20" width="30" height="20" aria-hidden="true">' +
+    '<path d="M3 9l-3 1.5L4 12z" fill="#3B2A1E"/><ellipse cx="14" cy="11" rx="9" ry="5" fill="#1F1A1A"/><circle cx="7" cy="8" r="3.6" fill="#1F1A1A"/>' +
+    '<path d="M4 8l-3.4 1.2L4.4 10z" fill="#E3A33B"/><path d="M17 8q6-8 12-5-3 2-5 6z" fill="#2B2424"/><path d="M12 15.5v3M16 15.5v3" stroke="#3B2A1E" stroke-width="1.2"/></svg>';
   const CHUTE = '<svg class="scb-chute" viewBox="0 0 44 34" width="56" height="43" aria-hidden="true">' +
     '<path d="M2 20Q4 2 22 2t20 18q-5-4-10 0-5-4-10 0-5-4-10 0-5-4-10 0z" fill="#F3E7CF" stroke="#B8323A" stroke-width="1"/>' +
     '<circle cx="12" cy="11" r="2" fill="#B8323A"/><circle cx="22" cy="9" r="2" fill="#B8323A"/><circle cx="32" cy="11" r="2" fill="#B8323A"/>' +
@@ -121,7 +124,7 @@
     const root = rt.root;
     root.innerHTML = DEFS +
       '<svg class="scb-bg" viewBox="0 0 300 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><g class="scb-par"></g></svg>' +
-      '<div class="scb-r">' + CHUTE + ROCKET + '</div>' + '<div class="scb-fx"></div>';
+      '<div class="scb-r">' + CHUTE + ROCKET + '</div>' + '<div class="scb-fx"></div>' + CROW;
     const par = root.querySelector('.scb-par');
     const rocketBox = root.querySelector('.scb-r');
     const fx = root.querySelector('.scb-fx');
@@ -290,6 +293,30 @@
       });
     });
 
+    // эффект полного набора «Дачный сезон»: раз в несколько минут над огородом пролетает ворона и садится на забор (только в покое и в зоне огорода, без движения её нет)
+    const crow = root.querySelector('.scb-crow');
+    let crowBusy = false;
+    let crowAnim = null;
+    const crowStep = (frames, ms, easing, next) => {
+      crowAnim = crow.animate(frames, { duration: ms, easing, fill: 'forwards' });
+      crowAnim.onfinish = next;
+    };
+    rt.on('skin:effect', (d) => {
+      if (d.set !== 'dacha' || crowBusy || rt.still() || zone !== 0 || rocketBox.classList.contains('flying')) return;
+      crowBusy = true;
+      const scale = Math.max(W / 300, H / 150);
+      crow.style.left = (W * 0.3).toFixed(0) + 'px';
+      crow.style.top = (H - 33 * scale - 18).toFixed(0) + 'px';      // сидит на верхней планке забора
+      crow.style.display = 'block';
+      const away = 'translate(' + (W * 0.75).toFixed(0) + 'px,' + (-H * 0.5).toFixed(0) + 'px)';
+      const gone = 'translate(' + (-W * 0.45).toFixed(0) + 'px,' + (-H * 0.6).toFixed(0) + 'px)';
+      crowStep([{ transform: away, opacity: 0 }, { transform: 'translate(0,0)', opacity: 1 }], 1500, 'ease-out', () => {
+        crowStep([{ transform: 'translate(0,0) rotate(0deg)' }, { transform: 'translate(0,0) rotate(-5deg)', offset: 0.3 }, { transform: 'translate(0,0) rotate(3deg)', offset: 0.6 }, { transform: 'translate(0,0) rotate(0deg)' }], 4200, 'ease-in-out', () => {
+          crowStep([{ transform: 'translate(0,0)', opacity: 1 }, { transform: gone, opacity: 0 }], 1100, 'ease-in', () => { crow.style.display = 'none'; crowBusy = false; });
+        });
+      });
+    });
+
     rt.on('crash:cashout', () => { if (!broken) rocketBox.classList.add('open'); });      // из бочки раскрывается парашют из старой простыни
 
     return {
@@ -299,6 +326,7 @@
         timers.forEach(clearTimeout);
         timers.clear();
         pool.forEach((p) => { if (p.anim) p.anim.cancel(); });
+        if (crowAnim) { crowAnim.onfinish = null; crowAnim.cancel(); }
         root.textContent = '';
       }
     };
