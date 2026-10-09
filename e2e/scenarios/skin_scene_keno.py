@@ -50,6 +50,7 @@ async def run(w):
     seen = await p.ev(PARTICLES)
     check("бочонки летят: частиц от 1 до 12", 1 <= seen <= 12, True)
     await p.wait("!document.getElementById('keno-play').disabled", 15, "раунд 1 завершён")
+    await p.wait(PARTICLES + " === 0", 4, "все частицы вернулись в пул")
     check("после окончания розыгрыша все частицы вернулись в пул", await p.ev(PARTICLES), 0)
     check("при выигрыше мешок не сник", await p.ev("document.querySelector('.skl-bag').classList.contains('slump')"), False)
     check("3 совпадения", await p.ev("document.querySelectorAll('.keno-ball.hit').length"), 3)
@@ -58,6 +59,7 @@ async def run(w):
     w.server.script(keno=[DRAW_ZERO])
     await p.tap("#keno-play")
     await p.wait("!document.getElementById('keno-play').disabled", 15, "раунд 2 завершён")
+    await p.wait(PARTICLES + " === 0", 4, "последний бочонок долетел (допустимо до 4 с после конца раунда на медленной машине)")
     check("после окончания розыгрыша частиц 0", await p.ev(PARTICLES), 0)
     check("ноль совпадений: мешок сник", await p.ev("document.querySelector('.skl-bag').classList.contains('slump')"), True)
 
@@ -78,6 +80,7 @@ async def run(w):
     await asyncio.sleep(0.5)
     check("perf-lite: во время розыгрыша частиц нет", await p.ev(PARTICLES), 0)
     await p.wait("!document.getElementById('keno-play').disabled", 15, "раунд 4 завершён")
+    await p.wait(PARTICLES + " === 0", 4, "частицы убраны")
     check("perf-lite: после окончания частиц 0", await p.ev(PARTICLES), 0)
 
     # --- переключение вкладок: уход убирает сцену и css, возврат восстанавливает
