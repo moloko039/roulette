@@ -38,13 +38,21 @@ async def run(w):
                         link: "https://t.me/TestBot/app?startapp=ref_CODE",
                         invited: 5,
                         qualified: 2,
+                        commission_earned: 1234,
                         rules: {
                             invitee_chips: 500,
-                            inviter_chips: 1000,
-                            inviter_gems: 5,
+                            inviter_chips: 2000,
+                            inviter_gems: 10,
                             qualify_hours: 24,
                             qualify_level: 3,
-                            qualify_rounds: 10
+                            qualify_rounds: 10,
+                            commission_pct: 30,
+                            commission_days: 90,
+                            commission_cap: 300000,
+                            founder_chips: 3000,
+                            founder_gems: 30,
+                            founder_players: 5,
+                            founder_level: 3
                         }
                     })
                 };
@@ -64,9 +72,10 @@ async def run(w):
     
     # Проверяем текст правил и числа
     text = await p.ev(f"({SP})(document.getElementById('referral-text').textContent)")
-    check("текст правил", text, "Друг получит 500 фишек при первом входе. Когда он проживёт 24 ч, дойдёт до 3 уровня и сыграет 10 раундов, ты получишь 1000 фишек и 5 💎.")
+    check("текст правил", text, "Друг получит 500 фишек при первом входе. Когда он проживёт 24 ч, дойдёт до 3 уровня и сыграет 10 раундов, ты получишь 2000 фишек и 10 💎, а ещё 90 дней 30% от того, что казино выиграет у друга (до 300000 фишек с одного друга). Добавь бота в беседу: когда в ней начнут играть 5 человек не ниже 3 уровня, получишь 3000 фишек и 30 💎.")
     check("приглашено", await p.ev("document.getElementById('referral-invited').textContent"), "5")
     check("квалифицировано", await p.ev("document.getElementById('referral-qualified').textContent"), "2")
+    check("заработано с процента", await p.ev("document.getElementById('referral-commission').textContent"), "1234")
     
     # Нажимаем "Отправить другу"
     await p.tap("#referral-send")

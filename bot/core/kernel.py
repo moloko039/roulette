@@ -5,6 +5,7 @@
   _register_player              единственное место, где создаётся строка в players
   _credit_capped                зачисляет выплату через wallet.credit не выше MAX_SAFE_INT
   _record_best_win              личный рекорд выигрыша (единственное место записи player_best_win)
+  _round_finished               единственное место, куда игры сообщают исход раунда: рекорд и процент пригласившему
   _add_xp                       прибавляет опыт игрока (не выше MAX_SAFE_INT)"""
 
 import antiabuse
@@ -17,7 +18,7 @@ import wallet
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
-from core.referral import bind_referral_in
+from core.referral import bind_referral_in, commission_in
 
 
 def _accrue_conn(conn, telegram_id, now):
@@ -143,6 +144,13 @@ def _record_best_win(conn, telegram_id, game, stake, paid, now):
         "achieved_at = excluded.achieved_at WHERE excluded.net_amount > player_best_win.net_amount",
         (telegram_id, game, net, now))
     return True
+
+
+def _round_finished(conn, telegram_id, game, stake, paid, now):
+    """Исход раунда для всех игр (и выигрыш, и проигрыш, и возврат), ВНУТРИ транзакции выплаты: личный рекорд и процент пригласившему от выигрыша казино
+    (core.referral.commission_in). stake: все поставленные в раунде суммы, paid: фактически зачисленное игроку. Игры ничего не знают о рефералке."""
+    _record_best_win(conn, telegram_id, game, stake, paid, now)
+    commission_in(conn, telegram_id, stake, paid, now)
 
 
 def _add_xp(conn, telegram_id, amount):

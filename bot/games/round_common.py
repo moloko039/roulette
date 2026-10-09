@@ -14,7 +14,7 @@ from levels import profile_level
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect, logger
-from core.kernel import _accrue_write, _add_xp, _credit_capped, _record_best_win, _register_player
+from core.kernel import _accrue_write, _add_xp, _credit_capped, _register_player, _round_finished
 
 GAMES = ("mines", "blackjack", "crash", "hilo")
 CLOSE_BATCH = 200   # сколько брошенных партий закрывает один проход фоновой задачи
@@ -71,8 +71,7 @@ def pay_and_xp(conn, telegram_id, paid, xp_amount, game, stake, now):
     """Окончание партии, шаг выплаты: выплата через wallet (не выше потолка), личный рекорд (_record_best_win по зачисленному и
     полной ставке раунда) и опыт. Вызывать после того, как партия уже помечена закрытой (повторно её никто не закроет,
     значит выплата, рекорд и опыт один раз)."""
-    if paid > 0:
-        _record_best_win(conn, telegram_id, game, stake, _credit_capped(conn, telegram_id, paid), now)
+    _round_finished(conn, telegram_id, game, stake, _credit_capped(conn, telegram_id, paid) if paid > 0 else 0, now)
     if xp_amount is not None:
         _add_xp(conn, telegram_id, xp_amount)
 

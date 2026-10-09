@@ -136,7 +136,7 @@ try:
     conn.close()
     chips_before, gems_before = get_rewards(path, U_INVITER)
 
-    # Проверка 4: на пороге есть, награда: 1000 фишек, 5 кристаллов, запись с referral_reward и непрозрачным ref
+    # Проверка 4: на пороге есть, награда: фишки и кристаллы из economy_config, запись с referral_reward и непрозрачным ref
     set_invitee_stats(path, U_INVITEE, economy_config.REFERRAL_QUALIFY_HOURS, economy_config.REFERRAL_QUALIFY_LEVEL, economy_config.REFERRAL_QUALIFY_ROUNDS)
     client.get("/api/me", headers=auth(U_INVITEE))
     chips_after, gems_after = get_rewards(path, U_INVITER)
@@ -177,14 +177,14 @@ try:
     r = client.get("/api/referral", headers=auth(U_INVITER)).json()
     check("qualified 2", r["qualified"], 2)
     
-    # Проверка 8: потолок - набрал 98 бесплатных, получает 2
+    # Проверка 8: общий потолок бесплатных кристаллов (150) - набрал 148 бесплатных, получает 2
     path2 = new_db()
     client2 = TestClient(create_app(TOKEN, [], db_path=path2))
     client2.get("/api/me", headers=auth(U_INVITER))
     code2 = client2.get("/api/referral", headers=auth(U_INVITER)).json()["link"].split("ref_")[1]
     
     conn2 = sqlite3.connect(path2)
-    conn2.execute("INSERT INTO gems_ledger (telegram_id, delta, reason, ref, created_at) VALUES (?, ?, 'streak_gems', 'pre', ?)", (U_INVITER, 98, NOW))
+    conn2.execute("INSERT INTO gems_ledger (telegram_id, delta, reason, ref, created_at) VALUES (?, ?, 'streak_gems', 'pre', ?)", (U_INVITER, economy_config.FREE_GEMS_MONTHLY_CAP - 2, NOW))
     conn2.commit()
     conn2.close()
     
@@ -196,7 +196,7 @@ try:
     check("потолок: только 2 кристалла", gems_after - gems_before, 2)
     check("потолок: фишки полностью", chips_after - chips_before, economy_config.REFERRAL_INVITER_CHIPS)
     
-    # Проверка 9: потолок исчерпан (100) -> 0
+    # Проверка 9: потолок исчерпан (150) -> 0
     client2.get("/api/me", headers=auth(U_INVITEE_2, extra={"start_param": "ref_" + code2}))
     set_invitee_stats(path2, U_INVITEE_2, economy_config.REFERRAL_QUALIFY_HOURS, economy_config.REFERRAL_QUALIFY_LEVEL, economy_config.REFERRAL_QUALIFY_ROUNDS)
     chips_before, gems_before = get_rewards(path2, U_INVITER)
@@ -204,6 +204,38 @@ try:
     chips_after, gems_after = get_rewards(path2, U_INVITER)
     check("потолок: 0 кристаллов", gems_after - gems_before, 0)
     check("потолок: фишки полностью 2", chips_after - chips_before, economy_config.REFERRAL_INVITER_CHIPS)
+
+    # Проверка 9б: потолок рефералки (100 в месяц) ниже общего: набрал 95 за рефералов (и 0 за серию), получает 5, дальше 0
+    path5 = new_db()
+    client5 = TestClient(create_app(TOKEN, [], db_path=path5))
+    client5.get("/api/me", headers=auth(U_INVITER))
+    code5 = client5.get("/api/referral", headers=auth(U_INVITER)).json()["link"].split("ref_")[1]
+    conn5 = sqlite3.connect(path5)
+    conn5.execute("INSERT INTO gems_ledger (telegram_id, delta, reason, ref, created_at) VALUES (?, ?, 'referral_reward', 'pre', ?)", (U_INVITER, economy_config.REFERRAL_GEMS_MONTHLY_CAP - 5, NOW))
+    conn5.commit()
+    conn5.close()
+    for invitee, expected in ((U_INVITEE, 5), (U_INVITEE_2, 0)):
+        client5.get("/api/me", headers=auth(invitee, extra={"start_param": "ref_" + code5}))
+        set_invitee_stats(path5, invitee, economy_config.REFERRAL_QUALIFY_HOURS, economy_config.REFERRAL_QUALIFY_LEVEL, economy_config.REFERRAL_QUALIFY_ROUNDS)
+        chips_before, gems_before = get_rewards(path5, U_INVITER)
+        client5.get("/api/me", headers=auth(invitee))
+        chips_after, gems_after = get_rewards(path5, U_INVITER)
+        check("потолок рефералки: кристаллы %d" % expected, gems_after - gems_before, expected)
+        check("потолок рефералки: фишки полностью", chips_after - chips_before, economy_config.REFERRAL_INVITER_CHIPS)
+    # серия входов в тот же месяц ниже потолка рефералки не учитывается: 140 за серию оставляют место только в общем потолке (10), рефералка берёт не больше
+    path6 = new_db()
+    client6 = TestClient(create_app(TOKEN, [], db_path=path6))
+    client6.get("/api/me", headers=auth(U_INVITER))
+    code6 = client6.get("/api/referral", headers=auth(U_INVITER)).json()["link"].split("ref_")[1]
+    conn6 = sqlite3.connect(path6)
+    conn6.execute("INSERT INTO gems_ledger (telegram_id, delta, reason, ref, created_at) VALUES (?, 140, 'streak_gems', 'pre', ?)", (U_INVITER, NOW))
+    conn6.commit()
+    conn6.close()
+    client6.get("/api/me", headers=auth(U_INVITEE, extra={"start_param": "ref_" + code6}))
+    set_invitee_stats(path6, U_INVITEE, economy_config.REFERRAL_QUALIFY_HOURS, economy_config.REFERRAL_QUALIFY_LEVEL, economy_config.REFERRAL_QUALIFY_ROUNDS)
+    chips_before, gems_before = get_rewards(path6, U_INVITER)
+    client6.get("/api/me", headers=auth(U_INVITEE))
+    check("общий потолок после серии: остаётся 10", get_rewards(path6, U_INVITER)[1] - gems_before, 10)
 
     # Проверка 10: пригласивший удалил данные (referrer_id = 0) -> ничего не начисляется
     path3 = new_db()

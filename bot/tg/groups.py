@@ -39,6 +39,12 @@ async def my_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = event.new_chat_member.status
     if status in ("member", "administrator"):
         await asyncio.to_thread(db_module.chat_register, event.chat.id, common._wall())
+        adder = event.from_user
+        if adder is not None and not adder.is_bot and event.old_chat_member.status in ("left", "kicked"):
+            try:      # основатель беседы: кто добавил бота (награда, когда беседа станет живой)
+                await asyncio.to_thread(db_module.record_founder, event.chat.id, adder.id, common._wall())
+            except Exception as exc:
+                logger.error("Не удалось записать основателя беседы: %s", type(exc).__name__)
         _noted_chats[event.chat.id] = common._wall()
     elif status in ("left", "kicked"):
         await asyncio.to_thread(db_module.chat_forget, event.chat.id)

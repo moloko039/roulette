@@ -487,7 +487,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 
 
 ## Реферальная система (E5)
-Приглашённые игроки регистрируются по ссылке; пригласивший получает бонус с их ставок (считается асинхронно). Ссылка приложения и код приглашения не меняются.
+Приглашённые игроки регистрируются по ссылке. Пригласивший получает награду за квалификацию приглашённого и 30 % от выигрыша казино у него в течение 90 дней после квалификации (до 300 000 фишек на одного приглашённого): процент зачисляется в той же транзакции, что раунд приглашённого. Основатель беседы получает награду, когда бота добавили в группу и беседа стала живой. Подробности и числа: docs/ECONOMY.md, раздел 6. Ссылка приложения и код приглашения не меняются.
 
 ### GET /api/referral
 Группа read. Получение своей реферальной ссылки и статистики приглашённых. 200 (все ключи всегда):
@@ -496,8 +496,9 @@ casinch с пресетом original-like): 6 барабанов высотой 
 | link | str\|null | ссылка вида `https://t.me/Bot/app?startapp=ref_КОД`; null, если базовая ссылка в настройках не задана |
 | invited | int | сколько всего игроков привязаны по вашей ссылке |
 | qualified | int | сколько из них прошли квалификацию (играют >= 24 часов, уровень >= 3, сыграно >= 10 раундов) |
-| rules | dict | параметры экономики для отображения: `invitee_chips`, `inviter_chips`, `inviter_gems`, `qualify_hours`, `qualify_level`, `qualify_rounds` |
+| commission_earned | int | сколько фишек пригласивший уже получил процентом от приглашённых (за всё время) |
+| rules | dict | параметры экономики для отображения: `invitee_chips`, `inviter_chips`, `inviter_gems`, `qualify_hours`, `qualify_level`, `qualify_rounds`, `commission_pct`, `commission_days`, `commission_cap`, `founder_chips`, `founder_gems`, `founder_players`, `founder_level` |
 
 ## Выгрузка данных (/mydata)
 Бот отправляет JSON-файл `mydata.json` со всеми собранными данными игрока. Новое поле `referral` содержит статистику по приглашениям:
-`"referral": {"invited_by_someone": bool, "invited_count": int, "qualified_count": int}` (без чужих идентификаторов и без самого кода).
+`"referral": {"invited_by_someone": bool, "invited_count": int, "qualified_count": int, "commission_earned": int, "founded_chats": int, "founded_chats_rewarded": int}` (без чужих идентификаторов и без самого кода; `founded_chats`: сколько групп вы добавили ботом).

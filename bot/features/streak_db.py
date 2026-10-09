@@ -68,10 +68,15 @@ def _last(conn, telegram_id):
     return conn.execute("SELECT day, streak_day, cycle, chips, gems FROM streak_claims WHERE telegram_id = ? ORDER BY day DESC LIMIT 1", (telegram_id,)).fetchone()
 
 
-def _free_gems_used(conn, telegram_id, now):
-    marks = ",".join("?" for _ in economy_config.FREE_GEM_REASONS)
+def _gems_used(conn, telegram_id, now, reasons):
+    marks = ",".join("?" for _ in reasons)
     return conn.execute("SELECT COALESCE(SUM(delta), 0) FROM gems_ledger WHERE telegram_id = ? AND reason IN (" + marks + ") AND created_at >= ?",
-                        (telegram_id, *economy_config.FREE_GEM_REASONS, month_start(now))).fetchone()[0]
+                        (telegram_id, *reasons, month_start(now))).fetchone()[0]
+
+
+def _free_gems_used(conn, telegram_id, now):
+    """Бесплатные кристаллы игрока за календарный месяц (серия входов и рефералка вместе)."""
+    return _gems_used(conn, telegram_id, now, economy_config.FREE_GEM_REASONS)
 
 
 def _preview(streak_day, cycle):

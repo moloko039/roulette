@@ -6,7 +6,7 @@ from antiabuse import COOLDOWN_SECONDS
 
 from core.db_conn import _apply_journal_mode, _connect, _resolve_path
 from core.migrations import (
-    _migrate_farm_levels, _migrate_last_played_at, _migrate_minute_accrual, _migrate_total_staked, _migrate_transfers_seen, _migrate_xp,
+    _migrate_farm_levels, _migrate_last_played_at, _migrate_minute_accrual, _migrate_referral_commission, _migrate_total_staked, _migrate_transfers_seen, _migrate_xp,
 )
 
 
@@ -569,6 +569,20 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
+        # основатель беседы: игрок, добавивший бота в группу (chat_id группы уже хранится в bot_chats); chat_instance беседы в игре привязывается, когда основатель сам открывает игру из неё
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_founders (
+                chat_id       INTEGER PRIMARY KEY,
+                founder_id    INTEGER NOT NULL,
+                added_at      INTEGER NOT NULL,
+                chat_instance TEXT,
+                rewarded_at   INTEGER
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_founders_founder ON chat_founders(founder_id, added_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_founders_instance ON chat_founders(chat_instance)")
 
         # достижения (Клуб ×1.01)
         conn.execute(
@@ -590,6 +604,7 @@ def init_db(db_path=None):
         _migrate_transfers_seen(conn)
         _migrate_minute_accrual(conn)
         _migrate_last_played_at(conn)
+        _migrate_referral_commission(conn)
         # записи старше срока защиты не нужны
         conn.execute(
             "DELETE FROM deletion_tombstones WHERE deleted_at + ? <= ?",

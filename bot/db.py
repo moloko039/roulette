@@ -58,6 +58,7 @@ from features.gems_db import (
 )
 from features.grants_db import GRANT_MAX_AMOUNT, GRANT_ID_RE, GrantExists, validate_grant, grant_preview, grant_all
 from features.bot_chats_db import chat_register, chat_forget, chat_ids
+from features.founder_db import record_founder, founder_progress
 from features.farm_db import buy_upgrade, farm_status
 from features.cosmetics_db import (
     CHANGE_INTERVAL_SECONDS, cosmetics_state, cosmetics_mine, grant_dacha_parts, grant_item, equip_item, unequip_item, set_visibility,

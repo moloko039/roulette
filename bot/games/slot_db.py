@@ -11,7 +11,7 @@ from roulette import BalanceLimit
 from roulette import MAX_SAFE_INT
 
 from core.db_conn import _connect
-from core.kernel import _accrue_write, _add_xp, _record_best_win, _register_player
+from core.kernel import _accrue_write, _add_xp, _register_player, _round_finished
 
 
 def _slot_result(coin, bought, cost, payout, round_data, balance, xp_total, replayed):
@@ -70,7 +70,7 @@ def play_slot(telegram_id, request_id, coin, buy, now=None, db_path=None, rng=No
             payout = round_data["totalWin"] * coin
             if payout > 0:
                 wallet.credit(conn, telegram_id, payout)
-                _record_best_win(conn, telegram_id, "slot", cost, payout, now)
+            _round_finished(conn, telegram_id, "slot", cost, payout, now)
             conn.execute(
                 "UPDATE players SET total_staked = MIN(total_staked + ?, ?), last_played_at = ? WHERE telegram_id = ?",
                 (cost, MAX_SAFE_INT, now, telegram_id),
