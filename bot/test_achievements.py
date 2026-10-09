@@ -9,7 +9,7 @@ from test_antiabuse import get_player
 from test_cosmetics import check
 import core.achievements
 
-from games.crash_db import crash_start, settle_expired_crash
+import crash_testutil as ct
 from games.mines_db import mines_start, mines_reveal, _active_game
 from games.blackjack_db import blackjack_start, blackjack_action
 from games.keno_db import play_keno
@@ -34,24 +34,19 @@ def test_nearly():
     get_player(uid, db_path=path)
     now = int(time.time() * 1000)
     
-    with patch("games.crash_db.crash.new_crash") as mock_crash, patch("games.crash_db.crash.m100") as mock_m100:
-        for i in range(5):
-            mock_crash.return_value = 101 if i < 4 else 102
-            mock_m100.return_value = 105
-            crash_start(uid, f"req_{i}", 100, target_x100=200, now_ms=now, db_path=path)
-            settle_expired_crash(uid, now_ms=now+50000, db_path=path)
-        
-        # 4 crashes <= 1.01. Item should not be granted.
-        check("4 crashes", count_items(path, uid, "achv_nearly"), 0)
-        
-        # 5th crash <= 1.01
-        mock_crash.return_value = 101
-        crash_start(uid, "req_5", 100, target_x100=200, now_ms=now+100000, db_path=path)
-        settle_expired_crash(uid, now_ms=now+150000, db_path=path)
-        
-        check("5 crashes", count_items(path, uid, "achv_nearly"), 1)
-        row = get_progress(path, uid, "achv_nearly")
-        check("progress done_at", row[2] is not None, True)
+    t = now
+    for i in range(5):           # пять раундов с крахом <= 1.01: награда за пятый, после четырёх её нет
+        rnd = ct.open_round(path, t, 101)
+        ct.bet(path, uid, t, 100, target=200)
+        ct.end_round(path, rnd)
+        if i == 3:
+            # 4 crashes <= 1.01. Item should not be granted.
+            check("4 crashes", count_items(path, uid, "achv_nearly"), 0)
+        t = ct.next_open(rnd) + 1
+        if i == 4:
+            check("5 crashes", count_items(path, uid, "achv_nearly"), 1)
+            row = get_progress(path, uid, "achv_nearly")
+            check("progress done_at", row[2] is not None, True)
 
 def test_sapper():
     fd, path = tempfile.mkstemp(suffix=".db")

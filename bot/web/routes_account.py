@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 import db
 import economy
 import farm
-from db import (active_game_of, cosmetics_state, gems_state, get_player, settle_expired_blackjack, settle_expired_crash, settle_expired_hilo, settle_expired_mines, touch_chat_member)
+from db import (active_game_of, cosmetics_state, gems_state, get_player, settle_expired_blackjack, refund_legacy_crash, settle_expired_hilo, settle_expired_mines, touch_chat_member)
 from core.chat_bonus import get_chat_bonus
 from levels import profile_level
 from web.http import _in_group
@@ -62,7 +62,7 @@ def register(app, ctx):
 
         settle_expired_mines(user_id, now=now, db_path=db_path)  # просроченная игра в мины закрывается
         settle_expired_blackjack(user_id, now=now, db_path=db_path)  # и просроченная раздача блэкджека
-        settle_expired_crash(user_id, db_path=db_path)  # и разбившийся или брошенный раунд краша
+        refund_legacy_crash(user_id, now=now, db_path=db_path)  # и открытая партия прежнего краша (возврат ставки)
         settle_expired_hilo(user_id, now=now, db_path=db_path)  # и просроченная партия в хило
 
         try:

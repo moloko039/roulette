@@ -82,7 +82,7 @@ try:
         return locks[0], result
 
     settlers = {"мины": lambda: db.settle_expired_mines(A, now=now, db_path=path), "блэкджек": lambda: db.settle_expired_blackjack(A, now=now, db_path=path),
-                "краш": lambda: db.settle_expired_crash(A, db_path=path), "хило": lambda: db.settle_expired_hilo(A, now=now, db_path=path)}
+                "краш": lambda: db.refund_legacy_crash(A, now=now, db_path=path), "хило": lambda: db.settle_expired_hilo(A, now=now, db_path=path)}
 
     # ---- нет активных игр: ни одной блокировки записи ни у одной из четырёх проверок
     for name, fn in settlers.items():
@@ -122,7 +122,7 @@ try:
     client = TestClient(api_module.create_app(TOKEN, [], db_path=path))
     seen = {}
     wrappers = {}
-    for fname in ("settle_expired_mines", "settle_expired_blackjack", "settle_expired_crash", "settle_expired_hilo"):
+    for fname in ("settle_expired_mines", "settle_expired_blackjack", "refund_legacy_crash", "settle_expired_hilo"):
         real = getattr(me_routes, fname)
 
         def wrap(*a, _real=real, _name=fname, **k):
@@ -140,7 +140,7 @@ try:
             mock.patch.multiple(me_routes, **wrappers):
         r = me(A)
     check("/api/me без игр: 200, active_game null", (r.status_code, r.json()["active_game"]), (200, None))
-    check("/api/me без игр: ни одной блокировки записи при проверке просроченных игр", seen, {"settle_expired_mines": 0, "settle_expired_blackjack": 0, "settle_expired_crash": 0, "settle_expired_hilo": 0})
+    check("/api/me без игр: ни одной блокировки записи при проверке просроченных игр", seen, {"settle_expired_mines": 0, "settle_expired_blackjack": 0, "refund_legacy_crash": 0, "settle_expired_hilo": 0})
     # просроченные: игры, созданные давно по реальному времени, закрываются запросом /api/me
     old = int(time.time()) - mines.MINES_IDLE_SECONDS - 100
     db.mines_start(A, "me-lock-mines-0010", 100, 3, now=old, db_path=path, rng=Stack(cells=[0, 1, 2]))

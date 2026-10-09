@@ -1,12 +1,21 @@
 import economy_config
 from features.round_counts import ROUND_COUNT_SQL
 
+def _big_crashes(conn, telegram_id):
+    """Крахи не ниже порога патины: партии прежнего краша (закрыт, история остаётся) и закрытые ставки живого краша."""
+    old = conn.execute(
+        "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL AND crash_x100 >= ?",
+        (telegram_id, economy_config.PATINA_BIG_CRASH_X100)).fetchone()[0]
+    live = conn.execute(
+        "SELECT COUNT(*) FROM crash_bets b JOIN crash_rounds r ON r.id = b.round_id "
+        "WHERE b.telegram_id = ? AND b.status != 'open' AND r.crash_x100 >= ?",
+        (telegram_id, economy_config.PATINA_BIG_CRASH_X100)).fetchone()[0]
+    return old + live
+
+
 def patina_counters(conn, telegram_id):
     """Счётчики для патины (используются в тестах)."""
-    crashes = conn.execute(
-        "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL AND crash_x100 >= ?",
-        (telegram_id, economy_config.PATINA_BIG_CRASH_X100)
-    ).fetchone()[0]
+    crashes = _big_crashes(conn, telegram_id)
     
     explosions = conn.execute(
         "SELECT COUNT(*) FROM mines_games WHERE telegram_id = ? AND status = 'lost' AND finished_at IS NOT NULL",
@@ -39,10 +48,7 @@ def patina_stages(conn, telegram_id, equipped):
         return res
         
     if need_crashes:
-        crashes = conn.execute(
-            "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL AND crash_x100 >= ?",
-            (telegram_id, economy_config.PATINA_BIG_CRASH_X100)
-        ).fetchone()[0]
+        crashes = _big_crashes(conn, telegram_id)
         res["chip"] = _calc_stage(crashes, economy_config.PATINA_STAGE_THRESHOLDS["chip"])
         
     if need_rounds:

@@ -63,6 +63,8 @@ def economy_stats(now=None, db_path=None):
         for name, table in GAME_TABLES:
             if table in present:
                 games[name] = one("SELECT COUNT(*) FROM " + table + " WHERE created_at >= ?", (now - DAY,))
+        if "crash_bets" in present:     # живой краш: ставки в раундах (прежний краш закрыт, его таблица считается выше)
+            games["краш"] = games.get("краш", 0) + one("SELECT COUNT(*) FROM crash_bets WHERE created_at_ms >= ?", ((now - DAY) * 1000,))
         out["games"] = games
         return out
     finally:

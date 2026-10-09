@@ -12,10 +12,9 @@ def active_game_of(telegram_id, db_path=None):
             "SELECT game FROM ("
             "SELECT 'mines' AS game, updated_at AS ts FROM mines_games WHERE telegram_id = ? AND status = 'active' "
             "UNION ALL SELECT 'blackjack', updated_at FROM blackjack_games WHERE telegram_id = ? AND status = 'active' "
-            "UNION ALL SELECT 'crash', created_at FROM crash_games WHERE telegram_id = ? AND status = 'active' "
             "UNION ALL SELECT 'crash', created_at_ms / 1000 FROM crash_bets WHERE telegram_id = ? AND status = 'open' "     # живой краш: открытая ставка в общем раунде
             "UNION ALL SELECT 'hilo', updated_at FROM hilo_games WHERE telegram_id = ? AND status = 'active') "
-            "ORDER BY ts DESC LIMIT 1", (telegram_id, telegram_id, telegram_id, telegram_id, telegram_id)).fetchone()
+            "ORDER BY ts DESC LIMIT 1", (telegram_id, telegram_id, telegram_id, telegram_id)).fetchone()
         return row["game"] if row is not None else None
     finally:
         conn.close()
