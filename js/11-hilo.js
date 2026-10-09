@@ -305,6 +305,7 @@ async function hlAct(path, body, kind) {
       renderHlCard(false);
       renderHl();
       haptic(d.status === 'active' ? 'light' : (d.payout > d.bet ? 'success' : (d.payout === d.bet ? 'light' : 'error')));
+      if (d.status !== 'active') skinEvents.emit('round:end', { game: 'hilo', net: d.payout - d.bet });
       loadServer('after');
       return;
     } catch (e) {

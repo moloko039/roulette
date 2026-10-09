@@ -391,6 +391,7 @@ function crApply(d) {
   if (r && r.result && !cr.crashSeen.has(r.id)) {
     if (cr.crashSeen.size > 30) cr.crashSeen.clear();
     cr.crashSeen.add(r.id);
+    if (d.me) skinEvents.emit('round:end', { game: 'crash' });
     skinEvents.emit('crash:crash', { roundId: r.id, x100: r.result.crash_x100, fresh: cr.flightSeen === r.id, mine: d.me ? d.me.status : null });
   }
   renderCrash();

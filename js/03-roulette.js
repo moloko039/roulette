@@ -636,6 +636,7 @@ function showResult(round, data) {
     layerWinEl.className = 'layer-win ' + (data.net > 0 ? 'win' : 'lose');
   }
   haptic(data.net > 0 ? 'success' : data.net < 0 ? 'error' : 'light');
+  skinEvents.emit('round:end', { game: 'roulette', net: data.net });       // конец раунда для скинов (сцена стола копит листья, ...)
   loadServer('after'); // обновит таймер (не чаще, чем раз в 5 секунд)
 }
 

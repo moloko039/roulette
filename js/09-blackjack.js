@@ -345,6 +345,7 @@ async function bjAct(path, body, kind) {
       bj.busy = false;
       renderBj();
       haptic(d.status === 'active' ? 'light' : (d.payout > d.wager ? 'success' : (d.payout === d.wager ? 'light' : 'error')));
+      if (d.status === 'finished') skinEvents.emit('round:end', { game: 'blackjack', net: d.payout - d.wager });
       loadServer('after');
       return;
     } catch (e) {

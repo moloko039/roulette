@@ -308,6 +308,7 @@ async function animateKenoDraw(draw, picks) {
   }
   await sleep(KENO_STEP_MS);
   skinEvents.emit('keno:end', { hits: picks.filter((n) => draw.includes(n)).length, picks: picks.length });
+  skinEvents.emit('round:end', { game: 'keno' });
 }
 
 skinSetHost('keno_ball', () => document.getElementById('keno-board'));
