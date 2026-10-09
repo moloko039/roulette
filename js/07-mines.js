@@ -23,6 +23,7 @@ const MINES_ICON_SETS = {
 };
 let minesIcons = MINES_ICON_SETS.default;   // набор иконок зависит от скина «значки мин» (applySkins)
 
+skinSetHost('mine_icons', () => document.getElementById('mines-board-wrap'));
 const minesEls = {
   balance: document.getElementById('mines-balance'),
   switchBtn: document.getElementById('mines-switch'),
@@ -155,6 +156,7 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
     }
     if (mn.busy && i === mn.pending && !open.has(i) && !bombs.has(i)) cls += ' opening';
     btn.className = cls;
+    btn.style.setProperty('--ci', String(i));       // номер клетки для сдвига анимаций «волной» в скинах
     btn.innerHTML = html; // постоянная разметка значков, данных сервера в ней нет
     btn.disabled = !interactive || mn.busy || open.has(i) || bombs.has(i);
   });
@@ -413,6 +415,7 @@ function minesStart() {
     mn.view = 'play';
     mn.hit = null;
     mn.showLast = false;
+    skinEvents.emit('bet:placed', { game: 'mines' });
     haptic('light');
   });
 }
@@ -421,6 +424,8 @@ function minesReveal(cell) {
   if (mn.view !== 'play' || mn.busy) return;
   mn.pending = cell; // нажатая клетка показывает «открывается», пока идёт запрос
   minesAct('/api/mines/reveal', { cell }, validMinesReveal, (d) => {
+    skinEvents.emit('mines:reveal', { cell, result: d.result });             // 'safe' | 'mine' | 'cleared': скин рисует выкапывание, взрыв
+    if (d.result !== 'safe') skinEvents.emit('mines:end', { status: d.result === 'mine' ? 'lost' : 'cashed', cell });
     if (d.result === 'safe') {
       mn.game = d.game;
       haptic('light');
@@ -439,6 +444,7 @@ function minesReveal(cell) {
 function minesCashout() {
   if (mn.view !== 'play' || mn.busy) return;
   minesAct('/api/mines/cashout', {}, validMinesCashout, (d) => {
+    skinEvents.emit('mines:end', { status: d.last.status, cell: null });
     mn.game = null;
     mn.last = d.last;
     mn.seen.add(minesKey(d.last));

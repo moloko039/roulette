@@ -294,9 +294,11 @@ async function animateKenoDraw(draw, picks) {
     renderKeno();
     return;
   }
+  skinEvents.emit('keno:start', { picks: picks.length });
   for (const n of draw) {
     await sleep(KENO_STEP_MS);
     kn.revealed.add(n);
+    skinEvents.emit('keno:draw', { n, hit: picks.includes(n) });
     renderKeno();
     const ball = kenoBalls[n - 1];
     ball.classList.remove('pop');
@@ -305,7 +307,10 @@ async function animateKenoDraw(draw, picks) {
     if (picks.includes(n)) haptic('light');
   }
   await sleep(KENO_STEP_MS);
+  skinEvents.emit('keno:end', { hits: picks.filter((n) => draw.includes(n)).length, picks: picks.length });
 }
+
+skinSetHost('keno_ball', () => document.getElementById('keno-board'));
 
 async function kenoPlay() {
   if (kn.busy) return;

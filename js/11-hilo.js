@@ -108,6 +108,7 @@ function renderHlCard(animate, tone) {
   el.setAttribute('aria-label', hlRankText(c) + ' ' + HL_SUIT_NAMES[c.suit]);
   if (hlIsRed(c)) el.classList.add('red');
   if (hl.game && hl.game.status === 'lost' && !hl.animating) el.classList.add('lost');
+  if (animate) skinEvents.emit('cards:deal', { game: 'hilo', count: 1 });
   if (animate && !reducedMotion()) {
     void el.offsetWidth;
     el.classList.add(tone === 'win' ? 'hit-win' : tone === 'lose' ? 'hit-lose' : 'flip');
@@ -347,6 +348,7 @@ function hlStart() {
     setHlNotice('Не хватает фишек');
     return;
   }
+  skinEvents.emit('bet:placed', { game: 'hilo' });
   hlAct('/api/hilo/start', { bet }, 'start');
 }
 

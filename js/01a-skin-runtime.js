@@ -172,4 +172,13 @@ function skinSync(slot) {
   skinFpsStart();
 }
 
+// Какие слоты скинов живут на каких экранах (data-screen): сцена слота существует, только пока открыт один из его экранов. Хосты (контейнеры сцен) регистрируют игры (skinSetHost).
+const SKIN_SCREEN_SLOTS = {
+  crash: ['crash', 'chip'], mines: ['mine_icons', 'chip'], keno: ['keno_ball', 'chip'], blackjack: ['card_back', 'chip'], hilo: ['card_back', 'chip'], roulette: ['table', 'chip']
+};
+function skinScreenChanged(screen) {
+  const wanted = new Set(SKIN_SCREEN_SLOTS[screen] || []);
+  SKIN_SLOTS.forEach((slot) => skinSetActive(slot, wanted.has(slot)));
+}
+
 // #endregion
