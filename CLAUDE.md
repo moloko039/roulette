@@ -77,7 +77,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
 - Клиент в корне: index.html, css/*.css, js/*.js (метки версий: python scripts/stamp_client.py), privacy.html; шрифты локально в fonts/ (лицензия OFL).
 - Сервер в bot/: web/ (HTTP: маршруты, подпись, middleware; api.py собирает), tg/ (команды бота; bot.py фасад), db.py (фасад: код в core/, features/, games/ как *_db.py), wallet.py, economy.py,
   farm.py, levels.py, xp.py, ratelimit.py, auth.py, antiabuse.py, notify.py; правила игр: roulette, keno, mines,
-  blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py, scripts/stamp_client.py, scripts/check_js_globals.py; симулятор экономики tools/econ_sim.py (тест test_econ_sim: гарантии плана на текущих числах).
+  blackjack, crash, hilo (.py); копии: backup*.py, verify_backup.py, decrypt_backup.py. Скрипты: scripts/check_repo.py, scripts/stamp_client.py, scripts/check_js_globals.py; симулятор экономики tools/econ_sim.py, нагрузочный замер живого краша tools/crash_load.py (docs/CRASH_LIVE.md, 7d) (тест test_econ_sim: гарантии плана на текущих числах).
 - Тесты: bot/test_*.py (заглушки: stubs.py, tg_testutil.py; `import testenv` первым: чистит окружение и .env; миграции старых баз: bot/testdata/legacy, без git).
 - GitHub Actions (tests.yml): тесты на Python 3.12, враждебное окружение, scripts/check_repo.py (индекс и вся история). e2e с continue-on-error:
   сделать блокирующим после 10 зелёных запусков на main подряд. Секреты до коммита: `git config core.hooksPath .githooks` (хук pre-commit = check_repo --staged).

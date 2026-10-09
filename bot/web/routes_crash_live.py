@@ -18,7 +18,7 @@ def register(app, ctx):
     throttled = ctx.throttled
 
     @app.get("/api/crash/live")
-    def live_state_endpoint(request: Request, authorization: str = Header(default=None)):
+    async def live_state_endpoint(request: Request, authorization: str = Header(default=None)):
         info = ctx.auth_full(authorization)
         limited = throttled(info["user_id"], "live")
         if limited is not None:
@@ -35,14 +35,12 @@ def register(app, ctx):
         if v_param and not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", v_param):
             v_param = None
 
-        return crash_live_db.live_state(
-            telegram_id=info["user_id"],
-            room_key=r_key,
-            now_ms=crash_live.now_ms(),
-            chat_instance=chat_instance,
-            db_path=db_path,
-            client_v=v_param
-        )
+        args = dict(telegram_id=info["user_id"], room_key=r_key, now_ms=crash_live.now_ms(), chat_instance=chat_instance, db_path=db_path, client_v=v_param)
+        # опрос: читающий путь (доли миллисекунды) прямо в цикле событий, запись (смена фазы раунда) в пуле потоков
+        res = crash_live_db.live_state_read(**args)
+        if res is None:
+            res = await run_in_threadpool(lambda: crash_live_db.live_state(**args))
+        return res
 
     @app.post("/api/crash/live/bet")
     async def live_bet_endpoint(request: Request):

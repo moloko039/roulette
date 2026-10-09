@@ -1,7 +1,8 @@
 """Живой краш: база данных и логика. Раунд один на весь сервер (комната crash_live.GLOBAL_ROOM); комната беседы (room_key) определяет только ленту ставок, которую видит игрок."""
 
-import time
 import math
+import threading
+import time
 
 import crash
 import crash_live
@@ -12,6 +13,11 @@ from core import achievements
 from core.db_conn import _connect
 from games.round_common import pay_and_xp, add_staked
 from core.kernel import _accrue_write, _register_player
+
+# Записи живого краша (ставка, вывод, продвижение раунда) идут в процессе по одной под общим замком. Без него десятки потоков в момент события (открытие раунда,
+# пересечение автоцели, закрытие) разом берут BEGIN IMMEDIATE, а SQLite разводит их сном с нарастающей паузой: задержки растут, хотя сама запись стоит около 0,6 мс
+# (tools/crash_load.py). Замок процессный: сервер один; между процессами защищает BEGIN IMMEDIATE, как раньше.
+_WRITE_LOCK = threading.Lock()
 
 
 def _time_to_crash_x100(crash_x100):
@@ -104,6 +110,11 @@ def _advance_round_in_tx(conn, now_ms, rng):
 
 
 def advance_round(now_ms, db_path=None, rng=None):
+    with _WRITE_LOCK:
+        _advance_round_locked(now_ms, db_path, rng)
+
+
+def _advance_round_locked(now_ms, db_path, rng):
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -114,6 +125,11 @@ def advance_round(now_ms, db_path=None, rng=None):
 
 
 def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_path=None, rng=None):
+    with _WRITE_LOCK:
+        return _place_bet_locked(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_path, rng)
+
+
+def _place_bet_locked(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_path, rng):
     if type(bet) is not int or not 1 <= bet <= crash.CRASH_MAX_BET:
         raise ValueError("bet out of range")
     if target_x100 is not None and (type(target_x100) is not int or not crash.MIN_TARGET_X100 <= target_x100 <= crash.CAP_X100):
@@ -162,6 +178,11 @@ def place_bet(telegram_id, room_key, request_id, bet, target_x100, now_ms, db_pa
 
 
 def cashout(telegram_id, request_id, now_ms, db_path=None, rng=None):
+    with _WRITE_LOCK:
+        return _cashout_locked(telegram_id, request_id, now_ms, db_path, rng)
+
+
+def _cashout_locked(telegram_id, request_id, now_ms, db_path, rng):
     conn = _connect(db_path)
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -316,25 +337,46 @@ def _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client
     return res
 
 
-def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, rng=None, client_v=None):
+def live_state_read(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, client_v=None):
+    """Быстрый читающий путь: проверка и сборка ответа в ОДНОЙ читающей транзакции (общий снимок базы, без блокировки записи, около 0,4 мс).
+    None, если раунд пора продвигать (открыть, закрыть, выплатить автовывод): тогда нужен live_state (запись). Обработчик вызывает это прямо в цикле событий:
+    так опрос не платит за передачу в пул потоков и гонку за GIL (на замере tools/crash_load.py это съедало больше, чем сама работа)."""
     conn = _connect(db_path)
     try:
-        # Быстрый путь: проверка и сборка ответа в ОДНОЙ читающей транзакции (общий снимок базы, без блокировки записи)
         conn.execute("BEGIN")
         try:
             if not needs_advance(conn, now_ms):
                 return _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+            return None
         finally:
             conn.execute("ROLLBACK")
-        # Медленный путь: пора продвигать раунд (открыть, закрыть, выплатить автовывод): запись под BEGIN IMMEDIATE
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            _advance_round_in_tx(conn, now_ms, rng)
-            res = _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
-            conn.execute("COMMIT")
-        except Exception:
-            conn.execute("ROLLBACK")
-            raise
+    finally:
+        conn.close()
+
+
+def live_state(telegram_id, room_key, now_ms, chat_instance=None, db_path=None, rng=None, client_v=None):
+    res = live_state_read(telegram_id, room_key, now_ms, chat_instance, db_path, client_v)
+    if res is not None:
         return res
+    conn = _connect(db_path)
+    try:
+        # Медленный путь: пора продвигать раунд (открыть, закрыть, выплатить автовывод): запись под BEGIN IMMEDIATE, по одной под замком процесса
+        with _WRITE_LOCK:
+            # пока ждали замок, раунд мог продвинуть другой поток: тогда запись не нужна, отвечаем читающим путём
+            conn.execute("BEGIN")
+            try:
+                if not needs_advance(conn, now_ms):
+                    return _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+            finally:
+                conn.execute("ROLLBACK")
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                _advance_round_in_tx(conn, now_ms, rng)
+                res = _build_live_state(conn, telegram_id, room_key, now_ms, chat_instance, client_v)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+            return res
     finally:
         conn.close()
