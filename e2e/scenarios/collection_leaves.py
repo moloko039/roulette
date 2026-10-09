@@ -29,7 +29,7 @@ async def run(w):
     await p.tap(".tab[data-tab=shop]")
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "магазин")
     check("полоса коллекции: название, 1 из 3, как получить", await p.ev("[...document.querySelectorAll('#wd-collections .wd-collection')].map(c => [(%s)(c.querySelector('strong').textContent), (%s)(c.querySelector('small').textContent)])" % (SP, SP)),
-          [["Листопад: 1 из 3", "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре"], ["Дачный сезон: 0 из 6", "За улучшения дохода фермы"]])
+          [["Листопад: 1 из 3", "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре"], ["Дачный сезон: 0 из 8", "За улучшения дохода фермы"]])
     statuses = await p.ev("Object.fromEntries([...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent]))")
     check("рубашки: Классика надета, Листопад есть, Уголь скоро", [statuses["Классика"], statuses["Листопад"], statuses["Уголь"]], ["Надето", "Есть", "Скоро"])
     await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол
