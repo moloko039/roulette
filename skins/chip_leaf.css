@@ -1,1 +1,204 @@
-/* Скин фишки «Лист в смоле» (коллекция «Листопад»): заготовка, заполняется задачей пула */
+/* Скин фишки «Лист в смоле» (коллекция «Листопад», DESIGN.md раздел 7).
+   Прозрачный тёплый круг (янтарная смола, радиальный градиент, блик), внутри засушенный лист.
+   Номиналы отличаются листом: клён (10), дуб (50), берёза (100), рябина (500), гинкго (fallback).
+   Цвета листьев: клён #D9541E, охра #E3A33B, бордо #7E2533.
+   Событие «ставка» (.stack.drop): подскок и короткий блик по смоле (transform/opacity псевдоэлемента).
+   Отключение анимаций при html.perf-lite, html.skin-paused и prefers-reduced-motion. */
+
+/* 1. Базовые стили фишки .chip и стопки .stack */
+[data-scene="chip_leaf"] .chip,
+[data-scene="chip_leaf"] .stack {
+  --leaf-glare: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 240, 200, 0.18) 25%, transparent 52%);
+}
+
+[data-scene="chip_leaf"] .chip {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  color: #FFF4E0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 40px 40px, 40px 40px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+[data-scene="chip_leaf"] .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-scene="chip_leaf"] .chip[aria-pressed="true"] {
+  border-color: #E3A33B;
+  box-shadow: 0 0 0 2px #E3A33B, 0 2px 8px rgba(227, 163, 59, 0.45);
+}
+
+/* Прямоугольные кнопки фишек в доке ставок: янтарный круг по левому краю + читаемая сумма */
+[data-scene="chip_leaf"] .bets-dock .chip {
+  padding-left: 32px;
+  padding-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-position: left 6px center, left 6px center;
+  background-size: 28px 28px, 28px 28px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* Стопка .stack на клетке стола рулетки: круглый лист в янтарной смоле */
+[data-scene="chip_leaf"] .stack {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 9.5px;
+  line-height: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #FFF4E0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 100% 100%, 100% 100%;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Номиналы: листья в янтарной смоле */
+/* Fallback: Гинкго (янтарная смола, веерный лист гинкго) */
+[data-scene="chip_leaf"] .chip,
+[data-scene="chip_leaf"] .stack {
+  background-color: #5A3412;
+  border-color: #E3A33B;
+  background-image: var(--leaf-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23E3A33B' stroke-opacity='0.65' stroke-width='2'/%3E%3CradialGradient id='rg' cx='38%25' cy='34%25' r='64%25'%3E%3Cstop offset='0%25' stop-color='%23F5C368' stop-opacity='0.55'/%3E%3Cstop offset='55%25' stop-color='%23B86518' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%235A3412' stop-opacity='0.85'/%3E%3C/radialGradient%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23rg)' stroke='rgba(255,235,180,0.35)' stroke-width='1.5'/%3E%3Cpath d='M24,30 A30,30 0 0,1 68,20' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,78 Q49,68 50,60' fill='none' stroke='%23B87A1E' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,60 C42,54 28,48 24,38 C22,34 26,30 32,31 C38,32 44,35 48,34 C49,34 50,37 50,38 C50,37 51,34 52,34 C56,35 62,32 68,31 C74,30 78,34 76,38 C72,48 58,54 50,60 Z' fill='%23E3A33B' fill-opacity='0.9' stroke='%23B87A1E' stroke-width='1'/%3E%3Cpath d='M50,60 L32,33 M50,60 L40,33 M50,60 L48,35 M50,60 L52,35 M50,60 L60,33 M50,60 L68,33 M50,60 L26,38 M50,60 L74,38' fill='none' stroke='%23C98520' stroke-width='0.8' stroke-opacity='0.7'/%3E%3C/svg%3E");
+}
+
+/* Номинал 10: Клён (#D9541E) */
+[data-scene="chip_leaf"] :is(.chip, .stack):is([data-amount="10"], [data-bet="10"], [data-kbet="10"], [data-jbet="10"], [data-cbet="10"], [data-hbet="10"]) {
+  background-color: #5A3412;
+  border-color: #F28A55;
+  background-image: var(--leaf-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23F28A55' stroke-opacity='0.65' stroke-width='2'/%3E%3CradialGradient id='rm' cx='38%25' cy='34%25' r='64%25'%3E%3Cstop offset='0%25' stop-color='%23F5C368' stop-opacity='0.55'/%3E%3Cstop offset='55%25' stop-color='%23B86518' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%235A3412' stop-opacity='0.85'/%3E%3C/radialGradient%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23rm)' stroke='rgba(255,235,180,0.35)' stroke-width='1.5'/%3E%3Cpath d='M24,30 A30,30 0 0,1 68,20' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,78 L50,66' fill='none' stroke='%239E3610' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,66 L45,63 L34,65 L36,58 L24,53 L32,46 L22,39 L33,38 L37,28 L43,36 L50,22 L57,36 L63,28 L67,38 L78,39 L68,46 L76,53 L64,58 L66,65 L55,63 Z' fill='%23D9541E' fill-opacity='0.92' stroke='%239E3610' stroke-width='1.1'/%3E%3Cpath d='M50,66 L50,24 M50,66 L30,35 M50,66 L70,35 M50,66 L26,52 M50,66 L74,52 M50,45 L43,38 M50,45 L57,38' fill='none' stroke='%23F59668' stroke-width='0.9' stroke-opacity='0.75'/%3E%3C/svg%3E");
+}
+
+/* Номинал 50: Дуб (#E3A33B, охра) */
+[data-scene="chip_leaf"] :is(.chip, .stack):is([data-amount="50"], [data-bet="50"], [data-kbet="50"], [data-jbet="50"], [data-cbet="50"], [data-hbet="50"]) {
+  background-color: #5A3412;
+  border-color: #E3A33B;
+  background-image: var(--leaf-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23E3A33B' stroke-opacity='0.65' stroke-width='2'/%3E%3CradialGradient id='ro' cx='38%25' cy='34%25' r='64%25'%3E%3Cstop offset='0%25' stop-color='%23F5C368' stop-opacity='0.55'/%3E%3Cstop offset='55%25' stop-color='%23B86518' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%235A3412' stop-opacity='0.85'/%3E%3C/radialGradient%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23ro)' stroke='rgba(255,235,180,0.35)' stroke-width='1.5'/%3E%3Cpath d='M24,30 A30,30 0 0,1 68,20' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,78 L50,68' fill='none' stroke='%23966518' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,68 C45,67 40,64 42,59 C37,58 35,51 40,47 C34,45 34,37 40,33 C37,29 42,22 50,22 C58,22 63,29 60,33 C66,37 66,45 60,47 C65,51 63,58 58,59 C60,64 55,67 50,68 Z' fill='%23E3A33B' fill-opacity='0.92' stroke='%23966518' stroke-width='1.1'/%3E%3Cpath d='M50,68 L50,24 M50,58 L42,52 M50,58 L58,52 M50,47 L39,41 M50,47 L61,41 M50,36 L41,30 M50,36 L59,30' fill='none' stroke='%23FFE3A0' stroke-width='0.9' stroke-opacity='0.75'/%3E%3C/svg%3E");
+}
+
+/* Номинал 100: Берёза (#D98A26) */
+[data-scene="chip_leaf"] :is(.chip, .stack):is([data-amount="100"], [data-bet="100"], [data-kbet="100"], [data-jbet="100"], [data-cbet="100"], [data-hbet="100"]) {
+  background-color: #5A3412;
+  border-color: #F0C862;
+  background-image: var(--leaf-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23F0C862' stroke-opacity='0.65' stroke-width='2'/%3E%3CradialGradient id='rb' cx='38%25' cy='34%25' r='64%25'%3E%3Cstop offset='0%25' stop-color='%23F5C368' stop-opacity='0.55'/%3E%3Cstop offset='55%25' stop-color='%23B86518' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%235A3412' stop-opacity='0.85'/%3E%3C/radialGradient%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23rb)' stroke='rgba(255,235,180,0.35)' stroke-width='1.5'/%3E%3Cpath d='M24,30 A30,30 0 0,1 68,20' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,78 Q49,72 50,66' fill='none' stroke='%238F5510' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M50,66 C42,65 32,60 30,52 C28,45 35,38 41,32 C45,28 48,24 50,22 C52,24 55,28 59,32 C65,38 72,45 70,52 C68,60 58,65 50,66 Z' fill='%23D98A26' fill-opacity='0.92' stroke='%238F5510' stroke-width='1.1'/%3E%3Cpath d='M50,66 L50,23 M50,58 L34,51 M50,58 L66,51 M50,50 L36,43 M50,50 L64,43 M50,42 L40,35 M50,42 L60,35 M50,33 L44,28 M50,33 L56,28' fill='none' stroke='%23FFEAB0' stroke-width='0.85' stroke-opacity='0.75'/%3E%3C/svg%3E");
+}
+
+/* Номинал 500: Рябина (#7E2533, бордо с ягодками) */
+[data-scene="chip_leaf"] :is(.chip, .stack):is([data-amount="500"], [data-bet="500"], [data-kbet="500"], [data-jbet="500"], [data-cbet="500"], [data-hbet="500"]) {
+  background-color: #5A3412;
+  border-color: #FFE8B0;
+  background-image: var(--leaf-glare), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23FFE8B0' stroke-opacity='0.65' stroke-width='2'/%3E%3CradialGradient id='rr' cx='38%25' cy='34%25' r='64%25'%3E%3Cstop offset='0%25' stop-color='%23F5C368' stop-opacity='0.55'/%3E%3Cstop offset='55%25' stop-color='%23B86518' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%235A3412' stop-opacity='0.85'/%3E%3C/radialGradient%3E%3Ccircle cx='50' cy='50' r='45' fill='url(%23rr)' stroke='rgba(255,235,180,0.35)' stroke-width='1.5'/%3E%3Cpath d='M24,30 A30,30 0 0,1 68,20' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M50,72 L50,24' fill='none' stroke='%235E1420' stroke-width='1.6' stroke-linecap='round'/%3E%3Cellipse cx='50' cy='22' rx='3.5' ry='6' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='43' cy='31' rx='3.2' ry='5.5' transform='rotate(-35 43 31)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='57' cy='31' rx='3.2' ry='5.5' transform='rotate(35 57 31)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='41' cy='41' rx='3.5' ry='6' transform='rotate(-40 41 41)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='59' cy='41' rx='3.5' ry='6' transform='rotate(40 59 41)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='42' cy='52' rx='3.5' ry='6' transform='rotate(-45 42 52)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Cellipse cx='58' cy='52' rx='3.5' ry='6' transform='rotate(45 58 52)' fill='%237E2533' stroke='%235E1420' stroke-width='0.8'/%3E%3Ccircle cx='46' cy='67' r='3.2' fill='%23B82838' stroke='%235E1420' stroke-width='0.8'/%3E%3Ccircle cx='54' cy='67' r='3.2' fill='%23B82838' stroke='%235E1420' stroke-width='0.8'/%3E%3Ccircle cx='50' cy='63' r='3' fill='%23C73444' stroke='%235E1420' stroke-width='0.8'/%3E%3Ccircle cx='50' cy='71' r='2.8' fill='%239E1F2E' stroke='%235E1420' stroke-width='0.8'/%3E%3Ccircle cx='49' cy='62.5' r='0.8' fill='%23FFF' opacity='0.6'/%3E%3Ccircle cx='45' cy='66.5' r='0.8' fill='%23FFF' opacity='0.6'/%3E%3Ccircle cx='53' cy='66.5' r='0.8' fill='%23FFF' opacity='0.6'/%3E%3C/svg%3E");
+}
+
+/* 3. Событие «ставка» (.stack.drop): подскок и короткий блик по смоле */
+[data-scene="chip_leaf"] .stack.drop {
+  animation: leaf-drop 0.45s cubic-bezier(0.2, 0.9, 0.4, 1.1) forwards;
+  overflow: hidden;
+}
+
+[data-scene="chip_leaf"] .stack.drop::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -60%;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, transparent 100%);
+  transform: rotate(25deg) translateX(-100%);
+  animation: resin-glare 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes leaf-drop {
+  0% {
+    transform: translate(-50%, -85%) scale(1.3) rotate(-15deg);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(-50%, -48%) scale(0.96) rotate(3deg);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(-50%, -53%) scale(1.03) rotate(-1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes resin-glare {
+  0% {
+    transform: rotate(25deg) translateX(-100%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotate(25deg) translateX(350%);
+    opacity: 0;
+  }
+}
+
+/* 4. Пауза и облегчённый режим (perf-lite, reduced-motion, skin-paused) */
+html.perf-lite [data-scene="chip_leaf"] .stack.drop {
+  animation: none !important;
+}
+
+html.perf-lite [data-scene="chip_leaf"] .stack,
+html.perf-lite [data-scene="chip_leaf"] .chip,
+html.perf-lite [data-scene="chip_leaf"] .stack::before,
+html.perf-lite [data-scene="chip_leaf"] .stack::after,
+html.perf-lite [data-scene="chip_leaf"] .chip::before,
+html.perf-lite [data-scene="chip_leaf"] .chip::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="chip_leaf"] .stack.drop {
+    animation: none !important;
+  }
+  [data-scene="chip_leaf"] .stack,
+  [data-scene="chip_leaf"] .chip,
+  [data-scene="chip_leaf"] .stack::before,
+  [data-scene="chip_leaf"] .stack::after,
+  [data-scene="chip_leaf"] .chip::before,
+  [data-scene="chip_leaf"] .chip::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+html.skin-paused [data-scene="chip_leaf"] .stack.drop {
+  animation-play-state: paused !important;
+}
+
+html.skin-paused [data-scene="chip_leaf"] .stack,
+html.skin-paused [data-scene="chip_leaf"] .chip,
+html.skin-paused [data-scene="chip_leaf"] .stack::before,
+html.skin-paused [data-scene="chip_leaf"] .stack::after,
+html.skin-paused [data-scene="chip_leaf"] .chip::before,
+html.skin-paused [data-scene="chip_leaf"] .chip::after {
+  animation-play-state: paused !important;
+}

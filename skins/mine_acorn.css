@@ -1,1 +1,240 @@
-/* Скин мин «Жёлуди» (коллекция «Листопад»): заготовка, заполняется задачей пула */
+/* Сцена скина мин «Жёлуди» (коллекция «Листопад», DESIGN.md раздел 7).
+   Клетки доски — кучки листьев разных осенних оттенков.
+   Безопасная клетка (.safe): листья разлетаются в стороны, под ними жёлудь или каштан (чередование по nth-child).
+   Мина (.mine): лужа; при взрыве (.mine.hit) — шлёпает, брызги и расходящиеся круги на воде.
+   Остальные мины приглушённо.
+   Покой: изредка лист шевелится (фаза по --ci).
+   Забрать (data-view="result"): жёлуди и каштаны подпрыгивают волной (--ci * 40ms).
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. */
+
+/* 1. Поле — осенняя земля с деревянно-коричневым кантом (#6B4A2A) */
+#mines-board-wrap[data-scene="mine_acorn"] {
+  position: relative;
+}
+
+#mines-board-wrap[data-scene="mine_acorn"] .mines-grid {
+  position: relative;
+  box-sizing: border-box;
+  padding: 4px;
+  background-color: #2E1B0E;
+  border: 5px solid #6B4A2A;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px #4A2E18,
+    0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* 2. Клетка — тёмная влажная земля под листьями (#3A2412) */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #6B4A2A;
+  background-color: #3A2412;
+  background-image: radial-gradient(circle at 48% 46%, #4A2F18 0%, #351F0D 70%, #291608 100%);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+}
+
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell:active:not(:disabled) {
+  transform: scale(0.96);
+  background-color: #2A170A;
+}
+
+/* Скрываем стандартные svg-значки игры и гасим filter safe-значка */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell svg {
+  display: none;
+  filter: none;
+}
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe svg {
+  filter: none;
+}
+
+/* 3. Закрытая клетка: объёмная кучка листьев, тихий покой */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell:not(.safe):not(.mine)::before {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6,22 C4,16 12,12 18,17 C16,21 10,24 6,22 Z' fill='%237E2533' stroke='%235A1420' stroke-width='0.8'/%3E%3Cpath d='M18,13 C12,8 14,3 20,4 C24,6 23,12 18,13 Z' fill='%23C27E20' stroke='%238A5610' stroke-width='0.8'/%3E%3Cpath d='M8,18 C7,11 15,9 17,14 C15,19 9,20 8,18 Z' fill='%23E3A33B' stroke='%239E6D18' stroke-width='0.8'/%3E%3Cpath d='M13,26 L11,20 L5,20 L10,16 L7,11 L13,13 L16,7 L19,13 L25,11 L22,16 L27,20 L21,20 L19,26 Z' fill='%23D9541E' stroke='%239E3610' stroke-width='0.9'/%3E%3Cpath d='M16,14 L16,24 M16,16 L10,13 M16,16 L22,13 M16,19 L9,18 M16,19 L23,18' fill='none' stroke='%23F58652' stroke-width='0.7' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  pointer-events: none;
+  transform-origin: 50% 85%;
+  animation: acorn-leaf-idle 4s ease-in-out infinite alternate;
+  animation-delay: calc(var(--ci, 0) * -380ms);
+}
+
+@keyframes acorn-leaf-idle {
+  0%, 65%   { transform: rotate(0deg) scale(1); }
+  75%       { transform: rotate(2.5deg) scale(1.02); }
+  85%       { transform: rotate(-1.5deg) scale(0.99); }
+  95%, 100% { transform: rotate(0deg) scale(1); }
+}
+
+/* Взрыв: соседние листья никнут */
+#mines-board-wrap[data-scene="mine_acorn"][data-status="lost"] .mines-cell:not(.safe):not(.mine)::before {
+  animation: acorn-leaf-wilt 0.5s ease-out forwards;
+}
+
+@keyframes acorn-leaf-wilt {
+  0%   { transform: rotate(0deg); opacity: 1; }
+  100% { transform: rotate(30deg) translateY(3px) scale(0.85); opacity: 0.55; }
+}
+
+/* 4. Безопасная клетка (.safe): листья разлетаются, под ними жёлудь или каштан */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe {
+  background-color: #4A3516;
+  background-image: radial-gradient(circle at 50% 50%, #5C401A 0%, #35210E 85%);
+  border-color: #E0A33A;
+  animation: acorn-safe-reveal 0.35s ease-out;
+}
+
+@keyframes acorn-safe-reveal {
+  0%   { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+/* Листья разлетаются в стороны (3-4 листика) */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M6,7 L8,4 L11,7 L12,4 L10,9 L12,11 L8,10 L6,12 Z' fill='%23D9541E'/%3E%3Cpath d='M25,5 C27,7 28,10 26,12 C24,11 23,8 25,5 Z' fill='%23E3A33B'/%3E%3Cellipse cx='7' cy='25' rx='2.4' ry='4.2' transform='rotate(-40 7 25)' fill='%237E2533'/%3E%3Cpath d='M25,23 C27,25 26,28 23,28 C22,26 23,24 25,23 Z' fill='%23E5A93C'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: leaf-scatter-burst 0.4s ease-out forwards;
+}
+
+@keyframes leaf-scatter-burst {
+  0%   { transform: scale(0.35) rotate(0deg); opacity: 1; }
+  60%  { transform: scale(1.3) rotate(15deg); opacity: 0.85; }
+  100% { transform: scale(1.75) rotate(30deg); opacity: 0; }
+}
+
+/* Жёлудь или каштан на безопасной клетке */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+  animation: acorn-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes acorn-pop {
+  0%   { transform: scale(0.3) translateY(6px); opacity: 0; }
+  60%  { transform: scale(1.15) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Жёлудь (нечётные) */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe:nth-child(2n+1)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16,5 Q18,3 19,2' fill='none' stroke='%234A2E12' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M9,13 C9,8 23,8 23,13 Z' fill='%235A3814' stroke='%233D240B' stroke-width='1.2'/%3E%3Cpath d='M10,10 Q16,8 22,10 M11,12 Q16,10 21,12 M13,9 L12,13 M16,8 L16,13 M19,9 L20,13' fill='none' stroke='%233D240B' stroke-width='0.8' stroke-linecap='round'/%3E%3Cpath d='M9.5,13 C9.5,21 13,27 16,28 C19,27 22.5,21 22.5,13 Z' fill='%238F5520' stroke='%235A3410' stroke-width='1.3'/%3E%3Cpath d='M12,15 Q14,21 15,25' fill='none' stroke='%23C98538' stroke-width='1.5' stroke-linecap='round'/%3E%3Cellipse cx='12.5' cy='16' rx='1' ry='2' fill='%23FFF' opacity='0.35'/%3E%3C/svg%3E");
+}
+
+/* Каштан (чётные) */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.safe:nth-child(2n)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='16' rx='10' ry='9.5' fill='%236E2414' stroke='%2345140A' stroke-width='1.3'/%3E%3Cpath d='M9,18 C11,24 21,24 23,18 C20,16 12,16 9,18 Z' fill='%23D9B98A' stroke='%239E7848' stroke-width='1'/%3E%3Cellipse cx='16' cy='20' rx='4' ry='1.5' fill='%23C4A070' opacity='0.5'/%3E%3Cpath d='M12,11 Q16,9 20,11' fill='none' stroke='%23B84A30' stroke-width='1.6' stroke-linecap='round'/%3E%3Cellipse cx='14' cy='11.5' rx='2.2' ry='1' fill='%23FFF' opacity='0.4'/%3E%3C/svg%3E");
+}
+
+/* 5. Мина: под листьями лужа */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.mine::before {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='17' rx='12.5' ry='9.5' fill='%23222A30' stroke='%233D4852' stroke-width='1.2'/%3E%3Cellipse cx='16' cy='17' rx='10.5' ry='7.8' fill='%23182128'/%3E%3Cellipse cx='16' cy='17' rx='7.5' ry='5' fill='none' stroke='%234F6070' stroke-width='1' opacity='0.75'/%3E%3Cellipse cx='16' cy='17' rx='4.2' ry='2.8' fill='none' stroke='%237D92A3' stroke-width='0.9' opacity='0.85'/%3E%3Cpath d='M9,15 Q15,11.5 23,13.5' fill='none' stroke='rgba(255,255,255,0.45)' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+}
+
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.mine.muted::before {
+  opacity: 0.55;
+}
+
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.mine:not(.hit):not(.muted)::before {
+  opacity: 0.65;
+}
+
+/* Взрыв (.mine.hit): шлёпает в лужу, брызги и расходящиеся круги на воде */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.mine.hit::before {
+  animation: puddle-splash 0.45s cubic-bezier(0.2, 0.8, 0.4, 1.2) forwards;
+  opacity: 1;
+}
+
+@keyframes puddle-splash {
+  0% {
+    transform: scale(0.35) translateY(8px);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.15) translateY(-2px);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(0.96);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Брызги и расходящиеся круги на воде */
+#mines-board-wrap[data-scene="mine_acorn"] .mines-cell.mine.hit::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='17' rx='14' ry='10.5' fill='none' stroke='%236B8296' stroke-width='1.3' opacity='0.85'/%3E%3Ccircle cx='8' cy='7' r='1.5' fill='%239EBFD9'/%3E%3Ccircle cx='24' cy='6' r='1.8' fill='%239EBFD9'/%3E%3Ccircle cx='5' cy='17' r='1.3' fill='%238AA8BF'/%3E%3Ccircle cx='27' cy='18' r='1.4' fill='%238AA8BF'/%3E%3Ccircle cx='10' cy='26' r='1.4' fill='%238AA8BF'/%3E%3Ccircle cx='22' cy='27' r='1.5' fill='%239EBFD9'/%3E%3Ccircle cx='16' cy='4' r='1.6' fill='%23BAD6ED'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: water-splash-burst 0.5s ease-out forwards;
+}
+
+@keyframes water-splash-burst {
+  0%   { transform: scale(0.4); opacity: 1; }
+  60%  { transform: scale(1.25); opacity: 0.85; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Взрыв: поле вздрагивает */
+#mines-board-wrap[data-scene="mine_acorn"][data-status="lost"] {
+  animation: mine-field-quake 0.35s ease-out;
+}
+
+@keyframes mine-field-quake {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-3px, 2px); }
+  40%  { transform: translate(3px, -2px); }
+  60%  { transform: translate(-2px, 1px); }
+  80%  { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* 6. Выигрыш / Забрать: жёлуди и каштаны подпрыгивают волной */
+#mines-board-wrap[data-scene="mine_acorn"][data-view="result"]:not([data-status="lost"]):not([data-status=""]) .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_acorn"][data-view="result"][data-status="cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_acorn"][data-view="result"][data-status="auto_cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_acorn"][data-view="result"][data-status="refunded"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="mine_acorn"][data-view="result"][data-status="auto_refunded"] .mines-cell.safe::before {
+  animation: acorn-wave 0.5s ease-out;
+  animation-delay: calc(var(--ci, 0) * 40ms);
+}
+
+@keyframes acorn-wave {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-8px) scale(1.18); }
+  65%  { transform: translateY(2px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
