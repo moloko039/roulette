@@ -1,1 +1,192 @@
-/* Сцена скина кено «Яблоки» (коллекция «Листопад»): заготовка, заполняется задачей пула */
+/* Сцена скина кено «Яблоки» (коллекция «Листопад», DESIGN.md раздел 7, подраздел «Кено»).
+   Загружается при надевании скина и открытии экрана кено, снимается вместе со сценой.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. */
+
+.keno-board[data-scene="keno_apple"] {
+  position: relative;
+  margin-top: 48px;
+  margin-bottom: 52px;
+}
+
+.keno-board[data-scene="keno_apple"] .skin-scene {
+  overflow: visible;
+}
+
+/* 1. Форма и раскраска яблок: красные (3n+1), жёлтые (3n+2), зелёные (3n) */
+.keno-board[data-scene="keno_apple"] .keno-ball {
+  position: relative;
+}
+
+.keno-board[data-scene="keno_apple"] .keno-ball span {
+  position: relative;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  border-radius: 0;
+  box-shadow: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 36px 36px;
+  padding-top: 3px;
+  box-sizing: border-box;
+}
+
+/* Красные яблоки (числа 1, 4, 7, 10, ...): контраст 6.9:1 */
+.keno-board[data-scene="keno_apple"] button.keno-ball:nth-of-type(3n + 1) span {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 10 C17.5 5, 20 2, 23 1' fill='none' stroke='%235A3414' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M19 5 C24 3, 27 5, 27 6 C26 9, 22 8.5, 19 6 Z' fill='%234E8C22' stroke='%23366416' stroke-width='0.7'/%3E%3Cpath d='M18 10 C14 8, 5 10, 5 20 C5 29, 13 34, 18 33 C23 34, 31 29, 31 20 C31 10, 22 8, 18 10 Z' fill='%23A8221D' stroke='%237C1713' stroke-width='1.4'/%3E%3Cpath d='M9 16 C8 20, 10 24, 10 25' fill='none' stroke='rgba(255,255,255,0.22)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  color: #FFF5EA;
+}
+
+/* Жёлтые яблоки (числа 2, 5, 8, 11, ...): контраст 8.2:1 */
+.keno-board[data-scene="keno_apple"] button.keno-ball:nth-of-type(3n + 2) span {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 10 C17.5 5, 20 2, 23 1' fill='none' stroke='%235A3414' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M19 5 C24 3, 27 5, 27 6 C26 9, 22 8.5, 19 6 Z' fill='%234E8C22' stroke='%23366416' stroke-width='0.7'/%3E%3Cpath d='M18 10 C14 8, 5 10, 5 20 C5 29, 13 34, 18 33 C23 34, 31 29, 31 20 C31 10, 22 8, 18 10 Z' fill='%23E5A01C' stroke='%23B8780E' stroke-width='1.4'/%3E%3Cpath d='M9 16 C8 20, 10 24, 10 25' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  color: #201406;
+}
+
+/* Зелёные яблоки (числа 3, 6, 9, 12, ...): контраст 5.5:1 */
+.keno-board[data-scene="keno_apple"] button.keno-ball:nth-of-type(3n) span {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 10 C17.5 5, 20 2, 23 1' fill='none' stroke='%235A3414' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M19 5 C24 3, 27 5, 27 6 C26 9, 22 8.5, 19 6 Z' fill='%2368B02C' stroke='%2348821C' stroke-width='0.7'/%3E%3Cpath d='M18 10 C14 8, 5 10, 5 20 C5 29, 13 34, 18 33 C23 34, 31 29, 31 20 C31 10, 22 8, 18 10 Z' fill='%2344751A' stroke='%232E5410' stroke-width='1.4'/%3E%3Cpath d='M9 16 C8 20, 10 24, 10 25' fill='none' stroke='rgba(255,255,255,0.22)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  color: #FFF5EA;
+}
+
+/* 2. Состояния яблок: .sel выбран, .drawn выпал, .hit совпал, .miss не совпал */
+.keno-board[data-scene="keno_apple"] .keno-ball.sel {
+  background-color: rgba(227, 163, 59, 0.2);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1.5px #E3A33B, 0 1px 3px rgba(32, 20, 8, 0.25);
+}
+
+.keno-board[data-scene="keno_apple"] .keno-ball.drawn span {
+  box-shadow: 0 0 0 2px #F0C862;
+  border-radius: 50%;
+}
+
+.keno-board[data-scene="keno_apple"] .keno-ball.hit {
+  background-color: rgba(156, 200, 74, 0.22);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 2px #9CC84A, 0 2px 6px rgba(156, 200, 74, 0.35);
+}
+
+.keno-board[data-scene="keno_apple"] .keno-ball.hit span {
+  box-shadow: none;
+}
+
+.keno-board[data-scene="keno_apple"] .keno-ball.miss {
+  opacity: 0.55;
+}
+
+/* Подпрыгивание яблока при совпадении (.hit.pop) */
+.keno-board[data-scene="keno_apple"] .keno-ball.hit.pop span {
+  animation: ska-hit-bounce 0.28s cubic-bezier(0.3, 1.4, 0.6, 1);
+}
+@keyframes ska-hit-bounce {
+  0% { transform: translateY(-6px) scale(1.12); }
+  50% { transform: translateY(2px) scale(0.96); }
+  75% { transform: translateY(-1px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* 3. Ветка с листьями над полем */
+.ska-branch {
+  position: absolute;
+  top: -44px;
+  left: 4px;
+  right: 4px;
+  height: 42px;
+  pointer-events: none;
+  z-index: 2;
+  transform-origin: 25% 0%;
+  animation: ska-branch-sway 5s ease-in-out infinite alternate;
+}
+.ska-branch-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+@keyframes ska-branch-sway {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(1.4deg) translateY(1px); }
+  100% { transform: rotate(-1deg); }
+}
+
+/* 4. Плетёная корзина внизу справа */
+.ska-basket {
+  position: absolute;
+  bottom: -48px;
+  right: 6px;
+  width: 86px;
+  height: 44px;
+  pointer-events: none;
+  z-index: 3;
+  transform-origin: 50% 100%;
+}
+.ska-basket-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ska-basket-apples {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ska-b-apple {
+  position: absolute;
+  display: none;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.ska-b-apple.on {
+  display: block;
+}
+.ska-b-apple svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ska-b-apple[data-idx="0"] { left: 16px; top: 14px; }
+.ska-b-apple[data-idx="1"] { left: 28px; top: 12px; }
+.ska-b-apple[data-idx="2"] { left: 40px; top: 13px; }
+.ska-b-apple[data-idx="3"] { left: 52px; top: 15px; }
+.ska-b-apple[data-idx="4"] { left: 22px; top: 6px; }
+.ska-b-apple[data-idx="5"] { left: 34px; top: 5px; }
+.ska-b-apple[data-idx="6"] { left: 46px; top: 7px; }
+.ska-b-apple[data-idx="7"] { left: 26px; top: -1px; }
+.ska-b-apple[data-idx="8"] { left: 40px; top: -1px; }
+.ska-b-apple[data-idx="9"] { left: 33px; top: -7px; }
+
+.ska-b-apple.c-red .ska-ba-body { fill: #A8221D; stroke: #7C1713; }
+.ska-b-apple.c-yellow .ska-ba-body { fill: #E5A01C; stroke: #B8780E; }
+.ska-b-apple.c-green .ska-ba-body { fill: #44751A; stroke: #2E5410; }
+
+/* 5. Пул вылетающих яблок-частиц */
+.ska-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.ska-p {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.ska-p.on {
+  display: block;
+}
+.ska-p svg {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+.ska-p.c-red .ska-p-body { fill: #A8221D; stroke: #7C1713; }
+.ska-p.c-red .ska-p-num { fill: #FFF5EA; }
+.ska-p.c-yellow .ska-p-body { fill: #E5A01C; stroke: #B8780E; }
+.ska-p.c-yellow .ska-p-num { fill: #201406; }
+.ska-p.c-green .ska-p-body { fill: #44751A; stroke: #2E5410; }
+.ska-p.c-green .ska-p-num { fill: #FFF5EA; }
