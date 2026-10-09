@@ -144,6 +144,8 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
   const open = new Set(revealed);
   const bombs = new Set(mineCells);
   minesEls.boardWrap.classList.toggle('locked', mn.busy);
+  minesEls.boardWrap.dataset.view = mn.view;                                         // метки состояния для css скинов: play | result
+  minesEls.boardWrap.dataset.status = mn.view === 'result' && mn.last ? mn.last.status : '';
   minesCells.forEach((btn, i) => {
     let cls = 'mines-cell';
     let html = '';
