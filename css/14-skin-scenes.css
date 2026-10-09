@@ -2,11 +2,12 @@
 .skin-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; }
 /* пока приложение не видно, анимации стоят; в облегчённом режиме и при reduced-motion движений покоя нет вовсе (события сцена заменяет сменой кадра) */
 /* контейнер сцены получает data-scene=<код скина> (сцена внутри него и сама разметка игры: клетки мин, шарики кено), поэтому правила покрывают и css-скины без js */
-html.skin-paused [data-scene], html.skin-paused [data-scene] * { animation-play-state: paused !important; }
-html.perf-lite [data-scene], html.perf-lite [data-scene] *, html.perf-lite [data-scene] *::before, html.perf-lite [data-scene] *::after { animation: none !important; transition: none !important; }
+html.skin-paused [data-scene]:not(body), html.skin-paused [data-scene]:not(body) * { animation-play-state: paused !important; }
+html.perf-lite [data-scene]:not(body), html.perf-lite [data-scene]:not(body) *, html.perf-lite [data-scene]:not(body) *::before, html.perf-lite [data-scene]:not(body) *::after { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  [data-scene], [data-scene] *, [data-scene] *::before, [data-scene] *::after { animation: none !important; transition: none !important; }
+  [data-scene]:not(body), [data-scene]:not(body) *, [data-scene]:not(body) *::before, [data-scene]:not(body) *::after { animation: none !important; transition: none !important; }
 }
-html.skin-paused [data-scene] *::before, html.skin-paused [data-scene] *::after { animation-play-state: paused !important; }
+html.skin-paused [data-scene]:not(body) *::before, html.skin-paused [data-scene]:not(body) *::after { animation-play-state: paused !important; }
 /* дымный след графика краша: виден только там, где скин его включает */
 .cr-smoke { display: none; fill: none; vector-effect: non-scaling-stroke; }
+/* слот chip: контейнер сцены body (не гасим всё приложение): скин фишки сам отключает свои анимации под html.perf-lite, html.skin-paused и prefers-reduced-motion */
