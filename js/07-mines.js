@@ -427,7 +427,7 @@ function minesReveal(cell) {
   mn.pending = cell; // нажатая клетка показывает «открывается», пока идёт запрос
   minesAct('/api/mines/reveal', { cell }, validMinesReveal, (d) => {
     skinEvents.emit('mines:reveal', { cell, result: d.result });             // 'safe' | 'mine' | 'cleared': скин рисует выкапывание, взрыв
-    if (d.result !== 'safe') skinEvents.emit('mines:end', { status: d.result === 'mine' ? 'lost' : 'cashed', cell });
+    if (d.result !== 'safe') { skinEvents.emit('mines:end', { status: d.result === 'mine' ? 'lost' : 'cashed', cell }); skinEvents.emit('round:end', { game: 'mines' }); }
     if (d.result === 'safe') {
       mn.game = d.game;
       haptic('light');
@@ -447,6 +447,7 @@ function minesCashout() {
   if (mn.view !== 'play' || mn.busy) return;
   minesAct('/api/mines/cashout', {}, validMinesCashout, (d) => {
     skinEvents.emit('mines:end', { status: d.last.status, cell: null });
+    skinEvents.emit('round:end', { game: 'mines' });
     mn.game = null;
     mn.last = d.last;
     mn.seen.add(minesKey(d.last));
