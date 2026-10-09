@@ -1,1 +1,149 @@
-/* Сцена скина кено «Бочонки» (коллекция «Дачный сезон»): заготовка, заполняется задачей пула */
+/* Сцена скина кено «Бочонки» (коллекция «Дачный сезон», DESIGN.md раздел 2).
+   Загружается при надевании скина и открытии экрана кено, снимается вместе со сценой.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. */
+
+.keno-board[data-scene="keno_lotto"] {
+  position: relative;
+}
+
+.keno-board[data-scene="keno_lotto"] .skin-scene {
+  overflow: visible;
+}
+
+/* 1. Форма и материал бочонка: цилиндр сбоку (скруглённый прямоугольник), кольца сверху и снизу */
+.keno-board[data-scene="keno_lotto"] .keno-ball {
+  position: relative;
+}
+
+.keno-board[data-scene="keno_lotto"] .keno-ball span {
+  position: relative;
+  border-radius: 8px;
+}
+
+/* Тёмные кольца сверху и снизу цилиндра бочонка */
+.keno-board[data-scene="keno_lotto"] .keno-ball span::before,
+.keno-board[data-scene="keno_lotto"] .keno-ball span::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 1.5px;
+  background: #5c3a1e;
+  border-radius: 1px;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.keno-board[data-scene="keno_lotto"] .keno-ball span::before {
+  top: 10px;
+}
+.keno-board[data-scene="keno_lotto"] .keno-ball span::after {
+  bottom: 10px;
+}
+
+.keno-board[data-scene="keno_lotto"] .keno-ball.sel span::before,
+.keno-board[data-scene="keno_lotto"] .keno-ball.sel span::after {
+  background: #4a2b0f;
+}
+
+.keno-board[data-scene="keno_lotto"] .keno-ball.hit span::before,
+.keno-board[data-scene="keno_lotto"] .keno-ball.hit span::after {
+  background: #1f420e;
+}
+
+/* 2. Картонная карточка лото под выбранными числами (.sel) */
+.keno-board[data-scene="keno_lotto"] .keno-ball.sel {
+  background-color: #eadbca;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(138, 90, 53, 0.1) 100%);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #bfa685, 0 1px 2px rgba(59, 42, 30, 0.15);
+}
+
+.keno-board[data-scene="keno_lotto"] .keno-ball.miss {
+  opacity: 0.65;
+}
+
+/* 3. Совпадение (.hit): стук бочонка о карточку (короткий отскок) */
+.keno-board[data-scene="keno_lotto"] .keno-ball.hit.pop span {
+  animation: skl-hit-knock 0.28s cubic-bezier(0.3, 1.4, 0.6, 1);
+}
+@keyframes skl-hit-knock {
+  0% { transform: translateY(-7px) scale(1.12); }
+  45% { transform: translateY(2px) scale(0.96); }
+  75% { transform: translateY(-2px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Пуговица-фишка на карточке при совпадении (.hit) */
+.keno-board[data-scene="keno_lotto"] .keno-ball.hit::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23B8323A' stroke='%237A1F25' stroke-width='1.2'/%3E%3Ccircle cx='8' cy='8' r='5' fill='none' stroke='%23D45D64' stroke-width='0.8'/%3E%3Ccircle cx='6' cy='8' r='1' fill='%23421014'/%3E%3Ccircle cx='10' cy='8' r='1' fill='%23421014'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  animation: skl-button-pop 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes skl-button-pop {
+  0% { transform: scale(0.2); opacity: 0; }
+  70% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 4. Холщовый мешок в углу поля: покой и сникание при 0 совпадений */
+.skl-bag {
+  position: absolute;
+  top: -10px;
+  left: -8px;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+  z-index: 1;
+  transform-origin: 20px 20px;
+  animation: skl-bag-idle 5s ease-in-out infinite alternate;
+}
+.skl-bag-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes skl-bag-idle {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(1.5deg) scale(1.02); }
+  100% { transform: rotate(-1deg); }
+}
+
+/* Ноль совпадений: мешок сникает */
+.skl-bag.slump {
+  transform: scale(1.04, 0.8) translateY(4px);
+  animation: skl-bag-slump 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+@keyframes skl-bag-slump {
+  0% { transform: scale(1) translateY(0); }
+  40% { transform: scale(1.08, 0.72) translateY(5px); }
+  75% { transform: scale(0.96, 0.88) translateY(2px); }
+  100% { transform: scale(1.04, 0.8) translateY(4px); }
+}
+
+/* 5. Пул летящих бочонков-частиц */
+.skl-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+.skl-p {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.skl-p.on {
+  display: block;
+}
