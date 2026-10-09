@@ -1,5 +1,6 @@
 """Общее ядро клиента: реестр игр (ядро видит занятую игру и откладывает запрос баланса), защита от повторной загрузки и от двойного действия.
 Проверки идут через сами функции страницы (anyRoundBusy, loadHilo, hlAct) и счётчик запросов."""
+from crash_helpers import CASH_VISIBLE, READY, bet, flight_start, server_to
 from harness import check, open_game, set_bet
 
 NAME = "shared_core"
@@ -8,7 +9,7 @@ USERS = {"me": {"rate": 0}}
 
 async def run(w):
     p = w.page
-    w.server.script(spin=[17], crash=[100000], hilo=[[7, "H"], [7, "S"], [3, "C"]])
+    w.server.script(spin=[17], crash_live=[25000], hilo=[[7, "H"], [7, "S"], [3, "C"]])
 
     # 1. рулетка: пока колесо крутится, ядро считает игру занятой и запрос баланса откладывается
     await open_game(p, "roulette")
@@ -30,19 +31,19 @@ async def run(w):
     await p.wait("!anyRoundBusy()", 15, "вращение закончилось")
     await p.wait("E.count('/api/me') > %d" % before, 10, "отложенный запрос баланса ушёл после раунда")
 
-    # 2. краш: раунд с автовыводом летит до цели, ручной вывод идёт запросом (ответ задержан): пока запрос в пути, игра занята
+    # 2. краш: ставка с автовыводом летит до цели в общем раунде, ручной вывод идёт запросом (ответ задержан): пока запрос в пути, игра занята
     await open_game(p, "crash")
-    await p.wait("!document.getElementById('cr-bets').hidden", 10, "панель ставки")
-    await set_bet(p, "cr-bet", 100)
-    await p.ev("(() => { const i = document.getElementById('cr-target'); i.value = '50'; i.dispatchEvent(new Event('input')); })()")
-    await p.tap("#cr-start")
-    await p.wait("!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled", 15, "раунд идёт, кнопка «Забрать»")
+    await p.wait(READY, 10, "панель ставки")
+    await bet(p, 100, "50")
+    fs = await flight_start(p)
+    await server_to(w, p, fs + 2500)
+    await p.wait(CASH_VISIBLE, 15, "раунд идёт, кнопка «Забрать»")
     check("краш: во время полёта без запроса игра не занята", await p.ev("anyRoundBusy()"), False)
     await p.wait("parseFloat(document.getElementById('cr-mult').textContent.replace('×', '')) >= 1.05", 20, "множитель вырос")
-    await p.ev("window.fetch = ((orig) => (u, o) => String(u).includes('/api/crash/cashout') ? orig(u, o).then((r) => new Promise((res) => setTimeout(() => res(r), 1500))) : orig(u, o))(window.fetch)")
+    await p.ev("window.fetch = ((orig) => (u, o) => String(u).includes('/api/crash/live/cashout') ? orig(u, o).then((r) => new Promise((res) => setTimeout(() => res(r), 1500))) : orig(u, o))(window.fetch)")
     await p.tap("#cr-cash")
     check("краш: пока запрос вывода в пути, игра считается занятой", await p.ev("anyRoundBusy()"), True)
-    await p.wait("!anyRoundBusy()", 30, "раунд краша закончился")
+    await p.wait("!anyRoundBusy()", 30, "запрос вывода завершён")
 
     # 3. хило: защита от повторной загрузки и двойного действия, пока ход не завершён
     await open_game(p, "hilo")

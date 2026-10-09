@@ -114,6 +114,20 @@ blackjack.new_shoe = _shoe
 crash.new_crash = _crash
 hilo.draw_card = _card
 
+# живой краш: точка краха раунда из очереди сценария (ключ crash_live, значения в сотых), иначе настоящая из секрета; секрет остаётся настоящим,
+# поэтому проверка честности в клиенте для раунда с подставленной точкой не сойдётся (так и должно быть, это только подмена для детерминизма)
+import crash_live  # noqa: E402
+
+_real_crash_from_seed = crash_live.crash_from_seed
+
+
+def _crash_live_from_seed(seed):
+    value = take("crash_live")
+    return _real_crash_from_seed(seed) if value is None else value
+
+
+crash_live.crash_from_seed = _crash_live_from_seed
+
 import cosmetic_sets  # noqa: E402
 
 # сезон коллекции «Листопад» в e2e идёт всегда (иначе сценарии зависели бы от календаря); в боевом коде сезон только октябрь 2026
