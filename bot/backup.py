@@ -258,9 +258,9 @@ def run_maintenance_once(config, db_path, now, last_purge, events=None):
     except Exception as exc:
         logger.error("Закрытие просроченных раздач блэкджека не выполнено: %s", type(exc).__name__)
     try:
-        db.close_expired_crash(db_path=db_path)  # брошенные раунды краша закрываются раз в проход
+        db.refund_legacy_crash(now=now, db_path=db_path)  # открытые партии прежнего краша возвращаются раз в проход
     except Exception as exc:
-        logger.error("Закрытие брошенных раундов краша не выполнено: %s", type(exc).__name__)
+        logger.error("Возврат ставок прежнего краша не выполнен: %s", type(exc).__name__)
     try:
         db.close_expired_hilo(now=now, db_path=db_path)  # просроченные партии в хило закрываются раз в проход
     except Exception as exc:

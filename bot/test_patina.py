@@ -54,7 +54,13 @@ try:
     for i in range(200):
         sql(path, f"INSERT INTO roulette_rounds (telegram_id, request_id, number, stake_total, payout_total, bets_json, created_at) VALUES (?, 'req-{i}', 0, 10, 0, '[]', 1)", (A,))
     
-    # 2 crashes >= 5000, 1 explosion, 200 rounds
+    # живой краш: закрытая ставка в раунде с крахом >= порога считается крахом и раундом; открытая ставка и раунд ниже порога нет
+    for rid_, cx in ((1, 5000), (2, 4999), (3, 6000)):
+        sql(path, "INSERT INTO crash_rounds (id, room_key, seed_hash, seed, crash_x100, bet_open_ms, flight_start_ms, crash_ms, status) VALUES (?, 'g', 'h', x'00', ?, 1, 2, 3, 'closed')", (rid_, cx))
+    sql(path, "INSERT INTO crash_bets (round_id, telegram_id, bet, status, request_id, created_at_ms) VALUES (1, ?, 10, 'lost', 'r1', 1)", (A,))
+    sql(path, "INSERT INTO crash_bets (round_id, telegram_id, bet, status, request_id, created_at_ms) VALUES (2, ?, 10, 'lost', 'r2', 1)", (A,))
+    sql(path, "INSERT INTO crash_bets (round_id, telegram_id, bet, status, request_id, created_at_ms) VALUES (3, ?, 10, 'open', 'r3', 1)", (A,))
+    # 3 crashes >= 5000 (два прежних и один живой), 1 explosion, 202 раунда (прежние закрытые 3 + 200 рулетки + 1 мина... + 2 закрытые живые ставки)
     # thresholds: chip(1,5,15,40) => 2 crashes => stage 1
     # card_back(200,1000,3000,8000) => 200 rounds => stage 1
     # mine_icons(10,40,120,300) => 1 explosion => stage 0
@@ -63,7 +69,7 @@ try:
     conn = sqlite3.connect(path)
     from features.patina_db import patina_counters, patina_stages
     c = patina_counters(conn, A)
-    check("счётчики", c, {"big_crashes": 2, "explosions": 1, "rounds": 205})
+    check("счётчики", c, {"big_crashes": 3, "explosions": 1, "rounds": 207})
 
     s = patina_stages(conn, A, {"chip": "chip_patina", "card_back": "back_patina", "mine_icons": "mine_patina"})
     check("стадии патины", s, {"chip": 1, "card_back": 1, "mine_icons": 0})

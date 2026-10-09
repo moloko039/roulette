@@ -69,6 +69,8 @@ try:
     db.owner_grant_gems(OWNER, 10, "g1", now=NOW - 800, db_path=path)
     db.buy_chip_pack(A, "cp-1", "chips_6h", now=NOW - 700, db_path=path)                             # -30 кристаллов, +600 фишек
     sql("INSERT INTO roulette_rounds (telegram_id, request_id, number, bets_json, stake_total, payout_total, created_at) VALUES (?, 'rr1', 7, '[]', 10, 0, ?)", (A, NOW - 60))
+    sql("INSERT INTO crash_bets (round_id, telegram_id, bet, status, request_id, created_at_ms) VALUES (1, ?, 10, 'lost', 'cr1', ?)", (A, (NOW - 60) * 1000))      # живой краш: ставка за 24 ч
+    sql("INSERT INTO crash_bets (round_id, telegram_id, bet, status, request_id, created_at_ms) VALUES (2, ?, 10, 'lost', 'cr2', ?)", (A, (NOW - 3 * 86400) * 1000))   # старше суток
     stats = db.economy_stats(now=NOW, db_path=path)
     pl = stats["players"]
     check("игроки: всего, активных за 24 ч (C не активен), новых за 24 ч и 7 дней (B и владелец)", (pl["total"], pl["active_24h"], pl["new_24h"], pl["new_7d"]), (4, 3, 2, 2))      # четвёртый игрок это владелец, созданный выдачей кристаллов (стартовые 1000 фишек)
@@ -83,6 +85,7 @@ try:
     check("продажи фишек за 24 ч", stats["chip_sales"]["24 ч"], {"packs": 1, "gems": 30, "chips": 600})
     check("уровни дохода", stats["farm"]["income_levels"], {0: 2, 3: 1, 5: 1})
     check("раунды рулетки за 24 ч", stats["games"]["рулетка"], 1)
+    check("ставки живого краша за 24 ч", stats["games"]["краш"], 1)
     text = db.stats_text(stats)
     ids = [str(x) for x in (OWNER, A, B, C)]
     check("в тексте нет идентификаторов Telegram и платежей", (any(i in text for i in ids), "ch-1" in text, "charge" in text), (False, False, False))

@@ -441,7 +441,6 @@ try:
         assert r.headers["Retry-After"].isdigit() and int(r.headers["Retry-After"]) >= 1
     # ---------- /api/me: active_game (незавершённая игра, чтобы клиент открыл её при запуске) ----------
     import blackjack as _bj
-    import crash as _cr
     from unittest import mock as _mock
     pa, ca = new_app()
     for uid in (5001, 5002, 5003, 5004, 5005):
@@ -451,10 +450,13 @@ try:
     assert r.json()["active_game"] is None, r.json()
     ca.post("/api/mines/start", headers=auth(5002), json={"request_id": rid(5002), "bet": 10, "mines": 3})
     ca.post("/api/blackjack/start", headers=auth(5003), json={"request_id": rid(5003), "bet": 10})
-    with _mock.patch.object(_cr, "new_crash", return_value=5000):
-        ca.post("/api/crash/start", headers=auth(5004), json={"request_id": rid(5004), "bet": 10})
-    with _mock.patch.object(_cr, "new_crash", return_value=5000):
-        ca.post("/api/crash/start", headers=auth(5005), json={"request_id": rid(5005), "bet": 10, "target_x100": 200})   # авто-раунд активен до цели, краха или ручного вывода
+    r = ca.post("/api/crash/live/bet", headers=auth(5004), json={"request_id": rid(5004), "bet": 10})      # живой краш: открытая ставка в общем раунде
+    assert r.status_code == 200, r.json()
+    r = ca.post("/api/crash/live/bet", headers=auth(5005), json={"request_id": rid(5005), "bet": 10, "target_x100": 200})
+    assert r.status_code == 200, r.json()
+    for method, url in (("post", "/api/crash/start"), ("post", "/api/crash/cashout"), ("get", "/api/crash/state")):      # прежний краш закрыт
+        r = getattr(ca, method)(url, headers=auth(5004), **({"json": {}} if method == "post" else {}))
+        assert (r.status_code, r.json()) == (410, {"detail": "gone"}), (url, r.status_code)
     import json as _json
     me_examples = _json.load(open(os.path.join(os.path.dirname(HERE_DIR), "docs", "examples", "me.json"), encoding="utf-8"))
     for name, example in me_examples.items():
@@ -476,8 +478,7 @@ try:
     add_player(pa, 5006)
     ca.post("/api/mines/start", headers=auth(5006), json={"request_id": rid(5006), "bet": 10, "mines": 3})
     sql(pa, "UPDATE mines_games SET updated_at = ? WHERE telegram_id = 5006", (int(time.time()) - 100,))
-    with _mock.patch.object(_cr, "new_crash", return_value=5000):
-        ca.post("/api/crash/start", headers=auth(5006), json={"request_id": rid(5007), "bet": 10})
+    ca.post("/api/crash/live/bet", headers=auth(5006), json={"request_id": rid(5007), "bet": 10})
     assert ca.get("/api/me", headers=auth(5006)).json()["active_game"] == "crash"
     # хило: незавершённая партия видна в /api/me (возобновление после перезапуска)
     add_player(pa, 5008)

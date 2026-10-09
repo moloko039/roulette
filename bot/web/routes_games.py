@@ -6,12 +6,11 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 import blackjack
-import crash
 import hilo
 import keno
 import mines
 import slot
-from db import (blackjack_action, blackjack_start, blackjack_state, crash_cashout, crash_start, crash_state, hilo_cashout, hilo_guess, hilo_start, hilo_state, mines_cashout, mines_reveal, mines_start, mines_state, play_keno, play_slot, spin_roulette)
+from db import (blackjack_action, blackjack_start, blackjack_state, hilo_cashout, hilo_guess, hilo_start, hilo_state, mines_cashout, mines_reveal, mines_start, mines_state, play_keno, play_slot, spin_roulette)
 from roulette import BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets, validate_request_id
 from web.http import BodyTooLarge, read_body_limited
 
@@ -42,7 +41,7 @@ def register(app, ctx):
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:
             return await run_in_threadpool(call)
-        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, crash.CrashError, hilo.HiloError, slot.SlotError) as exc:
+        except (mines.MinesError, keno.KenoError, blackjack.BlackjackError, hilo.HiloError, slot.SlotError) as exc:
             return JSONResponse({"detail": exc.code}, status_code=409)
         except InsufficientFunds:
             return JSONResponse({"detail": "insufficient_funds"}, status_code=409)
@@ -140,31 +139,13 @@ def register(app, ctx):
         return blackjack_state(user_id, db_path=db_path)
 
     # ---------- краш ----------
-    # Точка краха активного раунда не попадает ни в один ответ; время считает только сервер
+    # Прежний краш (партия на игрока) закрыт, играют в живой краш (routes_crash_live.py): старые адреса отвечают 410 Gone
 
     @app.post("/api/crash/start")
-    async def crash_start_endpoint(request: Request):
-        def prepare(user_id, request_id, data):
-            bet, target = data["bet"], data.get("target_x100")
-            if type(bet) is not int or not 1 <= bet <= crash.CRASH_MAX_BET:
-                raise ValueError()
-            if target is not None and (type(target) is not int or not crash.MIN_TARGET_X100 <= target <= crash.CAP_X100):
-                raise ValueError()
-            return lambda: crash_start(user_id, request_id, bet, target, db_path=db_path)
-        return await _game_post(request, {"request_id", "bet"}, prepare, optional=frozenset({"target_x100"}))
-
     @app.post("/api/crash/cashout")
-    async def crash_cashout_endpoint(request: Request):
-        def prepare(user_id, request_id, data):
-            return lambda: crash_cashout(user_id, request_id, db_path=db_path)
-        return await _game_post(request, {"request_id"}, prepare)
-
     @app.get("/api/crash/state")
-    def crash_state_endpoint(authorization: str = Header(default=None)):
-        user_id, limited = user_of({"authorization": authorization}, "read")
-        if limited is not None:
-            return limited
-        return crash_state(user_id, db_path=db_path)
+    def crash_gone():
+        return JSONResponse({"detail": "gone"}, status_code=410)
 
     # ---------- хило ----------
     # Следующей карты нет нигде до хода: она выбирается в момент действия

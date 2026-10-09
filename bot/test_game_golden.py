@@ -22,7 +22,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import blackjack
-import crash
 import db
 import hilo
 import mines
@@ -96,12 +95,6 @@ def cards(*pairs):
     for rank, suit in pairs:
         out += [rank - 1, hilo.SUITS.index(suit)]
     return Scripted(ints=out)
-
-
-def crash_rng(x100):
-    """Число u, из которого получается точка краха около x100 (в сотых)."""
-    u = crash.M - 3600 * crash.M // (37 * x100)
-    return Scripted(ints=[min(u, crash.M - 1)])
 
 
 # ---------- запись сценария ----------
@@ -286,80 +279,6 @@ def hilo_scenarios():
     return out
 
 
-# ---------- краш ----------
-def crash_scenarios():
-    out = []
-    r = Run("crash_main")
-    r.player(A, 5_000, accrual=NOW - 3600, rate=6000)
-    r.player(B, 10 ** 12)
-    out.append(r)
-    ms = (NOW + 100) * 1000
-    r.op("state пустой", db.crash_state, A, now_ms=ms, db_path=r.path)
-    r.op("cashout без раунда", db.crash_cashout, A, rid(r, "c0"), now_ms=ms, db_path=r.path)
-    for bad in (0, -1, True, 1.5, crash.CRASH_MAX_BET + 1):
-        r.op("ставка %r" % (bad,), db.crash_start, A, rid(r, "bad"), bad, now_ms=ms, db_path=r.path, rng=crash_rng(300))
-    for bad in (100, 25001, True, 2.5):
-        r.op("цель %r" % (bad,), db.crash_start, A, rid(r, "badt"), 100, bad, now_ms=ms, db_path=r.path, rng=crash_rng(300))
-    r.op("не хватает фишек", db.crash_start, A, rid(r, "poor"), 10 ** 9, now_ms=ms, db_path=r.path, rng=crash_rng(300))
-    r.op("старт ручной", db.crash_start, A, rid(r, "s1"), 1000, now_ms=ms, db_path=r.path, rng=crash_rng(300))
-    r.op("повтор старта", db.crash_start, A, rid(r, "s1"), 1000, now_ms=ms + 50, db_path=r.path, rng=crash_rng(900))
-    r.op("конфликт старта", db.crash_start, A, rid(r, "s1"), 1000, 200, now_ms=ms + 60, db_path=r.path, rng=crash_rng(900))
-    r.op("вторая при активной", db.crash_start, A, rid(r, "s2"), 1000, now_ms=ms + 70, db_path=r.path, rng=crash_rng(900))
-    r.op("active_game", db.active_game_of, A, db_path=r.path)
-    r.op("state в полёте", db.crash_state, A, now_ms=ms + 2000, db_path=r.path)
-    r.op("cashout слишком рано", db.crash_cashout, A, rid(r, "c1"), now_ms=ms + 160, db_path=r.path)
-    r.op("cashout x2 (выигрыш)", db.crash_cashout, A, rid(r, "c2"), now_ms=ms + 6150, db_path=r.path)
-    r.op("повтор cashout", db.crash_cashout, A, rid(r, "c2"), now_ms=ms + 7000, db_path=r.path)
-    r.op("state после", db.crash_state, A, now_ms=ms + 8000, db_path=r.path)
-    # разбился до cashout
-    ms2 = ms + 20000
-    r.op("старт 2", db.crash_start, A, rid(r, "s3"), 500, now_ms=ms2, db_path=r.path, rng=crash_rng(150))
-    r.op("cashout после краха", db.crash_cashout, A, rid(r, "c3"), now_ms=ms2 + 12000, db_path=r.path)
-    # авто (раунд с автовыводом остаётся активным до цели, краха или ручного вывода и закрывается лениво при следующем старте, поэтому старты
-    # разнесены по времени: цель ×2 достигается за 6,15 с, крах ×3 за 9,66 с, предел ×250 за 47,9 с): выигрыш, проигрыш, минимальная цель, предельная цель
-    ms3 = ms + 40000
-    r.op("авто выигрыш", db.crash_start, A, rid(r, "a1"), 400, 200, now_ms=ms3, db_path=r.path, rng=crash_rng(500))
-    r.op("авто проигрыш", db.crash_start, A, rid(r, "a2"), 400, 800, now_ms=ms3 + 10000, db_path=r.path, rng=crash_rng(300))
-    r.op("авто минимальная цель", db.crash_start, A, rid(r, "a3"), 400, crash.MIN_TARGET_X100, now_ms=ms3 + 20000, db_path=r.path, rng=crash_rng(101))
-    r.op("авто предельная цель", db.crash_start, B, rid(r, "a4"), 1000, crash.CAP_X100, now_ms=ms3 + 30, db_path=r.path, rng=crash_rng(10 ** 7))
-    r.op("авто предельная цель, краш ниже", db.crash_start, B, rid(r, "a5"), 1000, crash.CAP_X100, now_ms=ms3 + 60000, db_path=r.path, rng=crash_rng(20000))
-    # ручной до предела x250
-    ms4 = ms + 160000     # раунд ×200 (авто, предел ×250) разбивается за 45,8 с после старта в ms3 + 60000
-    r.op("старт к пределу", db.crash_start, B, rid(r, "p1"), 1000, now_ms=ms4, db_path=r.path, rng=crash_rng(10 ** 7))
-    r.op("cashout на пределе", db.crash_cashout, B, rid(r, "p2"), now_ms=ms4 + 60000, db_path=r.path)
-    r.op("максимальная ставка авто", db.crash_start, B, rid(r, "m1"), crash.CRASH_MAX_BET, crash.CAP_X100, now_ms=ms4 + 70000, db_path=r.path, rng=crash_rng(10 ** 7))
-
-    # автозакрытие брошенных
-    r = Run("crash_expire")
-    for uid in (A, B, C):
-        r.player(uid)
-    out.append(r)
-    ms = (NOW + 100) * 1000
-    r.op("A старт (крах ниже)", db.crash_start, A, rid(r, "a1"), 500, now_ms=ms, db_path=r.path, rng=crash_rng(150))
-    r.op("B старт (крах выше)", db.crash_start, B, rid(r, "b1"), 700, now_ms=ms, db_path=r.path, rng=crash_rng(10 ** 7))
-    r.op("C старт", db.crash_start, C, rid(r, "c1"), 900, now_ms=ms + 1000, db_path=r.path, rng=crash_rng(1000))
-    r.op("settle рано", db.settle_expired_crash, A, now_ms=ms + 1000, db_path=r.path)
-    r.op("close рано", db.close_expired_crash, now_ms=ms + crash.ABANDON_MS - 100, db_path=r.path)
-    r.op("settle A (разбился)", db.settle_expired_crash, A, now_ms=ms + 20000, db_path=r.path)
-    r.op("settle A повтор", db.settle_expired_crash, A, now_ms=ms + 20001, db_path=r.path)
-    r.op("close (брошенные)", db.close_expired_crash, now_ms=ms + crash.ABANDON_MS + 5000, db_path=r.path, batch=1)
-    r.op("close остальные", db.close_expired_crash, now_ms=ms + crash.ABANDON_MS + 6000, db_path=r.path)
-    r.op("state после", db.crash_state, C, now_ms=ms + crash.ABANDON_MS + 7000, db_path=r.path)
-    r.op("старт при просроченном", db.crash_start, A, rid(r, "a2"), 100, now_ms=ms + 200000, db_path=r.path, rng=crash_rng(150))
-    r.op("старт ещё раз (предыдущий разбился)", db.crash_start, A, rid(r, "a3"), 100, now_ms=ms + 400000, db_path=r.path, rng=crash_rng(150))
-
-    r = Run("crash_parallel")
-    r.player(A)
-    r.player(B)
-    out.append(r)
-    ms = (NOW + 100) * 1000
-    r.op("старт", db.crash_start, A, rid(r, "a1"), 1000, now_ms=ms, db_path=r.path, rng=crash_rng(1000))
-    r.parallel("20 cashout", lambda i: db.crash_cashout(A, rid(r, "pc%d" % i), now_ms=ms + 6150, db_path=r.path), [(i,) for i in range(20)])
-    r.parallel("20 стартов", lambda i: db.crash_start(B, rid(r, "ps%d" % i), 100, now_ms=ms + 7000, db_path=r.path, rng=crash_rng(500)), [(i,) for i in range(20)])
-    r.parallel("20 одинаковых", lambda i: db.crash_start(A, rid(r, "same"), 100, now_ms=ms + 8000, db_path=r.path, rng=crash_rng(500)), [(i,) for i in range(20)])
-    return out
-
-
 # ---------- блэкджек ----------
 def shoe(*codes):
     return [c for c in codes]
@@ -539,7 +458,7 @@ def mines_scenarios():
 
 
 def all_scenarios():
-    runs = hilo_scenarios() + crash_scenarios() + blackjack_scenarios() + mines_scenarios()
+    runs = hilo_scenarios() + blackjack_scenarios() + mines_scenarios()
     return {r.name: r.ops for r in runs}
 
 

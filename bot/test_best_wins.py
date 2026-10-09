@@ -21,6 +21,7 @@ os.environ["MEMBER_REF_SECRET"] = "test-ref-secret-not-real"
 
 import backup  # noqa: E402
 import crash  # noqa: E402
+import crash_testutil as ct  # noqa: E402
 import db  # noqa: E402
 import hilo  # noqa: E402
 import keno  # noqa: E402
@@ -239,25 +240,30 @@ try:
     db.blackjack_action(B3, stand, "stand", now=NOW + 60, db_path=path)
     check("блэкджек: повтор stand рекорд не меняет", best(path, B3), first)
 
-    # --- краш: авто, ручной вывод, проигрыш
+    # --- краш (живой, общий раунд): проигрыш, авто-выигрыш по цели, ручной вывод
     C = IDS[8]
     player(path, C)
     T = NOW * 1000
-    db.crash_start(C, rid(), 1000, 200, now_ms=T, db_path=path, rng=crash_rng(110))        # цель 2.00x, краш на 1.10x: раунд идёт до краха
-    db.settle_expired_crash(C, now_ms=T + 10000, db_path=path)                              # закрыт лениво: проигрыш
+    rnd = ct.open_round(path, T, 110)                                                       # цель 2.00x, краш на 1.10x
+    ct.bet(path, C, T, 1000, 200)
+    ct.end_round(path, rnd)
     check("краш: проигрыш не пишет", best(path, C), None)
-    db.crash_start(C, rid(), 1000, 200, now_ms=T + 20000, db_path=path, rng=crash_rng(500))     # цель 2.00x достигается за 6,15 с
-    out = db.crash_state(C, now_ms=T + 30000, db_path=path)                                 # ленивое закрытие по цели
-    check("краш: авто-выигрыш по цели: рекорд = выплата - ставка", (best(path, C), out["payout"]), (("crash", crash.payout(1000, 200) - 1000, NOW + 30), crash.payout(1000, 200)))
+    rnd = ct.open_round(path, ct.next_open(rnd) + 1, 500)                                   # цель 2.00x достигается за 6,15 с, краш 5.00x
+    ct.bet(path, C, rnd["bet_open_ms"], 1000, 200)
+    ct.end_round(path, rnd)
+    rec = best(path, C)
+    check("краш: авто-выигрыш по цели: рекорд = выплата - ставка", rec[:2], ("crash", crash.payout(1000, 200) - 1000))
+    check("краш: время рекорда внутри раунда", rnd["flight_start_ms"] // 1000 <= rec[2] <= (rnd["crash_ms"] + crash.GRACE_MS + 1) // 1000, True)
     C2 = IDS[9]
     player(path, C2)
-    db.crash_start(C2, rid(), 1000, None, now_ms=T, db_path=path, rng=crash_rng(100000))
+    rnd = ct.open_round(path, ct.next_open(rnd) + 1, 100000)
+    ct.bet(path, C2, rnd["bet_open_ms"], 1000)
     cid = rid()
-    out = db.crash_cashout(C2, cid, now_ms=T + 3000, db_path=path)
-    check("краш: ручной вывод: рекорд = выплата при выводе - ставка", (best(path, C2), out["payout"] - 1000), (("crash", out["payout"] - 1000, NOW + 3), out["payout"] - 1000))
+    out = ct.cash(path, C2, rnd["flight_start_ms"] + 3000, cid)
+    check("краш: ручной вывод: рекорд = выплата при выводе - ставка", (best(path, C2), out["payout"] - 1000), (("crash", out["payout"] - 1000, (rnd["flight_start_ms"] + 3000) // 1000), out["payout"] - 1000))
     assert out["payout"] > 1000
-    db.crash_cashout(C2, cid, now_ms=T + 9000, db_path=path)
-    check("краш: повтор вывода рекорд не меняет", best(path, C2)[2], NOW + 3)
+    ct.cash(path, C2, rnd["flight_start_ms"] + 9000, cid)
+    check("краш: повтор вывода рекорд не меняет", best(path, C2)[2], (rnd["flight_start_ms"] + 3000) // 1000)
 
     # --- хило: вывод, проигрыш, возврат
     H = IDS[10]
