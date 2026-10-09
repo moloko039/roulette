@@ -96,10 +96,10 @@
 /* 4. Холщовый мешок в углу поля: покой и сникание при 0 совпадений */
 .skl-bag {
   position: absolute;
-  top: -10px;
-  left: -8px;
-  width: 56px;
-  height: 56px;
+  top: -50px;
+  right: 2px;
+  width: 52px;
+  height: 52px;
   pointer-events: none;
   z-index: 1;
   transform-origin: 20px 20px;
@@ -147,3 +147,7 @@
 .skl-p.on {
   display: block;
 }
+
+/* мешок живёт над полем (углом экрана): полю уступается место сверху, сцена не обрезается по краю поля, чтобы бочонки вылетали из мешка */
+#keno-board[data-scene="keno_lotto"] { margin-top: 48px; }
+#keno-board[data-scene="keno_lotto"] > .skin-scene { overflow: visible; }
