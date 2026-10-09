@@ -526,6 +526,7 @@ def normalize_net(entries):
                 text = " " + json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
             except ValueError:
                 text = " <не JSON>"
+        path = re.sub(r"(/api/crash/live\?v=)[A-Za-z0-9._-]+", r"\1<token>", path)       # токен изменений живого краша зависит от раунда и времени: сравнивается форма
         out.append("%s %s%s" % (method, path, text))
     return out
 

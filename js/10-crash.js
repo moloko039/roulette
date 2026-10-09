@@ -1,15 +1,20 @@
 // #region Краш
-// ---------- игра «Краш» ----------
-// Время и исход только на сервере. Клиент рисует рост множителя по elapsed_ms из ответа плюс локальное время с момента ответа
-// (только для показа), а во время полёта раз в 300 мс спрашивает состояние: крах и итог берутся из ответа сервера.
-// Режим «авто» решается сразу при старте: клиент проигрывает короткую анимацию до цели или до точки краха из ответа.
-// Баланс в шапке в авто-режиме обновляется после анимации. Ставка, цель и лента краха живут только в памяти.
+// ---------- живой краш (docs/CRASH_LIVE.md) ----------
+// Один общий раунд на весь сервер: приём ставок, полёт, итог, снова приём. Время и исход только на сервере. Клиент опрашивает GET /api/crash/live
+// (раз в 300 мс в приёме ставок и полёте, раз в секунду в паузе итога; повторный запрос с токеном изменений v получает маленький ответ «unchanged»),
+// сверяет часы по server_ms и рисует рост множителя по времени старта полёта. Точка краха и секрет раскрываются только в фазе итога; клиент сам проверяет
+// честность раунда: sha256(секрет) совпадает с хэшем, показанным до раунда, и точка краха выведена из секрета той же формулой (hmac-sha256, как на сервере).
+// Лента ставок: беседа видит ставки только своей беседы (с именами), вне беседы общая анонимная лента (имена «Игрок N»).
 const CR_BET_MAX = 1000000000;
 const CR_TARGET_MIN = 101;
 const CR_TARGET_MAX = 25000;     // ×250.00, как CAP_X100 на сервере
-const CR_POLL_MS = 300;          // опрос состояния во время полёта
+const CR_DOUBLING_MS = 6000;     // как crash.DOUBLING_MS на сервере (только для показа; решает сервер)
+const CR_POLL_MS = 300;          // опрос в приёме ставок и полёте
+const CR_POLL_RESULT_MS = 1000;  // опрос в паузе итога
 const CR_HISTORY = 10;
-const CR_MULT_RE = /^\d+\.\d\d$/;
+const CR_TOKEN_RE = /^[A-Za-z0-9._-]{1,64}$/;
+const CR_HEX_RE = /^[0-9a-f]{64}$/;
+const CR_STATUSES = ['open', 'cashed', 'lost'];
 
 const crEls = {
   balance: document.getElementById('cr-balance'),
@@ -27,6 +32,9 @@ const crEls = {
   banner: document.getElementById('cr-banner'),
   bannerTitle: document.getElementById('cr-banner-title'),
   bannerDetail: document.getElementById('cr-banner-detail'),
+  proof: document.getElementById('cr-proof'),
+  feedTitle: document.getElementById('cr-feed-title'),
+  feed: document.getElementById('cr-feed'),
   bets: document.getElementById('cr-bets'),
   bet: document.getElementById('cr-bet'),
   maxBtn: document.getElementById('cr-max'),
@@ -37,33 +45,33 @@ const crEls = {
 };
 
 const cr = {
-  view: 'loading',      // 'loading' | 'start' | 'play' | 'result'
   loaded: false,
   error: false,
-  game: null,           // последний ответ сервера
+  state: null,          // последний ПОЛНЫЙ ответ GET /api/crash/live
+  token: '',            // токен изменений v из него
   balance: null,
-  shownBalance: null,   // баланс в шапке на время авто-анимации
-  busy: false,          // идёт запрос: кнопки заблокированы
-  animating: false,     // идёт авто-анимация
-  base: { elapsed: 0, at: 0 },   // elapsed_ms из последнего ответа и момент его получения
-  history: [],          // последние множители краха (текст), только в памяти
-  seen: new Set(),
-  pressed: false,       // игрок нажал «Забрать» в этом раунде
-  live: false,          // итог пришёл, пока игрок смотрел полёт (иначе раунд закончился без него)
-  inFlight: false,
+  busy: false,          // идёт действие (ставка, вывод): кнопки заблокированы
+  inFlight: false,      // нужно ядру: loadGameState не используется, поле на случай общего кода
   lastRequestAt: -Infinity,
   timer: null,
+  syncServerMs: 0,      // server_ms из последнего ответа и момент его получения
+  syncAt: 0,
   raf: 0,
   iv: 0,
   pollTimer: 0,
   polling: false,
-  resync: false         // после возврата на экран ждём ответ сервера: кадры не рисуются (иначе мелькнёт множитель сверх краха)
+  resync: false,        // после возврата на экран ждём ответ сервера: кадры не рисуются
+  verified: new Map(),  // номер раунда -> 'ok' | 'bad' | 'unknown' (проверка честности)
+  settled: new Set(),   // раунды, по итогу которых уже обновили баланс (проигрыш)
+  cashSeen: new Set()   // раунды, где мой вывод (ручной или автовывод) уже показан и баланс обновлён
 };
-registerGame({ id: 'crash', state: cr, render: renderCrash, busy: () => cr.busy || cr.animating, keepBalance: () => cr.view === 'play' });
+registerGame({ id: 'crash', state: cr, render: renderCrash, busy: () => cr.busy, keepBalance: () => false });
 
-const crBetLimit = () => Math.max(1, Math.min(CR_BET_MAX, cr.balance === null ? CR_BET_MAX : cr.balance));
 const crText = (x100) => '×' + Math.floor(x100 / 100) + '.' + String(x100 % 100).padStart(2, '0');
-const crX100 = (text) => Math.round(parseFloat(text) * 100);
+const crBetLimit = () => Math.max(1, Math.min(CR_BET_MAX, cr.balance === null ? CR_BET_MAX : cr.balance));
+const crRound = () => (cr.state && cr.state.round) || null;
+const crMe = () => (cr.state && cr.state.me) || null;
+const crServerNow = () => cr.syncServerMs + (performance.now() - cr.syncAt);
 
 function setCrNotice(text) { crEls.notice.textContent = text; }
 function setCrMessage(text, code, retry) {
@@ -72,7 +80,7 @@ function setCrMessage(text, code, retry) {
   crEls.retry.hidden = !retry;
 }
 
-// Цель из поля: пусто = вручную (null); число 1.01..1000 с двумя знаками; иначе undefined (ошибка)
+// Цель из поля: пусто = вручную (null); число 1.01..250 с двумя знаками; иначе undefined (ошибка)
 function crParseTarget() {
   const raw = crEls.target.value.trim().replace(',', '.');
   if (raw === '') return null;
@@ -85,37 +93,104 @@ function crParseTarget() {
 
 // #region Краш: проверка ответа сервера
 // ---------- проверка ответа сервера (по реальному контракту, docs/API.md) ----------
-function validCrash(d, allowNone) {
-  if (!d || !isCount(d.balance) || !isInt(d.doubling_ms) || d.doubling_ms < 1 || typeof d.cap !== 'string') return false;
-  if (d.status === 'none') return !!allowNone && d.mode === null && d.bet === null;
-  if (d.status !== 'active' && d.status !== 'finished') return false;
-  if ((d.mode !== 'auto' && d.mode !== 'manual') || !isCount(d.bet) || d.bet < 1) return false;
-  if (d.mode === 'auto' ? !(typeof d.target === 'string' && CR_MULT_RE.test(d.target)) : d.target !== null) return false;
-  if (d.status === 'active') {
-    return isCount(d.elapsed_ms) && d.crash_multiplier === null && d.result === null && d.multiplier === null && d.payout === null;   // и ручной, и с автовыводом
+const crOptCount = (v) => v === null || isCount(v);
+
+function validCrRound(r) {
+  if (!r || typeof r !== 'object' || !isCount(r.id) || !['betting', 'flight', 'result', 'idle'].includes(r.phase)) return false;
+  if (typeof r.seed_hash !== 'string' || !CR_HEX_RE.test(r.seed_hash) || !isCount(r.bet_open_ms) || !isCount(r.flight_start_ms)) return false;
+  if (r.m100 !== undefined && !crOptCount(r.m100)) return false;
+  if (r.result !== undefined && r.result !== null) {
+    if (!isCount(r.result.crash_x100) || typeof r.result.seed !== 'string' || !CR_HEX_RE.test(r.result.seed)) return false;
   }
-  return typeof d.crash_multiplier === 'string' && CR_MULT_RE.test(d.crash_multiplier) && (d.result === 'win' || d.result === 'lose')
-    && typeof d.multiplier === 'string' && CR_MULT_RE.test(d.multiplier) && isCount(d.payout);
+  return r.next_open_ms === undefined || isCount(r.next_open_ms);
 }
-const validCrashAction = (d) => validCrash(d, false);
+
+function validCrBet(b) {
+  return !!b && typeof b.name === 'string' && b.name.length <= 80 && isCount(b.bet) && CR_STATUSES.includes(b.status)
+    && crOptCount(b.cashed_x100) && isCount(b.payout);
+}
+
+function validCrMe(m) {
+  return m === null || (!!m && isCount(m.bet) && crOptCount(m.target_x100) && CR_STATUSES.includes(m.status) && crOptCount(m.cashed_x100) && isCount(m.payout));
+}
+
+function validCrLive(d) {
+  if (!d || typeof d !== 'object' || !isCount(d.server_ms)) return false;
+  if (d.unchanged === true) {
+    return typeof d.v === 'string' && CR_TOKEN_RE.test(d.v) && typeof d.phase === 'string' && (d.m100 === null || d.m100 === undefined || isCount(d.m100));
+  }
+  if (!Array.isArray(d.history) || !Array.isArray(d.bets) || d.bets.length > 500) return false;
+  if (d.round !== null && !validCrRound(d.round)) return false;
+  if (!d.bets.every(validCrBet) || !validCrMe(d.me === undefined ? null : d.me)) return false;
+  if (d.v !== undefined && !(typeof d.v === 'string' && CR_TOKEN_RE.test(d.v))) return false;
+  return d.history.every((h) => !!h && isCount(h.crash_x100) && typeof h.seed_hash === 'string' && CR_HEX_RE.test(h.seed_hash) && typeof h.seed === 'string' && CR_HEX_RE.test(h.seed));
+}
+
+const validCrBetDone = (d) => !!d && isCount(d.round_id) && isCount(d.bet) && isCount(d.balance) && typeof d.replayed === 'boolean';
+const validCrCashDone = (d) => !!d && isCount(d.round_id) && isCount(d.cashed_x100) && isCount(d.payout) && isCount(d.balance) && typeof d.replayed === 'boolean';
+
+// #endregion
+
+// #region Краш: проверка честности раунда
+// ---------- честность: хэш секрета и точка краха выводятся из секрета на устройстве игрока ----------
+const crHex = (bytes) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+const crBytes = (hex) => Uint8Array.from(hex.match(/../g), (h) => parseInt(h, 16));
+
+// точка краха из секрета: u = первые 7 байт hmac-sha256(секрет, "crash") по модулю 2**53, затем max(100, 3600*M // (37*(M-u))), не больше 10**9 (как crash_from_u на сервере)
+async function crVerifyRound(round) {
+  if (!(window.crypto && crypto.subtle && typeof BigInt === 'function') || !round.result) return 'unknown';
+  try {
+    const seed = crBytes(round.result.seed);
+    if (crHex(await crypto.subtle.digest('SHA-256', seed)) !== round.seed_hash) return 'bad';
+    const key = await crypto.subtle.importKey('raw', seed, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('crash')));
+    let u = 0n;
+    for (let i = 0; i < 7; i++) u = (u << 8n) | BigInt(mac[i]);
+    const M = 1n << 53n;
+    u %= M;
+    let c = (3600n * M) / (37n * (M - u));
+    if (c < 100n) c = 100n;
+    if (c > 1000000000n) c = 1000000000n;
+    return Number(c) === round.result.crash_x100 ? 'ok' : 'bad';
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
+function crCheckProof(round) {
+  if (!round || !round.result || cr.verified.has(round.id)) return;
+  cr.verified.set(round.id, 'pending');
+  crVerifyRound(round).then((res) => {
+    cr.verified.set(round.id, res);
+    if (cr.verified.size > 30) cr.verified.delete(cr.verified.keys().next().value);
+    renderCrProof();
+  });
+}
+
+function renderCrProof() {
+  const r = crRound();
+  if (!r) { crEls.proof.hidden = true; return; }
+  crEls.proof.hidden = false;
+  const short = r.seed_hash.slice(0, 12) + '…';
+  const v = cr.verified.get(r.id);
+  if (r.result && v === 'ok') crEls.proof.textContent = 'Честность раунда проверена: секрет раскрыт, хэш ' + short + ' и точка краха сошлись';
+  else if (r.result && v === 'bad') crEls.proof.textContent = 'Проверка раунда не сошлась (хэш ' + short + '): сообщите владельцу';
+  else if (r.result && v === 'unknown') crEls.proof.textContent = 'Секрет раскрыт (хэш ' + short + '), автоматическая проверка недоступна на этом устройстве';
+  else crEls.proof.textContent = 'Хэш раунда ' + short + ': секрет откроется после краха, и точку можно будет проверить';
+}
 
 // #endregion
 
 // #region Краш: график и множитель
 // ---------- график и множитель ----------
-const crElapsed = () => cr.base.elapsed + (performance.now() - cr.base.at);
-const crDoubling = () => (cr.game && cr.game.doubling_ms) || 6000;
-const crCap = () => (cr.game && typeof cr.game.cap === 'string' ? crX100(cr.game.cap) : CR_TARGET_MAX);   // предел множителя из ответа сервера
-
-// m в сотых по времени (только для показа; сервер считает так же, но решает именно он)
+// m в сотях по времени от старта полёта (только для показа; сервер считает так же, но решает именно он)
 function crM100(elapsed) {
-  const x = Math.max(0, elapsed) / crDoubling();
-  return Math.min(crCap(), Math.floor(100 * Math.pow(2, x)));
+  const x = Math.max(0, elapsed) / CR_DOUBLING_MS;
+  return Math.min(CR_TARGET_MAX, Math.floor(100 * Math.pow(2, x)));
 }
 
 function crDrawCurve(elapsedMs) {
-  const dbl = crDoubling();
-  const m = Math.pow(2, Math.max(0, elapsedMs) / dbl);
+  const m = Math.pow(2, Math.max(0, elapsedMs) / CR_DOUBLING_MS);
   const xmax = Math.max(8000, elapsedMs * 1.1);
   const ymax = Math.max(2, m * 1.15);
   const pts = [];
@@ -123,45 +198,65 @@ function crDrawCurve(elapsedMs) {
   for (let i = 0; i <= N; i++) {
     const t = (elapsedMs * i) / N;
     const x = (t / xmax) * 300;
-    const y = 149 - ((Math.pow(2, t / dbl) - 1) / (ymax - 1)) * 148;
+    const y = 149 - ((Math.pow(2, t / CR_DOUBLING_MS) - 1) / (ymax - 1)) * 148;
     pts.push((i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1));
   }
   crEls.curve.setAttribute('d', pts.join(''));
 }
 
 function crSetTone(tone) { crEls.chart.dataset.tone = tone; }
+function crShowMult(x100) { crEls.mult.textContent = crText(x100); }
 
-function crShowMult(x100) {
-  crEls.mult.textContent = crText(x100);
+// Показанная фаза по локальным часам: приём ставок сменяется полётом в момент flight_start_ms, не дожидаясь ответа (график не запаздывает на интервал опроса);
+// действия (ставка, вывод) разрешает только фаза сервера
+function crDisplayPhase(r) {
+  if (r.phase === 'betting' && crServerNow() >= r.flight_start_ms) return 'flight';
+  return r.phase;
 }
 
-// Отрисовка одного кадра: множитель, кривая и «Забрать N» (N = ставка × текущий множитель)
-// Раунд с автовыводом: на экране множитель не выше цели (сервер закроет раунд на цели при ближайшем опросе, показ не должен её перескакивать)
-const crTarget100 = () => (cr.game && cr.game.mode === 'auto' && typeof cr.game.target === 'string' ? crX100(cr.game.target) : null);
+const crSeconds = (ms) => Math.max(0, Math.ceil(ms / 1000));
 
+// Один кадр: множитель, кривая, подпись с обратным отсчётом, «Забрать N»
 function crDraw() {
-  if (cr.view !== 'play' || !cr.game || cr.resync) return;
-  const tc = crTarget100();
-  const eT = tc === null ? Infinity : crDoubling() * Math.log2(tc / 100);
-  const e = Math.min(crElapsed(), eT);
-  const x100 = crElapsed() >= eT ? tc : crM100(e);
-  crShowMult(x100);
-  crDrawCurve(e);
-  if (!cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(cr.game.bet * x100 / 100));
+  const r = crRound();
+  if (!r || cr.resync) return;
+  const phase = crDisplayPhase(r);
+  const me = crMe();
+  if (phase === 'flight') {
+    const elapsed = Math.max(0, crServerNow() - r.flight_start_ms);
+    const x100 = crM100(elapsed);
+    crSetTone('idle');
+    crShowMult(x100);
+    crDrawCurve(elapsed);
+    crEls.label.textContent = me && me.status === 'open' ? (me.target_x100 === null ? 'Нажмите «Забрать» до краха' : 'авто ' + crText(me.target_x100)) : 'Раунд идёт';
+    if (me && me.status === 'open' && !cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(me.bet * x100 / 100));
+  } else if (phase === 'betting') {
+    crSetTone('idle');
+    crShowMult(100);
+    crDrawCurve(0);
+    crEls.label.textContent = 'Приём ставок: ' + crSeconds(r.flight_start_ms - crServerNow()) + ' с';
+  } else if (r.result) {
+    crSetTone('crash');
+    crShowMult(r.result.crash_x100);
+    crDrawCurve(CR_DOUBLING_MS * Math.log2(Math.max(1, r.result.crash_x100 / 100)));
+    const next = typeof r.next_open_ms === 'number' ? ' · следующий раунд через ' + crSeconds(r.next_open_ms - crServerNow()) + ' с' : '';
+    crEls.label.textContent = 'Крах ' + crText(r.result.crash_x100) + next;
+  }
 }
 
 function crRaf() {
   cr.raf = 0;
   crDraw();
-  if (cr.view === 'play') cr.raf = requestAnimationFrame(crRaf);
+  if (crOnScreen()) cr.raf = requestAnimationFrame(crRaf);
 }
+
+const crOnScreen = () => activeTab === 'play' && currentGame === 'crash';
 
 function crStartLoop() {
   crStopLoop();
   crDraw();
   if (reducedMotion()) cr.iv = setInterval(crDraw, 500);   // без плавной анимации: число реже
   else cr.raf = requestAnimationFrame(crRaf);
-  crSchedulePoll();
 }
 
 function crStopLoop() {
@@ -169,132 +264,202 @@ function crStopLoop() {
   if (cr.iv) clearInterval(cr.iv);
   cr.raf = 0;
   cr.iv = 0;
-  clearTimeout(cr.pollTimer);
-  cr.pollTimer = 0;
-}
-
-function crSchedulePoll() {
-  clearTimeout(cr.pollTimer);
-  cr.pollTimer = setTimeout(crPoll, CR_POLL_MS);
-}
-
-// Опрос состояния во время полёта: крах и итог берутся из ответа сервера
-async function crPoll() {
-  cr.pollTimer = 0;
-  if (cr.view !== 'play') return;
-  if (activeTab !== 'play' || currentGame !== 'crash') { crPause(); return; }   // ушли с экрана: ни кадров, ни опроса, пока не вернёмся (crResume)
-  if (cr.busy || cr.polling || document.visibilityState !== 'visible') { crSchedulePoll(); return; }
-  cr.polling = true;
-  try {
-    const d = await fetchCrashState();
-    if (cr.view === 'play' && !cr.busy) crApplyLive(d);
-  } catch (e) {
-    // сбой опроса не прерывает полёт: следующая попытка через интервал (429 тоже)
-  } finally {
-    cr.polling = false;
-    cr.resync = false;
-  }
-  if (cr.view === 'play') crSchedulePoll();
-}
-
-// Уход с экрана краша (другая вкладка или игра) или скрытие приложения во время полёта: раньше цепочка опроса обрывалась, а кадры продолжали идти
-// по часам, и после возврата множитель бежал, хотя раунд уже закончился. Теперь на уходе кадры и опрос останавливаются, на возврате (crResume) сервер
-// спрашивается сразу, минуя интервал между запросами; до ответа новые кадры не рисуются.
-function crPause() {
-  crStopLoop();
-}
-
-function crResume() {
-  if (cr.view !== 'play' || activeTab !== 'play' || currentGame !== 'crash') return;
-  cr.resync = true;
-  if (!cr.raf && !cr.iv) crStartLoop();
-  clearTimeout(cr.pollTimer);
-  cr.pollTimer = setTimeout(crPoll, 0);
-}
-
-// Живой ответ: активный раунд пересинхронизирует время, завершённый показывает итог (крах)
-function crApplyLive(d) {
-  cr.live = d.status !== 'active';
-  if (d.status === 'active') {
-    cr.game = d;
-    cr.balance = d.balance;
-    cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
-    renderCrashChrome();
-    return;
-  }
-  crFinishWith(d, false);
 }
 
 // #endregion
 
-// #region Краш: итог
-// ---------- итог ----------
-function crFinishWith(d, byCashout) {
-  crStopLoop();
-  cr.game = d;
-  cr.view = d.status === 'none' ? 'start' : 'result';
-  cr.animating = false;
-  cr.shownBalance = null;
-  cr.balance = d.balance;
-  if (d.status === 'finished') {
-    cr.seen.add(crKey(d));
-    crPushHistory(d.crash_multiplier);
+// #region Краш: опрос
+// ---------- опрос ----------
+function crSchedulePoll(delay) {
+  clearTimeout(cr.pollTimer);
+  const r = crRound();
+  cr.pollTimer = setTimeout(crPoll, delay !== undefined ? delay : (r && r.phase === 'result' ? CR_POLL_RESULT_MS : CR_POLL_MS));
+}
+
+async function crPoll() {
+  cr.pollTimer = 0;
+  if (!crOnScreen()) { crPause(); return; }              // ушли с экрана: ни кадров, ни опроса, пока не вернёмся (crResume)
+  if (cr.busy || cr.polling || document.visibilityState !== 'visible') { crSchedulePoll(); return; }
+  cr.polling = true;
+  try {
+    const q = cr.token ? '?v=' + encodeURIComponent(cr.token) : '';
+    crApply(await fetchGameState('/api/crash/live' + q, validCrLive));
+  } catch (e) {
+    if (!cr.loaded) {                                     // первый ответ не пришёл: экран ошибки с кнопкой «Повторить»
+      cr.error = true;
+      setCrMessage(e.text || 'Нет связи с сервером', e.code, true);
+      renderCrash();
+    }                                                      // дальше сбой опроса не прерывает игру: следующая попытка через интервал (429 тоже)
+  } finally {
+    cr.polling = false;
+    cr.resync = false;
   }
+  if (crOnScreen()) crSchedulePoll();
+}
+
+function crPause() {
+  crStopLoop();
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = 0;
+}
+
+function crResume() {
+  if (!crOnScreen()) return;
+  cr.resync = true;
+  crStartLoop();
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = setTimeout(crPoll, 0);
+}
+
+// Запрос состояния сразу (после ставки или вывода и при открытии экрана): токен сбрасывается, чтобы пришёл полный ответ
+function crPollNow() {
+  cr.token = '';
+  clearTimeout(cr.pollTimer);
+  cr.pollTimer = setTimeout(crPoll, 0);
+}
+
+function loadCrash(reason) {
+  if (!crOnScreen()) return Promise.resolve();
+  if (srv.balance === null) loadServer('open');      // баланс для панели ставки приходит из общего ответа /api/me
+  if (reason === 'manual') {
+    cr.error = false;
+    setCrMessage('', '', false);
+    renderCrash();
+  }
+  crResume();
+  return Promise.resolve();
+}
+
+// Применить ответ сервера: часы сверяются всегда, полный ответ заменяет состояние, «unchanged» меняет только фазу и множитель
+function crApply(d) {
+  cr.loaded = true;
+  cr.error = false;
+  cr.syncServerMs = d.server_ms;
+  cr.syncAt = performance.now();
+  if (d.unchanged === true) {
+    const r = crRound();
+    if (r && ['betting', 'flight', 'result', 'idle'].includes(d.phase)) {
+      r.phase = d.phase;
+      r.m100 = typeof d.m100 === 'number' ? d.m100 : null;
+    }
+    return;
+  }
+  cr.state = d;
+  cr.token = typeof d.v === 'string' ? d.v : '';
+  if (d.me === undefined) d.me = null;
+  setCrMessage('', '', false);
+  const r = d.round;
+  if (r && r.result) crCheckProof(r);
+  crSettle(r, d.me);
   renderCrash();
-  if (d.status === 'finished') haptic(d.result === 'win' ? 'success' : 'error');
-  loadServer('after');
 }
 
-const crKey = (g) => g.mode + ':' + g.bet + ':' + g.crash_multiplier + ':' + g.payout + ':' + g.multiplier;
-
-function crPushHistory(text) {
-  cr.history.unshift(text);
-  cr.history.length = Math.min(cr.history.length, CR_HISTORY);
+// Вывод (в том числе автовывод в полёте) и итог раунда с моей ставкой: один раз за раунд подтягиваем баланс и опыт с сервера и даём отклик
+function crSettle(r, me) {
+  if (!r || !me) return;
+  if (me.status === 'cashed' && !cr.cashSeen.has(r.id)) {
+    cr.cashSeen.add(r.id);
+    haptic('success');
+    loadServer('after');
+  } else if (me.status === 'lost' && r.result && !cr.settled.has(r.id)) {
+    cr.settled.add(r.id);
+    haptic('error');
+    loadServer('after');
+  }
 }
 
+// #endregion
+
+// #region Краш: экран
+// ---------- отрисовка экрана (не кадр графика) ----------
 function renderCrHistory() {
-  crEls.history.hidden = cr.history.length === 0;
+  const hist = cr.state ? cr.state.history.slice(0, CR_HISTORY) : [];
+  crEls.history.hidden = hist.length === 0;
   crEls.history.textContent = '';
-  cr.history.forEach((t) => {
+  hist.forEach((h) => {
     const li = document.createElement('li');
-    li.textContent = '×' + t;
-    if (parseFloat(t) >= 2) li.className = 'high';
+    li.textContent = crText(h.crash_x100);
+    if (h.crash_x100 >= 200) li.className = 'high';
     crEls.history.appendChild(li);
   });
 }
 
-function renderCrResult() {
-  const g = cr.game;
-  const done = cr.view === 'result' && !cr.animating && g && g.status === 'finished';
-  crEls.banner.hidden = !(done || cr.view === 'start');
+function renderCrFeed() {
+  const bets = cr.state ? cr.state.bets : [];
+  const r = crRound();
+  crEls.feedTitle.textContent = bets.length ? 'Ставки в раунде: ' + bets.length : (cr.loaded ? 'Ставок пока нет' : '');
+  crEls.feed.textContent = '';
+  bets.forEach((b) => {
+    const li = document.createElement('li');
+    li.dataset.status = b.status;
+    const name = document.createElement('span');
+    name.className = 'cr-feed-name';
+    name.textContent = b.name;
+    const amount = document.createElement('span');
+    amount.className = 'cr-feed-bet';
+    amount.textContent = formatCompact(b.bet);
+    amount.title = formatNumber(b.bet);
+    const res = document.createElement('span');
+    res.className = 'cr-feed-res';
+    if (b.status === 'cashed') res.textContent = crText(b.cashed_x100) + ' +' + formatCompact(b.payout - b.bet);
+    else if (b.status === 'lost') res.textContent = r && r.result ? '−' + formatCompact(b.bet) : '…';
+    else res.textContent = '…';
+    li.append(name, amount, res);
+    crEls.feed.appendChild(li);
+  });
+}
+
+function renderCrBanner() {
+  const r = crRound();
+  const me = crMe();
+  crEls.banner.hidden = !r;
   crEls.banner.classList.remove('win', 'lose');
   crEls.bannerDetail.textContent = '';
   crEls.bannerDetail.title = '';
   crEls.bannerTitle.title = '';
-  if (!done) {
-    crEls.bannerTitle.textContent = cr.view === 'start' ? 'Сделайте ставку' : '';
-    return;
-  }
-  const crashX = '×' + g.crash_multiplier;
-  if (g.result === 'win') {
-    const profit = g.payout - g.bet;
-    crEls.bannerTitle.textContent = 'Выигрыш +' + formatCompact(profit) + ' (×' + g.multiplier + ')';
-    crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(profit);
-    crEls.bannerDetail.textContent = 'Крах был бы ' + crashX;
-    crEls.banner.classList.add('win');
-  } else if ((g.mode === 'manual' && (cr.pressed || (g.auto && !cr.live))) || (g.mode === 'auto' && cr.pressed)) {
-    crEls.bannerTitle.textContent = 'Не успел';
-    crEls.bannerDetail.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(g.bet);
-    crEls.bannerDetail.title = 'Потеряно ' + formatNumber(g.bet);
-    crEls.banner.classList.add('lose');
+  if (!r) return;
+  const phase = r.phase;
+  if (phase === 'betting') {
+    if (me) {
+      crEls.bannerTitle.textContent = 'Ставка принята: ' + formatCompact(me.bet);
+      crEls.bannerDetail.textContent = me.target_x100 === null ? 'Забирайте вручную в полёте' : 'Автовывод на ' + crText(me.target_x100);
+    } else {
+      crEls.bannerTitle.textContent = 'Сделайте ставку';
+      crEls.bannerDetail.textContent = 'Раунд общий: точка краха одна на всех';
+    }
+  } else if (phase === 'flight') {
+    if (me && me.status === 'cashed') {
+      crEls.bannerTitle.textContent = 'Выведено ' + crText(me.cashed_x100) + ': +' + formatCompact(me.payout - me.bet);
+      crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(me.payout - me.bet);
+      crEls.banner.classList.add('win');
+    } else if (me) {
+      crEls.bannerTitle.textContent = 'Ваша ставка в игре: ' + formatCompact(me.bet);
+    } else {
+      crEls.bannerTitle.textContent = 'Раунд идёт';
+      crEls.bannerDetail.textContent = 'Ставки следующего раунда откроются после краха';
+    }
+  } else if (r.result) {
+    const crashX = crText(r.result.crash_x100);
+    if (me && me.status === 'cashed') {
+      const profit = me.payout - me.bet;
+      crEls.bannerTitle.textContent = 'Выигрыш +' + formatCompact(profit) + ' (' + crText(me.cashed_x100) + ')';
+      crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(profit);
+      crEls.bannerDetail.textContent = 'Крах был ' + crashX;
+      crEls.banner.classList.add('win');
+    } else if (me) {
+      crEls.bannerTitle.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(me.bet);
+      crEls.bannerTitle.title = 'Потеряно ' + formatNumber(me.bet);
+      crEls.banner.classList.add('lose');
+    } else {
+      crEls.bannerTitle.textContent = 'Крах ' + crashX;
+      crEls.bannerDetail.textContent = 'Вы в этом раунде не играли';
+    }
   } else {
-    crEls.bannerTitle.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(g.bet);
-    crEls.bannerTitle.title = 'Потеряно ' + formatNumber(g.bet);
-    crEls.banner.classList.add('lose');
+    crEls.bannerTitle.textContent = 'Ждём следующий раунд';
   }
 }
 
-// Фишки ставки по серверному балансу краша (те же номиналы, что в других играх)
+// Фишки ставки по серверному балансу (те же номиналы, что в других играх)
 const crChipBar = makeChipBar({
   root: crEls.bets,
   attr: 'cbet',
@@ -312,181 +477,102 @@ function syncCrChips() {
   });
 }
 
-// шапка и кнопки без перерисовки графика (вызывается и по ответам опроса)
+// шапка и кнопки без перерисовки графика
 function renderCrashChrome() {
-  const bal = cr.animating && cr.shownBalance !== null ? cr.shownBalance : cr.balance;
-  if (bal !== null) {
+  if (cr.balance !== null) {
     crEls.balance.classList.remove('skeleton');
-    crEls.balance.textContent = spacedNumber(bal);
+    crEls.balance.textContent = spacedNumber(cr.balance);
     fitNumberFont(crEls.balance, crEls.balance.textContent.length);
   }
-  crEls.switchBtn.disabled = cr.busy || cr.animating;
+  crEls.switchBtn.disabled = cr.busy;
   crEls.cash.disabled = cr.busy;
-  if (cr.busy && cr.view === 'play') crEls.cash.textContent = 'Фиксируем…';
+  if (cr.busy && crMe() && crMe().status === 'open') crEls.cash.textContent = 'Фиксируем…';
 }
 
 function renderCrash() {
-  crStopIfNotPlaying();
-  const loading = cr.view === 'loading';
+  if (cr.balance === null && srv.balance !== null) cr.balance = srv.balance;      // у живого состояния своего баланса нет: стартовый берётся из общего (/api/me)
+  const loading = !cr.loaded;
   crEls.skel.hidden = !(loading && !cr.error);
-  const showChart = cr.view !== 'loading';
-  crEls.chart.hidden = !showChart;
-  renderCrHistory();
-  crEls.bets.hidden = !(cr.view === 'start' || cr.view === 'result');
-  crEls.actions.hidden = cr.view !== 'play';
+  crEls.chart.hidden = loading;
+  const r = crRound();
+  const me = crMe();
+  const betting = !!r && r.phase === 'betting';
+  const cashing = !!r && r.phase === 'flight' && !!me && me.status === 'open';
+  crEls.bets.hidden = loading || cashing;
+  crEls.actions.hidden = !cashing;
   renderCrashChrome();
+  renderCrHistory();
+  renderCrFeed();
+  renderCrBanner();
+  renderCrProof();
   renderCrChips();
   syncCrChips();
-  renderCrResult();
-  const g = cr.game;
-  if (cr.view === 'start' && !cr.animating) {
-    crSetTone('idle');
-    crShowMult(100);
-    crEls.label.textContent = 'Ждём старта';
-    crEls.curve.setAttribute('d', 'M0 149');
-  } else if (cr.view === 'result' && g && !cr.animating) {
-    const win = g.result === 'win';
-    crSetTone(win ? 'win' : 'crash');
-    const x100 = win ? crX100(g.multiplier) : crX100(g.crash_multiplier);
-    crShowMult(x100);
-    crEls.label.textContent = win ? 'Выигрыш +' + formatCompact(g.payout - g.bet) : 'Крах ' + crText(crX100(g.crash_multiplier));
-    crDrawCurve(crDoubling() * Math.log2(Math.max(1, x100 / 100)));
-  } else if (cr.view === 'play' && g) {
-    crSetTone('idle');
-    crEls.label.textContent = g.target === null ? 'Нажмите «Забрать» до краха' : 'авто ×' + g.target;
-  }
-  crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = cr.busy || cr.animating || cr.balance === null; });
-  crEls.start.textContent = cr.view === 'result' ? 'Ещё раз' : 'Старт';
-  if (cr.view === 'play' && !cr.raf && !cr.iv) crStartLoop();
+  const canBet = betting && !me && !cr.busy && cr.balance !== null;
+  crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = !canBet; });
+  crEls.start.disabled = !canBet;
+  crEls.start.textContent = me && betting ? 'Ставка принята' : (betting ? 'Поставить' : 'Ждём приёма ставок');
+  if (cr.loaded && crOnScreen() && !cr.raf && !cr.iv) crStartLoop();
+  crDraw();
   refreshBetPanels();
-}
-
-function crStopIfNotPlaying() {
-  if (cr.view !== 'play') crStopLoop();
-}
-
-// Применяет состояние с сервера без анимации: активный раунд восстанавливается, завершённый остаётся на экране
-function applyCrashState(d, announce) {
-  cr.loaded = true;
-  cr.error = false;
-  cr.balance = d.balance;
-  cr.shownBalance = null;
-  cr.animating = false;
-  setCrMessage('', '', false);
-  if (d.status === 'none') {
-    cr.game = null;
-    cr.view = 'start';
-  } else if (d.status === 'active') {
-    cr.game = d;
-    cr.view = 'play';
-    cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
-    cr.pressed = false;
-    cr.live = false;
-  } else {
-    cr.game = d;
-    cr.view = 'result';
-    cr.live = false;
-    if (announce && d.auto === true && !cr.seen.has(crKey(d))) {
-      setCrNotice('Раунд закончился без вас: ' + (d.result === 'win' ? 'выигрыш на ×' + d.multiplier : 'крах ×' + d.crash_multiplier));
-    }
-    cr.seen.add(crKey(d));
-    if (!cr.history.length) crPushHistory(d.crash_multiplier);
-  }
-  renderCrash();
 }
 
 // #endregion
 
 // #region Краш: запросы
-// ---------- запросы ----------
-async function fetchCrashState() {
-  return fetchGameState('/api/crash/state', (d) => validCrash(d, true));
-}
-
-async function loadCrash(reason) {
-  return loadGameState(cr, {
-    id: 'crash',
-    fetchState: fetchCrashState,
-    applyState: (d) => applyCrashState(d, true),
-    setMessage: setCrMessage,
-    setNotice: setCrNotice,
-    render: renderCrash,
-    blockWhileAnimating: true,
-    skipRecent: (g) => g.view !== 'play'
-  }, reason);
-}
-
-async function crAct(path, body, onOk) {
+// ---------- действия ----------
+async function crAct(path, body, validate, onOk, failNotes) {
   if (cr.busy) return;
   if (!(tg && tg.initData)) { setCrNotice('Откройте игру через бота в Telegram'); return; }
   const id = makeRequestId();
   if (!id) { setCrNotice('Ошибка'); return; }
   cr.busy = true;
   setCrNotice('');
-  renderCrashChrome();
-  crEls.bets.querySelectorAll('button, input').forEach((el) => { el.disabled = true; });
-  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validCrashAction));
-  let note = 'Состояние обновлено';
-  let reload = true;
+  renderCrash();
+  const result = await postWithRetries(() => postMinesOnce(path, { request_id: id, ...body }, validate));
+  cr.busy = false;
   if (result && result.kind === 'ok') {
     try {
-      await onOk(result.data);
-      cr.busy = false;
-      renderCrash();
-      return;
+      onOk(result.data);
     } catch (e) {
-      cr.animating = false;
-      note = 'Не удалось показать результат. Состояние обновлено';
+      setCrNotice('Не удалось показать результат. Состояние обновлено');
     }
   } else {
-    ({ note, reload } = actionFailure(result, {
-      too_early: ['Слишком рано: вывод возможен с ×1.01', false],
-      insufficient_funds: 'Не хватает фишек',
-      active_game_exists: 'У вас уже есть начатый раунд',
-      no_active_game: 'Раунд уже закрыт'
-    }));
+    setCrNotice(actionFailure(result, failNotes).note);
   }
-  cr.busy = false;
-  if (reload) {
-    try {
-      applyCrashState(await fetchCrashState(), false);
-      setCrNotice(note);
-    } catch (e) {
-      setCrNotice('Нет связи. Состояние раунда неизвестно, обновите экран');
-    }
-  } else {
-    setCrNotice(note);
-    renderCrash();
-  }
+  crPollNow();
   loadServer('after');
 }
 
-function crStart() {
+function crBet() {
   const bet = Number(crEls.bet.value);
   const target = crParseTarget();
   if (!Number.isSafeInteger(bet) || bet < 1 || bet > CR_BET_MAX) { setCrNotice('Введите целую ставку от 1 до ' + formatNumber(CR_BET_MAX)); return; }
   if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 250 (или пусто для ручного режима)'); return; }
   if (cr.balance !== null && bet > cr.balance) { setCrNotice('Не хватает фишек'); return; }
-  cr.pressed = false;
   const body = target === null ? { bet } : { bet, target_x100: target };
-  crAct('/api/crash/start', body, async (d) => {
-    if (d.status === 'active') {
-      cr.game = d;
-      cr.view = 'play';
-      cr.base = { elapsed: d.elapsed_ms, at: performance.now() };
-      cr.balance = d.balance;
-      renderCrash();
-      haptic('light');
-      return;
-    }
-    crFinishWith(d, false);     // сервер всегда отвечает активным раундом; итог сразу (не должно случаться) показывается как есть
+  crAct('/api/crash/live/bet', body, validCrBetDone, (d) => {
+    cr.balance = d.balance;
+    haptic('light');
+  }, {
+    betting_closed: 'Приём ставок закрыт: дождитесь следующего раунда',
+    already_bet: 'Вы уже поставили в этом раунде',
+    room_full: 'В ленте слишком много ставок: повторите в следующем раунде',
+    insufficient_funds: 'Не хватает фишек',
+    balance_limit: 'Баланс слишком велик для такой ставки'
   });
 }
 
 function crCash() {
-  if (cr.view !== 'play' || cr.busy) return;
-  cr.pressed = true;
-  crAct('/api/crash/cashout', {}, async (d) => { crFinishWith(d, true); });
+  const me = crMe();
+  if (!me || me.status !== 'open' || cr.busy) return;
+  crAct('/api/crash/live/cashout', {}, validCrCashDone, (d) => {
+    cr.balance = d.balance;
+    haptic('success');
+  }, {
+    too_early: 'Слишком рано: вывод возможен с ×1.01',
+    round_over: 'Раунд уже закончился',
+    no_bet: 'У вас нет ставки в этом раунде'
+  });
 }
 
 setupBetPanel({
@@ -530,16 +616,12 @@ crEls.bets.querySelectorAll('[data-ctarget]').forEach((b) => b.addEventListener(
   syncCrChips();
   haptic('light');
 }));
-crEls.start.addEventListener('click', crStart);
+crEls.start.addEventListener('click', crBet);
 crEls.cash.addEventListener('click', crCash);
 crEls.retry.addEventListener('click', () => loadCrash('manual'));
 crEls.switchBtn.addEventListener('click', () => toggleGameMenu());   // функция из js/14-lobby.js: при загрузке этого файла её ещё нет
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    crResume();
-    loadCrash('visible');
-  }
+  if (document.visibilityState === 'visible') loadCrash('visible');
 });
 
 // #endregion
-

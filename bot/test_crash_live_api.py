@@ -14,6 +14,7 @@ import crash_live
 import economy_config
 from api import create_app
 from features import purge_db
+from features.active_game_db import active_game_of
 from tg_testutil import make_init_data
 
 TOKEN = "123456:TEST-TOKEN-not-real"
@@ -97,6 +98,8 @@ try:
         r = ca.post("/api/crash/live/bet", headers=auth(A), json={"request_id": "req-0003", "bet": 10})
         check("bet ok", r.status_code, 200)
         check("bal уменьшился", r.json()["balance"], bal_before - 10)
+        check("открытая ставка живого краша = незавершённая игра (возобновление после перезагрузки)", active_game_of(A), "crash")
+        check("у игрока без ставки незавершённой игры нет", active_game_of(C), None)
 
         # Вторая ставка
         r = ca.post("/api/crash/live/bet", headers=auth(A), json={"request_id": "req-0004", "bet": 10})

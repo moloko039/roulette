@@ -1,4 +1,5 @@
 """Возобновление: активная партия (мины, блэкджек, хило, краш) открывается сама после перезагрузки страницы, лобби пропускается."""
+from crash_helpers import CASH_VISIBLE, READY, bet, flight_start, server_to
 from harness import check, open_game, set_bet
 
 NAME = "resume"
@@ -11,7 +12,7 @@ async def gone_to(p, game):
 
 async def run(w):
     p = w.page
-    w.server.script(mines=[[0, 1, 2]], shoe=[["10S", "9H", "10D", "8C"]], hilo=[[7, "H"]], crash=[100000])
+    w.server.script(mines=[[0, 1, 2]], shoe=[["10S", "9H", "10D", "8C"]], hilo=[[7, "H"]], crash_live=[25000])
     # у каждой следующей игры своя секунда на сервере: «последняя по действию» определяется временем
     await open_game(p, "mines")
     await p.wait("!document.getElementById('mines-begin').disabled", 10, "форма мин")
@@ -41,12 +42,11 @@ async def run(w):
     await gone_to(p, "hilo")
     await p.wait("!document.getElementById('hl-actions').hidden && document.getElementById('hl-card').getAttribute('aria-label') === '7 червей'", 10, "партия восстановлена")
 
-    w.server.offset(30)
     await open_game(p, "crash")
-    await p.wait("!document.getElementById('cr-bets').hidden", 10, "панель краша")
-    await set_bet(p, "cr-bet", 100)
-    await p.tap("#cr-start")
-    await p.wait("!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled", 15, "полёт идёт")
+    await p.wait(READY, 10, "панель краша")
+    await bet(p, 100, "")
+    await server_to(w, p, await flight_start(p) + 1500)
+    await p.wait(CASH_VISIBLE, 15, "полёт идёт")
     await w.reload()
     await gone_to(p, "crash")
-    await p.wait("!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled", 15, "раунд краша продолжается")
+    await p.wait(CASH_VISIBLE, 15, "раунд краша продолжается")
