@@ -111,9 +111,9 @@ try:
         check("ровно один стартовый в слоте %s" % slot, len(starters), 1)
         check("стартовый бесплатный и доступный (%s)" % slot, (starters[0]["price"], starters[0]["available"], starters[0]["rarity"]), (None, True, "starter"))
     check("стартовый только у редкости starter", all(i["starter"] == (i["rarity"] == "starter") for i in cosmetics.CATALOG), True)
-    check("57 предметов (23, 3 части Листопад, 4 достижения, 4 черновик, 3 пустота, 8 дача, 3+1 патина, 3 вехи приглашений, 5 глубина)", len(cosmetics.CATALOG), 57)
+    check("62 предмета (23, 8 частей Листопад, 4 достижения, 4 черновик, 3 пустота, 8 дача, 3+1 патина, 3 вехи приглашений, 5 глубина)", len(cosmetics.CATALOG), 62)
     check("доступны нестартовые", sorted(i["code"] for i in cosmetics.CATALOG if i["available"] and not i["starter"]),
-          sorted(["back_midnight", "chip_ring", "table_blue", "mine_star", "keno_hex", "crash_neon", "frame_thin", "badge_spade", "back_leaves", "table_autumn", "mine_acorn", "achv_nearly", "achv_sapper", "achv_bust", "achv_keno",
+          sorted(["back_midnight", "chip_ring", "table_blue", "mine_star", "keno_hex", "crash_neon", "frame_thin", "badge_spade", "back_leaves", "table_autumn", "mine_acorn", "chip_leaf", "keno_apple", "crash_maple", "frame_wreath", "badge_pumpkin", "achv_nearly", "achv_sapper", "achv_bust", "achv_keno",
                   "draft_crash", "draft_mines", "draft_table", "draft_badge", "void_table", "void_chip", "void_badge",
                   "back_rug", "chip_cork", "table_oilcloth", "mine_beetle", "keno_lotto", "crash_barrel", "frame_dacha", "badge_dacha", "chip_patina", "back_patina", "mine_patina", "frame_patina", "table_deep", "chip_pearl", "mine_urchin", "keno_bubble", "crash_deep", "ref_scout", "ref_beacon", "ref_comet"]))
     check("цена есть у платных", sorted(i["code"] for i in cosmetics.CATALOG if i["price"] is not None),
@@ -281,7 +281,7 @@ try:
     r = client.get("/api/cosmetics/catalog", headers=auth(A))
     check("каталог", r.status_code, 200)
     body = r.json()
-    check("в каталоге все предметы и слоты", (len(body["items"]), len(body["slots"])), (57, 8))
+    check("в каталоге все предметы и слоты", (len(body["items"]), len(body["slots"])), (62, 8))
     shape("catalog.item", body["items"][0], examples["catalog"]["items"][0])
     shape("catalog.slot", body["slots"][0], examples["catalog"]["slots"][0])
     check("каталог одинаков для всех игроков (принадлежность не раскрывается)", client.get("/api/cosmetics/catalog", headers=auth(B)).json(), body)

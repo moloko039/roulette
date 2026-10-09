@@ -9,10 +9,10 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl'],
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl', 'chip_leaf'],
   table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth', 'table_deep'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina', 'mine_urchin'],
-  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'frame_patina', 'frame_dacha'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha']
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble', 'keno_apple'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep', 'crash_maple'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'frame_patina', 'frame_dacha', 'frame_wreath'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha', 'badge_pumpkin']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
@@ -23,6 +23,7 @@ const BADGE_SVG = {
   badge_flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>',
   draft_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12l2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   badge_dacha: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2" width="11" height="2" rx=".6" fill="currentColor"/><path d="M4.5 4.5h15l.8 2.6c-1.4.5-2.8-.2-4.1.4s-2.8-.2-4.1.4s-2.8-.2-4.1.4L4.5 4.5z" fill="#F3E7CF"/><line x1="5" y1="4.8" x2="19" y2="4.8" stroke="#8A5A35"/><path d="M5.5 7.2h13v12a2.8 2.8 0 0 1-2.8 2.8h-7.4A2.8 2.8 0 0 1 5.5 19.2z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11c-1.2 2-1 4.8.2 6.8 1 1.2 2.6.8 2.6-.6.3-2.4 0-4.8-1.2-6.5-.4-.6-1.2-.4-1.6.3zM16 11.5c1.2 2 1 4.8-.2 6.8-1 1.2-2.6.8-2.6-.6-.3-2.4 0-4.8 1.2-6.5.4-.6 1.2-.4 1.6.3z" fill="currentColor"/><circle cx="9.5" cy="14" r=".7" fill="#F3E7CF"/><circle cx="14.5" cy="14.5" r=".7" fill="#F3E7CF"/><circle cx="12" cy="11" r=".9" fill="#F3E7CF"/><circle cx="12" cy="15.5" r=".7" fill="#F3E7CF"/></svg>',
+  badge_pumpkin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-5 0-9 3-9 7s4 7 9 7 9-3 9-7-4-7-9-7z"/><path d="M12 6c0-1.5.5-3 2-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   ref_scout: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>',
   void_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
 };

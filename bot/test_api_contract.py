@@ -224,7 +224,7 @@ try:
     assert r.json()["me"] is not None
 
     # игрок с полной «Листопад» (back_leaves, table_autumn, mine_acorn) видит complete_sets ["leaves"]
-    for item_code in ("back_leaves", "table_autumn", "mine_acorn"):
+    for item_code in __import__("cosmetic_sets").COLLECTIONS["leaves"]["parts"]:
         sql(path, "INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (2001, ?, 'collection', ?)", (item_code, NOW))
     r = client.get("/api/chat/top", headers=auth(2001, group=True))
     assert r.status_code == 200

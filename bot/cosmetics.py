@@ -157,6 +157,11 @@ _ROWS = (
     ("mine_urchin", "mine_icons", "Морские ежи", "Морские ежи вместо мин", "rare", True),
     ("keno_bubble", "keno_ball", "Пузыри", "Воздушные пузыри вместо шариков", "rare", True),
     ("crash_deep", "crash", "Глубина", "График идёт вниз: множитель это глубина погружения", "rare", True),
+    ("chip_leaf", "chip", "Лист в смоле", "Засушенный лист, залитый смолой", "rare", True),
+    ("keno_apple", "keno_ball", "Яблоки", "Красные, жёлтые и зелёные яблоки", "rare", True),
+    ("crash_maple", "crash", "Клён", "Кленовый лист несёт порыв ветра", "rare", True),
+    ("frame_wreath", "avatar_frame", "Венок", "Венок из кленовых листьев", "rare", True),
+    ("badge_pumpkin", "badge", "Тыква", "Тыква с вырезанной улыбкой", "rare", True),
 )
 
 CATALOG = tuple(

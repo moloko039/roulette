@@ -184,7 +184,7 @@ try:
 
     # ---------- полная коллекция «Листопад» и скрытый показ ----------
     # игрок 987654321 собирает Листопад: back_leaves, table_autumn, mine_acorn
-    for item_code in ("back_leaves", "table_autumn", "mine_acorn"):
+    for item_code in __import__("cosmetic_sets").COLLECTIONS["leaves"]["parts"]:
         sql(path, "INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (987654321, ?, 'collection', ?)", (item_code, now))
     r = top(987654321, chat_instance="chat-secret-77", first_name="Имя")
     entry = [e for e in r.json()["top"] if e["is_me"]][0]
