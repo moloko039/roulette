@@ -1,1 +1,121 @@
-/* Скин «Черновик» (draft_crash): заготовка, заполняется задачей пула */
+/* Сцена скина краша «Черновик» (коллекция «Черновик», DESIGN.md раздел 4).
+   Загружается при надевании скина и снимается вместе со сценой.
+   Только transform и opacity (и stroke-dashoffset). */
+
+/* Скрытие дыма и стандартных осей */
+.cr-chart[data-scene="draft_crash"] .cr-smoke { display: none; }
+.cr-chart[data-scene="draft_crash"] .cr-axis { display: none; }
+
+/* Карандашная линия графика */
+.cr-chart[data-scene="draft_crash"] .cr-curve {
+  stroke: #5A5A5A;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: none;
+}
+.cr-chart[data-scene="draft_crash"][data-tone="idle"] .cr-curve {
+  stroke: #5A5A5A;
+  stroke-width: 2.2;
+}
+
+/* Множитель и подпись: светлая бумага, темные чернила, контраст >= 4.5:1 */
+.cr-chart[data-scene="draft_crash"] .cr-mult {
+  color: #1F3A93;
+  text-shadow: none;
+}
+.cr-chart[data-scene="draft_crash"] .cr-label {
+  color: #1F3A93;
+}
+.cr-chart[data-scene="draft_crash"][data-tone="crash"] .cr-mult {
+  color: #B3262E;
+}
+.cr-chart[data-scene="draft_crash"][data-tone="crash"] .cr-label {
+  color: #B3262E;
+}
+.cr-chart[data-scene="draft_crash"][data-tone="win"] .cr-mult {
+  color: #1E6B2F;
+}
+.cr-chart[data-scene="draft_crash"][data-tone="win"] .cr-label {
+  color: #1E6B2F;
+}
+
+[data-scene="draft_crash"] .cr-chart .cr-mult { color: #1F3A93; text-shadow: none; }
+[data-scene="draft_crash"] .cr-chart .cr-label { color: #1F3A93; }
+[data-scene="draft_crash"] .cr-chart[data-tone="crash"] .cr-mult { color: #B3262E; }
+[data-scene="draft_crash"] .cr-chart[data-tone="crash"] .cr-label { color: #B3262E; }
+[data-scene="draft_crash"] .cr-chart[data-tone="win"] .cr-mult { color: #1E6B2F; }
+[data-scene="draft_crash"] .cr-chart[data-tone="win"] .cr-label { color: #1E6B2F; }
+
+/* Фон: миллиметровка (две сетки: мелкая 4 px и крупная 20 px) */
+.scd-paper {
+  position: absolute;
+  inset: -6px;
+  background-color: #F7F5EE;
+  background-image:
+    linear-gradient(to right, #BFD8E8 1px, transparent 1px),
+    linear-gradient(to bottom, #BFD8E8 1px, transparent 1px),
+    linear-gradient(to right, rgba(191, 216, 232, 0.45) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(191, 216, 232, 0.45) 1px, transparent 1px);
+  background-size:
+    20px 20px,
+    20px 20px,
+    4px 4px,
+    4px 4px;
+  background-position: 0 0;
+  pointer-events: none;
+}
+
+.scd-defs { position: absolute; width: 0; height: 0; }
+.scd-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scd-event-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; pointer-events: none; }
+
+/* Зоны */
+.scd-zone { opacity: 0; transition: opacity 0.48s ease; }
+.scd-zone.in { opacity: 1; }
+.scd-zone.out { opacity: 0; }
+
+/* Дорисовывание заметок stroke-dashoffset */
+.scd-draw-note {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: scd-draw 0.38s ease-out forwards;
+}
+@keyframes scd-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Карандаш */
+.scd-r {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  transform-origin: 24px 24px;
+  pointer-events: none;
+}
+.scd-r.drawing { will-change: transform; }
+.scd-r.gone { opacity: 0; }
+.scd-pencil {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+.scd-r.broken .scd-pencil {
+  transform: rotate(45deg) translate(8px, 4px);
+  transition: transform 0.25s ease-out;
+}
+
+/* Частицы-крошки ластика */
+.scd-fx { position: absolute; inset: 0; pointer-events: none; }
+.scd-p { position: absolute; display: none; }
+.scd-p.on { display: block; }
+
+/* Каракуль зачёркивания */
+.scd-scribble {
+  pointer-events: none;
+}
