@@ -99,6 +99,7 @@ document.querySelectorAll('meta[name="skin-js"], meta[name="skin-css"]').forEach
   (SKIN_FILES[code] = SKIN_FILES[code] || {})[m.getAttribute('name') === 'skin-js' ? 'js' : 'css'] = m.getAttribute('content');
 });
 
+const SKIN_CSS_ONLY = { mount: () => null };      // скин без модуля js: сцена пустая, css подключается при надевании и снимается вместе с контейнером
 const skinScenes = {};      // код -> описание сцены, когда модуль загружен
 const skinHosts = {};       // слот -> функция, отдающая контейнер сцены (регистрирует игра)
 const skinActive = {};      // слот -> экран игры открыт
@@ -143,11 +144,11 @@ function skinSync(slot) {
   const cur = skinMounted[slot];
   if (cur && cur.code !== want) skinUnmount(slot);
   if (!want || skinMounted[slot]) return;
-  const def = skinScenes[want];
+  const files = SKIN_FILES[want] || {};
+  const def = skinScenes[want] || (files.css && !files.js ? SKIN_CSS_ONLY : null);     // скин без js: только css, привязанный к меткам состояния игры
   if (!def) { skinLoad(want); return; }
   const host = skinHosts[slot] && skinHosts[slot]();
   if (!host) return;
-  const files = SKIN_FILES[want] || {};
   let link = null;
   if (files.css) {
     link = document.createElement('link');
