@@ -58,6 +58,7 @@ COLLECTION_STREAK_DAYS = (3, 5, 7)
 DACHA_PARTS_BY_INCOME_LEVEL = ((2, "back_rug"), (4, "chip_cork"), (6, "table_oilcloth"), (9, "mine_beetle"), (12, "keno_lotto"), (16, "crash_barrel"))
 PATINA_STAGE_THRESHOLDS = {"chip": (1, 5, 15, 40), "card_back": (200, 1000, 3000, 8000), "mine_icons": (10, 40, 120, 300)}
 PATINA_BIG_CRASH_X100 = 5000
+PATINA_FRAME_DAYS = (30, 90, 180, 365)      # рамка «Патина» темнеет по стажу аккаунта (дней с первого входа): стадии 1-4
 # Бесплатные кристаллы (серия входов, позже рефералка) не больше этого числа за календарный месяц (по тому же часовому поясу): иначе кристаллы печатались бы без платежей.
 FREE_GEMS_MONTHLY_CAP = 150
 FREE_GEM_REASONS = ("streak_gems", "referral_reward", "founder_reward")

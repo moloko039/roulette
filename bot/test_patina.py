@@ -12,6 +12,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 NOW = int(time.time())
 A, B, C = 424242421, 424242422, 424242423
 
+def patina_age_stage_for(days):
+    from features.patina_db import account_age_stage
+    import sqlite3
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("CREATE TABLE players (telegram_id INTEGER, created_at INTEGER)")
+    conn.execute("INSERT INTO players VALUES (1, ?)", (NOW - days * 86400,))
+    return account_age_stage(conn, 1, NOW)
+
+
+def cosmetics_price(code):
+    import cosmetics
+    return cosmetics.item(code)["price"]["amount"]
+
+
 def check(name, got, expected):
     assert got == expected, f"{name}: получили {got}, ожидали {expected}"
 
@@ -77,19 +92,9 @@ try:
     s2 = patina_stages(conn, A, {"chip": "chip_patina"}) # only chip
     check("патины без других слотов", s2, {"chip": 1})
 
-    from features.cosmetics_db import grant_patina_items
-    granted = grant_patina_items(B, db_path=path)
-    check("выдано 3 предмета", granted, 3)
-    check("повтор не выдает", grant_patina_items(B, db_path=path), 0)
-
-    # 12 потоков
-    granted_C = [None] * 12
-    def worker(i):
-        granted_C[i] = grant_patina_items(C, db_path=path)
-    threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
-    for th in threads: th.start()
-    for th in threads: th.join()
-    check("параллельная выдача", sum(granted_C), 3)
+    def give(uid):
+        for code in ("chip_patina", "back_patina", "mine_patina"):
+            db.grant_item(uid, code, "free", db_path=path)
 
     # API Contract /api/me
     from api import create_app
@@ -102,7 +107,7 @@ try:
     r = client.get("/api/me", headers=auth(A))
     check("у игрока без надетой патины поля нет", "patina" in r.json()["cosmetics"], False)
 
-    grant_patina_items(A, db_path=path)
+    give(A)
     db.equip_item(A, "req-1", "chip", "chip_patina", now=NOW, db_path=path)
     r = client.get("/api/me", headers=auth(A))
     check("поле есть с одной патиной", r.json()["cosmetics"]["patina"], {"chip": 1})
@@ -116,12 +121,44 @@ try:
     check("когда патины не осталось, поля patina в ответе нет", "patina" in uneq, False)
     db.equip_item(A, "req-5", "chip", "chip_patina", now=NOW + 400000, db_path=path)      # вернуть как было для проверок ниже
 
-    # Ленивая выдача при просмотре гардероба
+    # открытие гардероба патину больше не выдаёт (с 2026-10-09 это набор за 1000 кристаллов)
     add_player(path, 424242424)
     r = client.get("/api/cosmetics/mine", headers=auth(424242424))
-    owned = r.json()["owned"]
-    patina_items = [i for i in owned if i.get("code") in ("chip_patina", "back_patina", "mine_patina")]
-    check("ленивая выдача 3 предметов", len(patina_items), 3)
+    check("гардероб патину не выдаёт", [i for i in r.json()["owned"] if "patina" in i.get("code", "")], [])
+
+    # --- рамка «Патина»: стадия по стажу аккаунта (30 / 90 / 180 / 365 дней), у себя и у других участников беседы
+    check("стадии рамки по дням", [economy_config.PATINA_FRAME_DAYS, [patina_age_stage_for(d) for d in (0, 29, 30, 89, 90, 179, 180, 364, 365, 2000)]],
+          [(30, 90, 180, 365), [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]])
+    F = 424242430
+    add_player(path, F)
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 100 * 86400, F))
+    db.grant_item(F, "frame_patina", "free", db_path=path)
+    eq = db.equip_item(F, "req-f1", "avatar_frame", "frame_patina", now=NOW + 1_000_000, db_path=path)
+    check("рамка на 100-й день: стадия 2", eq["patina"], {"avatar_frame": 2})
+    r = client.get("/api/me", headers=auth(F))
+    check("/api/me отдаёт стадию рамки", r.json()["cosmetics"]["patina"], {"avatar_frame": 2})
+    sql(path, "INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES ('rating-chat', ?, 'Рамочник', ?, ?)", (F, NOW, NOW))
+    sql(path, "INSERT INTO chat_members (chat_instance, telegram_id, first_name, first_seen, last_seen) VALUES ('rating-chat', ?, 'Я', ?, ?)", (A, NOW, NOW))
+    from features.chat_db import _public_cosmetics
+    shown = _public_cosmetics(path, [F, A])
+    check("другим участникам видна рамка и её стадия", shown[F], {"avatar_frame": "frame_patina", "avatar_frame_stage": 2})
+    db.set_visibility(F, "req-f2", False, now=NOW + 1_001_000, db_path=path)
+    check("скрывший показ ничего не отдаёт", F in _public_cosmetics(path, [F]), False)
+
+    # --- набор «Патина» продаётся за 1000 кристаллов; нельзя купить, если уже есть хотя бы одна часть (добрать рамку можно отдельно за 400)
+    P = 424242431
+    add_player(path, P)
+    import wallet
+    conn2 = db._connect(path)
+    conn2.execute("BEGIN IMMEDIATE")
+    wallet.gems_credit(conn2, P, 1500, "owner_grant", "test", NOW)
+    conn2.execute("COMMIT")
+    conn2.close()
+    from features.cosmetics_db import buy_set
+    bought = buy_set(P, "req-set-1", "patina", now=NOW, db_path=path)
+    check("набор за 1000: все четыре части, остаток 500", (sorted(bought["items"]), bought["price_gems"], bought["gems"]), (["back_patina", "chip_patina", "frame_patina", "mine_patina"], 1000, 500))
+    check("части с источником gems", sorted(r[0] for r in sql(path, "SELECT DISTINCT source FROM cosmetic_items WHERE telegram_id = ?", (P,))), ["gems"])
+    check("часть дороже набора по отдельности (4 x 400 > 1000)", sum(cosmetics_price(c) for c in ("chip_patina", "back_patina", "mine_patina", "frame_patina")) > 1000, True)
 
     conn.close()
     print("Все проверки прошли")

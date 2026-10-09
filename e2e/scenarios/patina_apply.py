@@ -22,6 +22,7 @@ async def run(w):
         w.sql("INSERT INTO crash_games (telegram_id, bet, mode, target_x100, crash_x100, started_at_ms, status, result, mult_x100, payout, auto, created_at, finished_at) "
               "VALUES (?, 10, 'manual', NULL, 6000, ?, 'finished', 'lose', 6000, 0, 0, ?, ?)", (uid, (now - 1000 + i) * 1000, now - 1000 + i, now - 900 + i))
     w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, 'chip_patina', 'free', NULL, ?)", (uid, now))
+    w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, 'back_patina', 'free', NULL, ?)", (uid, now))      # патина выдаётся только набором (или была выдана раньше)
     w.sql("INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, 'chip', 'chip_patina')", (uid,))
     await w.reload()
     await p.wait("document.documentElement.getAttribute('data-skin-chip') === 'chip_patina'", 15, "надета патина фишки")

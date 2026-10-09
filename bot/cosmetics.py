@@ -89,6 +89,9 @@ PRICES = {
     # части наборов «Черновик» (200 💎 за набор) и «Пустота» (400 💎): по отдельности дороже набора, см. cosmetic_sets.SETS
     "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100),
     "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
+    # «Патина» (набор 1000 💎, решение владельца 2026-10-09; части по 400 💎, чтобы купившие бесплатные части раньше могли добрать рамку) и «Глубина» (набор 500 💎, части по 150 💎)
+    "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400),
+    "table_deep": ("gems", 150), "chip_pearl": ("gems", 150), "mine_urchin": ("gems", 150), "keno_bubble": ("gems", 150), "crash_deep": ("gems", 150),
 }
 STARS, CHIPS, GEMS = "stars", "chips", "gems"
 # Прежние цены в Stars: нужны только чтобы принять оплату по счетам, выставленным до перехода на кристаллы, и скрытому тестовому предмету (/teststars).
@@ -146,6 +149,12 @@ _ROWS = (
     ("chip_patina", "chip", "Патина", "Засечки на ребре за каждый краш выше ×50", "common", True),
     ("back_patina", "card_back", "Патина", "Выцветает и протирается по числу сыгранных раундов", "common", True),
     ("mine_patina", "mine_icons", "Патина", "Трещины на поле от прошлых взрывов", "common", True),
+    ("frame_patina", "avatar_frame", "Патина", "Тускнеет, как старое серебро, по стажу аккаунта", "rare", True),
+    ("table_deep", "table", "Дно", "Морское дно: тёмная бирюза и коралловые сектора", "rare", True),
+    ("chip_pearl", "chip", "Жемчуг", "Перламутровые фишки", "rare", True),
+    ("mine_urchin", "mine_icons", "Морские ежи", "Морские ежи вместо мин", "rare", True),
+    ("keno_bubble", "keno_ball", "Пузыри", "Воздушные пузыри вместо шариков", "rare", True),
+    ("crash_deep", "crash", "Глубина", "График идёт вниз: множитель это глубина погружения", "rare", True),
 )
 
 CATALOG = tuple(

@@ -1,3 +1,5 @@
+import time
+
 import economy_config
 from features.round_counts import ROUND_COUNT_SQL
 
@@ -37,15 +39,27 @@ def _calc_stage(val, thresholds):
             break
     return stage
 
-def patina_stages(conn, telegram_id, equipped):
+def account_age_stage(conn, telegram_id, now=None):
+    """Стадия рамки «Патина» по стажу аккаунта (дней с первого входа): 0..4. Игрока нет: 0."""
+    row = conn.execute("SELECT created_at FROM players WHERE telegram_id = ?", (telegram_id,)).fetchone()
+    if row is None:
+        return 0
+    days = max(0, (int(time.time()) if now is None else now) - row["created_at"]) // 86400
+    return _calc_stage(days, economy_config.PATINA_FRAME_DAYS)
+
+
+def patina_stages(conn, telegram_id, equipped, now=None):
     """Словарь {слот: стадия} только для слотов с надетой патиной, либо пустой."""
     res = {}
     need_crashes = equipped.get("chip") == "chip_patina"
     need_rounds = equipped.get("card_back") == "back_patina"
     need_explosions = equipped.get("mine_icons") == "mine_patina"
-    
-    if not (need_crashes or need_rounds or need_explosions):
+    need_frame = equipped.get("avatar_frame") == "frame_patina"
+
+    if not (need_crashes or need_rounds or need_explosions or need_frame):
         return res
+    if need_frame:
+        res["avatar_frame"] = account_age_stage(conn, telegram_id, now)
         
     if need_crashes:
         crashes = _big_crashes(conn, telegram_id)

@@ -9,10 +9,10 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina'],
-  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina'],
-  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout']
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth', 'table_deep'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina', 'mine_urchin'],
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'frame_patina'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
@@ -32,9 +32,12 @@ let ownEquipped = { avatar_frame: null, badge: null };
 let ownPatina = {};
 let ratingLast = null;   // последний ответ рейтинга: перерисовывается при смене своих рамки и значка
 
-function decorateAvatar(el, frame) {
+function decorateAvatar(el, frame, stage) {
   if (frame) el.setAttribute('data-skin-avatar_frame', frame);
   else el.removeAttribute('data-skin-avatar_frame');
+  // рамка «Патина» темнеет по стажу аккаунта: стадия 0..4 приходит с сервера (у себя в /api/me, у других в рейтинге)
+  if (frame === 'frame_patina' && Number.isInteger(stage) && stage >= 0 && stage <= 4) el.setAttribute('data-patina-avatar_frame', String(stage));
+  else el.removeAttribute('data-patina-avatar_frame');
 }
 
 // Значок рядом с именем; null, если значка нет. Разметка из констант клиента по проверенному коду.
@@ -52,11 +55,11 @@ function badgeEl(code) {
 // Публичные слоты участника из ответа рейтинга ({слот: код}); неизвестное игнорируется
 function publicOf(c) {
   const src = c && typeof c === 'object' ? c : {};
-  return { avatar_frame: publicSkin('avatar_frame', src.avatar_frame), badge: publicSkin('badge', src.badge) };
+  return { avatar_frame: publicSkin('avatar_frame', src.avatar_frame), frame_stage: src.avatar_frame_stage, badge: publicSkin('badge', src.badge) };
 }
 
 function renderOwnCosmetics() {
-  decorateAvatar(profileEls.avatar, ownEquipped.avatar_frame);
+  decorateAvatar(profileEls.avatar, ownEquipped.avatar_frame, ownEquipped.frame_stage);
   const holder = document.getElementById('profile-badge');
   const code = ownEquipped.badge;
   holder.hidden = !(code && BADGE_SVG[code]);
@@ -81,8 +84,8 @@ function setOwnCosmetics(c) {
     ownPatina = {};
   }
   const eq = c && c.equipped && typeof c.equipped === 'object' ? c.equipped : {};
-  const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), badge: publicSkin('badge', eq.badge) };
-  if (next.avatar_frame === ownEquipped.avatar_frame && next.badge === ownEquipped.badge) return;
+  const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), frame_stage: ownPatina.avatar_frame, badge: publicSkin('badge', eq.badge) };
+  if (next.avatar_frame === ownEquipped.avatar_frame && next.frame_stage === ownEquipped.frame_stage && next.badge === ownEquipped.badge) return;
   ownEquipped = next;
   renderOwnCosmetics();
 }
@@ -191,7 +194,7 @@ function wdScene(slot, code, mini) {
   const box = document.createElement('div');
   box.className = mini ? 'wd-mini' : 'wd-scene';
   box.setAttribute('data-skin-' + slot, code);
-  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina') {
+  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina') {
     const stage = ownPatina[slot];
     if (stage !== undefined) box.setAttribute('data-patina-' + slot, String(stage));
   }

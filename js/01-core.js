@@ -332,7 +332,7 @@ function applySkins(equipped, patina) {
     if (typeof code === 'string' && SKIN_CODE_RE.test(code)) root.setAttribute('data-skin-' + slot, code);
     else root.removeAttribute('data-skin-' + slot);
   });
-  ['chip', 'card_back', 'mine_icons'].forEach((slot) => {
+  ['chip', 'card_back', 'mine_icons', 'avatar_frame'].forEach((slot) => {
     const stage = patina && typeof patina === 'object' ? patina[slot] : undefined;
     if (Number.isInteger(stage) && stage >= 0 && stage <= 4) {
       root.setAttribute('data-patina-' + slot, String(stage));
