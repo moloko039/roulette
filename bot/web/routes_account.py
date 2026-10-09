@@ -77,6 +77,10 @@ def register(app, ctx):
                 touch_chat_member(info["chat_instance"], user_id, info["first_name"], now=now, db_path=db_path)
             except Exception:
                 pass  # рейтинг не должен ломать /api/me
+            try:
+                db.founder_progress(info["chat_instance"], user_id, now=now, db_path=db_path)      # привязка беседы к основателю и награда, когда беседа живая
+            except Exception:
+                logger.error("founder_progress error", exc_info=True)
         return {
             "balance": player["balance"],
             "rate": player["rate"],

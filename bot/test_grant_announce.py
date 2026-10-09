@@ -264,13 +264,21 @@ try:
     check("команда из группы запоминает группу один раз; личный чат и канал нет", db.chat_ids(db_path=path), [-500])
     check("в таблице только число и время", [r[1] for r in sql(path, "PRAGMA table_info(bot_chats)")], ["chat_id", "seen_at"])
 
-    def member_update(chat_id, status, kind="group"):
-        return SimpleNamespace(my_chat_member=SimpleNamespace(chat=FakeChat(chat_id, kind), new_chat_member=SimpleNamespace(status=status)))
+    def member_update(chat_id, status, kind="group", adder=None, old="left"):
+        return SimpleNamespace(my_chat_member=SimpleNamespace(chat=FakeChat(chat_id, kind), new_chat_member=SimpleNamespace(status=status),
+                                                              old_chat_member=SimpleNamespace(status=old),
+                                                              from_user=None if adder is None else SimpleNamespace(id=adder, is_bot=False)))
 
     asyncio.run(bot.my_chat_member(member_update(-700, "member"), None))
     asyncio.run(bot.my_chat_member(member_update(-701, "administrator", "supergroup"), None))
     asyncio.run(bot.my_chat_member(member_update(55, "member", "private"), None))
     check("бота добавили в группы", db.chat_ids(db_path=path), [-701, -700, -500])
+    asyncio.run(bot.my_chat_member(member_update(-702, "member", adder=4242), None))
+    asyncio.run(bot.my_chat_member(member_update(-702, "administrator", adder=5151, old="member"), None))    # повышение прав не меняет основателя
+    asyncio.run(bot.my_chat_member(member_update(-703, "member", "supergroup", adder=None), None))          # добавил неизвестно кто: основателя нет
+    check("основатель записан по событию добавления", sql(path, "SELECT chat_id, founder_id FROM chat_founders ORDER BY chat_id"), [(-702, 4242)])
+    db.chat_forget(-702, db_path=path)
+    db.chat_forget(-703, db_path=path)
     asyncio.run(bot.my_chat_member(member_update(-700, "kicked"), None))
     asyncio.run(bot.my_chat_member(member_update(-500, "left", "supergroup"), None))
     check("бота убрали: записи удалены", db.chat_ids(db_path=path), [-701])

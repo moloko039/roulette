@@ -13,7 +13,7 @@ from roulette import max_payout
 from roulette import settle
 
 from core.db_conn import _connect
-from core.kernel import _accrue_conn, _add_xp, _record_best_win, _register_player
+from core.kernel import _accrue_conn, _add_xp, _register_player, _round_finished
 
 
 def _round_result(number, stake_total, payout_total, balance, replayed):
@@ -86,7 +86,7 @@ def spin_roulette(telegram_id, request_id, bets, now=None, db_path=None, rng=Non
             # (е) выплата через кошелёк, запись раунда и счётчик ставок (в той же транзакции)
             if payout_total > 0:
                 wallet.credit(conn, telegram_id, payout_total)
-                _record_best_win(conn, telegram_id, "roulette", stake_total, payout_total, now)
+            _round_finished(conn, telegram_id, "roulette", stake_total, payout_total, now)
             new_balance = wallet.get_balance(conn, telegram_id)
             conn.execute(
                 "UPDATE players SET total_staked = MIN(total_staked + ?, ?), last_played_at = ? WHERE telegram_id = ?",

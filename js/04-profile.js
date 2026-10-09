@@ -272,6 +272,7 @@ const refEls = {
   text: document.getElementById('referral-text'),
   invited: document.getElementById('referral-invited'),
   qualified: document.getElementById('referral-qualified'),
+  commission: document.getElementById('referral-commission'),
   send: document.getElementById('referral-send'),
   copy: document.getElementById('referral-copy'),
   msg: document.getElementById('referral-msg'),
@@ -287,10 +288,11 @@ function validReferral(d) {
   if (!d || typeof d !== 'object') return false;
   if (!Number.isInteger(d.invited) || d.invited < 0) return false;
   if (!Number.isInteger(d.qualified) || d.qualified < 0) return false;
+  if (!Number.isInteger(d.commission_earned) || d.commission_earned < 0) return false;
   if (d.link !== null && (typeof d.link !== 'string' || !d.link.startsWith('https://t.me/') || d.link.length > 400)) return false;
   const r = d.rules;
   if (!r || typeof r !== 'object') return false;
-  const keys = ['invitee_chips', 'inviter_chips', 'inviter_gems', 'qualify_hours', 'qualify_level', 'qualify_rounds'];
+  const keys = ['invitee_chips', 'inviter_chips', 'inviter_gems', 'qualify_hours', 'qualify_level', 'qualify_rounds', 'commission_pct', 'commission_days', 'commission_cap', 'founder_chips', 'founder_gems', 'founder_players', 'founder_level'];
   for (const k of keys) {
     if (!Number.isInteger(r[k]) || r[k] <= 0) return false;
   }
@@ -321,9 +323,10 @@ function renderReferral() {
   refEls.msg.hidden = true;
   refEls.actions.hidden = false;
   const r = refData.rules;
-  refEls.text.textContent = `Друг получит ${r.invitee_chips} фишек при первом входе. Когда он проживёт ${r.qualify_hours} ч, дойдёт до ${r.qualify_level} уровня и сыграет ${r.qualify_rounds} раундов, ты получишь ${r.inviter_chips} фишек и ${r.inviter_gems} 💎.`;
+  refEls.text.textContent = `Друг получит ${r.invitee_chips} фишек при первом входе. Когда он проживёт ${r.qualify_hours} ч, дойдёт до ${r.qualify_level} уровня и сыграет ${r.qualify_rounds} раундов, ты получишь ${r.inviter_chips} фишек и ${r.inviter_gems} 💎, а ещё ${r.commission_days} дней ${r.commission_pct}% от того, что казино выиграет у друга (до ${r.commission_cap} фишек с одного друга). Добавь бота в беседу: когда в ней начнут играть ${r.founder_players} человек не ниже ${r.founder_level} уровня, получишь ${r.founder_chips} фишек и ${r.founder_gems} 💎.`;
   refEls.invited.textContent = refData.invited;
   refEls.qualified.textContent = refData.qualified;
+  refEls.commission.textContent = refData.commission_earned;
 
   if (refData.link === null) {
     refEls.actions.hidden = true;

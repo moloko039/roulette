@@ -59,8 +59,11 @@ DACHA_PARTS_BY_INCOME_LEVEL = ((2, "back_rug"), (4, "chip_cork"), (6, "table_oil
 PATINA_STAGE_THRESHOLDS = {"chip": (1, 5, 15, 40), "card_back": (200, 1000, 3000, 8000), "mine_icons": (10, 40, 120, 300)}
 PATINA_BIG_CRASH_X100 = 5000
 # Бесплатные кристаллы (серия входов, позже рефералка) не больше этого числа за календарный месяц (по тому же часовому поясу): иначе кристаллы печатались бы без платежей.
-FREE_GEMS_MONTHLY_CAP = 100
-FREE_GEM_REASONS = ("streak_gems", "referral_reward")
+FREE_GEMS_MONTHLY_CAP = 150
+FREE_GEM_REASONS = ("streak_gems", "referral_reward", "founder_reward")
+# Из общего потолка бесплатных кристаллов рефералке (награда за приглашённого и за беседу) не больше этого числа в месяц: иначе десять квалифицированных приглашений съели бы весь лимит.
+REFERRAL_GEMS_MONTHLY_CAP = 100
+REFERRAL_GEM_REASONS = ("referral_reward", "founder_reward")
 
 # Подарки косметикой (ECONOMY_ADDITIONS.md, п. 2; правила ведущего 2026-10-07): предмет за кристаллы покупается сразу на имя участника той же беседы. Нельзя дарить фишки, кристаллы
 # и пакеты, нельзя дарить предмет, который у получателя уже есть, и самому себе; подаренное нельзя передарить, продать или обменять. Не больше GIFT_DAILY_LIMIT подарков в сутки на отправителя.
@@ -76,6 +79,7 @@ GEM_REASONS = {
     "gift_purchase": "sink",        # подарок предмета другому игроку за кристаллы
     "streak_gems": "source",        # кристаллы седьмого дня серии входов (бесплатные, с месячным потолком)
     "referral_reward": "source",    # награда за квалифицированного реферала (шаг 2)
+    "founder_reward": "source",     # награда основателю живой беседы (бот добавлен в беседу)
     "boost_purchase": "sink",       # покупка буста беседы
     "refund": "sink",               # возврат пакета (кристаллы убираются)
 }
@@ -97,13 +101,21 @@ CHAT_LEVEL_THRESHOLDS = (0, 10_000, 25_000, 60_000, 150_000, 400_000, 1_000_000,
 
 # Рефералка (E5)
 REFERRAL_INVITEE_CHIPS = 500
-REFERRAL_INVITER_CHIPS = 1000      # шаг 2
-REFERRAL_INVITER_GEMS = 5          # шаг 2
+REFERRAL_INVITER_CHIPS = 2000      # шаг 2 (решение владельца 2026-10-09: было 1000)
+REFERRAL_INVITER_GEMS = 10         # шаг 2 (было 5)
 REFERRAL_QUALIFY_HOURS = 24        # шаг 2
 REFERRAL_QUALIFY_LEVEL = 3         # шаг 2
 REFERRAL_QUALIFY_ROUNDS = 10       # шаг 2
 FOUNDER_CHIPS = 3000               # шаг 2
-FOUNDER_GEMS = 20                  # шаг 2
+FOUNDER_GEMS = 30                  # шаг 2 (было 20)
 FOUNDER_ACTIVE_PLAYERS = 5         # шаг 2
 FOUNDER_PLAYER_LEVEL = 3           # шаг 2
 FOUNDER_WINDOW_DAYS = 7            # шаг 2
+# Процент пригласившему от выигрыша казино (чистый проигрыш приглашённого) после квалификации: решение владельца 2026-10-09. Считается нарастающим итогом
+# по максимуму чистого проигрыша (проигрыш, отыгранный обратно, не отбирается, но и второй раз не оплачивается), не больше потолка за весь срок на одного приглашённого.
+REFERRAL_COMMISSION_PCT = 30
+REFERRAL_COMMISSION_DAYS = 90
+REFERRAL_COMMISSION_CAP = 300_000
+# Основатель беседы: бот добавлен игроком в группу, беседа живая (FOUNDER_ACTIVE_PLAYERS игроков уровня FOUNDER_PLAYER_LEVEL заходили за последние FOUNDER_WINDOW_DAYS дней);
+# беседа привязывается к основателю, когда он сам открывает игру из этой группы не позже FOUNDER_LINK_DAYS дней после добавления бота.
+FOUNDER_LINK_DAYS = 30

@@ -142,6 +142,8 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
             deleted["transfers"] = batches(
                 "DELETE FROM transfers WHERE id IN (SELECT id FROM transfers WHERE created_at < ? LIMIT ?)",
                 (now - rounds_days * 86400, batch))
+        if "chat_founders" in present:  # основатели бесед: привязать беседу можно только в первые FOUNDER_LINK_DAYS, дальше запись нужна лишь как отметка награды: 90 дней
+            batches("DELETE FROM chat_founders WHERE chat_id IN (SELECT chat_id FROM chat_founders WHERE added_at < ? LIMIT ?)", (now - 90 * 86400, batch))
         if "chat_members" in present:
             deleted["chat_members"] = batches(
                 "DELETE FROM chat_members WHERE rowid IN "

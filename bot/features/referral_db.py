@@ -8,7 +8,7 @@ import wallet
 import economy_config
 import levels
 from features.round_counts import ROUND_COUNT_SQL
-from features.streak_db import _free_gems_used
+from features.streak_db import _free_gems_used, _gems_used
 
 _CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 CODE_LENGTH = 10
@@ -42,6 +42,17 @@ def link_for(code, game_link):
     if not game_link or not code:
         return None
     return "%s?startapp=ref_%s" % (game_link, code)
+
+
+def grant_referral_gems(conn, telegram_id, gems, reason, ref, now):
+    """Кристаллы за рефералку внутри открытой транзакции: не больше остатка общего месячного потолка бесплатных кристаллов и не больше месячного потолка рефералки
+    (иначе десять приглашений съели бы весь лимит серии входов). Возвращает, сколько начислено (может быть 0)."""
+    left = min(economy_config.FREE_GEMS_MONTHLY_CAP - _free_gems_used(conn, telegram_id, now),
+               economy_config.REFERRAL_GEMS_MONTHLY_CAP - _gems_used(conn, telegram_id, now, economy_config.REFERRAL_GEM_REASONS))
+    gems = min(gems, max(0, left))
+    if gems > 0:
+        wallet.gems_credit(conn, telegram_id, gems, reason, ref, now)
+    return gems
 
 
 def check_qualification(invitee_id, now=None, db_path=None):
@@ -96,13 +107,7 @@ def check_qualification(invitee_id, now=None, db_path=None):
             
             wallet.credit(conn, referrer_id, economy_config.REFERRAL_INVITER_CHIPS)
             
-            gems_reward = economy_config.REFERRAL_INVITER_GEMS
-            if gems_reward > 0:
-                left = max(0, economy_config.FREE_GEMS_MONTHLY_CAP - _free_gems_used(conn, referrer_id, now))
-                if gems_reward > left:
-                    gems_reward = left
-                if gems_reward > 0:
-                    wallet.gems_credit(conn, referrer_id, gems_reward, "referral_reward", f"invitee-{ref_rowid}", now)
+            grant_referral_gems(conn, referrer_id, economy_config.REFERRAL_INVITER_GEMS, "referral_reward", f"invitee-{ref_rowid}", now)
             
             conn.execute("COMMIT")
         except Exception:

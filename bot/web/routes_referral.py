@@ -30,12 +30,13 @@ def register(app, ctx):
         conn = _connect(db_path)
         try:
             row = conn.execute(
-                "SELECT COUNT(*) as invited, SUM(qualified_at IS NOT NULL) as qualified "
+                "SELECT COUNT(*) as invited, SUM(qualified_at IS NOT NULL) as qualified, COALESCE(SUM(commission_paid), 0) as commission "
                 "FROM referrals WHERE referrer_id = ?",
                 (user_id,)
             ).fetchone()
             invited = row["invited"] if row else 0
             qualified = row["qualified"] if row and row["qualified"] is not None else 0
+            commission = row["commission"] if row else 0
         finally:
             conn.close()
 
@@ -45,7 +46,14 @@ def register(app, ctx):
             "inviter_gems": economy_config.REFERRAL_INVITER_GEMS,
             "qualify_hours": economy_config.REFERRAL_QUALIFY_HOURS,
             "qualify_level": economy_config.REFERRAL_QUALIFY_LEVEL,
-            "qualify_rounds": economy_config.REFERRAL_QUALIFY_ROUNDS
+            "qualify_rounds": economy_config.REFERRAL_QUALIFY_ROUNDS,
+            "commission_pct": economy_config.REFERRAL_COMMISSION_PCT,
+            "commission_days": economy_config.REFERRAL_COMMISSION_DAYS,
+            "commission_cap": economy_config.REFERRAL_COMMISSION_CAP,
+            "founder_chips": economy_config.FOUNDER_CHIPS,
+            "founder_gems": economy_config.FOUNDER_GEMS,
+            "founder_players": economy_config.FOUNDER_ACTIVE_PLAYERS,
+            "founder_level": economy_config.FOUNDER_PLAYER_LEVEL
         }
 
-        return {"link": link, "invited": invited, "qualified": qualified, "rules": rules}
+        return {"link": link, "invited": invited, "qualified": qualified, "commission_earned": commission, "rules": rules}

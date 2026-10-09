@@ -130,6 +130,26 @@ def _migrate_minute_accrual(conn, now=None):
         raise
 
 
+def _migrate_referral_commission(conn):
+    """Добавляет в referrals поля процента пригласившему от выигрыша казино (идемпотентно): house_net (чистый проигрыш приглашённого нарастающим итогом после квалификации,
+    может быть отрицательным), house_peak (его максимум, не меньше 0), commission_paid (уже выплачено пригласившему)."""
+    def columns():
+        return {r["name"] for r in conn.execute("PRAGMA table_info(referrals)")}
+
+    if "commission_paid" in columns():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        have = columns()
+        for name in ("house_net", "house_peak", "commission_paid"):
+            if name not in have:
+                conn.execute("ALTER TABLE referrals ADD COLUMN %s INTEGER NOT NULL DEFAULT 0" % name)
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
 def _migrate_last_played_at(conn):
     """Добавляет players.last_played_at в старую базу (идемпотентно)."""
     def columns():
