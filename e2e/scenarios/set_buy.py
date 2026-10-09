@@ -37,7 +37,7 @@ async def run(w):
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.wait("!document.getElementById('wd-set-box').hidden", 5, "блок набора виден")
     check("блок набора «Черновик»: цена набора и сумма частей из каталога", await p.ev("(%s)(document.getElementById('wd-set-desc').textContent)" % NBSP),
-          "Весь набор «Черновик»: 200 💎 (вместо 400 💎 за все части)")
+          "Весь набор «Черновик»: 200 💎 (вместо 800 💎 за все части)")
     check("кнопка набора до подтверждения", await p.ev("document.getElementById('wd-set-act').textContent"), "Купить набор")
     base = await p.ev("E.count('/api/cosmetics/buy-set')")
     await p.tap("#wd-set-act")
@@ -47,9 +47,9 @@ async def run(w):
     await p.tap("#wd-set-act")
     await p.wait("document.getElementById('wd-prev-msg').textContent === 'Набор «Черновик» куплен'", 10, "набор куплен")
     check("ушёл ровно один запрос покупки набора", await p.ev("E.count('/api/cosmetics/buy-set')") - base, 1)
-    check("кристаллов стало 800, в базе все четыре части набора", [
+    check("кристаллов стало 800, в базе все восемь частей набора", [
         w.sql_value("SELECT gems FROM gem_balances WHERE telegram_id = ?", (uid,)),
-        w.sql_value("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ? AND item_code LIKE 'draft_%'", (uid,))], [800, 4])
+        w.sql_value("SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ? AND item_code LIKE 'draft_%'", (uid,))], [800, 8])
     check("после покупки блока набора нет", await p.ev("document.getElementById('wd-set-box').hidden"), True)
     check("в шапке магазина баланс кристаллов обновился", await p.ev("document.getElementById('shop-gems').textContent.replace(/\\s/g, '')"), "800")
     await p.tap("#wd-prev-close")
