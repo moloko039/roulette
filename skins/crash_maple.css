@@ -1,1 +1,54 @@
-/* Сцена скина краша «Клён» (коллекция «Листопад»): заготовка, заполняется задачей пула */
+/* Сцена скина краша «Клён» (коллекция «Листопад», DESIGN.md раздел 7). Загружается при надевании скина и снимается вместе со сценой. Только transform и opacity. */
+.cr-chart[data-scene="crash_maple"] .cr-smoke { display: block; stroke: rgba(201, 194, 181, 0.28); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+.cr-chart[data-scene="crash_maple"][data-tone="idle"] .cr-curve { stroke: #E3A33B; stroke-width: 2.5; }
+
+/* множитель и подпись остаются читаемыми на любой зоне: тёмная полупрозрачная подложка под цифрами */
+.cr-chart[data-scene="crash_maple"] .cr-mult,
+.cr-chart[data-scene="crash_maple"] .cr-label { background: rgba(26, 18, 14, 0.88); border-radius: 12px; padding: 2px 12px; }
+.cr-chart[data-scene="crash_maple"] .cr-label { color: #F5EAD8; }
+.cr-chart[data-scene="crash_maple"][data-tone="crash"] .cr-mult { color: #FF859F; }
+.cr-chart[data-scene="crash_maple"][data-tone="crash"] .cr-label,
+.cr-chart[data-scene="crash_maple"][data-tone="win"] .cr-label { color: #F5EAD8; }
+
+.scm-defs { position: absolute; width: 0; height: 0; }
+.scm-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scm-wind-trail { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; pointer-events: none; }
+.scm-w1 { fill: none; stroke: rgba(201, 194, 181, 0.35); stroke-width: 1.2; stroke-dasharray: 6 4; transform: translate(-1.5px, 1.5px); vector-effect: non-scaling-stroke; }
+.scm-w2 { fill: none; stroke: rgba(227, 163, 59, 0.3); stroke-width: 0.9; stroke-dasharray: 10 6; transform: translate(1.5px, -1.5px); vector-effect: non-scaling-stroke; }
+
+.scm-zone { opacity: 0; transition: opacity 0.52s ease; }
+.scm-zone.in { opacity: 1; }
+.scm-zone.out { opacity: 0; }
+
+.scm-r { position: absolute; left: 0; top: 0; width: 56px; height: 56px; transform-origin: 28px 28px; }
+.scm-r.flying { will-change: transform; }
+.scm-r.gone { opacity: 0; }
+.scm-r.broken .scm-leaf { transform: rotate(82deg) translate(0, 8px); transform-origin: 50% 50%; }
+
+.scm-flutter { position: absolute; left: 8px; top: 8px; width: 40px; height: 40px; transform-origin: 20px 20px; animation: scm-flutter 0.32s ease-in-out infinite alternate; }
+.scm-r:not(.flying) .scm-flutter { animation: none; }
+.scm-leaf { display: block; }
+
+.scm-glove { position: absolute; left: 4px; top: 12px; width: 48px; height: 44px; display: block; opacity: 0; transform: translateY(24px) scale(0.5); transform-origin: 50% 100%; transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.2s; }
+.scm-r.caught .scm-glove { opacity: 1; transform: translateY(0) scale(1); }
+
+.scm-fx { position: absolute; inset: 0; }
+.scm-p { position: absolute; display: none; }
+.scm-p.on { display: block; }
+
+.scm-rustle { animation: scm-sway 4s ease-in-out infinite alternate; transform-origin: 150px 0; }
+.scm-cranes { animation: scm-glide 12s ease-in-out infinite alternate; }
+.scm-drift { animation: scm-drift 16s ease-in-out infinite alternate; }
+.scm-drop { animation: scm-fall 1.2s linear infinite; }
+.scm-drop.d1 { animation-delay: 0s; }
+.scm-drop.d2 { animation-delay: 0.4s; }
+.scm-drop.d3 { animation-delay: 0.8s; }
+.scm-drop.d4 { animation-delay: 0.2s; }
+.scm-drop.d5 { animation-delay: 0.6s; }
+.scm-drop.d6 { animation-delay: 0.95s; }
+
+@keyframes scm-flutter { from { transform: rotate(-8deg) scale(0.96); } to { transform: rotate(8deg) scale(1.04); } }
+@keyframes scm-sway { from { transform: rotate(-1.5deg); } to { transform: rotate(1.5deg); } }
+@keyframes scm-glide { from { transform: translateX(-24px) translateY(4px); } to { transform: translateX(36px) translateY(-4px); } }
+@keyframes scm-drift { from { transform: translateX(10px); } to { transform: translateX(-30px); } }
+@keyframes scm-fall { 0% { transform: translateY(-16px); opacity: 0; } 25% { opacity: 0.65; } 75% { opacity: 0.65; } 100% { transform: translateY(28px); opacity: 0; } }
