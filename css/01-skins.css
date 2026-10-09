@@ -819,3 +819,57 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   z-index: 1;
 }
 [data-skin-badge="badge_dacha"] { --badge-color: #7FB872; }
+
+/* ========================================================================== */
+/* Листопад (DESIGN.md раздел 7): палитры новых частей; сцены и рисунок делает задача пула */
+/* ========================================================================== */
+[data-skin-chip="chip_leaf"] {
+  --chip-bg: #5A3412;
+  --chip-text: #FFF4E0;
+  --chip-ring: #E3A33B;
+  --chip-ring-10: #F28A55;
+  --chip-ring-50: #E3A33B;
+  --chip-ring-100: #F0C862;
+  --chip-ring-500: #FFE8B0;
+  --chip-inner: inset 0 0 0 2px rgba(227, 163, 59, 0.5);
+}
+[data-skin-keno_ball="keno_apple"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #8E2A22;
+  --keno-border: #D9541E;
+  --keno-text: #FFF4E0;
+  --keno-active-bg: #A8362B;
+  --keno-sel-text: #2A1A08;
+  --keno-sel-bg: #E3A33B;
+  --keno-sel-border: #F0C862;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4E0;
+  --keno-drawn-ring: 0 0 0 2px #F0C862;
+  --keno-hit-text: #1F2A10;
+  --keno-hit-bg: #9CC84A;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-crash="crash_maple"] {
+  --cr-bg: #2A1A12;
+  --cr-border: rgba(217, 84, 30, 0.45);
+  --cr-axis: rgba(227, 163, 59, 0.3);
+  --cr-line: #E3A33B;
+  --cr-line-glow: none;
+  --cr-win: #A5D86B;
+  --cr-win-soft: rgba(165, 216, 107, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #CF1F58;
+  --cr-crash-soft: rgba(207, 31, 88, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #C9B79C;
+  --cr-history-text: #C9B79C;
+  --cr-history-border: rgba(217, 84, 30, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-avatar_frame="frame_wreath"] { --avatar-frame: 0 0 0 2px #D9541E, 0 0 0 4px #08080a, 0 0 0 6px #E3A33B; }
+[data-skin-badge="badge_pumpkin"] { --badge-color: #E8812E; }

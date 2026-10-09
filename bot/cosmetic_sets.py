@@ -10,7 +10,7 @@ import economy_config
 COLLECTIONS = {
     "leaves": {
         "name": "Листопад",
-        "parts": ("back_leaves", "table_autumn", "mine_acorn"),
+        "parts": ("back_leaves", "table_autumn", "mine_acorn", "chip_leaf", "keno_apple", "crash_maple", "frame_wreath", "badge_pumpkin"),
         "source": "streak",
         "season": ("2026-10-01", "2026-10-31"),          # московские даты включительно
         "how": "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре",

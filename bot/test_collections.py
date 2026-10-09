@@ -12,7 +12,8 @@ from features import gifts_db
 
 A, B = 424242422, 424242423
 MSK = economy_config.STREAK_UTC_OFFSET_HOURS * 3600
-LEAVES = ("back_leaves", "table_autumn", "mine_acorn")
+LEAVES = cosmetic_sets.COLLECTIONS["leaves"]["parts"]      # все части «Листопада» (8: старые три и пять новых по DESIGN.md)
+N = len(LEAVES)
 
 _ENV_KEYS = ("DB_PATH", "TOMBSTONE_SECRET", "MEMBER_REF_SECRET", "OWNER_CHAT_ID")
 _saved_env = {k: os.environ.pop(k, None) for k in _ENV_KEYS}
@@ -72,12 +73,12 @@ try:
     check("коллекция «Листопад»: три части, источник серия входов, сезон октябрь 2026", (cosmetic_sets.COLLECTIONS["leaves"]["parts"], cosmetic_sets.COLLECTIONS["leaves"]["source"], cosmetic_sets.COLLECTIONS["leaves"]["season"]),
           (LEAVES, "streak", ("2026-10-01", "2026-10-31")))
     check("все части есть в каталоге, в своих слотах, без цены, доступны, не стартовые", [(cosmetics.item(c)["slot"], cosmetics.item(c)["price"], cosmetics.item(c)["available"], cosmetics.item(c)["starter"]) for c in LEAVES],
-          [("card_back", None, True, False), ("table", None, True, False), ("mine_icons", None, True, False)])
-    check("части не продаются ни за что: нет в ценах, нет в старых ценах Stars", [c in cosmetics.PRICES or c in cosmetics.LEGACY_STARS_PRICES for c in LEAVES], [False, False, False])
-    check("коллекция по коду части", [cosmetic_sets.collection_of(c) for c in LEAVES + ("table_blue", "nope")], ["leaves", "leaves", "leaves", None, None])
+          [(slot, None, True, False) for slot in ("card_back", "table", "mine_icons", "chip", "keno_ball", "crash", "avatar_frame", "badge")])
+    check("части не продаются ни за что: нет в ценах, нет в старых ценах Stars", [c in cosmetics.PRICES or c in cosmetics.LEGACY_STARS_PRICES for c in LEAVES], [False] * N)
+    check("коллекция по коду части", [cosmetic_sets.collection_of(c) for c in LEAVES + ("table_blue", "nope")], ["leaves"] * N + [None, None])
     check("сезон: 30 сентября нет, 1 октября да, 31 октября да, 1 ноября нет", [cosmetic_sets.season_active("leaves", cosmetic_sets._day(d)) for d in ("2026-09-30", "2026-10-01", "2026-10-31", "2026-11-01")], [False, True, True, False])
     check("прогресс: ничего, одна часть, все", [(p["owned"], p["total"], p["complete"]) for p in (cosmetic_sets.progress([])[0:1] + [x for x in cosmetic_sets.progress(["back_leaves"]) if x["code"] == "leaves"] + [x for x in cosmetic_sets.progress(list(LEAVES)) if x["code"] == "leaves"])],
-          [(0, 3, False), (1, 3, False), (3, 3, True)])
+          [(0, N, False), (1, N, False), (N, N, True)])
     day = cosmetic_sets._day("2026-10-10")
     check("часть выдаётся на 3, 5 и 7 день серии, по порядку недостающих", [cosmetic_sets.streak_part_to_grant(o, d, day) for o, d in (([], 3), (["back_leaves"], 5), (["back_leaves", "table_autumn"], 7), (list(LEAVES), 7), ([], 1), ([], 2), ([], 4), ([], 6))],
           [("leaves", "back_leaves"), ("leaves", "table_autumn"), ("leaves", "mine_acorn"), None, None, None, None, None])
@@ -94,7 +95,7 @@ try:
     owned = sql(path, "SELECT item_code, source FROM cosmetic_items WHERE telegram_id = ? ORDER BY item_code", (A,))
     check("предметы у игрока с источником collection", owned, [("back_leaves", "collection"), ("mine_acorn", "collection"), ("table_autumn", "collection")])
     mine = db.cosmetics_mine(A, db_path=path)
-    check("в /mine прогресс: собрана", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, 3, True), ("dacha", 0, 8, False)])
+    check("в /mine прогресс: за неделю три части из всех", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, N, False), ("dacha", 0, 8, False)])
     r = db.claim_streak(A, now=moscow_noon(6) + 60, db_path=path)
     check("повтор сбора в тот же день: части заново нет", (r["replayed"], r["collection_part"]), (True, None))
     # описание части в ответе
