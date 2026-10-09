@@ -34,6 +34,7 @@ SCARY_RAW = {
     "--mines-safe-glow": "#fb0001", "--mines-hit-ring": "#fa0001",
     "--keno-sel-glow": "0 0 7px #f90001", "--keno-drawn-ring": "0 0 0 3px #f80001", "--keno-hit-glow": "0 0 8px #f70001", "--keno-miss-glow": "0 0 5px #f60001",
     "--cr-win-soft": "#f50001", "--cr-crash-soft": "#f40001",
+    "--cr-flip": "scaleY(-1)",
 }
 # необязательные хуки (на :root не объявлены, по умолчанию прежний вид): скин задаёт их целиком
 HOOKS = {

@@ -50,7 +50,7 @@ async def run(w):
         "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent.replace(/\\s/g, ' '), c.classList.contains('dim')])"),
         [["Сукно", "Надето", False], ["Лагуна", "150 кристаллов", True], ["Сумерки", "Скоро", True], ["Октябрь", "Коллекция", True], ["Черновик", "100 кристаллов", True], ["Пустота", "150 кристаллов", True], ["Клеёнка", "Коллекция", True], ["Дно", "150 кристаллов", True]])
     check("в сетке карточек нет кнопок покупки (покупка только в листе предпросмотра)", await p.ev("/Купить/.test(document.getElementById('wd-grid').textContent)"), False)
-    check("мини-превью несут скин на самом элементе", await p.ev("[...document.querySelectorAll('#wd-grid .wd-mini')].map(m => m.getAttribute('data-skin-table'))"), ["table_green", "table_blue", "table_violet", "table_autumn", "draft_table", "void_table", "table_oilcloth"])
+    check("мини-превью несут скин на самом элементе", await p.ev("[...document.querySelectorAll('#wd-grid .wd-mini')].map(m => m.getAttribute('data-skin-table'))"), ["table_green", "table_blue", "table_violet", "table_autumn", "draft_table", "void_table", "table_oilcloth", "table_deep"])
     # предпросмотр: не получено / скоро — без кнопки «Надеть»
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
