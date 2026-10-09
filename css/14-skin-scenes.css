@@ -1,0 +1,10 @@
+/* ---------- сцены скинов: общие правила (DESIGN.md, раздел 1): слой за графиком, пауза, облегчённый режим, reduced-motion ---------- */
+.skin-scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: inherit; }
+/* пока приложение не видно, анимации стоят; в облегчённом режиме и при reduced-motion движений покоя нет вовсе (события сцена заменяет сменой кадра) */
+html.skin-paused .skin-scene, html.skin-paused .skin-scene * { animation-play-state: paused !important; }
+html.perf-lite .skin-scene, html.perf-lite .skin-scene * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .skin-scene, .skin-scene * { animation: none !important; transition: none !important; }
+}
+/* дымный след графика краша: виден только там, где скин его включает */
+.cr-smoke { display: none; fill: none; vector-effect: non-scaling-stroke; }

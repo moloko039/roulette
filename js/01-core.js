@@ -348,6 +348,7 @@ function applySkins(equipped, patina) {
   minesIcons = icons;
   if (root.getAttribute('data-skin-table') !== before) drawWheel();       // колесо рисуется в canvas: перерисовка при смене стола
   if (setsChanged) { renderMines(); renderBj(); renderHl(); }               // наборы SVG вставляются при отрисовке
+  SKIN_SLOTS.forEach(skinSync);                                              // сцены скинов (js/01a-skin-runtime.js): смонтировать, заменить или убрать
 }
 
 // #endregion ЯДРО

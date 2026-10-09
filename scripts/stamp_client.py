@@ -8,14 +8,15 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css)/[^"?]+))(?:\?v=[0-9a-f]+)?(")')
+TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css)/[^"?]+))(?:\?v=[0-9a-f]+)?(")|(<meta name="skin-(?:js|css)" data-code="[a-z0-9_]+" content="(skins/[^"?]+))(?:\?v=[0-9a-f]+)?(")')
 
 
 def stamp(html):
     def one(m):
-        with open(os.path.join(ROOT, m.group(2)), "rb") as f:
+        head, path, tail = (m.group(1), m.group(2), m.group(3)) if m.group(1) else (m.group(4), m.group(5), m.group(6))     # js/css или модуль скина (skins/)
+        with open(os.path.join(ROOT, path), "rb") as f:
             digest = hashlib.sha256(f.read()).hexdigest()[:8]
-        return "%s?v=%s%s" % (m.group(1), digest, m.group(3))
+        return "%s?v=%s%s" % (head, digest, tail)
     return TAG.sub(one, html)
 
 

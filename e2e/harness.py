@@ -99,7 +99,7 @@ window.fetch = async (u, o) => {
 def build_client(dst, api_url):
     """Копия клиента с подставленным адресом API и заглушкой Telegram; файлы репозитория не меняются."""
     shutil.copy(os.path.join(CLIENT_ROOT, "index.html"), dst)
-    for folder in ("fonts", "js", "css"):
+    for folder in ("fonts", "js", "css", "skins"):
         shutil.copytree(os.path.join(CLIENT_ROOT, folder), os.path.join(dst, folder), dirs_exist_ok=True)
     config = os.path.join(dst, "js", "00-config.js")
     js = open(config, encoding="utf-8").read()
