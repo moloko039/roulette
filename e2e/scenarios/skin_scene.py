@@ -37,6 +37,10 @@ async def run(w):
     await p.wait(READY, 10, "панель ставки")
     await p.wait("!!document.querySelector('.scb-r')", 10, "сцена смонтирована")
     check("сцена одна, css скина подключён, у графика метка сцены", [await p.ev(SCENE), await p.ev(LINK), await p.ev("document.getElementById('cr-chart').dataset.scene")], [1, 1, "crash_barrel"])
+    await p.wait("!document.getElementById('cr-chart').hidden", 10, "график виден")
+    off = await p.ev("(() => { const c = document.getElementById('cr-chart').getBoundingClientRect(); const r = document.querySelector('.scb-rocket').getBoundingClientRect(); "
+                     "return [r.left + r.width / 2 - (c.left + 8), r.top + r.height / 2 - (c.top + 8 + 149 / 150 * (c.height - 16))]; })()")
+    check("бочка в начале стоит на начале линии (сцена монтируется при скрытом графике, размер берётся по факту)", [abs(off[0]) < 4, abs(off[1]) < 4], [True, True])
     check("вес сцены: узлов в DOM немного", await p.ev("document.querySelector('.skin-scene').querySelectorAll('*').length") < 260, True)
 
     # --- раунд 1 (точка ×4.00): зоны по множителю, пауза, вывод (парашют), краш (обломки)

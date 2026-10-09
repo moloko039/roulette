@@ -158,11 +158,17 @@
     }
 
     // размеры графика (внутренний отступ 8 px, как у .cr-svg)
+    // Сцена монтируется, пока график ещё скрыт (размер 0), поэтому размер отслеживается: ResizeObserver (иначе при смене фазы), после смены ракета ставится заново по последнему узлу
     let W = 300, H = 190;
-    const measure = () => { const r = rt.host.getBoundingClientRect(); if (r.width > 0) { W = r.width; H = r.height; } };
-    measure();
+    const tipNow = { x: 0, y: 149, px: 0, py: 149 };
+    const measure = () => {
+      const r = rt.host.getBoundingClientRect();
+      if (r.width > 0 && (r.width !== W || r.height !== H)) { W = r.width; H = r.height; place(tipNow.x, tipNow.y, tipNow.px, tipNow.py); }
+    };
     const onResize = () => measure();
     window.addEventListener('resize', onResize);
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(onResize) : null;
+    if (ro) ro.observe(rt.host);
 
     // зоны
     let zone = -1;
@@ -195,6 +201,7 @@
     let broken = false;
 
     function place(x, y, px, py) {
+      tipNow.x = x; tipNow.y = y; tipNow.px = px; tipNow.py = py;
       const left = 8 + (x / 300) * (W - 16);
       const top = 8 + (y / 150) * (H - 16);
       const dx = ((x - px) / 300) * (W - 16);
@@ -215,6 +222,7 @@
     reset();
 
     rt.on('crash:phase', (d) => {
+      measure();
       if (d.phase === 'betting') { reset(); return; }
       if (d.phase === 'flight') {
         broken = false;
@@ -287,6 +295,7 @@
     return {
       destroy() {
         window.removeEventListener('resize', onResize);
+        if (ro) ro.disconnect();
         timers.forEach(clearTimeout);
         timers.clear();
         pool.forEach((p) => { if (p.anim) p.anim.cancel(); });
