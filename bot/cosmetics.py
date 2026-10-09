@@ -13,7 +13,7 @@ SLOT_NAMES = {
 PUBLIC_SLOTS = ("avatar_frame", "badge")      # видны другим участникам беседы, только если игрок их надел и не скрыл
 RARITIES = ("starter", "common", "rare", "premium")    # редкость только визуальная
 PURCHASE_RETENTION_DAYS = 365   # журнал оплат Stars хранится столько дней после покупки (споры и возвраты), даже после удаления данных игрока
-SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift", "collection", "achievement")
+SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift", "collection", "achievement", "referral")
 
 
 class CosmeticsError(Exception):
@@ -140,6 +140,9 @@ _ROWS = (
     ("mine_beetle", "mine_icons", "Жуки", "Колорадские жуки на грядке", "common", True),
     ("keno_lotto", "keno_ball", "Бочонки", "Бочонки деревенского лото", "common", True),
     ("crash_barrel", "crash", "Бочка", "Самодельная ракета из бочки", "common", True),
+    ("ref_scout", "badge", "Гонец", "Награда за 3 друзей, дошедших до квалификации", "rare", True),
+    ("ref_beacon", "avatar_frame", "Маяк", "Награда за 10 друзей, дошедших до квалификации", "rare", True),
+    ("ref_comet", "crash", "Комета", "Награда за 30 друзей, дошедших до квалификации", "rare", True),
     ("chip_patina", "chip", "Патина", "Засечки на ребре за каждый краш выше ×50", "common", True),
     ("back_patina", "card_back", "Патина", "Выцветает и протирается по числу сыгранных раундов", "common", True),
     ("mine_patina", "mine_icons", "Патина", "Трещины на поле от прошлых взрывов", "common", True),

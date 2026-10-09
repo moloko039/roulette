@@ -114,7 +114,7 @@ SLOT_ROUND = {"base": SLOT_SPIN, "freeSpins": [SLOT_SPIN], "freeSpinsLeftAfter":
 SLOT = {"coin": int, "bought": bool, "cost": int, "payout": int, "round": SLOT_ROUND, "balance": int, "level": int, "xp": int, "replayed": bool}
 REFERRAL_RULES = {"invitee_chips": int, "inviter_chips": int, "inviter_gems": int, "qualify_hours": int, "qualify_level": int, "qualify_rounds": int,
                   "commission_pct": int, "commission_days": int, "commission_cap": int, "founder_chips": int, "founder_gems": int, "founder_players": int, "founder_level": int}
-REFERRAL = {"link": OPT(str), "invited": int, "qualified": int, "commission_earned": int, "rules": REFERRAL_RULES}
+REFERRAL = {"link": OPT(str), "invited": int, "qualified": int, "commission_earned": int, "milestones": [{"count": int, "item": str, "reached": bool}], "rules": REFERRAL_RULES}
 CRASH_LIVE_ROUND_RESULT = {"crash_x100": int, "seed": str}
 CRASH_LIVE_ROUND = {"id": int, "phase": str, "seed_hash": str, "bet_open_ms": int, "flight_start_ms": int, "m100": OPT(int), "result": OPT(CRASH_LIVE_ROUND_RESULT), "next_open_ms": OPT(int)}
 CRASH_LIVE_BET_ITEM = {"name": str, "bet": int, "status": str, "cashed_x100": OPT(int), "payout": OPT(int)}

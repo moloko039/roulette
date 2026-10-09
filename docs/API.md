@@ -497,6 +497,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 | invited | int | сколько всего игроков привязаны по вашей ссылке |
 | qualified | int | сколько из них прошли квалификацию (играют >= 24 часов, уровень >= 3, сыграно >= 10 раундов) |
 | commission_earned | int | сколько фишек пригласивший уже получил процентом от приглашённых (за всё время) |
+| milestones | list | вехи наград-предметов: `[{"count": 3, "item": "ref_scout", "reached": bool}, ...]` (3 / 10 / 30 квалифицированных; предмет выдаётся сам при квалификации) |
 | rules | dict | параметры экономики для отображения: `invitee_chips`, `inviter_chips`, `inviter_gems`, `qualify_hours`, `qualify_level`, `qualify_rounds`, `commission_pct`, `commission_days`, `commission_cap`, `founder_chips`, `founder_gems`, `founder_players`, `founder_level` |
 
 ## Выгрузка данных (/mydata)

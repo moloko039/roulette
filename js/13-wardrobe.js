@@ -11,8 +11,8 @@ const WD_SLOTS = [
 const SKIN_CODES = {
   card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina'],
   table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina'],
-  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge']
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
@@ -22,6 +22,7 @@ const BADGE_SVG = {
   badge_spade: BJ_SUIT_SETS.default.S,
   badge_flame: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 5 6 5 11a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-10z"/></svg>',
   draft_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 12l2.5 2.5L16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  ref_scout: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>',
   void_badge: '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
 };
 const CR_SAMPLE_SVG = '<svg class="cr-svg" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path class="cr-axis" d="M0 149H300M1 0V150"/><path class="cr-curve" d="M0 149L60 140L120 118L180 80L240 30L300 2"/></svg>';

@@ -10,6 +10,7 @@ from unittest import mock
 
 import crash_testutil as ct
 import db
+import cosmetics
 import economy_config
 import levels
 import wallet
@@ -222,6 +223,40 @@ try:
     db.init_db(legacy)
     db.init_db(legacy)
     check("миграция добавила поля, строки целы", sql(legacy, "SELECT invitee_id, qualified_at, house_net, house_peak, commission_paid FROM referrals"), [(1, 4, 0, 0, 0)])
+
+    # ================= вехи 3 / 10 / 30 квалифицированных приглашённых: косметика один раз, без денег =================
+    path = new_db()
+    add_player(path, I, balance=0)
+    lvl3 = levels.threshold(economy_config.REFERRAL_QUALIFY_LEVEL)
+
+    def qualify(n):
+        uid = 930000 + n
+        add_player(path, uid, xp=lvl3)
+        sql(path, "INSERT INTO referrals (invitee_id, referrer_id, created_at) VALUES (?, ?, ?)", (uid, I, NOW - 50 * DAY))
+        for k in range(economy_config.REFERRAL_QUALIFY_ROUNDS):
+            sql(path, "INSERT INTO roulette_rounds (telegram_id, request_id, number, stake_total, payout_total, bets_json, created_at) VALUES (?, ?, 0, 1, 0, '[]', ?)", (uid, "q%d-%d" % (n, k), NOW - DAY))
+        db.check_qualification(uid, now=NOW, db_path=path)
+
+    def owned():
+        return sorted(r[0] for r in sql(path, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (I,)))
+
+    for n in range(1, 3):
+        qualify(n)
+    check("2 приглашённых: наград нет", owned(), [])
+    qualify(3)
+    check("3-й: значок «Гонец»", owned(), ["ref_scout"])
+    for n in range(4, 10):
+        qualify(n)
+    check("9: тот же набор", owned(), ["ref_scout"])
+    qualify(10)
+    check("10-й: рамка «Маяк»", owned(), ["ref_beacon", "ref_scout"])
+    for n in range(11, 30):
+        qualify(n)
+    qualify(30)
+    check("30-й: скин краша «Комета»", owned(), ["ref_beacon", "ref_comet", "ref_scout"])
+    check("предметы с источником referral и без цены", sorted(sql(path, "SELECT source, payment_ref FROM cosmetic_items WHERE telegram_id = ?", (I,))), [("referral", "milestone-10"), ("referral", "milestone-3"), ("referral", "milestone-30")])
+    check("вехи не требуют цены в каталоге", [cosmetics.item(c)["price"] for c in ("ref_scout", "ref_beacon", "ref_comet")], [None, None, None])
+    check("слоты вех: значок, рамка, скин краша", [cosmetics.item(c)["slot"] for c in ("ref_scout", "ref_beacon", "ref_comet")], ["badge", "avatar_frame", "crash"])
 
     # ================= сводка числами =================
     check("числа решения владельца", (economy_config.REFERRAL_INVITER_CHIPS, economy_config.REFERRAL_INVITER_GEMS, economy_config.REFERRAL_COMMISSION_PCT, economy_config.REFERRAL_COMMISSION_DAYS,

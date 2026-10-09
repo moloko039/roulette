@@ -8,6 +8,7 @@ import wallet
 import economy_config
 import levels
 from features.round_counts import ROUND_COUNT_SQL
+from features.cosmetics_db import _grant_in
 from features.streak_db import _free_gems_used, _gems_used
 
 _CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -108,6 +109,10 @@ def check_qualification(invitee_id, now=None, db_path=None):
             wallet.credit(conn, referrer_id, economy_config.REFERRAL_INVITER_CHIPS)
             
             grant_referral_gems(conn, referrer_id, economy_config.REFERRAL_INVITER_GEMS, "referral_reward", f"invitee-{ref_rowid}", now)
+            qualified_total = conn.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND qualified_at IS NOT NULL", (referrer_id,)).fetchone()[0]
+            for need, code in economy_config.REFERRAL_MILESTONES:      # вехи: косметика без денежной ценности, выдаётся один раз (повтор не создаёт дубль)
+                if qualified_total >= need:
+                    _grant_in(conn, referrer_id, code, "referral", "milestone-%d" % need, now)
             
             conn.execute("COMMIT")
         except Exception:
