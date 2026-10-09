@@ -124,6 +124,8 @@ function bjFillCards(box, cards, newFrom) {
   });
 }
 
+skinSetHost('card_back', () => document.getElementById(currentGame === 'hilo' ? 'hl-table' : 'bj-table'));      // контейнер сцены рубашки: стол блэкджека или хило
+
 let bjDrawn = { player: 0, dealer: 0 };   // сколько карт уже было нарисовано (новые получают анимацию)
 
 function bjTotalText(hand, finished) {
@@ -139,7 +141,9 @@ function renderBjTable() {
   if (!show) return;
   bjFillCards(bjEls.playerCards, bj.shown.player, bjDrawn.player);
   bjFillCards(bjEls.dealerCards, bj.shown.dealer, bjDrawn.dealer);
+  const dealt = bj.shown.player.length + bj.shown.dealer.length - bjDrawn.player - bjDrawn.dealer;
   bjDrawn = { player: bj.shown.player.length, dealer: bj.shown.dealer.length };
+  if (dealt > 0) skinEvents.emit('cards:deal', { game: 'blackjack', count: dealt });
   const g = bj.game;
   const settled = !bj.animating && g !== null;
   for (const [el, hand, who] of [[bjEls.playerTotal, g && g.player, 'p'], [bjEls.dealerTotal, g && g.dealer, 'd']]) {
@@ -383,6 +387,7 @@ function bjDeal() {
     return;
   }
   bj.animating = true;   // прошлый итог и очки на время запроса не показываются
+  skinEvents.emit('bet:placed', { game: 'blackjack' });
   bjAct('/api/blackjack/start', { bet }, 'start');
 }
 

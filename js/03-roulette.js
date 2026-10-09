@@ -378,6 +378,8 @@ function updateControls() {
 
 // Ставки пока только на столе: сервер о них не знает. Лимита на размер ставки нет,
 // проверка «не больше доступного» — удобство, настоящую делает сервер
+skinSetHost('table', () => document.getElementById('table'));
+
 function placeBet(type, value = null) {
   if (gameBusy() || !srv.loaded) return;
   const amount = Number(amountEl.value);
@@ -397,6 +399,7 @@ function placeBet(type, value = null) {
   setMessage('');
   renderBets();
   haptic('light');
+  skinEvents.emit('bet:placed', { game: 'roulette', type, value });      // скин фишки: фишка садится на клетку
   const stack = tableEl.querySelector(`.cell[data-key="${type}:${value}"] .stack`);
   if (stack) stack.classList.add('drop'); // фишка «садится» на клетку
 }

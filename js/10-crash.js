@@ -596,6 +596,7 @@ function crBet() {
   crAct('/api/crash/live/bet', body, validCrBetDone, (d) => {
     cr.balance = d.balance;
     skinEvents.emit('crash:bet', { roundId: d.round_id });
+    skinEvents.emit('bet:placed', { game: 'crash' });
     haptic('light');
   }, {
     betting_closed: 'Приём ставок закрыт: дождитесь следующего раунда',
