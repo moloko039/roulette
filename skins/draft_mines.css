@@ -1,1 +1,174 @@
-/* Скин «Черновик» (draft_mines): заготовка, заполняется задачей пула */
+/* Сцена скина мин «Черновик» (skins/draft_mines.css, коллекция «Черновик», DESIGN.md раздел 4).
+   Всё казино нарисовано синей шариковой ручкой на миллиметровке во время скучного совещания.
+   1. Палитра: бумага #F7F5EE, сетка #BFD8E8, поля #E8A0A0, ручка #1F3A93, карандаш #5A5A5A, маркер #F6EB61.
+   2. Материал: миллиметровка (сетка 4 px и 20 px) под полем, вертикальная линия полей.
+   3. Форма: клетки мин как квадратики в тетради для игры в «морской бой» (бумага с синей неровной рамкой клетки).
+   4. Декор: крестики от руки, цветочек-закорючка на клетках, неумелая бомба-каракуля с фитилём и надписью «БУМ!».
+   5. Покой: нет.
+   6. События: открытие (.safe) — появление крестика; взрыв (.mine.hit) — лучи-штрихи и закрашивание клетки каракулями;
+      забрать (data-view="result", status != lost) — крестики проводятся волной (--ci * 30ms).
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. До 15 КБ. */
+
+/* 1. Поле — тетрадный лист в клеточку / миллиметровка */
+#mines-board-wrap[data-scene="draft_mines"] {
+  position: relative;
+}
+
+#mines-board-wrap[data-scene="draft_mines"] .mines-grid {
+  position: relative;
+  box-sizing: border-box;
+  padding: 6px;
+  background-color: #F7F5EE;
+  background-image:
+    /* Вертикальная красная линия полей слева */
+    linear-gradient(90deg, transparent 8px, #E8A0A0 8px 9.5px, transparent 9.5px),
+    /* Крупная сетка 20 px */
+    repeating-linear-gradient(0deg, transparent 0 19px, rgba(191, 216, 232, 0.75) 19px 20px),
+    repeating-linear-gradient(90deg, transparent 0 19px, rgba(191, 216, 232, 0.75) 19px 20px),
+    /* Мелкая сетка 4 px */
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(191, 216, 232, 0.35) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(191, 216, 232, 0.35) 3px 4px);
+  border: 2px solid #1F3A93;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(31, 58, 147, 0.12);
+}
+
+/* 2. Клетка — квадратик тетради для «морского боя» с синей неровной рамкой от руки */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background-color: #F7F5EE;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M2.5 2.2 C12 1.7 28 2.6 37.5 2.1 C37.8 12 37.1 28 37.6 37.8 C28 37.4 12 38.3 2.2 37.6 C2.8 28 1.9 12 2.5 2.2 Z' fill='%23F7F5EE' stroke='%231F3A93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  box-shadow: inset 0 1px 2px rgba(31, 58, 147, 0.05);
+  transition: transform 0.12s ease-out;
+}
+
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Скрываем стандартные svg-значки игры и гасим filter drop-shadow */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell svg {
+  display: none;
+  filter: none;
+}
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.safe svg {
+  filter: none;
+}
+
+/* 3. Безопасная клетка (.safe): зачёркнута крестиком синей ручкой от руки */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.safe {
+  border-color: transparent;
+  background-color: #F7F5EE;
+  animation: draft-safe-reveal 0.25s ease-out;
+}
+
+@keyframes draft-safe-reveal {
+  0%   { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.safe::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: draft-cross-pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes draft-cross-pop {
+  0%   { transform: scale(0.3); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Обычный синий крестик от руки (нечётные) */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.safe:nth-child(2n+1)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36' fill='none'%3E%3Cpath d='M8 9 C15 15 22 21 28 27' stroke='%231F3A93' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M27 8 C21 15 14 21 8 28' stroke='%231F3A93' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Крестик с цветочком-закорючкой рядом (чётные) */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.safe:nth-child(2n)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36' fill='none'%3E%3Cpath d='M7 10 C14 16 20 22 26 28' stroke='%231F3A93' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M26 9 C20 16 13 22 7 29' stroke='%231F3A93' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M28 6 C27.5 4 29 3 30 4.5 C31.5 3.5 32.5 4.5 32 6 C33.5 6.5 33 8 31.5 8 C32 9.5 30.5 10 29.5 8.5 C28 9.5 27 8.5 28 7 Z' stroke='%231F3A93' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='30' cy='6.5' r='0.6' fill='%231F3A93'/%3E%3C/svg%3E");
+}
+
+/* 4. Мина (.mine): неумелая бомба-каракуля с фитилём и надписью «БУМ!» (SVG пути) */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.mine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M8 22 C7 16 11 11 17 11 C23 11 27 16 26 22 C26 28 22 32 17 32 C11 32 8 28 8 22 Z' fill='%231F3A93' stroke='%231F3A93' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M15 11 L19 11 L19 9 L15 9 Z' fill='%231F3A93'/%3E%3Cpath d='M17 9 C18 5 21 6 22 4' stroke='%235A5A5A' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M21 2 L23 4 M23 2 L21 4' stroke='%23F6EB61' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M11 16 C12 14 15 14 16 14' stroke='%23F7F5EE' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M24 12 h4.5 M24 12 v7.5 h3.5 c1 0 1.8 -0.8 1.8 -1.8 c0 -1 -0.8 -1.8 -1.8 -1.8 h-3.5' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M29 14 l2 3.5 l2 -3.5 M31 17.5 l-1.5 3.5' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M34 21 v-7 l2 4.5 l2 -4.5 v7' stroke='%231F3A93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M39 14 v4.5 M39 20.5 v0.6' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.mine.muted::before {
+  opacity: 0.55;
+}
+
+/* 5. Взрыв (.mine.hit): клетка закрашивается каракулями (штриховка), вокруг дорисовываются лучи-штрихи */
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.mine.hit {
+  border-color: #1F3A93;
+  background-color: #F7F5EE;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M2 5 L38 11 L4 18 L37 24 L3 30 L38 35 L8 38 M5 37 L36 4 M12 39 L39 12 M3 28 L28 3' stroke='%231F3A93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+}
+
+#mines-board-wrap[data-scene="draft_mines"] .mines-cell.mine.hit::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none'%3E%3Cpath d='M4 14 L1 11 M4 29 L1 32 M17 36 L17 39 M28 34 L32 37 M30 8 L35 5 M17 4 L17 1 M9 5 L6 2 M28 26 L34 29' stroke='%231F3A93' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M8 22 C7 16 11 11 17 11 C23 11 27 16 26 22 C26 28 22 32 17 32 C11 32 8 28 8 22 Z' fill='%231F3A93' stroke='%231F3A93' stroke-width='1.4' stroke-linejoin='round'/%3E%3Cpath d='M15 11 L19 11 L19 9 L15 9 Z' fill='%231F3A93'/%3E%3Cpath d='M17 9 C18 5 21 6 22 4' stroke='%235A5A5A' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M21 2 L23 4 M23 2 L21 4' stroke='%23F6EB61' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M24 12 h4.5 M24 12 v7.5 h3.5 c1 0 1.8 -0.8 1.8 -1.8 c0 -1 -0.8 -1.8 -1.8 -1.8 h-3.5' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M29 14 l2 3.5 l2 -3.5 M31 17.5 l-1.5 3.5' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M34 21 v-7 l2 4.5 l2 -4.5 v7' stroke='%231F3A93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M39 14 v4.5 M39 20.5 v0.6' stroke='%231F3A93' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  animation: draft-blast-pop 0.38s cubic-bezier(0.2, 0.8, 0.4, 1.2) forwards;
+  opacity: 1;
+}
+
+@keyframes draft-blast-pop {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Взрыв: поле вздрагивает */
+#mines-board-wrap[data-scene="draft_mines"][data-status="lost"] {
+  animation: draft-field-shake 0.35s ease-out;
+}
+
+@keyframes draft-field-shake {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-3px, 2px); }
+  50%  { transform: translate(3px, -2px); }
+  75%  { transform: translate(-2px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* 6. Выигрыш / Забрать: крестики быстро «проводятся» волной */
+#mines-board-wrap[data-scene="draft_mines"][data-view="result"]:not([data-status="lost"]):not([data-status=""]) .mines-cell.safe::before,
+#mines-board-wrap[data-scene="draft_mines"][data-view="result"][data-status="cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="draft_mines"][data-view="result"][data-status="auto_cashed"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="draft_mines"][data-view="result"][data-status="refunded"] .mines-cell.safe::before,
+#mines-board-wrap[data-scene="draft_mines"][data-view="result"][data-status="auto_refunded"] .mines-cell.safe::before {
+  animation: draft-cross-wave 0.45s ease-out;
+  animation-delay: calc(var(--ci, 0) * 30ms);
+}
+
+@keyframes draft-cross-wave {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-7px) scale(1.2); }
+  65%  { transform: translateY(2px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
