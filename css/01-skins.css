@@ -247,11 +247,50 @@
 /* frame_thin: тонкая двойная рамка (два кольца по 1 px с тёмным зазором), аватар того же размера */
 [data-skin-avatar_frame="frame_thin"] { --avatar-frame: 0 0 0 1px #cbd6e6, 0 0 0 3px #08080a, 0 0 0 4px #cbd6e6; }
 
-/* ref_beacon (награда за 10 приглашённых): золотое кольцо, тёмный зазор и тёплое свечение */
-[data-skin-avatar_frame="ref_beacon"] { --avatar-frame: 0 0 0 2px #f2c14e, 0 0 0 4px #08080a, 0 0 8px 5px rgba(242, 193, 78, 0.5); }
+/* ref_beacon («Колонна», награда основателю за 10 приглашённых): мраморные колонны с каннелюрами по бокам аватара */
+[data-skin-avatar_frame="ref_beacon"] {
+  --avatar-frame: 0 0 0 2px #C9A54A, 0 0 0 4px #2B2925, 0 0 0 6px #EDEAE4;
+}
+[data-skin-avatar_frame="ref_beacon"].avatar,
+[data-skin-avatar_frame="ref_beacon"] > .avatar {
+  position: relative;
+}
+[data-skin-avatar_frame="ref_beacon"].avatar::before,
+[data-skin-avatar_frame="ref_beacon"] > .avatar::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E%3Cdefs%3E%3ClinearGradient id='rb_g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23C9A54A'/%3E%3Cstop offset='100%25' stop-color='%23F2D98A'/%3E%3C/linearGradient%3E%3Cpattern id='rb_fl' width='2' height='10' patternUnits='userSpaceOnUse'%3E%3Crect width='1.2' height='10' fill='%23EDEAE4'/%3E%3Crect x='1.2' width='0.8' height='10' fill='%23B9B4AA'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='1' y='52' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Crect x='2' y='47' width='10' height='5' rx='0.6' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.7'/%3E%3Crect x='3' y='16' width='8' height='31' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Crect x='3.4' y='16.4' width='7.2' height='30.2' fill='url(%23rb_fl)'/%3E%3Cpath d='M5 17V46M7 17V46M9 17V46' stroke='%23B9B4AA' stroke-width='0.5' stroke-linecap='round' opacity='0.7'/%3E%3Cpath d='M3.5 24H10.5M3.5 38H10.5' stroke='%23C9A54A' stroke-width='0.4' opacity='0.5'/%3E%3Crect x='2' y='12' width='10' height='4' rx='0.6' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.7'/%3E%3Crect x='1' y='8' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Cpath d='M2 10H12' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Cpath d='M2 54H12' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Crect x='51' y='52' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Crect x='52' y='47' width='10' height='5' rx='0.6' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.7'/%3E%3Crect x='53' y='16' width='8' height='31' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Crect x='53.4' y='16.4' width='7.2' height='30.2' fill='url(%23rb_fl)'/%3E%3Cpath d='M55 17V46M57 17V46M59 17V46' stroke='%23B9B4AA' stroke-width='0.5' stroke-linecap='round' opacity='0.7'/%3E%3Cpath d='M53.5 24H60.5M53.5 38H60.5' stroke='%23C9A54A' stroke-width='0.4' opacity='0.5'/%3E%3Crect x='52' y='12' width='10' height='4' rx='0.6' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.7'/%3E%3Crect x='51' y='8' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23rb_g)' stroke-width='0.8'/%3E%3Cpath d='M52 10H62' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Cpath d='M52 54H62' stroke='%23C9A54A' stroke-width='0.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  z-index: 1;
+}
 
-/* ref_scout (награда за 3 приглашённых): значок-бумажный самолётик, тёплый песочный */
-[data-skin-badge="ref_scout"] { --badge-color: #f2c14e; }
+/* ref_scout («Камень», награда основателю за 3 приглашённых): мраморная плитка с золотым номером основателя */
+[data-skin-badge="ref_scout"] {
+  --badge-color: #C9A54A;
+  position: relative;
+}
+[data-skin-badge="ref_scout"][data-founder-no]::after {
+  content: "№" attr(data-founder-no);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 6.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.4px;
+  color: #C9A54A;
+  text-shadow: 0 -0.5px 0 #F2D98A, 0 0.5px 0 #2B2925;
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+}
 
 /* badge_spade: значок-пика (SVG в script.js) холодного серебристого цвета */
 [data-skin-badge="badge_spade"] { --badge-color: #b9c7e0; }
@@ -999,5 +1038,46 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 [data-skin-badge="badge_deep"] { --badge-color: #C49A52; }
 
-/* ref_arch («Арка», награда основателю за 30 приглашённых): палитра; арку с номером на замковом камне рисует задача пула (DESIGN.md раздел 6) */
-[data-skin-avatar_frame="ref_arch"] { --avatar-frame: 0 0 0 2px #C9A54A, 0 0 0 4px #2B2925, 0 0 0 6px #EDEAE4; }
+/* ref_arch («Арка», награда основателю за 30 приглашённых): мраморные колонны, арка и замковый камень с номером основателя */
+[data-skin-avatar_frame="ref_arch"] {
+  --avatar-frame: 0 0 0 2px #C9A54A, 0 0 0 4px #2B2925, 0 0 0 6px #EDEAE4;
+}
+[data-skin-avatar_frame="ref_arch"].avatar,
+[data-skin-avatar_frame="ref_arch"] > .avatar {
+  position: relative;
+}
+[data-skin-avatar_frame="ref_arch"].avatar::before,
+[data-skin-avatar_frame="ref_arch"] > .avatar::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E%3Cdefs%3E%3ClinearGradient id='ra_g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23C9A54A'/%3E%3Cstop offset='100%25' stop-color='%23F2D98A'/%3E%3C/linearGradient%3E%3Cpattern id='ra_fl' width='2' height='10' patternUnits='userSpaceOnUse'%3E%3Crect width='1.2' height='10' fill='%23EDEAE4'/%3E%3Crect x='1.2' width='0.8' height='10' fill='%23B9B4AA'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='1' y='52' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Crect x='2' y='47' width='10' height='5' rx='0.6' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.7'/%3E%3Crect x='3' y='16' width='8' height='31' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Crect x='3.4' y='16.4' width='7.2' height='30.2' fill='url(%23ra_fl)'/%3E%3Cpath d='M5 17V46M7 17V46M9 17V46' stroke='%23B9B4AA' stroke-width='0.5' stroke-linecap='round' opacity='0.7'/%3E%3Cpath d='M3.5 24H10.5M3.5 38H10.5' stroke='%23C9A54A' stroke-width='0.4' opacity='0.5'/%3E%3Crect x='2' y='12' width='10' height='4' rx='0.6' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.7'/%3E%3Crect x='1' y='8' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Cpath d='M2 10H12' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Cpath d='M2 54H12' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Crect x='51' y='52' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Crect x='52' y='47' width='10' height='5' rx='0.6' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.7'/%3E%3Crect x='53' y='16' width='8' height='31' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Crect x='53.4' y='16.4' width='7.2' height='30.2' fill='url(%23ra_fl)'/%3E%3Cpath d='M55 17V46M57 17V46M59 17V46' stroke='%23B9B4AA' stroke-width='0.5' stroke-linecap='round' opacity='0.7'/%3E%3Cpath d='M53.5 24H60.5M53.5 38H60.5' stroke='%23C9A54A' stroke-width='0.4' opacity='0.5'/%3E%3Crect x='52' y='12' width='10' height='4' rx='0.6' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.7'/%3E%3Crect x='51' y='8' width='12' height='4' rx='0.8' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Cpath d='M52 10H62' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Cpath d='M52 54H62' stroke='%23C9A54A' stroke-width='0.5'/%3E%3Cpath d='M7 10A25 9.5 0 0 1 57 10L53 11A21 6.5 0 0 0 11 11Z' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.8'/%3E%3Cpath d='M8 10.5A24 8.5 0 0 1 56 10.5' fill='none' stroke='url(%23ra_g)' stroke-width='0.5'/%3E%3Cpath d='M14 9Q20 6 25 5M39 5Q44 6 50 9' fill='none' stroke='%23B9B4AA' stroke-width='0.5' opacity='0.6'/><path d='M20 5Q22 3 24 4.5M21 7Q23 5.5 24 6.5' stroke='url(%23ra_g)' stroke-width='0.7' fill='none'/><path d='M44 5Q42 3 40 4.5M43 7Q41 5.5 40 6.5' stroke='url(%23ra_g)' stroke-width='0.7' fill='none'/><polygon points='24,0.5 40,0.5 37.5,7.5 26.5,7.5' fill='%23EDEAE4' stroke='url(%23ra_g)' stroke-width='0.9'/><polygon points='25,1.2 39,1.2 36.8,6.8 27.2,6.8' fill='none' stroke='%232B2925' stroke-width='0.4' opacity='0.3'/><path d='M26 3Q32 4.5 38 2.5' fill='none' stroke='%23B9B4AA' stroke-width='0.4' opacity='0.6'/></svg>") center / contain no-repeat;
+  z-index: 1;
+}
+[data-skin-avatar_frame="ref_arch"][data-founder-no].avatar::after,
+[data-skin-avatar_frame="ref_arch"][data-founder-no] > .avatar::after,
+[data-skin-avatar_frame="ref_arch"].avatar[data-founder-no]::after,
+[data-skin-avatar_frame="ref_arch"][data-founder-no]::after {
+  content: attr(data-founder-no);
+  position: absolute;
+  top: -8.5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 5.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.3px;
+  color: #C9A54A;
+  text-shadow: 0 -0.5px 0 #F2D98A, 0 0.5px 0 #2B2925;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
