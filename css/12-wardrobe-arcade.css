@@ -29,6 +29,101 @@
 .wd-card.on .wd-status { color: var(--text); }
 .wd-mini { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 68px; overflow: hidden; }
 .wd-scene { display: flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: 130px; padding: var(--space-3); overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
+:where(.wd-mini, .wd-scene) {
+  --card-back-a: #17171b;
+  --card-back-b: #24242a;
+  --card-back-border: var(--border-strong);
+  --card-face: var(--text);
+  --card-ink: var(--on-accent);
+  --card-red: var(--red);
+  --card-back-image: initial;
+  --card-back-image-hl: initial;
+  --card-back-outline: initial;
+  --card-back-inset-bj: initial;
+  --card-back-inset-hl: initial;
+
+  --chip-bg: var(--surface-2);
+  --chip-text: var(--text);
+  --chip-ring: rgba(245, 245, 242, 0.3);
+  --chip-ring-10: rgba(245, 245, 242, 0.28);
+  --chip-ring-50: rgba(245, 245, 242, 0.5);
+  --chip-ring-100: rgba(245, 245, 242, 0.72);
+  --chip-ring-500: rgba(245, 245, 242, 0.94);
+  --chip-on-bg: var(--accent);
+  --chip-on-text: var(--on-accent);
+  --chip-on-ring: var(--accent);
+  --chip-on-glow: var(--glow);
+  --chip-inner: initial;
+
+  --table-red: var(--red);
+  --table-black: var(--surface-2);
+  --table-green: var(--green);
+  --wheel-rim-a: #55555B;
+  --wheel-rim-b: #F5F5F2;
+  --wheel-rim-c: #8A8A90;
+  --wheel-sector-line: rgba(245, 245, 242, 0.35);
+  --wheel-text: #F5F5F2;
+  --wheel-edge: #050506;
+  --wheel-hub: #0F0F12;
+  --wheel-hub-line: rgba(245, 245, 242, 0.5);
+  --table-felt: initial;
+
+  --mines-cell-bg: var(--surface-2);
+  --mines-cell-border: var(--border);
+  --mines-cell-text: var(--text);
+  --mines-cell-active-bg: var(--surface-3);
+  --mines-safe-bg: var(--surface);
+  --mines-safe-border: var(--border-strong);
+  --mines-safe-glow: rgba(245, 245, 242, 0.5);
+  --mines-bomb-bg: var(--red);
+  --mines-bomb-text: var(--text);
+  --mines-muted-bg: var(--surface-2);
+  --mines-muted-text: var(--text-muted);
+  --mines-hit-border: var(--text);
+  --mines-hit-ring: var(--red-soft);
+  --mines-opening-a: var(--surface-2);
+  --mines-opening-b: var(--surface-3);
+  --mines-safe-text: initial;
+
+  --keno-bg: var(--surface-2);
+  --keno-border: var(--border);
+  --keno-text: var(--text-muted);
+  --keno-active-bg: var(--surface-3);
+  --keno-sel-text: var(--text);
+  --keno-sel-bg: var(--white-soft);
+  --keno-sel-border: var(--text);
+  --keno-sel-glow: 0 0 10px rgba(255, 255, 255, 0.5), inset 0 0 6px rgba(255, 255, 255, 0.2);
+  --keno-drawn-text: var(--text);
+  --keno-drawn-ring: 0 0 0 2px rgba(245, 245, 242, 0.75);
+  --keno-hit-text: var(--text);
+  --keno-hit-bg: var(--green);
+  --keno-hit-glow: 0 0 14px rgba(30, 158, 74, 0.95), 0 0 0 2px rgba(245, 245, 242, 0.55);
+  --keno-miss-glow: 0 0 6px rgba(255, 255, 255, 0.3);
+  --keno-img: initial;
+  --keno-img-sel: initial;
+  --keno-img-drawn: initial;
+  --keno-img-hit: initial;
+
+  --cr-bg: var(--surface);
+  --cr-border: var(--border);
+  --cr-axis: var(--border);
+  --cr-line: var(--text);
+  --cr-win: var(--green);
+  --cr-win-soft: var(--green-soft);
+  --cr-crash: var(--red);
+  --cr-crash-soft: var(--red-soft);
+  --cr-label: var(--text-muted);
+  --cr-label-strong: var(--text);
+  --cr-history-text: var(--text-muted);
+  --cr-history-border: var(--border);
+  --cr-line-glow: initial;
+  --cr-flip: none;
+  --cr-win-glow: initial;
+  --cr-crash-glow: initial;
+
+  --avatar-frame: none;
+  --badge-color: var(--text-muted);
+}
 .wd-scene .chip, .wd-mini .chip { display: inline-flex; align-items: center; justify-content: center; }
 .wd-scene .cell, .wd-mini .cell { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; }
 .wd-mini .cell { width: 36px; height: 36px; font-size: 14px; }
@@ -37,7 +132,7 @@
 .wd-scene .keno-ball, .wd-mini .keno-ball { width: 44px; height: 44px; }
 .wd-scene .cr-chart { flex: 1; min-height: 0; height: 96px; }
 .wd-mini .cr-chart { width: 100%; min-height: 0; height: 52px; }
-.wd-scene .cr-svg, .wd-mini .cr-svg { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); }
+.wd-scene .cr-svg, .wd-mini .cr-svg { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); transform: none; }
 .wd-demo-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .wd-desc { margin: 0; font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .wd-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); font-size: 13px; text-align: left; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
