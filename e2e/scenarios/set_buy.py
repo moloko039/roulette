@@ -60,7 +60,7 @@ async def run(w):
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр void_chip")
     await p.wait("!document.getElementById('wd-set-box').hidden", 5, "блок набора «Пустота» виден")
     check("блок набора «Пустота»: цена набора и сумма частей", await p.ev("(%s)(document.getElementById('wd-set-desc').textContent)" % NBSP),
-          "Весь набор «Пустота»: 400 💎 (вместо 450 💎 за все части)")
+          "Весь набор «Пустота»: 2000 💎 (вместо 2400 💎 за все части)")
     await p.tap("#wd-prev-close")
     w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, 'void_table', 'gems', NULL, ?)", (uid, now))
     await p.tap(".tab[data-tab=play]")

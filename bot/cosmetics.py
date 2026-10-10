@@ -86,10 +86,11 @@ class NotForStars(CosmeticsError):
 PRICES = {
     "table_blue": ("gems", 150), "crash_neon": ("gems", 100), "back_midnight": ("gems", 100), "keno_hex": ("gems", 75),
     "badge_spade": ("chips", 20000), "chip_ring": ("chips", 40000), "mine_star": ("chips", 60000), "frame_thin": ("chips", 100000),
-    # части наборов «Черновик» (200 💎 за набор) и «Пустота» (400 💎): по отдельности дороже набора, см. cosmetic_sets.SETS
+    # части наборов «Черновик» (200 💎 за набор) и «Пустота» (2000 💎): по отдельности дороже набора, см. cosmetic_sets.SETS
     "draft_crash": ("gems", 100), "draft_mines": ("gems", 100), "draft_table": ("gems", 100), "draft_badge": ("gems", 100),
     "draft_chip": ("gems", 100), "draft_keno": ("gems", 100), "draft_back": ("gems", 100), "draft_frame": ("gems", 100),      # новые части «Черновика» по DESIGN.md (набор из восьми частей 200 💎)
-    "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
+    "void_table": ("gems", 300), "void_chip": ("gems", 300), "void_badge": ("gems", 300),
+    "void_mines": ("gems", 300), "void_keno": ("gems", 300), "void_crash": ("gems", 300), "void_back": ("gems", 300), "void_frame": ("gems", 300),      # части «Пустоты» по DESIGN.md раздел 5 (набор из восьми частей 2000 💎, по отдельности 2400 💎)
     # «Патина» (набор 1000 💎, решение владельца 2026-10-09; части по 400 💎, чтобы купившие бесплатные части раньше могли добрать рамку) и «Глубина» (набор 500 💎, части по 150 💎)
     "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400), "keno_patina": ("gems", 400), "crash_patina": ("gems", 400), "badge_patina": ("gems", 400),
     "table_deep": ("gems", 150), "chip_pearl": ("gems", 150), "mine_urchin": ("gems", 150), "keno_bubble": ("gems", 150), "crash_deep": ("gems", 150),
@@ -175,6 +176,11 @@ _ROWS = (
     ("back_deep", "card_back", "Морская карта", "Старинная морская карта с розой ветров", "rare", True),
     ("frame_deep", "avatar_frame", "Иллюминатор", "Латунный иллюминатор с заклёпками", "rare", True),
     ("badge_deep", "badge", "Шлем", "Водолазный шлем с тремя окошками", "rare", True),
+    ("void_mines", "mine_icons", "Пустота", "Пустые контуры клеток, мина без взрыва", "common", True),
+    ("void_keno", "keno_ball", "Пустота", "Числа без фона, подчёркнутые тонкой линией", "common", True),
+    ("void_crash", "crash", "Пустота", "Тонкая белая линия без декора", "common", True),
+    ("void_back", "card_back", "Пустота", "Чёрная рубашка с одной линией", "common", True),
+    ("void_frame", "avatar_frame", "Пустота", "Аватар с тонким кольцом на расстоянии", "common", True),
 )
 
 CATALOG = tuple(
