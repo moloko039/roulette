@@ -9,6 +9,7 @@ from antiabuse import TombstoneUnavailable
 import hilo
 import mines
 import transfers
+from features.founder_number import founder_no
 
 from core.db_conn import _connect
 from core.members import _member_name
@@ -118,6 +119,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             ).fetchall()
             invitee_row = conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND referrer_id != 0", (telegram_id,)).fetchone()
             referrer_counts = conn.execute("SELECT COUNT(*) AS invited_count, SUM(qualified_at IS NOT NULL) AS qualified_count, COALESCE(SUM(commission_paid), 0) AS commission FROM referrals WHERE referrer_id = ?", (telegram_id,)).fetchone()
+            fno = founder_no(conn, telegram_id)
             founded = conn.execute("SELECT COUNT(*) AS n, SUM(rewarded_at IS NOT NULL) AS rewarded FROM chat_founders WHERE founder_id = ?", (telegram_id,)).fetchone()
             crash_live_bets = conn.execute(
                 "SELECT round_id, created_at_ms, bet, target_x100, status, cashed_x100, payout "
@@ -216,6 +218,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             "invited_count": referrer_counts["invited_count"] if referrer_counts else 0,
             "qualified_count": referrer_counts["qualified_count"] if referrer_counts and referrer_counts["qualified_count"] is not None else 0,
             "commission_earned": referrer_counts["commission"] if referrer_counts else 0,
+            "founder_no": fno,
             "founded_chats": founded["n"] if founded else 0,
             "founded_chats_rewarded": founded["rewarded"] if founded and founded["rewarded"] is not None else 0,
         },
@@ -289,6 +292,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["referrals_as_invitee"] = conn.execute("DELETE FROM referrals WHERE invitee_id = ?", (telegram_id,)).rowcount
             counts["referrals_as_referrer"] = conn.execute("UPDATE referrals SET referrer_id = 0 WHERE referrer_id = ?", (telegram_id,)).rowcount
             counts["referral_codes"] = conn.execute("DELETE FROM referral_codes WHERE telegram_id = ?", (telegram_id,)).rowcount
+            conn.execute("DELETE FROM founder_numbers WHERE telegram_id = ?", (telegram_id,))
             conn.execute("DELETE FROM chat_founders WHERE founder_id = ?", (telegram_id,))      # игрок как основатель беседы (chat_id группы остаётся в bot_chats для объявлений владельца)
             if counts["players"] > 0:
                 conn.execute(

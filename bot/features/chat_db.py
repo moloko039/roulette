@@ -11,6 +11,7 @@ from economy_config import CHAT_LEVEL_THRESHOLDS
 from core.db_conn import _connect
 from core.kernel import _pending_accrual, _register_player
 from core.members import MAX_CHAT_MEMBERS, _touch_member
+from features.founder_number import founder_no
 from features.patina_db import account_age_stage
 
 
@@ -56,6 +57,16 @@ def _public_cosmetics(db_path, ids):
         it = cosmetics.item(r["item_code"])
         if it is not None and it["slot"] == r["slot"] and not it["starter"]:
             out.setdefault(r["telegram_id"], {})[r["slot"]] = r["item_code"]
+    founders = [uid for uid, slots in out.items() if slots.get("badge") == "ref_scout" or slots.get("avatar_frame") == "ref_arch"]
+    if founders:       # номер основателя виден другим участникам вместе со значком «Камень» и рамкой «Арка» (только у надевших и не скрывших показ)
+        conn = _connect(db_path)
+        try:
+            for uid in founders:
+                no = founder_no(conn, uid)
+                if no is not None:
+                    out[uid]["founder_no"] = no
+        finally:
+            conn.close()
     framed = [uid for uid, slots in out.items() if slots.get("avatar_frame") == "frame_patina"]
     if framed:     # рамка «Патина» темнеет по стажу аккаунта: стадия 0..4 видна и другим участникам (только у надевших её и не скрывших показ)
         conn = _connect(db_path)

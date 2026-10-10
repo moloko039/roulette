@@ -113,6 +113,8 @@ def check_qualification(invitee_id, now=None, db_path=None):
             for need, code in economy_config.REFERRAL_MILESTONES:      # вехи: косметика без денежной ценности, выдаётся один раз (повтор не создаёт дубль)
                 if qualified_total >= need:
                     _grant_in(conn, referrer_id, code, "referral", "milestone-%d" % need, now)
+                    if need == economy_config.REFERRAL_MILESTONES[0][0]:          # первая веха: порядковый номер основателя (по очереди получения)
+                        conn.execute("INSERT OR IGNORE INTO founder_numbers (telegram_id, no) VALUES (?, (SELECT COALESCE(MAX(no), 0) + 1 FROM founder_numbers))", (referrer_id,))
             
             conn.execute("COMMIT")
         except Exception:

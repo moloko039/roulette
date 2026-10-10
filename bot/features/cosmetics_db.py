@@ -11,6 +11,7 @@ import cosmetic_sets
 import cosmetics
 import economy_config
 import wallet
+from features.founder_number import founder_no
 from features.patina_db import patina_stages
 from roulette import InsufficientFunds
 
@@ -49,7 +50,8 @@ def cosmetics_state(telegram_id, db_path=None):
         if patina:
             res["patina"] = patina
         owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
-        res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["complete"]]      # собранные коллекции: клиент показывает эффект полного набора (DESIGN.md)
+        res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["complete"]]
+        res["founder_no"] = founder_no(conn, telegram_id)      # номер основателя для рамки «Арка» и значка «Камень» (null, если веху ещё не получали)
         return res
     finally:
         conn.close()

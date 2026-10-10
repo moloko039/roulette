@@ -83,7 +83,7 @@ ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income
       "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
       "active_game": OPT(str), "gems": int,
       "cosmetics": {"equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
-                                 "avatar_frame": str, "badge": str}, "show_in_rating": bool, "patina": dict, "complete_sets": [str]},
+                                 "avatar_frame": str, "badge": str}, "show_in_rating": bool, "patina": dict, "complete_sets": [str], "founder_no": OPT(int)},
       "chat": {"in_chat": bool, "bonus_pct": int, "active_today": int, "boost_until": OPT(int), "boost_gems": int}}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
 TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int,
