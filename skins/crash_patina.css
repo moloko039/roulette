@@ -13,19 +13,30 @@
   filter: none;
 }
 
-/* Читаемость множителя и подписи */
+/* Слой сцены за графиком и текстом отсчёта */
+.cr-chart[data-scene="crash_patina"] .skin-scene { z-index: 0; }
+.cr-chart[data-scene="crash_patina"] .cr-svg { z-index: 1; }
+.cr-chart[data-scene="crash_patina"] .cr-readout { z-index: 2; }
+
+/* Читаемость множителя и подписи на бумажной ленте */
 .cr-chart[data-scene="crash_patina"] .cr-mult {
   color: #F5E8C7;
   text-shadow: 0 2px 14px rgba(20, 16, 10, 0.95), 0 0 4px rgba(0, 0, 0, 0.8);
 }
 .cr-chart[data-scene="crash_patina"] .cr-label {
-  color: var(--cr-label, #CDBB93);
+  color: #2E2413;
 }
 .cr-chart[data-scene="crash_patina"][data-tone="crash"] .cr-mult {
   color: var(--cr-crash, #E0675C);
 }
+.cr-chart[data-scene="crash_patina"][data-tone="crash"] .cr-label {
+  color: var(--cr-crash, #E0675C);
+}
 .cr-chart[data-scene="crash_patina"][data-tone="win"] .cr-mult {
   color: var(--cr-win, #8FD0A3);
+}
+.cr-chart[data-scene="crash_patina"][data-tone="win"] .cr-label {
+  color: #2F6F44;
 }
 
 /* Бумажная лента самописца с координатной сеткой */
