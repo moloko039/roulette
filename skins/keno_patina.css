@@ -1,0 +1,116 @@
+/* Сцена скина кено «Патина» (коллекция «Патина», DESIGN.md раздел 8) */
+
+.keno-board[data-scene="keno_patina"] {
+  position: relative;
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px #8C6B2E, 0 0 0 3px #D9B25C, 0 4px 12px rgba(10, 8, 4, 0.4);
+}
+
+.keno-board[data-scene="keno_patina"] .skin-scene {
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* Латунные жетоны */
+.keno-board[data-scene="keno_patina"] .keno-ball {
+  position: relative;
+}
+
+.keno-board[data-scene="keno_patina"] .keno-ball span {
+  position: relative;
+  border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 244, 216, 0.22), inset 0 -1px 2px rgba(20, 15, 5, 0.45);
+}
+
+/* Часто выбираемые жетоны натёрты до блеска (.sel) */
+.keno-board[data-scene="keno_patina"] .keno-ball.sel span {
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.5), inset 0 -1px 2px rgba(80, 55, 10, 0.35), 0 0 8px rgba(217, 178, 92, 0.45);
+}
+
+/* Совпадение (.hit) */
+.keno-board[data-scene="keno_patina"] .keno-ball.hit span {
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), inset 0 -1px 2px rgba(20, 45, 30, 0.5), 0 0 8px rgba(79, 122, 99, 0.45);
+}
+
+/* Декор поля и жетонов */
+.skp-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.skp-board-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Царапины и потёртости: по умолчанию скрыты */
+.skp-scratch,
+.skp-scuff {
+  display: none;
+}
+
+/* Стадия 1: пара тонких царапин на поле */
+[data-patina-keno_ball="1"] .skp-scratch.s1 {
+  display: block;
+}
+
+/* Стадия 2: видны потёртости на жетонах */
+[data-patina-keno_ball="2"] .skp-scratch.s1,
+[data-patina-keno_ball="2"] .skp-scratch.s2,
+[data-patina-keno_ball="2"] .skp-scuff.s2 {
+  display: block;
+}
+
+/* Стадия 3: сеть царапин, больше потёртостей */
+[data-patina-keno_ball="3"] .skp-scratch.s1,
+[data-patina-keno_ball="3"] .skp-scratch.s2,
+[data-patina-keno_ball="3"] .skp-scratch.s3,
+[data-patina-keno_ball="3"] .skp-scuff.s2,
+[data-patina-keno_ball="3"] .skp-scuff.s3 {
+  display: block;
+}
+
+/* Стадия 4: «реликвия» — глубокий тёмный тон, максимальные потёртости */
+[data-patina-keno_ball="4"] .skp-scratch.s1,
+[data-patina-keno_ball="4"] .skp-scratch.s2,
+[data-patina-keno_ball="4"] .skp-scratch.s3,
+[data-patina-keno_ball="4"] .skp-scratch.s4,
+[data-patina-keno_ball="4"] .skp-scuff.s2,
+[data-patina-keno_ball="4"] .skp-scuff.s3,
+[data-patina-keno_ball="4"] .skp-scuff.s4 {
+  display: block;
+}
+
+/* Пул частиц (вспышки при розыгрыше) */
+.skp-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.skp-p {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.skp-p.on {
+  display: block;
+}
+
+.skp-p svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.skp-p.hit polygon:nth-of-type(2) {
+  fill: #8FD0A3;
+}
