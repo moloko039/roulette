@@ -857,3 +857,6 @@ RTP: теория 36/37 на всех целях; выборка 200 000 рау�
 7. Политика: убрана строка о прогрессе достижений в privacy.html, дата обновлена на 11 октября 2026 г., обновлены тесты test_privacy.py и test_antiabuse.py.
 8. Документация: ARCHITECTURE.md, API.md, COLLECTIONS.md, JOURNAL.md.
 
+
+## 2026-10-11. Дробление крупных файлов: js/03-roulette.js (пул b8713930d05c)
+js/03-roulette.js (645 строк) разделён на js/03a-roulette-wheel.js (колесо, canvas, анимация, 168 строк), js/03b-roulette-table.js (стол и ставки, 130 строк) и остаток в js/03-roulette.js (351 строка). Поведение, глобалы и порядок загрузки прежние. Проверки в чистой копии ветки: серверный набор 65/0; e2e roulette, layout, shared_core, betpanel_keyboard, resume, desktop_scroll 6/0; check_js_globals, stamp_client --check в порядке.
