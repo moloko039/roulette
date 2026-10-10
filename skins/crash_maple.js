@@ -197,6 +197,7 @@
     function setZone(i) {
       if (i === zone) return;
       const prev = zoneGroup;
+      par.querySelectorAll('.scm-zone').forEach((old) => { if (old !== prev) old.remove(); });      // в DOM не больше двух зон: прежняя, ещё уходящая, убирается сразу
       zone = i;
       const g = document.createElementNS(NS, 'g');
       g.setAttribute('class', 'scm-zone');
