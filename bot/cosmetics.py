@@ -93,6 +93,7 @@ PRICES = {
     # «Патина» (набор 1000 💎, решение владельца 2026-10-09; части по 400 💎, чтобы купившие бесплатные части раньше могли добрать рамку) и «Глубина» (набор 500 💎, части по 150 💎)
     "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400),
     "table_deep": ("gems", 150), "chip_pearl": ("gems", 150), "mine_urchin": ("gems", 150), "keno_bubble": ("gems", 150), "crash_deep": ("gems", 150),
+    "back_deep": ("gems", 150), "frame_deep": ("gems", 150), "badge_deep": ("gems", 150),      # новые части «Глубины» по DESIGN.md (набор из восьми частей 500 💎)
 }
 STARS, CHIPS, GEMS = "stars", "chips", "gems"
 # Прежние цены в Stars: нужны только чтобы принять оплату по счетам, выставленным до перехода на кристаллы, и скрытому тестовому предмету (/teststars).
@@ -167,6 +168,9 @@ _ROWS = (
     ("draft_keno", "keno_ball", "Черновик", "Лотерейный бланк с обведёнными числами", "common", True),
     ("draft_back", "card_back", "Черновик", "Скучающие каракули на обороте", "common", True),
     ("draft_frame", "avatar_frame", "Черновик", "Аватар на скотче рядом с жёлтым стикером", "common", True),
+    ("back_deep", "card_back", "Морская карта", "Старинная морская карта с розой ветров", "rare", True),
+    ("frame_deep", "avatar_frame", "Иллюминатор", "Латунный иллюминатор с заклёпками", "rare", True),
+    ("badge_deep", "badge", "Шлем", "Водолазный шлем с тремя окошками", "rare", True),
 )
 
 CATALOG = tuple(

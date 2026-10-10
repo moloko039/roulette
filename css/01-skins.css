@@ -960,3 +960,23 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' width='64' height='64'%3E%3Cg pointer-events='none'%3E%3Cg transform='translate(17,16) rotate(-42)'%3E%3Cpath d='M-12,-4.5 L12,-4.5 L11.2,-1.5 L12.5,1.5 L11.5,4.5 L-12,4.5 L-11.2,1.5 L-12.5,-1.5 Z' fill='%23F7F5EE' fill-opacity='0.55' stroke='%23BFD8E8' stroke-width='0.6' stroke-opacity='0.65'/%3E%3Cline x1='-10' y1='-2' x2='10' y2='-2' stroke='%23FFF' stroke-width='0.8' stroke-opacity='0.4'/%3E%3Cline x1='-11' y1='2' x2='9' y2='2' stroke='%23BFD8E8' stroke-width='0.5' stroke-opacity='0.3'/%3E%3C/g%3E%3Cg transform='translate(47,48) rotate(-42)'%3E%3Cpath d='M-12,-4.5 L12,-4.5 L11.5,-1.5 L12.5,1.5 L11.2,4.5 L-12,4.5 L-11.5,1.5 L-12.5,-1.5 Z' fill='%23F7F5EE' fill-opacity='0.55' stroke='%23BFD8E8' stroke-width='0.6' stroke-opacity='0.65'/%3E%3Cline x1='-10' y1='-2' x2='10' y2='-2' stroke='%23FFF' stroke-width='0.8' stroke-opacity='0.4'/%3E%3Cline x1='-11' y1='2' x2='9' y2='2' stroke='%23BFD8E8' stroke-width='0.5' stroke-opacity='0.3'/%3E%3C/g%3E%3Cg transform='translate(50,14) rotate(9)'%3E%3Cpolygon points='-7,-7 7,-7 7,2 2,7 -7,7' fill='%23F6EB61' stroke='%23D4C84A' stroke-width='0.6'/%3E%3Cpolygon points='2,2 7,2 2,7' fill='%23000' fill-opacity='0.12'/%3E%3Cpolygon points='7,2 2,7 2,2' fill='%23E5DA4E' stroke='%23C4B83A' stroke-width='0.5'/%3E%3Cpath d='M-4.5,-2.5 L3.5,-2.5 M-4.5,1 L0.5,1' stroke='%231F3A93' stroke-width='0.75' stroke-linecap='round' stroke-opacity='0.75'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
   z-index: 1;
 }
+
+/* ========================================================================== */
+/* Глубина (DESIGN.md раздел 3): палитры новых частей; рисунок и сцены делает задача пула */
+/* ========================================================================== */
+[data-skin-card_back="back_deep"] {
+  --card-back-a: #9A7640;
+  --card-back-b: #7E5E30;
+  --card-back-border: #3A230C;
+  --card-back-image:
+    repeating-linear-gradient(35deg, rgba(240, 220, 170, 0.18) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #9A7640, #7E5E30);
+  --card-back-image-hl:
+    repeating-linear-gradient(35deg, rgba(240, 220, 170, 0.18) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #9A7640, #7E5E30);
+  --card-back-outline: 1px solid rgba(240, 220, 170, 0.6);
+  --card-back-inset-bj: -4px;
+  --card-back-inset-hl: -8px;
+}
+[data-skin-avatar_frame="frame_deep"] { --avatar-frame: 0 0 0 2px #C49A52, 0 0 0 4px #06192B, 0 0 0 6px #C49A52; }
+[data-skin-badge="badge_deep"] { --badge-color: #C49A52; }
