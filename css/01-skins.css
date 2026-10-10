@@ -477,7 +477,9 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --table-red: #8a8a8a;
   --table-black: #000000;
   --table-green: #626262;
-  --table-felt: #000000;
+  --table-felt: #111111;
+  --table-lines: #2a2a2a;
+  --table-win: #f5ebdd;
   --wheel-rim-a: #1a1a1a;
   --wheel-rim-b: #6a6a6a;
   --wheel-rim-c: #333333;
@@ -490,16 +492,27 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 [data-skin-chip="void_chip"] {
   --chip-bg: #000000;
   --chip-text: #ffffff;
-  --chip-ring: #5c5c5c;
-  --chip-ring-10: #5c5c5c;
-  --chip-ring-50: #7a7a7a;
-  --chip-ring-100: #a8a8a8;
-  --chip-ring-500: #e0e0e0;
+  --chip-ring: #ffffff;
+  --chip-ring-10: #ffffff;
+  --chip-ring-50: #ffffff;
+  --chip-ring-100: #ffffff;
+  --chip-ring-500: #ffffff;
+  --chip-ring-w: 1px;
+  --chip-ring-w-10: 1px;
+  --chip-ring-w-50: 1.5px;
+  --chip-ring-w-100: 2px;
+  --chip-ring-w-500: 2.5px;
+  --chip-ring-width: 1px;
+  --chip-ring-width-10: 1px;
+  --chip-ring-width-50: 1.5px;
+  --chip-ring-width-100: 2px;
+  --chip-ring-width-500: 2.5px;
   --chip-inner: none;
+  font-variant-numeric: tabular-nums;
 }
 
 [data-skin-badge="void_badge"] {
-  --badge-color: #d8d8d8;
+  --badge-color: #ffffff;
 }
 
 /* Дачный сезон (docs/COLLECTIONS.md) */

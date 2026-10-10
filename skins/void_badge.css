@@ -1,0 +1,33 @@
+/* Скин значка «Пустота» (void_badge): DESIGN.md раздел 5 («Бейдж»).
+   Длинное тире «—» (текст или css-линия), цвет белый #FFFFFF. */
+
+.rating-badge[data-skin-badge="void_badge"],
+#profile-badge[data-skin-badge="void_badge"],
+[data-skin-badge="void_badge"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--badge-color, #ffffff);
+}
+
+[data-skin-badge="void_badge"] svg {
+  display: block;
+}
+
+[data-skin-badge="void_badge"] svg line {
+  stroke: var(--badge-color, #ffffff);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+[data-skin-badge="void_badge"]::after {
+  content: '—';
+  display: none;
+  color: var(--badge-color, #ffffff);
+  font-weight: 700;
+  line-height: 1;
+}
+
+[data-skin-badge="void_badge"]:empty::after {
+  display: inline-block;
+}
