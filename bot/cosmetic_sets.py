@@ -29,7 +29,7 @@ PART_TO_COLLECTION = {part: code for code, c in COLLECTIONS.items() for part in 
 SETS = {
     "draft": {"name": "Черновик", "parts": ("draft_crash", "draft_mines", "draft_table", "draft_badge", "draft_chip", "draft_keno", "draft_back", "draft_frame"), "price_gems": 200},
     "void": {"name": "Пустота", "parts": ("void_table", "void_chip", "void_badge"), "price_gems": 400},
-    "patina": {"name": "Патина", "parts": ("chip_patina", "back_patina", "mine_patina", "frame_patina"), "price_gems": 1000},
+    "patina": {"name": "Патина", "parts": ("chip_patina", "back_patina", "mine_patina", "frame_patina", "keno_patina", "crash_patina", "badge_patina"), "price_gems": 1000},
     "deep": {"name": "Глубина", "parts": ("table_deep", "chip_pearl", "mine_urchin", "keno_bubble", "crash_deep", "back_deep", "frame_deep", "badge_deep"), "price_gems": 500},
 }
 

@@ -11,8 +11,8 @@ const WD_SLOTS = [
 const SKIN_CODES = {
   card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina', 'draft_back', 'back_deep'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl', 'chip_leaf', 'draft_chip'],
   table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth', 'table_deep'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina', 'mine_urchin'],
-  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble', 'keno_apple', 'draft_keno'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep', 'crash_maple'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'ref_arch', 'frame_patina', 'frame_dacha', 'frame_wreath', 'draft_frame', 'frame_deep'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha', 'badge_pumpkin', 'badge_deep']
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble', 'keno_apple', 'draft_keno', 'keno_patina'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep', 'crash_maple', 'crash_patina'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'ref_arch', 'frame_patina', 'frame_dacha', 'frame_wreath', 'draft_frame', 'frame_deep'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha', 'badge_pumpkin', 'badge_deep', 'badge_patina']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
@@ -33,6 +33,7 @@ const CR_SAMPLE_SVG = '<svg class="cr-svg" viewBox="0 0 300 150" preserveAspectR
 // рамка и значок самого игрока (из cosmetics.equipped в /api/me и после смены в гардеробе)
 let ownEquipped = { avatar_frame: null, badge: null };
 let ownPatina = {};
+let ownPatinaInfo = {};      // числа для рисунка патины: chip_notches, days (с сервера, у себя)
 let ratingLast = null;   // последний ответ рейтинга: перерисовывается при смене своих рамки и значка
 
 function decorateAvatar(el, frame, stage, no) {
@@ -47,7 +48,7 @@ function decorateAvatar(el, frame, stage, no) {
 }
 
 // Значок рядом с именем; null, если значка нет. Разметка из констант клиента по проверенному коду.
-function badgeEl(code, no) {
+function badgeEl(code, no, days, stage) {
   const svg = code ? BADGE_SVG[code] : null;
   if (!svg) return null;
   const el = document.createElement('span');
@@ -55,6 +56,10 @@ function badgeEl(code, no) {
   el.setAttribute('data-skin-badge', code);
   el.setAttribute('aria-hidden', 'true');
   if (code === 'ref_scout' && Number.isInteger(no) && no > 0) el.setAttribute('data-founder-no', String(no));      // номер основателя на плитке «Камень» (content: attr() в css)
+  if (code === 'badge_patina') {      // именной жетон: число дней в игре выбито цифрами (content: attr() в css), стадия износа темнит латунь
+    if (Number.isInteger(days) && days >= 0 && days <= 99999) el.setAttribute('data-days', String(days));
+    if (Number.isInteger(stage) && stage >= 0 && stage <= 4) el.setAttribute('data-patina-badge', String(stage));
+  }
   el.innerHTML = svg;
   return el;
 }
@@ -62,7 +67,7 @@ function badgeEl(code, no) {
 // Публичные слоты участника из ответа рейтинга ({слот: код}); неизвестное игнорируется
 function publicOf(c) {
   const src = c && typeof c === 'object' ? c : {};
-  return { avatar_frame: publicSkin('avatar_frame', src.avatar_frame), frame_stage: src.avatar_frame_stage, founder_no: src.founder_no, badge: publicSkin('badge', src.badge) };
+  return { avatar_frame: publicSkin('avatar_frame', src.avatar_frame), frame_stage: src.avatar_frame_stage, founder_no: src.founder_no, badge: publicSkin('badge', src.badge), badge_days: src.badge_days, badge_stage: src.badge_stage };
 }
 
 function renderOwnCosmetics() {
@@ -74,8 +79,13 @@ function renderOwnCosmetics() {
   if (!holder.hidden) {
     holder.setAttribute('data-skin-badge', code);
     holder.innerHTML = BADGE_SVG[code];
+    const d = ownEquipped.badge_days, st = ownEquipped.badge_stage;
+    if (code === 'badge_patina' && Number.isInteger(d) && d >= 0 && d <= 99999) holder.setAttribute('data-days', String(d)); else holder.removeAttribute('data-days');
+    if (code === 'badge_patina' && Number.isInteger(st) && st >= 0 && st <= 4) holder.setAttribute('data-patina-badge', String(st)); else holder.removeAttribute('data-patina-badge');
   } else {
     holder.removeAttribute('data-skin-badge');
+    holder.removeAttribute('data-days');
+    holder.removeAttribute('data-patina-badge');
   }
   if (ratingLast && ratingLast.scope === 'chat') showRating(ratingLast);
   if (bestLast && bestLast.scope === 'chat') showBestWins(bestLast);
@@ -90,9 +100,15 @@ function setOwnCosmetics(c) {
   } else if (c && (!c.patina || typeof c.patina !== 'object')) {
     ownPatina = {};
   }
+  if (c && c.patina_info && typeof c.patina_info === 'object') {
+    ownPatinaInfo = {};
+    for (const k of ['chip_notches', 'days']) if (Number.isInteger(c.patina_info[k]) && c.patina_info[k] >= 0) ownPatinaInfo[k] = c.patina_info[k];
+  } else if (c && !c.patina_info) {
+    ownPatinaInfo = {};
+  }
   const eq = c && c.equipped && typeof c.equipped === 'object' ? c.equipped : {};
-  const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), frame_stage: ownPatina.avatar_frame, founder_no: c && Number.isInteger(c.founder_no) ? c.founder_no : undefined, badge: publicSkin('badge', eq.badge) };
-  if (next.avatar_frame === ownEquipped.avatar_frame && next.frame_stage === ownEquipped.frame_stage && next.founder_no === ownEquipped.founder_no && next.badge === ownEquipped.badge) return;
+  const next = { avatar_frame: publicSkin('avatar_frame', eq.avatar_frame), frame_stage: ownPatina.avatar_frame, founder_no: c && Number.isInteger(c.founder_no) ? c.founder_no : undefined, badge: publicSkin('badge', eq.badge), badge_days: ownPatinaInfo.days, badge_stage: ownPatina.badge };
+  if (next.avatar_frame === ownEquipped.avatar_frame && next.frame_stage === ownEquipped.frame_stage && next.founder_no === ownEquipped.founder_no && next.badge === ownEquipped.badge && next.badge_days === ownEquipped.badge_days && next.badge_stage === ownEquipped.badge_stage) return;
   ownEquipped = next;
   renderOwnCosmetics();
 }
@@ -201,7 +217,7 @@ function wdScene(slot, code, mini) {
   const box = document.createElement('div');
   box.className = mini ? 'wd-mini' : 'wd-scene';
   box.setAttribute('data-skin-' + slot, code);
-  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina') {
+  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina' || code === 'keno_patina' || code === 'crash_patina') {
     const stage = ownPatina[slot];
     if (stage !== undefined) box.setAttribute('data-patina-' + slot, String(stage));
   }
@@ -241,7 +257,7 @@ function wdScene(slot, code, mini) {
   } else if (slot === 'badge') {
     const who = add('wd-demo-name', '', 'span');
     if (!mini) who.appendChild(document.createTextNode('Игрок'));
-    const b = badgeEl(BADGE_SVG[code] ? code : null);
+    const b = badgeEl(BADGE_SVG[code] ? code : null, undefined, ownPatinaInfo.days, ownPatina.badge);
     if (b) who.appendChild(b);
     else who.appendChild(document.createTextNode('без значка'));
   }
@@ -465,7 +481,7 @@ async function wdAct(path, body, validate, onOk) {
   renderWardrobe();
 }
 
-function wdApplyEquipped(equipped, patina) {
+function wdApplyEquipped(equipped, patina, info) {
   wd.mine.equipped = wdNormalizeEquipped(equipped);
   if (patina && typeof patina === 'object') {          // стадии износа надетых вещей приходят в ответе на надевание (как cosmetics.patina в /api/me)
     ownPatina = {};
@@ -475,16 +491,16 @@ function wdApplyEquipped(equipped, patina) {
   } else {
     ownPatina = {};
   }
-  applySkins(wd.mine.equipped, ownPatina);
-  setOwnCosmetics({ equipped: wd.mine.equipped, patina: ownPatina });
+  applySkins(wd.mine.equipped, ownPatina, info || ownPatinaInfo);
+  setOwnCosmetics({ equipped: wd.mine.equipped, patina: ownPatina, patina_info: info || ownPatinaInfo });
 }
 
 function wdEquip(item) {
-  wdAct('/api/cosmetics/equip', { slot: item.slot, code: item.code }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina));
+  wdAct('/api/cosmetics/equip', { slot: item.slot, code: item.code }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina, d.patina_info || {}));
 }
 
 function wdUnequip(item) {
-  wdAct('/api/cosmetics/unequip', { slot: item.slot }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina));
+  wdAct('/api/cosmetics/unequip', { slot: item.slot }, validWdEquip, (d) => wdApplyEquipped(d.equipped, d.patina, d.patina_info || {}));
 }
 
 function wdToggleVisibility() {

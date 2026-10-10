@@ -1081,3 +1081,200 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   z-index: 2;
   white-space: nowrap;
 }
+
+/* --- «Патина»: кено, краш, значок (DESIGN.md раздел 8): стадия износа 0..4 приходит с сервера, сцены и рисунок дополняют skins/*.js и css */
+[data-skin-keno_ball="keno_patina"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #8C6B2E;
+  --keno-border: #D9B25C;
+  --keno-text: #FFF4D8;
+  --keno-active-bg: #9C7A36;
+  --keno-sel-text: #2A1E08;
+  --keno-sel-bg: #D9B25C;
+  --keno-sel-border: #F0D68A;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4D8;
+  --keno-drawn-ring: 0 0 0 2px #D9B25C;
+  --keno-hit-text: #F4FFF8;
+  --keno-hit-bg: #3F6B52;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-keno_ball="keno_patina"][data-patina-keno_ball="1"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #84662D;
+  --keno-border: #D9B25C;
+  --keno-text: #FFF4D8;
+  --keno-active-bg: #9C7A36;
+  --keno-sel-text: #2A1E08;
+  --keno-sel-bg: #D9B25C;
+  --keno-sel-border: #F0D68A;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4D8;
+  --keno-drawn-ring: 0 0 0 2px #D9B25C;
+  --keno-hit-text: #F4FFF8;
+  --keno-hit-bg: #3F6B52;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-keno_ball="keno_patina"][data-patina-keno_ball="2"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #7A5E2B;
+  --keno-border: #D9B25C;
+  --keno-text: #FFF4D8;
+  --keno-active-bg: #9C7A36;
+  --keno-sel-text: #2A1E08;
+  --keno-sel-bg: #D9B25C;
+  --keno-sel-border: #F0D68A;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4D8;
+  --keno-drawn-ring: 0 0 0 2px #D9B25C;
+  --keno-hit-text: #F4FFF8;
+  --keno-hit-bg: #3F6B52;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-keno_ball="keno_patina"][data-patina-keno_ball="3"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #6F5429;
+  --keno-border: #D9B25C;
+  --keno-text: #FFF4D8;
+  --keno-active-bg: #9C7A36;
+  --keno-sel-text: #2A1E08;
+  --keno-sel-bg: #D9B25C;
+  --keno-sel-border: #F0D68A;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4D8;
+  --keno-drawn-ring: 0 0 0 2px #D9B25C;
+  --keno-hit-text: #F4FFF8;
+  --keno-hit-bg: #3F6B52;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-keno_ball="keno_patina"][data-patina-keno_ball="4"] {
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+  --keno-bg: #5F4A26;
+  --keno-border: #D9B25C;
+  --keno-text: #FFF4D8;
+  --keno-active-bg: #9C7A36;
+  --keno-sel-text: #2A1E08;
+  --keno-sel-bg: #D9B25C;
+  --keno-sel-border: #F0D68A;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #FFF4D8;
+  --keno-drawn-ring: 0 0 0 2px #D9B25C;
+  --keno-hit-text: #F4FFF8;
+  --keno-hit-bg: #3F6B52;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+}
+[data-skin-crash="crash_patina"] {
+  --cr-bg: #241E15;
+  --cr-border: rgba(217, 178, 92, 0.45);
+  --cr-axis: rgba(217, 178, 92, 0.3);
+  --cr-line: #D9B25C;
+  --cr-line-glow: none;
+  --cr-win: #8FD0A3;
+  --cr-win-soft: rgba(143, 208, 163, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #E0675C;
+  --cr-crash-soft: rgba(224, 103, 92, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #CDBB93;
+  --cr-history-text: #CDBB93;
+  --cr-history-border: rgba(217, 178, 92, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-crash="crash_patina"][data-patina-crash="1"] {
+  --cr-bg: #272014;
+  --cr-border: rgba(217, 178, 92, 0.45);
+  --cr-axis: rgba(217, 178, 92, 0.3);
+  --cr-line: #D9B25C;
+  --cr-line-glow: none;
+  --cr-win: #8FD0A3;
+  --cr-win-soft: rgba(143, 208, 163, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #E0675C;
+  --cr-crash-soft: rgba(224, 103, 92, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #CDBB93;
+  --cr-history-text: #CDBB93;
+  --cr-history-border: rgba(217, 178, 92, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-crash="crash_patina"][data-patina-crash="2"] {
+  --cr-bg: #2B2213;
+  --cr-border: rgba(217, 178, 92, 0.45);
+  --cr-axis: rgba(217, 178, 92, 0.3);
+  --cr-line: #D9B25C;
+  --cr-line-glow: none;
+  --cr-win: #8FD0A3;
+  --cr-win-soft: rgba(143, 208, 163, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #E0675C;
+  --cr-crash-soft: rgba(224, 103, 92, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #CDBB93;
+  --cr-history-text: #CDBB93;
+  --cr-history-border: rgba(217, 178, 92, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-crash="crash_patina"][data-patina-crash="3"] {
+  --cr-bg: #2E2412;
+  --cr-border: rgba(217, 178, 92, 0.45);
+  --cr-axis: rgba(217, 178, 92, 0.3);
+  --cr-line: #D9B25C;
+  --cr-line-glow: none;
+  --cr-win: #8FD0A3;
+  --cr-win-soft: rgba(143, 208, 163, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #E0675C;
+  --cr-crash-soft: rgba(224, 103, 92, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #CDBB93;
+  --cr-history-text: #CDBB93;
+  --cr-history-border: rgba(217, 178, 92, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-crash="crash_patina"][data-patina-crash="4"] {
+  --cr-bg: #322711;
+  --cr-border: rgba(217, 178, 92, 0.45);
+  --cr-axis: rgba(217, 178, 92, 0.3);
+  --cr-line: #D9B25C;
+  --cr-line-glow: none;
+  --cr-win: #8FD0A3;
+  --cr-win-soft: rgba(143, 208, 163, 0.22);
+  --cr-win-glow: none;
+  --cr-crash: #E0675C;
+  --cr-crash-soft: rgba(224, 103, 92, 0.28);
+  --cr-crash-glow: none;
+  --cr-label: #CDBB93;
+  --cr-history-text: #CDBB93;
+  --cr-history-border: rgba(217, 178, 92, 0.35);
+  --cr-label-strong: var(--text);
+  --cr-flip: none;
+}
+[data-skin-badge="badge_patina"] { --badge-color: #D9B25C; }
+[data-skin-badge="badge_patina"][data-patina-badge="1"] { --badge-color: #C9A653; }
+[data-skin-badge="badge_patina"][data-patina-badge="2"] { --badge-color: #B8934A; }
+[data-skin-badge="badge_patina"][data-patina-badge="3"] { --badge-color: #A07D3E; }
+[data-skin-badge="badge_patina"][data-patina-badge="4"] { --badge-color: #7FA68A; }

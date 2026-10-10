@@ -91,7 +91,7 @@ PRICES = {
     "draft_chip": ("gems", 100), "draft_keno": ("gems", 100), "draft_back": ("gems", 100), "draft_frame": ("gems", 100),      # новые части «Черновика» по DESIGN.md (набор из восьми частей 200 💎)
     "void_table": ("gems", 150), "void_chip": ("gems", 150), "void_badge": ("gems", 150),
     # «Патина» (набор 1000 💎, решение владельца 2026-10-09; части по 400 💎, чтобы купившие бесплатные части раньше могли добрать рамку) и «Глубина» (набор 500 💎, части по 150 💎)
-    "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400),
+    "chip_patina": ("gems", 400), "back_patina": ("gems", 400), "mine_patina": ("gems", 400), "frame_patina": ("gems", 400), "keno_patina": ("gems", 400), "crash_patina": ("gems", 400), "badge_patina": ("gems", 400),
     "table_deep": ("gems", 150), "chip_pearl": ("gems", 150), "mine_urchin": ("gems", 150), "keno_bubble": ("gems", 150), "crash_deep": ("gems", 150),
     "back_deep": ("gems", 150), "frame_deep": ("gems", 150), "badge_deep": ("gems", 150),      # новые части «Глубины» по DESIGN.md (набор из восьми частей 500 💎)
 }
@@ -155,6 +155,9 @@ _ROWS = (
     ("back_patina", "card_back", "Патина", "Выцветает и протирается по числу сыгранных раундов", "common", True),
     ("mine_patina", "mine_icons", "Патина", "Трещины на поле от прошлых взрывов", "common", True),
     ("frame_patina", "avatar_frame", "Патина", "Тускнеет, как старое серебро, по стажу аккаунта", "rare", True),
+    ("keno_patina", "keno_ball", "Патина", "Латунные жетоны, которые стареют от розыгрышей", "rare", True),
+    ("crash_patina", "crash", "Патина", "Циферблат и бумажная лента самописца стареют от раундов", "rare", True),
+    ("badge_patina", "badge", "Патина", "Именной жетон с выбитым числом дней в игре", "rare", True),
     ("table_deep", "table", "Дно", "Морское дно: тёмная бирюза и коралловые сектора", "rare", True),
     ("chip_pearl", "chip", "Жемчуг", "Перламутровые фишки", "rare", True),
     ("mine_urchin", "mine_icons", "Морские ежи", "Морские ежи вместо мин", "rare", True),

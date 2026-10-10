@@ -12,7 +12,7 @@ from core.db_conn import _connect
 from core.kernel import _pending_accrual, _register_player
 from core.members import MAX_CHAT_MEMBERS, _touch_member
 from features.founder_number import founder_no
-from features.patina_db import account_age_stage
+from features.patina_db import account_age_stage, account_days
 
 
 TOP_SIZE = 10
@@ -65,6 +65,15 @@ def _public_cosmetics(db_path, ids):
                 no = founder_no(conn, uid)
                 if no is not None:
                     out[uid]["founder_no"] = no
+        finally:
+            conn.close()
+    badged = [uid for uid, slots in out.items() if slots.get("badge") == "badge_patina"]
+    if badged:        # именной жетон «Патина»: дни в игре и стадия износа видны другим участникам (только у надевших и не скрывших показ)
+        conn = _connect(db_path)
+        try:
+            for uid in badged:
+                out[uid]["badge_days"] = account_days(conn, uid)
+                out[uid]["badge_stage"] = account_age_stage(conn, uid)
         finally:
             conn.close()
     framed = [uid for uid, slots in out.items() if slots.get("avatar_frame") == "frame_patina"]

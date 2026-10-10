@@ -112,7 +112,7 @@ function showBestWins(d) {
     const who = document.createElement('span');
     who.className = 'rating-who';
     who.appendChild(name);
-    const badge = badgeEl(pub.badge, pub.founder_no);
+    const badge = badgeEl(pub.badge, pub.founder_no, pub.badge_days, pub.badge_stage);
     if (badge) who.appendChild(badge);
     const amount = document.createElement('span');
     amount.className = 'rating-bal best-amount';
@@ -136,7 +136,7 @@ function showBestWins(d) {
     const myWho = document.createElement('span');
     myWho.className = 'rating-who';
     myWho.appendChild(myName);
-    const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no);
+    const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no, ownEquipped.badge_days, ownEquipped.badge_stage);
     if (myBadge) myWho.appendChild(myBadge);
     const myAmount = document.createElement('span');
     myAmount.className = 'rating-bal best-amount';
@@ -272,7 +272,7 @@ function showRating(d) {
     const who = document.createElement('span');
     who.className = 'rating-who';
     who.appendChild(name);
-    const badge = badgeEl(pub.badge, pub.founder_no);
+    const badge = badgeEl(pub.badge, pub.founder_no, pub.badge_days, pub.badge_stage);
     if (badge) who.appendChild(badge);
     const setBadge = ratingSetBadge(e.complete_sets);
     if (setBadge) who.appendChild(setBadge);
@@ -308,7 +308,7 @@ function showRating(d) {
   const myWho = document.createElement('span');
   myWho.className = 'rating-who';
   myWho.appendChild(myName);
-  const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no);
+  const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no, ownEquipped.badge_days, ownEquipped.badge_stage);
   if (myBadge) myWho.appendChild(myBadge);
   if (isCount(d.me.level)) myWho.appendChild(levelBadge(d.me.level));
   const myBal = document.createElement('span');

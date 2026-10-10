@@ -227,7 +227,7 @@ async function loadServer(reason) {
         if (Number.isInteger(v) && v >= 0 && v <= 4) patinaObj[k] = v;
       }
     }
-    applySkins(d.cosmetics && d.cosmetics.equipped, patinaObj);       // внешний вид по надетому (только оформление)
+    applySkins(d.cosmetics && d.cosmetics.equipped, patinaObj, d.cosmetics && d.cosmetics.patina_info);       // внешний вид по надетому (только оформление)
     skinSetOwnSets(d.cosmetics && d.cosmetics.complete_sets);       // собранные коллекции: эффекты полного набора в сценах
     setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
     const f = d.farm;
