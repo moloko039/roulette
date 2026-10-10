@@ -42,6 +42,9 @@ async def run(w):
     await open_game(p, "roulette")
     await p.wait("document.querySelectorAll('#table .cell').length >= 37", 10, "стол рулетки загружен")
     await p.wait("!!document.querySelector('#table[data-scene=\"table_deep\"]')", 10, "сцена стола смонтирована")
+    # панель ставок остаётся сверху: клетки стола с декором не перекрывают её (в точке по центру панели верхний элемент принадлежит панели)
+    on_top = await p.ev("(() => { const d = document.querySelector('.bets-dock'); const r = d.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!el && !!el.closest('.bets-dock'); })()")
+    check("панель ставок не закрыта клетками стола", on_top, True)
     await p.ev("skinFpsStop(); skinFpsStart = () => {}")
 
     check("экран рулетки открыт: css подключён, у #table data-scene='table_deep'",
