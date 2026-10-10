@@ -1,0 +1,130 @@
+/* Скин фишки «Патина» (chip_patina): DESIGN.md раздел 8 («Фишка»).
+   Латунный жетон с гравировкой; засечки на ребре — короткие тёмные штрихи по окружности ребра.
+   Количество штрихов ограничено CSS-переменной --patina-notches на корне (0..24),
+   которую сервер присылает по числу крупных крашей (>= x50).
+   CSS-only скин без анимаций (движения нет). Палитры стадий заданы в css/01-skins.css. */
+
+/* 1. Базовые переменные и стили фишки .chip и стопки .stack */
+[data-scene="chip_patina"] .chip,
+[data-scene="chip_patina"] .stack {
+  --patina-glare: radial-gradient(circle at 35% 30%, rgba(255, 235, 175, 0.3) 0%, rgba(217, 178, 92, 0.12) 30%, transparent 60%);
+  --patina-engraving: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46.5' fill='none' stroke='rgba(0,0,0,0.4)' stroke-width='1.5'/%3E%3Ccircle cx='50' cy='50' r='45' fill='none' stroke='rgba(255,230,165,0.45)' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='37.5' fill='none' stroke='rgba(0,0,0,0.35)' stroke-width='1.2' stroke-dasharray='1.8 1.8'/%3E%3Ccircle cx='50' cy='50' r='35.5' fill='none' stroke='rgba(255,230,165,0.3)' stroke-width='0.8'/%3E%3Ccircle cx='50' cy='50' r='29' fill='none' stroke='rgba(0,0,0,0.25)' stroke-width='0.8'/%3E%3C/svg%3E");
+}
+
+[data-scene="chip_patina"] .chip {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-image: var(--patina-glare), var(--patina-engraving);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 40px 40px, 40px 40px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+[data-scene="chip_patina"] .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-scene="chip_patina"] .chip[aria-pressed="true"] {
+  border-color: #e6c79e;
+  box-shadow: 0 0 0 2px #e6c79e, 0 2px 8px rgba(230, 199, 158, 0.45);
+}
+
+/* Прямоугольные кнопки фишек в доке ставок: латунный жетон по левому краю + читаемая сумма */
+[data-scene="chip_patina"] .bets-dock .chip {
+  padding-left: 32px;
+  padding-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-position: left 6px center, left 6px center;
+  background-size: 28px 28px, 28px 28px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* Стопка .stack на клетке стола рулетки: круглый латунный жетон с гравировкой */
+[data-scene="chip_patina"] .stack {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 9.5px;
+  line-height: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  background-color: var(--chip-bg);
+  background-image: var(--patina-glare), var(--patina-engraving);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 100% 100%, 100% 100%;
+  border: 1px solid var(--chip-ring);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Засечки на ребре жетона: короткие тёмные штрихи по окружности ребра.
+   Количество штрихов (0..24) ограничено CSS-переменной --patina-notches через calc.
+   Засечки тёмные, видны на светлой (стадия 0) и тёмной (стадия 4) фишке. Номиналы и цифры не перекрываются. */
+[data-scene="chip_patina"] .chip::after,
+[data-scene="chip_patina"] .stack::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    transparent 0deg 6.5deg,
+    #120a04 6.5deg 8.5deg,
+    rgba(235, 195, 125, 0.35) 8.5deg 9deg,
+    transparent 9deg 15deg
+  );
+  -webkit-mask-image:
+    radial-gradient(circle, transparent 69%, #000 72% 98%, transparent 100%),
+    conic-gradient(#000 0deg calc(var(--patina-notches, 0) * 15deg), transparent calc(var(--patina-notches, 0) * 15deg) 360deg);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle, transparent 69%, #000 72% 98%, transparent 100%),
+    conic-gradient(#000 0deg calc(var(--patina-notches, 0) * 15deg), transparent calc(var(--patina-notches, 0) * 15deg) 360deg);
+  mask-composite: intersect;
+}
+
+/* В доке ставок засечки центрируются по жетону слева (28px x 28px) */
+[data-scene="chip_patina"] .bets-dock .chip::after {
+  left: 6px;
+  top: calc(50% - 14px);
+  width: 28px;
+  height: 28px;
+  inset: auto;
+}
+
+/* 3. Облегчённый режим и пауза (без анимаций) */
+html.perf-lite [data-scene="chip_patina"] .chip,
+html.perf-lite [data-scene="chip_patina"] .stack,
+html.perf-lite [data-scene="chip_patina"] .chip::after,
+html.perf-lite [data-scene="chip_patina"] .stack::after,
+html.skin-paused [data-scene="chip_patina"] .chip,
+html.skin-paused [data-scene="chip_patina"] .stack,
+html.skin-paused [data-scene="chip_patina"] .chip::after,
+html.skin-paused [data-scene="chip_patina"] .stack::after {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="chip_patina"] .chip,
+  [data-scene="chip_patina"] .stack,
+  [data-scene="chip_patina"] .chip::after,
+  [data-scene="chip_patina"] .stack::after {
+    transition: none !important;
+  }
+}
