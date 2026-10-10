@@ -574,6 +574,25 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --keno-img-hit: none;
 }
 
+[data-skin-crash="void_crash"] {
+  --cr-bg: #000000;
+  --cr-border: #2A2A2A;
+  --cr-axis: #2A2A2A;
+  --cr-line: #FFFFFF;
+  --cr-line-glow: none;
+  --cr-win: #F5EBDD;
+  --cr-win-soft: rgba(245, 235, 221, 0.12);
+  --cr-win-glow: none;
+  --cr-crash: #2A2A2A;
+  --cr-crash-soft: rgba(17, 17, 17, 0.5);
+  --cr-crash-glow: none;
+  --cr-label: #FFFFFF;
+  --cr-history-text: #FFFFFF;
+  --cr-history-border: #2A2A2A;
+  --cr-label-strong: #FFFFFF;
+  --cr-flip: none;
+}
+
 /* Дачный сезон (docs/COLLECTIONS.md) */
 [data-skin-card_back="back_rug"] {
   --card-back-a: #2b1a13;
