@@ -1,0 +1,125 @@
+/* Скин рамки аватара «Патина» (frame_patina): DESIGN.md раздел 8 («Рамка»).
+   Серебро, темнеет по стажу аккаунта, края натираются.
+   Стадия износа 0..4 задаётся атрибутом data-patina-avatar_frame="0..4".
+   CSS-only скин без анимаций. Палитры колец стадий заданы в css/01-skins.css. */
+
+/* 1. Базовые правила позиционирования аватара и псевдоэлемента ::after */
+[data-scene="frame_patina"].avatar,
+[data-scene="frame_patina"] .avatar,
+[data-skin-avatar_frame="frame_patina"].avatar,
+[data-skin-avatar_frame="frame_patina"] .avatar {
+  position: relative;
+}
+
+[data-scene="frame_patina"].avatar::after,
+[data-scene="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-skin-avatar_frame="frame_patina"] .avatar::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  pointer-events: none;
+  background-image: none;
+  z-index: 1;
+}
+
+/* Стадия 0: новая вещь — ровный чистый цвет серебра, без блеска на псевдоэлементе */
+[data-patina-avatar_frame="0"] [data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="0"] [data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="0"][data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="0"][data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="0"] [data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="0"] [data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="0"][data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="0"][data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="0"].avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="0"] .avatar::after {
+  background-image: none;
+}
+
+/* Стадия 1: слабый блеск серебра (тонкий диагональный градиент с прозрачностью) */
+[data-patina-avatar_frame="1"] [data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="1"] [data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="1"][data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="1"][data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="1"] [data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="1"] [data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="1"][data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="1"][data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="1"].avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="1"] .avatar::after {
+  background-image:
+    linear-gradient(135deg, transparent 44%, rgba(255, 255, 255, 0.22) 48%, rgba(255, 255, 255, 0.35) 50%, rgba(255, 255, 255, 0.22) 52%, transparent 56%);
+}
+
+/* Стадия 2: слабый блеск серебра */
+[data-patina-avatar_frame="2"] [data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="2"] [data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="2"][data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="2"][data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="2"] [data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="2"] [data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="2"][data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="2"][data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="2"].avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="2"] .avatar::after {
+  background-image:
+    linear-gradient(135deg, transparent 44%, rgba(255, 255, 255, 0.28) 48%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0.28) 52%, transparent 56%);
+}
+
+/* Стадия 3: блеск серебра + края светлее там, где блеск (натирание) */
+[data-patina-avatar_frame="3"] [data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="3"] [data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="3"][data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="3"][data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="3"] [data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="3"] [data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="3"][data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="3"][data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="3"].avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="3"] .avatar::after {
+  background-image:
+    linear-gradient(135deg, transparent 43%, rgba(255, 255, 255, 0.48) 48%, rgba(255, 255, 255, 0.78) 50%, rgba(255, 255, 255, 0.48) 52%, transparent 57%),
+    radial-gradient(circle at 12% 12%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.22) 18%, transparent 36%),
+    radial-gradient(circle at 88% 88%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.18) 18%, transparent 36%);
+}
+
+/* Стадия 4: «Реликвия» — блеск, натёртые края и вся рамка с мягкой зеленоватой патиной через цвет палитры (#77806f) */
+[data-patina-avatar_frame="4"] [data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="4"] [data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="4"][data-scene="frame_patina"].avatar::after,
+[data-patina-avatar_frame="4"][data-scene="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="4"] [data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="4"] [data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-patina-avatar_frame="4"][data-skin-avatar_frame="frame_patina"].avatar::after,
+[data-patina-avatar_frame="4"][data-skin-avatar_frame="frame_patina"] .avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="4"].avatar::after,
+[data-skin-avatar_frame="frame_patina"][data-patina-avatar_frame="4"] .avatar::after {
+  background-image:
+    linear-gradient(135deg, transparent 43%, rgba(255, 255, 255, 0.52) 48%, rgba(255, 255, 255, 0.82) 50%, rgba(255, 255, 255, 0.52) 52%, transparent 57%),
+    radial-gradient(circle at 12% 12%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.25) 18%, transparent 36%),
+    radial-gradient(circle at 88% 88%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 18%, transparent 36%),
+    radial-gradient(circle, transparent 62%, rgba(119, 128, 111, 0.35) 82%, rgba(111, 106, 88, 0.45) 100%);
+}
+
+/* 2. Облегчённый режим и пауза (без анимаций) */
+html.perf-lite [data-scene="frame_patina"].avatar,
+html.perf-lite [data-scene="frame_patina"] .avatar,
+html.perf-lite [data-skin-avatar_frame="frame_patina"].avatar,
+html.perf-lite [data-skin-avatar_frame="frame_patina"] .avatar,
+html.skin-paused [data-scene="frame_patina"].avatar,
+html.skin-paused [data-scene="frame_patina"] .avatar,
+html.skin-paused [data-skin-avatar_frame="frame_patina"].avatar,
+html.skin-paused [data-skin-avatar_frame="frame_patina"] .avatar {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="frame_patina"].avatar,
+  [data-scene="frame_patina"] .avatar,
+  [data-skin-avatar_frame="frame_patina"].avatar,
+  [data-skin-avatar_frame="frame_patina"] .avatar {
+    transition: none !important;
+  }
+}
