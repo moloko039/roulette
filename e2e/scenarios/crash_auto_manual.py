@@ -32,7 +32,7 @@ def row(w, n):
 
 async def run(w):
     p = w.page
-    w.server.script(crash_live=[25000, 25000, 130, 25000, 25000])      # точки краха пяти раундов: ×250 (вне досягаемости теста), ×250, ×1.30, ×250, ×250
+    w.server.script(crash_live=[100000, 100000, 130, 100000, 100000])      # точки краха пяти раундов: ×1000 (вне досягаемости теста), ×1000, ×1.30, ×1000, ×1000
     await open_game(p, "crash")
     await p.wait("!document.getElementById('cr-bets').hidden && !document.getElementById('cr-start').disabled", 10, "панель ставки")
     await p.ev(OVERRIDE)
@@ -56,7 +56,7 @@ async def run(w):
     bal = bal - 100 + payout
 
     # --- 2. автовывод по цели без нажатия: серверное время, выплата ровно по цели
-    await next_round(w, p, fs, 25000)
+    await next_round(w, p, fs, 100000)
     await bet(p, 100, "1.5")
     fs = await flight_start(p)
     await server_to(w, p, fs + 4200)       # цель ×1.50 достигается через 3,5 с полёта
@@ -66,7 +66,7 @@ async def run(w):
     bal = bal - 100 + 150
 
     # --- 3. крах раньше цели (точка ×1.30, цель ×3)
-    await next_round(w, p, fs, 25000)
+    await next_round(w, p, fs, 100000)
     await bet(p, 100, "3")
     fs = await flight_start(p)
     await server_to(w, p, fs + 3000)
@@ -93,7 +93,7 @@ async def run(w):
     bal = bal - 100 + int(r[2])
 
     # --- 5. все попытки вывода обрываются: ставка остаётся открытой, после возврата сети выводится
-    await next_round(w, p, fs, 25000)
+    await next_round(w, p, fs, 100000)
     await bet(p, 100, "20")
     fs = await flight_start(p)
     await server_to(w, p, fs + 2500)
