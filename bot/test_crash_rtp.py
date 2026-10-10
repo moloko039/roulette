@@ -80,7 +80,7 @@ for target in TARGETS:
 # ограничение сверху: при любом времени и любой точке краха авто-раунд не платит больше цели
 rng = random.Random(1)
 for _ in range(20000):
-    target = rng.randint(101, 25000)
+    target = rng.randint(101, crash.CAP_X100)
     c = crash.new_crash(rng)
     t = rng.randint(0, 80_000)
     v = crash.settle(c, 0, t, target)

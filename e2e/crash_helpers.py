@@ -6,11 +6,11 @@ from harness import set_bet
 TITLE = "document.getElementById('cr-banner-title').textContent.replace(/\\s/g, ' ')"
 READY = "!document.getElementById('cr-bets').hidden && !document.getElementById('cr-start').disabled"
 CASH_VISIBLE = "!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled"
-CAP_X100 = 25000
+CAP_X100 = 100000
 
 
 def t_crash_ms(x100):
-    """Время полёта до закрытия раунда с точкой краха x100 (мс): наименьшее t, при котором m100(t) >= x100 (как на сервере; не выше предела ×250),
+    """Время полёта до закрытия раунда с точкой краха x100 (мс): наименьшее t, при котором m100(t) >= x100 (как на сервере; не выше предела ×1000),
     плюс запас сети 150 мс."""
     x100 = min(x100, CAP_X100)
     t = math.ceil(6000 * math.log2(x100 / 100.0))

@@ -97,13 +97,25 @@ def _advance_round_in_tx(conn, now_ms, rng):
         now_sec = now_ms // 1000
         conn.execute("UPDATE crash_rounds SET status = 'closed', settled_at_ms = ? WHERE id = ?", (now_ms, round_row["id"]))
         
-        lost_bets = conn.execute("SELECT telegram_id, bet, target_x100 FROM crash_bets WHERE round_id = ? AND status = 'open'", (round_row["id"],)).fetchall()
-        for b in lost_bets:
-            conn.execute("UPDATE crash_bets SET status = 'lost' WHERE round_id = ? AND telegram_id = ?", (round_row["id"], b["telegram_id"]))
-            mode = "auto" if b["target_x100"] is not None else "manual"
-            xp_amount = xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "lose", 0, b["target_x100"]))
-            pay_and_xp(conn, b["telegram_id"], 0, xp_amount, "crash", b["bet"], now_sec)
-            achievements.record(conn, b["telegram_id"], "crash_crash", now_sec, mult_x100=round_row["crash_x100"])
+        open_bets = conn.execute("SELECT telegram_id, bet, target_x100 FROM crash_bets WHERE round_id = ? AND status = 'open'", (round_row["id"],)).fetchall()
+        reached_cap = round_row["crash_x100"] >= crash.CAP_X100
+        for b in open_bets:
+            if reached_cap:
+                mult = b["target_x100"] if b["target_x100"] is not None else crash.CAP_X100
+                payout = crash.payout(b["bet"], mult)
+                conn.execute(
+                    "UPDATE crash_bets SET status = 'cashed', cashed_x100 = ?, payout = ? WHERE round_id = ? AND telegram_id = ?",
+                    (mult, payout, round_row["id"], b["telegram_id"])
+                )
+                mode = "auto" if b["target_x100"] is not None else "manual"
+                xp_amount = xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "win", mult, b["target_x100"]))
+                pay_and_xp(conn, b["telegram_id"], payout, xp_amount, "crash", b["bet"], now_sec)
+            else:
+                conn.execute("UPDATE crash_bets SET status = 'lost' WHERE round_id = ? AND telegram_id = ?", (round_row["id"], b["telegram_id"]))
+                mode = "auto" if b["target_x100"] is not None else "manual"
+                xp_amount = xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "lose", 0, b["target_x100"]))
+                pay_and_xp(conn, b["telegram_id"], 0, xp_amount, "crash", b["bet"], now_sec)
+                achievements.record(conn, b["telegram_id"], "crash_crash", now_sec, mult_x100=round_row["crash_x100"])
 
         if now_ms >= crash_live.next_open_ms(round_row):
             _advance_round_in_tx(conn, now_ms, rng)
