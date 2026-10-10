@@ -1,0 +1,145 @@
+/* Скин значка «Патина» (badge_patina): DESIGN.md раздел 8 («Бейдж»).
+   Именной жетон с выбитым количеством сыгранных дней.
+   Латунный жетон темнеет по стажу аккаунта (стадии износа 0..4).
+   CSS-only скин без анимаций. Палитры стадий заданы в css/01-skins.css. */
+
+/* 1. Жетон значка: латунная рамка, круглая форма, базовые размеры */
+.rating-badge[data-skin-badge="badge_patina"],
+#profile-badge[data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 235, 175, 0.22) 0%, rgba(36, 28, 15, 0.95) 70%);
+  border: 1.5px solid var(--badge-color, #D9B25C);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  vertical-align: middle;
+}
+
+/* Скрываем встроенный SVG, так как жетон отрисован стилями CSS */
+[data-skin-badge="badge_patina"] svg {
+  display: none;
+}
+
+/* 2. Псевдоэлемент ::after: выбитое число дней (content: attr(data-days)) */
+[data-skin-badge="badge_patina"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  color: var(--badge-color, #D9B25C);
+  text-shadow: 0 -0.5px 0 rgba(255, 245, 200, 0.5), 0 0.5px 0 rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* При наличии data-days выводим число */
+[data-skin-badge="badge_patina"][data-days]::after {
+  content: attr(data-days);
+}
+
+/* При отсутствии data-days или пустом значении ничего не выводить */
+[data-skin-badge="badge_patina"]:not([data-days])::after,
+[data-skin-badge="badge_patina"][data-days=""]::after {
+  content: '';
+}
+
+/* 3. Уменьшение шрифта при большом числе дней (до 99999 дней, без clamp и :has) */
+[data-patina-badge="2"] [data-skin-badge="badge_patina"]::after,
+[data-patina-badge="2"][data-skin-badge="badge_patina"]::after,
+[data-skin-badge="badge_patina"][data-patina-badge="2"]::after {
+  font-size: 10px;
+  letter-spacing: -0.25px;
+}
+
+[data-patina-badge="3"] [data-skin-badge="badge_patina"]::after,
+[data-patina-badge="3"][data-skin-badge="badge_patina"]::after,
+[data-skin-badge="badge_patina"][data-patina-badge="3"]::after {
+  font-size: 9px;
+  letter-spacing: -0.3px;
+}
+
+[data-patina-badge="4"] [data-skin-badge="badge_patina"]::after,
+[data-patina-badge="4"][data-skin-badge="badge_patina"]::after,
+[data-skin-badge="badge_patina"][data-patina-badge="4"]::after {
+  font-size: 7.2px;
+  letter-spacing: -0.4px;
+}
+
+/* 4. Стадии износа: латунная рамка и натёртый край на стадиях 2–4 (светлее по выступам) */
+
+/* Стадия 0: новая вещь — ровный блеск, чистый цвет латуни, без натёртого края */
+[data-patina-badge="0"] [data-skin-badge="badge_patina"],
+[data-patina-badge="0"][data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"][data-patina-badge="0"] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Стадия 1: пара тонких царапин, блеск чуть мягче */
+[data-patina-badge="1"] [data-skin-badge="badge_patina"],
+[data-patina-badge="1"][data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"][data-patina-badge="1"] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Стадия 2: натёртый край — потёртость на выступах светлее, темнеет в углублениях */
+[data-patina-badge="2"] [data-skin-badge="badge_patina"],
+[data-patina-badge="2"][data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"][data-patina-badge="2"] {
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.4),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Стадия 3: натёртый край — сеть царапин, тёмная патина, светлый выступающий край */
+[data-patina-badge="3"] [data-skin-badge="badge_patina"],
+[data-patina-badge="3"][data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"][data-patina-badge="3"] {
+  box-shadow:
+    inset 0 1.2px 1.2px rgba(255, 255, 255, 0.65),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.55),
+    0 0 0 0.5px rgba(255, 245, 200, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Стадия 4: «Реликвия» — глубокий тёмный тон, благородная зелень патины, края натёрты до блеска */
+[data-patina-badge="4"] [data-skin-badge="badge_patina"],
+[data-patina-badge="4"][data-skin-badge="badge_patina"],
+[data-skin-badge="badge_patina"][data-patina-badge="4"] {
+  box-shadow:
+    inset 0 1.5px 1.5px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 1.2px rgba(0, 0, 0, 0.65),
+    0 0 0 0.8px rgba(255, 255, 255, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/* 5. Режим пониженной нагрузки (без анимаций) */
+html.perf-lite [data-skin-badge="badge_patina"],
+html.skin-paused [data-skin-badge="badge_patina"] {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin-badge="badge_patina"] {
+    transition: none !important;
+  }
+}
