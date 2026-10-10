@@ -1,0 +1,78 @@
+/* Скин кено «Пустота» (void_keno): DESIGN.md раздел 5 («Кено»).
+   Числа без фона, только цифры;
+   Выбранные подчёркнуты тонкой линией 1 px;
+   Совпадение: цифра становится тёплым белым #F5EBDD, подчёркивание дорисовывается до полной ширины через transform/scaleX. */
+
+#keno-board[data-scene="void_keno"] {
+  background-color: transparent;
+}
+
+/* 1. Числа без фона, только цифры */
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball span {
+  position: relative;
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  color: #ffffff;
+  transition: color 0.25s ease-out;
+}
+
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball:active:not(:disabled) span {
+  background-color: transparent;
+}
+
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.sel span,
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.drawn span,
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.hit span,
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.miss span {
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.miss span {
+  opacity: 0.35;
+}
+
+/* 2. Выбранные подчёркнуты тонкой линией 1 px */
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.sel span::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #ffffff;
+  transform: scaleX(0.4);
+  transform-origin: center;
+  pointer-events: none;
+  transition: transform 0.25s ease-out, background-color 0.25s ease-out;
+}
+
+/* 3. Совпадение: цифра становится тёплым белым #F5EBDD, подчёркивание дорисовывается до полной ширины через transform/scaleX */
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.hit span {
+  color: #F5EBDD;
+}
+
+:is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.hit span::after {
+  background-color: #F5EBDD;
+  transform: scaleX(1);
+}
+
+/* prefers-reduced-motion и perf-lite отключают переходы */
+@media (prefers-reduced-motion: reduce) {
+  :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball span,
+  :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.sel span::after {
+    transition: none;
+  }
+}
+
+html.perf-lite :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball span,
+html.perf-lite :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.sel span::after,
+html.skin-paused :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball span,
+html.skin-paused :is([data-scene="void_keno"], [data-skin-keno_ball="void_keno"]) .keno-ball.sel span::after {
+  transition: none;
+}

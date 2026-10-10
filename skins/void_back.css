@@ -1,0 +1,22 @@
+/* Скин рубашки карт «Пустота» (void_back): DESIGN.md раздел 5 («Рубашка»).
+   Абсолютно чёрная рубашка карт, в центре одна тонкая горизонтальная линия 1 px. */
+
+:is([data-scene="void_back"], [data-skin-card_back="void_back"]) :is(.bj-card.back, .hl-card.back) {
+  position: relative;
+  overflow: hidden;
+  background-color: #000000;
+  background-image: none;
+  border-color: #ffffff;
+}
+
+:is([data-scene="void_back"], [data-skin-card_back="void_back"]) :is(.bj-card.back, .hl-card.back)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 25%;
+  right: 25%;
+  height: 1px;
+  background-color: #ffffff;
+  transform: translateY(-50%);
+  pointer-events: none;
+}

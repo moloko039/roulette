@@ -515,6 +515,65 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --badge-color: #ffffff;
 }
 
+[data-skin-card_back="void_back"] {
+  --card-back-a: #000000;
+  --card-back-b: #000000;
+  --card-back-border: #ffffff;
+  --card-face: #ffffff;
+  --card-ink: #000000;
+  --card-red: var(--red);
+  --card-back-image: linear-gradient(#000000, #000000);
+  --card-back-image-hl: linear-gradient(#000000, #000000);
+}
+
+[data-skin-avatar_frame="void_frame"] {
+  --avatar-frame: 0 0 0 4px #000000, 0 0 0 5px #ffffff;
+}
+[data-skin-avatar_frame="void_frame"].avatar,
+[data-skin-avatar_frame="void_frame"] .avatar {
+  border-color: transparent;
+}
+
+[data-skin-mine_icons="void_mines"] {
+  --mines-cell-bg: #000000;
+  --mines-cell-border: #ffffff;
+  --mines-cell-text: #ffffff;
+  --mines-cell-active-bg: #111111;
+  --mines-safe-bg: #000000;
+  --mines-safe-border: #ffffff;
+  --mines-safe-text: #ffffff;
+  --mines-safe-glow: rgba(255, 255, 255, 0);
+  --mines-bomb-bg: #000000;
+  --mines-bomb-text: #ffffff;
+  --mines-muted-bg: #000000;
+  --mines-muted-text: #666666;
+  --mines-hit-border: #ffffff;
+  --mines-hit-ring: rgba(255, 255, 255, 0.4);
+  --mines-opening-a: #000000;
+  --mines-opening-b: #111111;
+}
+
+[data-skin-keno_ball="void_keno"] {
+  --keno-bg: transparent;
+  --keno-border: transparent;
+  --keno-text: #ffffff;
+  --keno-active-bg: transparent;
+  --keno-sel-text: #ffffff;
+  --keno-sel-bg: transparent;
+  --keno-sel-border: transparent;
+  --keno-sel-glow: none;
+  --keno-drawn-text: #ffffff;
+  --keno-drawn-ring: none;
+  --keno-hit-text: #f5ebdd;
+  --keno-hit-bg: transparent;
+  --keno-hit-glow: none;
+  --keno-miss-glow: none;
+  --keno-img: none;
+  --keno-img-sel: none;
+  --keno-img-drawn: none;
+  --keno-img-hit: none;
+}
+
 /* Дачный сезон (docs/COLLECTIONS.md) */
 [data-skin-card_back="back_rug"] {
   --card-back-a: #2b1a13;
