@@ -1,1 +1,245 @@
-/* Скин «Глубина» (chip_pearl): заготовка, заполняется задачей пула */
+/* Скин фишки «Жемчуг» (chip_pearl): DESIGN.md раздел 3.
+   Жемчужина в перламутровой оправе:
+   - внутренний круг: перламутр с радужным переливом (conic-gradient, мягкие переливы, без blur);
+   - внешнее кольцо: латунь #C49A52 с 8 заклёпками (SVG data:-URI);
+   - номиналы: оттенки жемчуга (10 белый, 50 розовый, 100 золотой, 500 чёрный-голубой, запасной вариант);
+   - панель ставок .bets-dock .chip: жемчужина слева + читаемая сумма (> 4.5:1);
+   - событие «ставка» (.stack.drop): фишка опускается на стол (translateY, мягкое замедление) и поднимаются 2-3 пузырька;
+   - отключение анимаций при html.perf-lite, html.skin-paused и prefers-reduced-motion.
+   Фон фишки тёмный #35607A (сохраняет контраст при выборе). */
+
+/* 1. Базовые переменные и стили фишки .chip и стопки .stack */
+[data-scene="chip_pearl"] .chip,
+[data-scene="chip_pearl"] .stack {
+  --pearl-brass: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M0,0 H100 V100 H0 Z M50,3.5 A46.5,46.5 0 1 0 50,96.5 A46.5,46.5 0 1 0 50,3.5 Z' fill='%2335607A'/%3E%3Ccircle cx='50' cy='50' r='46.5' fill='none' stroke='%23634B1A' stroke-width='1.5'/%3E%3Ccircle cx='50' cy='50' r='42.5' fill='none' stroke='%23C49A52' stroke-width='7'/%3E%3Ccircle cx='50' cy='50' r='38.5' fill='none' stroke='%23F0D18A' stroke-width='1.2'/%3E%3Ccircle cx='50' cy='50' r='37.5' fill='none' stroke='%238A6A30' stroke-width='0.8'/%3E%3Ccircle cx='92.5' cy='50' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='92' cy='49.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='80' cy='80' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='79.5' cy='79.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='50' cy='92.5' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='49.5' cy='92' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='20' cy='80' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='19.5' cy='79.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='7.5' cy='50' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='7' cy='49.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='20' cy='20' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='19.5' cy='19.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='50' cy='7.5' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='49.5' cy='7' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Ccircle cx='80' cy='20' r='2.2' fill='%23E5C158' stroke='%23634B1A' stroke-width='0.7'/%3E%3Ccircle cx='79.5' cy='19.5' r='0.7' fill='%23FFF' opacity='0.8'/%3E%3Cpath d='M26,24 Q38,15 54,18 Q44,28 36,36 Q26,33 26,24 Z' fill='rgba(255,255,255,0.45)'/%3E%3Ccircle cx='32' cy='28' r='3' fill='rgba(255,255,255,0.6)'/%3E%3C/svg%3E");
+}
+
+[data-scene="chip_pearl"] .chip {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 40px 40px, 40px 40px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+[data-scene="chip_pearl"] .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-scene="chip_pearl"] .chip[aria-pressed="true"] {
+  border-color: #3CF2D8;
+  box-shadow: 0 0 0 2px #3CF2D8, 0 2px 8px rgba(60, 242, 216, 0.45);
+}
+
+/* Кнопки фишек в панели ставок: жемчужина слева + читаемая сумма */
+[data-scene="chip_pearl"] .bets-dock .chip {
+  padding-left: 32px;
+  padding-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-position: left 6px center, left 6px center;
+  background-size: 28px 28px, 28px 28px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* Стопка .stack на клетке стола рулетки: круглая жемчужина в латуни */
+[data-scene="chip_pearl"] .stack {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 9.5px;
+  line-height: 22px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 100% 100%, 100% 100%;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Номиналы: разные оттенки жемчуга */
+
+/* Запасной вариант (fallback): серебристо-голубой морской жемчуг */
+[data-scene="chip_pearl"] .chip,
+[data-scene="chip_pearl"] .stack {
+  background-color: #35607A;
+  border-color: #9FD8EA;
+  background-image:
+    var(--pearl-brass),
+    conic-gradient(from 120deg, #DCEEF8 0deg, #F0F8FC 45deg, #E2EDF5 90deg, #F3F8FC 135deg, #CFE8F5 180deg, #EDF6FA 225deg, #DFECF6 270deg, #F5FAFD 315deg, #DCEEF8 360deg);
+}
+
+/* Номинал 10: белый жемчуг с радужным отливом (#FFFFFF) */
+[data-scene="chip_pearl"] :is(.chip, .stack):is([data-amount="10"], [data-bet="10"], [data-kbet="10"], [data-jbet="10"], [data-cbet="10"], [data-hbet="10"]) {
+  background-color: #35607A;
+  border-color: #FFFFFF;
+  background-image:
+    var(--pearl-brass),
+    conic-gradient(from 120deg, #FFFFFF 0deg, #EDF7FC 45deg, #FAF0F8 90deg, #FFF9F2 135deg, #F0FAF7 180deg, #FFF0F5 225deg, #F8EDFA 270deg, #EDF8FC 315deg, #FFFFFF 360deg);
+}
+
+/* Номинал 50: розовый жемчуг акоя (#F7A8C4) */
+[data-scene="chip_pearl"] :is(.chip, .stack):is([data-amount="50"], [data-bet="50"], [data-kbet="50"], [data-jbet="50"], [data-cbet="50"], [data-hbet="50"]) {
+  background-color: #35607A;
+  border-color: #F7A8C4;
+  background-image:
+    var(--pearl-brass),
+    conic-gradient(from 120deg, #FCE2EC 0deg, #FDEEF4 45deg, #EBE9F8 90deg, #FEF2F6 135deg, #F8D6E6 180deg, #FDECF3 225deg, #F4E4FA 270deg, #FCE8F0 315deg, #FCE2EC 360deg);
+}
+
+/* Номинал 100: золотой жемчуг южных морей (#F6D365) */
+[data-scene="chip_pearl"] :is(.chip, .stack):is([data-amount="100"], [data-bet="100"], [data-kbet="100"], [data-jbet="100"], [data-cbet="100"], [data-hbet="100"]) {
+  background-color: #35607A;
+  border-color: #F6D365;
+  background-image:
+    var(--pearl-brass),
+    conic-gradient(from 120deg, #FEF3C7 0deg, #FDE68A 45deg, #FEF9C3 90deg, #FCD34D 135deg, #FEF3C7 180deg, #FDE68A 225deg, #FFFBEB 270deg, #FCD34D 315deg, #FEF3C7 360deg);
+}
+
+/* Номинал 500: чёрный-голубой таитянский жемчуг (#38BDF8) */
+[data-scene="chip_pearl"] :is(.chip, .stack):is([data-amount="500"], [data-bet="500"], [data-kbet="500"], [data-jbet="500"], [data-cbet="500"], [data-hbet="500"]) {
+  background-color: #35607A;
+  border-color: #38BDF8;
+  background-image:
+    var(--pearl-brass),
+    conic-gradient(from 120deg, #091F2C 0deg, #134252 45deg, #0B2C38 90deg, #164E63 135deg, #082230 180deg, #1A4D60 225deg, #0D3240 270deg, #175268 315deg, #091F2C 360deg);
+}
+
+/* 3. Событие «ставка» (.stack.drop): опускание на стол и пузырьки */
+[data-scene="chip_pearl"] .stack.drop {
+  animation: pearl-drop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.1) forwards;
+}
+
+[data-scene="chip_pearl"] .stack.drop::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(60, 242, 216, 0.6) 40%, rgba(18, 64, 94, 0.2) 100%);
+  border: 0.8px solid rgba(60, 242, 216, 0.75);
+  box-shadow: 0 0 3px rgba(60, 242, 216, 0.6);
+  pointer-events: none;
+  animation: pearl-bubble-left 0.5s ease-out forwards;
+}
+
+[data-scene="chip_pearl"] .stack.drop::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 0px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(60, 242, 216, 0.6) 40%, rgba(18, 64, 94, 0.2) 100%);
+  border: 0.8px solid rgba(60, 242, 216, 0.75);
+  box-shadow: 0 0 3px rgba(60, 242, 216, 0.6), -7px -7px 0 -2px rgba(60, 242, 216, 0.7);
+  pointer-events: none;
+  animation: pearl-bubble-right 0.55s ease-out forwards;
+}
+
+@keyframes pearl-drop {
+  0% {
+    transform: translate(-50%, -120%) scale(1.15);
+    opacity: 0.3;
+  }
+  60% {
+    transform: translate(-50%, -46%) scale(0.96);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(-50%, -52%) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pearl-bubble-left {
+  0% {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-12px, -24px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes pearl-bubble-right {
+  0% {
+    transform: translate(0, 0) scale(0.3);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(10px, -28px) scale(1.15);
+    opacity: 0;
+  }
+}
+
+/* 4. Отключение анимаций при perf-lite, prefers-reduced-motion и паузе */
+html.perf-lite [data-scene="chip_pearl"] .stack.drop {
+  animation: none !important;
+}
+
+html.perf-lite [data-scene="chip_pearl"] .stack,
+html.perf-lite [data-scene="chip_pearl"] .chip,
+html.perf-lite [data-scene="chip_pearl"] .stack::before,
+html.perf-lite [data-scene="chip_pearl"] .stack::after,
+html.perf-lite [data-scene="chip_pearl"] .chip::before,
+html.perf-lite [data-scene="chip_pearl"] .chip::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="chip_pearl"] .stack.drop {
+    animation: none !important;
+  }
+  [data-scene="chip_pearl"] .stack,
+  [data-scene="chip_pearl"] .chip,
+  [data-scene="chip_pearl"] .stack::before,
+  [data-scene="chip_pearl"] .stack::after,
+  [data-scene="chip_pearl"] .chip::before,
+  [data-scene="chip_pearl"] .chip::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+html.skin-paused [data-scene="chip_pearl"] .stack.drop {
+  animation-play-state: paused !important;
+}
+
+html.skin-paused [data-scene="chip_pearl"] .stack,
+html.skin-paused [data-scene="chip_pearl"] .chip,
+html.skin-paused [data-scene="chip_pearl"] .stack::before,
+html.skin-paused [data-scene="chip_pearl"] .stack::after,
+html.skin-paused [data-scene="chip_pearl"] .chip::before,
+html.skin-paused [data-scene="chip_pearl"] .chip::after {
+  animation-play-state: paused !important;
+}

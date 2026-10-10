@@ -1,1 +1,127 @@
-/* Скин «Глубина» (table_deep): заготовка, заполняется задачей пула */
+/* Скин стола «Глубина» (table_deep): DESIGN.md раздел 3.
+   Тишина и давление, погружение в батискафе, морское дно с каустиками и светящимися водорослями.
+   Палитра: поверхность #2E8FB8, сумерки #12405E, полночь #06192B, бездна #020812, биолюминесценция #3CF2D8 и #9B7BFF, латунь #C49A52.
+   Слои:
+   1. Палитра и сукно: песчаное дно с рябью (#052532 / #0b4a5c) и светлые волнистые полосы градиентами.
+   2. Каустики (::before): сетка света поверх песка (SVG data:-URI паттерн), плавно сдвигается (transform: translate, 14 с).
+   3. Водоросли (::after): 3 биолюминесцентных стебля у края стола, покачиваются (transform: rotate, 6 с).
+   4. Читаемость и кликабельность: клетки поверх декора (pointer-events: none у псевдоэлементов).
+   Анимации только transform и opacity. Отключение анимаций при html.perf-lite, html.skin-paused и prefers-reduced-motion. */
+
+#table[data-scene="table_deep"] {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(60, 242, 216, 0.25);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 18px rgba(2, 8, 18, 0.7), inset 0 0 16px rgba(18, 64, 94, 0.35);
+  background-color: #052532;
+  background-image:
+    /* Волнистая рябь песка (светлые полосы) */
+    repeating-radial-gradient(ellipse at 50% 120%, rgba(60, 242, 216, 0.08) 0px, transparent 16px, rgba(46, 143, 184, 0.12) 32px, transparent 48px),
+    repeating-linear-gradient(45deg, rgba(196, 154, 82, 0.03) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, #0b4a5c 0%, #083446 50%, #031822 100%);
+}
+
+/* Каустики: светлая сетка света (SVG data:-URI паттерн) поверх песка */
+#table[data-scene="table_deep"]::before {
+  content: "";
+  position: absolute;
+  top: -50px;
+  left: -50px;
+  width: calc(100% + 100px);
+  height: calc(100% + 100px);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.42;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3CradialGradient id='cn' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%233CF2D8' stop-opacity='0.45'/%3E%3Cstop offset='100%25' stop-color='%233CF2D8' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M0,40 Q40,65 80,40 T160,40 M0,115 Q50,90 100,120 T160,115 M45,0 Q70,50 45,95 T45,160 M115,0 Q90,55 115,100 T115,160' stroke='%233CF2D8' stroke-width='2.2' stroke-opacity='0.28' fill='none' stroke-linecap='round'/%3E%3Cpath d='M45,40 Q80,25 115,40 Q135,80 115,100 Q75,130 45,95 Q20,65 45,40 Z' stroke='%239B7BFF' stroke-width='1.4' stroke-opacity='0.22' fill='none'/%3E%3Cpath d='M80,40 Q115,65 100,120 Q50,95 45,95' stroke='%23E0FFFF' stroke-width='1' stroke-opacity='0.32' fill='none'/%3E%3Ccircle cx='80' cy='40' r='6' fill='url(%23cn)'/%3E%3Ccircle cx='100' cy='120' r='6' fill='url(%23cn)'/%3E%3Ccircle cx='45' cy='95' r='6' fill='url(%23cn)'/%3E%3Ccircle cx='115' cy='40' r='5' fill='url(%23cn)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 160px 160px;
+  animation: table-deep-caustics 14s linear infinite;
+}
+
+/* Водоросли у края стола: 3 SVG-стебля, покачивающихся в толще воды */
+#table[data-scene="table_deep"]::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  height: 140px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.75;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 140' fill='none'%3E%3Cpath d='M10,140 Q16,105 8,75 T16,12' stroke='%233CF2D8' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M12,110 Q24,102 28,92' stroke='%233CF2D8' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M10,80 Q2,72 4,60' stroke='%233CF2D8' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M12,50 Q22,42 24,32' stroke='%233CF2D8' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M22,140 Q30,110 22,82 T28,36' stroke='%231A7D6B' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M24,120 Q36,112 40,102' stroke='%231A7D6B' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M23,90 Q15,82 17,72' stroke='%231A7D6B' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M25,60 Q34,54 36,44' stroke='%231A7D6B' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M4,140 Q8,122 4,105 T8,80' stroke='%232E8FB8' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M5,125 Q-1,118 0,110' stroke='%232E8FB8' stroke-width='1.3' stroke-linecap='round'/%3E%3Cpath d='M6,98 Q14,92 15,84' stroke='%232E8FB8' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: contain;
+  transform-origin: bottom left;
+  animation: table-deep-seaweed 6s ease-in-out infinite alternate;
+}
+
+#table[data-scene="table_deep"] .skin-scene {
+  pointer-events: none;
+  overflow: visible;
+}
+
+#table[data-scene="table_deep"] .cell {
+  position: relative;
+  z-index: 2;
+}
+
+/* Анимация каустиков (только transform, 14 с) */
+@keyframes table-deep-caustics {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(18px, -14px);
+  }
+  50% {
+    transform: translate(-12px, -28px);
+  }
+  75% {
+    transform: translate(-24px, -12px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* Анимация покачивания водорослей (только transform, 6 с) */
+@keyframes table-deep-seaweed {
+  0% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+  100% {
+    transform: rotate(-3deg);
+  }
+}
+
+/* Отключение анимаций при perf-lite, prefers-reduced-motion и паузе */
+html.perf-lite #table[data-scene="table_deep"]::before,
+html.perf-lite #table[data-scene="table_deep"]::after,
+html.perf-lite #table[data-scene="table_deep"] *::before,
+html.perf-lite #table[data-scene="table_deep"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #table[data-scene="table_deep"]::before,
+  #table[data-scene="table_deep"]::after,
+  #table[data-scene="table_deep"] *::before,
+  #table[data-scene="table_deep"] *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+html.skin-paused #table[data-scene="table_deep"]::before,
+html.skin-paused #table[data-scene="table_deep"]::after,
+html.skin-paused #table[data-scene="table_deep"] *::before,
+html.skin-paused #table[data-scene="table_deep"] *::after {
+  animation-play-state: paused !important;
+}
