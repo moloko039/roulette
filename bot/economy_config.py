@@ -121,4 +121,4 @@ REFERRAL_COMMISSION_CAP = 300_000
 # беседа привязывается к основателю, когда он сам открывает игру из этой группы не позже FOUNDER_LINK_DAYS дней после добавления бота.
 FOUNDER_LINK_DAYS = 30
 # Вехи приглашений (число квалифицированных приглашённых -> предмет оформления, только косметика, без цены; выдаётся один раз, источник referral).
-REFERRAL_MILESTONES = ((3, "ref_scout"), (10, "ref_beacon"), (30, "ref_comet"))
+REFERRAL_MILESTONES = ((3, "ref_scout"), (10, "ref_beacon"), (30, "ref_arch"))

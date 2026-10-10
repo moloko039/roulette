@@ -999,3 +999,5 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 }
 [data-skin-badge="badge_deep"] { --badge-color: #C49A52; }
 
+/* ref_arch («Арка», награда основателю за 30 приглашённых): палитра; арку с номером на замковом камне рисует задача пула (DESIGN.md раздел 6) */
+[data-skin-avatar_frame="ref_arch"] { --avatar-frame: 0 0 0 2px #C9A54A, 0 0 0 4px #2B2925, 0 0 0 6px #EDEAE4; }

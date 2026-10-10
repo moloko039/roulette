@@ -89,12 +89,12 @@ function bestRankEl(rank) {
   return el;
 }
 
-function bestAvatarEl(name, frame, stage) {
+function bestAvatarEl(name, frame, stage, no) {
   const el = document.createElement('span');
   el.className = 'avatar';
   el.setAttribute('aria-hidden', 'true');
   el.textContent = initialOf(name);
-  decorateAvatar(el, frame, stage);
+  decorateAvatar(el, frame, stage, no);
   return el;
 }
 
@@ -112,7 +112,7 @@ function showBestWins(d) {
     const who = document.createElement('span');
     who.className = 'rating-who';
     who.appendChild(name);
-    const badge = badgeEl(pub.badge);
+    const badge = badgeEl(pub.badge, pub.founder_no);
     if (badge) who.appendChild(badge);
     const amount = document.createElement('span');
     amount.className = 'rating-bal best-amount';
@@ -120,7 +120,7 @@ function showBestWins(d) {
     const game = document.createElement('span');
     game.className = 'rating-staked';
     game.textContent = BEST_GAMES[e.game];
-    li.append(bestRankEl(e.rank), bestAvatarEl(e.name, pub.avatar_frame, pub.frame_stage), who, amount, game);
+    li.append(bestRankEl(e.rank), bestAvatarEl(e.name, pub.avatar_frame, pub.frame_stage, pub.founder_no), who, amount, game);
     bestEls.list.appendChild(li);
   });
   const empty = bestEls.list.children.length === 0;
@@ -136,7 +136,7 @@ function showBestWins(d) {
     const myWho = document.createElement('span');
     myWho.className = 'rating-who';
     myWho.appendChild(myName);
-    const myBadge = badgeEl(ownEquipped.badge);
+    const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no);
     if (myBadge) myWho.appendChild(myBadge);
     const myAmount = document.createElement('span');
     myAmount.className = 'rating-bal best-amount';
@@ -144,7 +144,7 @@ function showBestWins(d) {
     const mySub = document.createElement('span');
     mySub.className = 'rating-staked';
     mySub.textContent = `${BEST_GAMES[d.me.game]}, ${d.me.rank}-е место из ${d.me.total}`;
-    me.append(bestRankEl(d.me.rank), bestAvatarEl(tgUser && tgUser.first_name ? tgUser.first_name : 'Я', ownEquipped.avatar_frame, ownEquipped.frame_stage), myWho, myAmount, mySub);
+    me.append(bestRankEl(d.me.rank), bestAvatarEl(tgUser && tgUser.first_name ? tgUser.first_name : 'Я', ownEquipped.avatar_frame, ownEquipped.frame_stage, ownEquipped.founder_no), myWho, myAmount, mySub);
   }
   bestEls.card.hidden = false;
 }
@@ -265,14 +265,14 @@ function showRating(d) {
     avatar.setAttribute('aria-hidden', 'true');
     avatar.textContent = initialOf(e.name);
     const pub = e.is_me ? ownEquipped : publicOf(e.cosmetics);   // у себя своё надетое, у других только публичное из рейтинга
-    decorateAvatar(avatar, pub.avatar_frame, pub.frame_stage);
+    decorateAvatar(avatar, pub.avatar_frame, pub.frame_stage, pub.founder_no);
     const name = document.createElement('span');
     name.className = 'rating-name';
     name.textContent = e.name;
     const who = document.createElement('span');
     who.className = 'rating-who';
     who.appendChild(name);
-    const badge = badgeEl(pub.badge);
+    const badge = badgeEl(pub.badge, pub.founder_no);
     if (badge) who.appendChild(badge);
     const setBadge = ratingSetBadge(e.complete_sets);
     if (setBadge) who.appendChild(setBadge);
@@ -301,14 +301,14 @@ function showRating(d) {
   myAvatar.setAttribute('aria-hidden', 'true');
   const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
   myAvatar.textContent = initialOf(tgUser && tgUser.first_name ? tgUser.first_name : 'Я');
-  decorateAvatar(myAvatar, ownEquipped.avatar_frame, ownEquipped.frame_stage);
+  decorateAvatar(myAvatar, ownEquipped.avatar_frame, ownEquipped.frame_stage, ownEquipped.founder_no);
   const myName = document.createElement('span');
   myName.className = 'rating-name';
   myName.textContent = 'Вы';
   const myWho = document.createElement('span');
   myWho.className = 'rating-who';
   myWho.appendChild(myName);
-  const myBadge = badgeEl(ownEquipped.badge);
+  const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no);
   if (myBadge) myWho.appendChild(myBadge);
   if (isCount(d.me.level)) myWho.appendChild(levelBadge(d.me.level));
   const myBal = document.createElement('span');

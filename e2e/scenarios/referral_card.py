@@ -39,7 +39,7 @@ async def run(w):
                         invited: 5,
                         qualified: 2,
                         commission_earned: 1234,
-                        milestones: [{count: 3, item: 'ref_scout', reached: true}, {count: 10, item: 'ref_beacon', reached: false}, {count: 30, item: 'ref_comet', reached: false}],
+                        milestones: [{count: 3, item: 'ref_scout', reached: true}, {count: 10, item: 'ref_beacon', reached: false}, {count: 30, item: 'ref_arch', reached: false}],
                         rules: {
                             invitee_chips: 500,
                             inviter_chips: 2000,
@@ -76,7 +76,7 @@ async def run(w):
     check("текст правил", text, "Друг получит 500 фишек при первом входе. Когда он проживёт 24 ч, дойдёт до 3 уровня и сыграет 10 раундов, ты получишь 2000 фишек и 10 💎, а ещё 90 дней 30% от того, что казино выиграет у друга (до 300000 фишек с одного друга). Добавь бота в беседу: когда в ней начнут играть 5 человек не ниже 3 уровня, получишь 3000 фишек и 30 💎.")
     check("приглашено", await p.ev("document.getElementById('referral-invited').textContent"), "5")
     check("квалифицировано", await p.ev("document.getElementById('referral-qualified').textContent"), "2")
-    check("вехи", await p.ev("document.getElementById('referral-milestones').textContent"), "Награды за друзей, дошедших до награды: 3 — значок «Гонец» ✓; 10 — рамка «Маяк»; 30 — скин краша «Комета».")
+    check("вехи", await p.ev("document.getElementById('referral-milestones').textContent"), "Награды за друзей, дошедших до награды: 3 — значок «Камень» ✓; 10 — рамка «Колонна»; 30 — рамка «Арка».")
     check("заработано с процента", await p.ev("document.getElementById('referral-commission').textContent"), "1234")
     
     # Нажимаем "Отправить другу"

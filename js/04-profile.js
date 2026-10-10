@@ -286,7 +286,7 @@ let refLastRequest = -Infinity;    // performance.now() последнего з�
 let refData = null;
 let refError = false;
 
-const REF_MILESTONE_NAMES = { ref_scout: 'значок «Гонец»', ref_beacon: 'рамка «Маяк»', ref_comet: 'скин краша «Комета»' };
+const REF_MILESTONE_NAMES = { ref_scout: 'значок «Камень»', ref_beacon: 'рамка «Колонна»', ref_arch: 'рамка «Арка»' };
 
 function validReferral(d) {
   if (!d || typeof d !== 'object') return false;

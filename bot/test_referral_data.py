@@ -81,12 +81,12 @@ try:
     
     # Check /mydata for inviter
     export_inviter = db.get_player_export(U_INVITER, db_path=path)
-    check("inviter /mydata keys", sorted(export_inviter["referral"].keys()), ["commission_earned", "founded_chats", "founded_chats_rewarded", "invited_by_someone", "invited_count", "qualified_count"])
-    check("inviter referral data", export_inviter["referral"], {"invited_by_someone": False, "invited_count": 1, "qualified_count": 0, "commission_earned": 0, "founded_chats": 0, "founded_chats_rewarded": 0})
+    check("inviter /mydata keys", sorted(export_inviter["referral"].keys()), ["commission_earned", "founded_chats", "founded_chats_rewarded", "founder_no", "invited_by_someone", "invited_count", "qualified_count"])
+    check("inviter referral data", export_inviter["referral"], {"invited_by_someone": False, "invited_count": 1, "qualified_count": 0, "commission_earned": 0, "founder_no": None, "founded_chats": 0, "founded_chats_rewarded": 0})
     
     # Check /mydata for invitee
     export_invitee = db.get_player_export(U_INVITEE, db_path=path)
-    check("invitee referral data", export_invitee["referral"], {"invited_by_someone": True, "invited_count": 0, "qualified_count": 0, "commission_earned": 0, "founded_chats": 0, "founded_chats_rewarded": 0})
+    check("invitee referral data", export_invitee["referral"], {"invited_by_someone": True, "invited_count": 0, "qualified_count": 0, "commission_earned": 0, "founder_no": None, "founded_chats": 0, "founded_chats_rewarded": 0})
     
     # Check privacy: no other IDs
     import json

@@ -569,6 +569,12 @@ def init_db(db_path=None):
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id)")
+        # порядковый номер основателя (DESIGN.md раздел 6): выдаётся один раз, когда игрок получает первую веху рефералки (3 квалифицированных друга); номера не переиспользуются
+        conn.execute("CREATE TABLE IF NOT EXISTS founder_numbers (telegram_id INTEGER PRIMARY KEY, no INTEGER NOT NULL UNIQUE)")
+        conn.execute(
+            "INSERT OR IGNORE INTO founder_numbers (telegram_id, no) "
+            "SELECT telegram_id, (SELECT COALESCE(MAX(no), 0) FROM founder_numbers) + ROW_NUMBER() OVER (ORDER BY acquired_at, telegram_id) "
+            "FROM cosmetic_items WHERE item_code = 'ref_scout' AND telegram_id NOT IN (SELECT telegram_id FROM founder_numbers)")      # игроки, получившие веху до введения номеров
         # основатель беседы: игрок, добавивший бота в группу (chat_id группы уже хранится в bot_chats); chat_instance беседы в игре привязывается, когда основатель сам открывает игру из неё
         conn.execute(
             """

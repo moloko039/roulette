@@ -253,10 +253,26 @@ try:
     for n in range(11, 30):
         qualify(n)
     qualify(30)
-    check("30-й: скин краша «Комета»", owned(), ["ref_beacon", "ref_comet", "ref_scout"])
+    check("30-й: рамка «Арка»", owned(), ["ref_arch", "ref_beacon", "ref_scout"])
+    # порядковый номер основателя: выдаётся с первой вехой (3 друга), по очереди получения; у второго пригласившего номер 2
+    from features.cosmetics_db import cosmetics_state
+    check("номер основателя первого пригласившего: 1", cosmetics_state(I, db_path=path)["founder_no"], 1)
+    I2 = 910100
+    add_player(path, I2, balance=0)
+    for n in range(1, 4):
+        uid = 940000 + n
+        add_player(path, uid, xp=lvl3)
+        sql(path, "INSERT INTO referrals (invitee_id, referrer_id, created_at) VALUES (?, ?, ?)", (uid, I2, NOW - 50 * DAY))
+        for k in range(economy_config.REFERRAL_QUALIFY_ROUNDS):
+            sql(path, "INSERT INTO roulette_rounds (telegram_id, request_id, number, stake_total, payout_total, bets_json, created_at) VALUES (?, ?, 0, 1, 0, '[]', ?)", (uid, "w%d-%d" % (n, k), NOW - DAY))
+        db.check_qualification(uid, now=NOW + 5, db_path=path)
+    check("номер основателя второго: 2; у не получившего веху нет номера", [cosmetics_state(I2, db_path=path)["founder_no"], cosmetics_state(V, db_path=path)["founder_no"]], [2, None])
+    from features.chat_db import _public_cosmetics
+    sql(path, "INSERT INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, 'badge', 'ref_scout')", (I,))
+    check("другим участникам виден номер основателя у надевшего значок «Камень»", _public_cosmetics(path, [I, I2]), {I: {"badge": "ref_scout", "founder_no": 1}})
     check("предметы с источником referral и без цены", sorted(sql(path, "SELECT source, payment_ref FROM cosmetic_items WHERE telegram_id = ?", (I,))), [("referral", "milestone-10"), ("referral", "milestone-3"), ("referral", "milestone-30")])
-    check("вехи не требуют цены в каталоге", [cosmetics.item(c)["price"] for c in ("ref_scout", "ref_beacon", "ref_comet")], [None, None, None])
-    check("слоты вех: значок, рамка, скин краша", [cosmetics.item(c)["slot"] for c in ("ref_scout", "ref_beacon", "ref_comet")], ["badge", "avatar_frame", "crash"])
+    check("вехи не требуют цены в каталоге", [cosmetics.item(c)["price"] for c in ("ref_scout", "ref_beacon", "ref_arch")], [None, None, None])
+    check("слоты вех: значок, две рамки", [cosmetics.item(c)["slot"] for c in ("ref_scout", "ref_beacon", "ref_arch")], ["badge", "avatar_frame", "avatar_frame"])
 
     # ================= сводка числами =================
     check("числа решения владельца", (economy_config.REFERRAL_INVITER_CHIPS, economy_config.REFERRAL_INVITER_GEMS, economy_config.REFERRAL_COMMISSION_PCT, economy_config.REFERRAL_COMMISSION_DAYS,
