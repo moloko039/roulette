@@ -1,1 +1,142 @@
-/* Скин «Глубина» (keno_bubble): заготовка, заполняется задачей пула */
+/* Сцена скина кено «Пузыри» (коллекция «Глубина», DESIGN.md раздел 3).
+   1. Палитра: поверхность #2E8FB8, сумерки #12405E, полночь #06192B, бездна #020812, биолюминесценция #3CF2D8 и #9B7BFF.
+   2. Материал: морская вода, прозрачные пузыри с бликом и тонкой обводкой.
+   3. Форма: числа — парящие пузыри; совпадение — светящаяся медуза в углу шарика.
+   4. Декор: полуночное глубоководное поле, тонкое бирюзовое свечение.
+   5. Розыгрыш (.drawn, .pop): пузыри поднимаются снизу и встают на места (translateY снизу + opacity).
+   6. Совпадение (.hit): вспышка бирюзовым (#3CF2D8, transform/opacity) и светящаяся медуза-точка в углу до конца раунда.
+   7. .miss: приглушён. Контраст цифр >= 4.5:1.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. До ~15 КБ. */
+
+/* 1. Поле — глубинная толща воды */
+#keno-board[data-scene="keno_bubble"] {
+  position: relative;
+  background-color: #06192B;
+  background-image: radial-gradient(circle at 50% 25%, #12405E 0%, #06192B 65%, #020812 100%);
+  border: 2px solid #12405E;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow:
+    inset 0 0 16px rgba(2, 8, 18, 0.75),
+    0 2px 8px rgba(2, 8, 18, 0.5);
+}
+
+#keno-board[data-scene="keno_bubble"] .skin-scene {
+  overflow: visible;
+}
+
+/* 2. Шарики — пузыри */
+#keno-board[data-scene="keno_bubble"] .keno-ball {
+  position: relative;
+}
+
+#keno-board[data-scene="keno_bubble"] .keno-ball span {
+  position: relative;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--keno-text, #05303F);
+  transition: transform 0.12s ease-out;
+}
+
+#keno-board[data-scene="keno_bubble"] .keno-ball:active:not(:disabled) span {
+  transform: scale(0.92);
+}
+
+/* 3. Выбор числа (.sel): пузырь мягко пульсирует */
+#keno-board[data-scene="keno_bubble"] .keno-ball.sel span {
+  color: var(--keno-sel-text, #F2FBFF);
+  animation: bubble-select 0.22s ease-out;
+}
+
+@keyframes bubble-select {
+  0%   { transform: scale(0.85); }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* 4. Розыгрыш (.drawn, .pop): пузыри поднимаются снизу и встают на места */
+#keno-board[data-scene="keno_bubble"] .keno-ball.pop span {
+  animation: bubble-rise-pop 0.35s cubic-bezier(0.2, 0.85, 0.35, 1.15);
+}
+
+@keyframes bubble-rise-pop {
+  0% {
+    transform: translateY(24px) scale(0.6);
+    opacity: 0.2;
+  }
+  65% {
+    transform: translateY(-3px) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 5. Совпадение (.hit): пузырь вспыхивает бирюзовым (#3CF2D8) */
+#keno-board[data-scene="keno_bubble"] .keno-ball.hit span {
+  color: var(--keno-hit-text, #F5FFFB);
+}
+
+#keno-board[data-scene="keno_bubble"] .keno-ball.hit span::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, #3CF2D8 0%, rgba(60, 242, 216, 0.6) 60%, transparent 100%);
+  animation: bubble-hit-flash 0.45s ease-out forwards;
+}
+
+@keyframes bubble-hit-flash {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+/* Совпадение (.hit): светящаяся медуза-точка в углу шарика, остаётся до конца раунда */
+#keno-board[data-scene="keno_bubble"] .keno-ball.hit::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='6' rx='5' ry='3.5' fill='%233CF2D8' stroke='%2312405E' stroke-width='0.8'/%3E%3Cellipse cx='8' cy='6' rx='3.2' ry='2' fill='%239B7BFF' opacity='0.7'/%3E%3Ccircle cx='8' cy='5' r='1.2' fill='%23FFFFFF'/%3E%3Cpath d='M5 9 Q4.5 12 5.5 14 M7 9.5 Q7.5 12.5 7 14.5 M9 9.5 Q8.5 12.5 9 14.5 M11 9 Q11.5 12 10.5 14' fill='none' stroke='%233CF2D8' stroke-width='0.9' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  animation: jellyfish-appear 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+@keyframes jellyfish-appear {
+  0% {
+    transform: scale(0.2) translateY(4px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2) translateY(-1px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 6. Выбранное, но не выпавшее (.miss): приглушён */
+#keno-board[data-scene="keno_bubble"] .keno-ball.miss span {
+  opacity: 0.45;
+}
