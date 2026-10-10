@@ -114,24 +114,24 @@ try:
     # ================= множитель по времени =================
     check("контрольные", [crash.m100(t) for t in (0, 6000, 12000)], [100, 200, 400])
     check("отрицательное время", crash.m100(-5), 100)
-    check("предел достигается за 6000*log2(250) = 47794,7 мс", (crash.m100(47794), crash.m100(47795), crash.m100(10 ** 9)), (24997, 25000, 25000))
+    check("предел достигается за 6000*log2(1000) = 59794,7 мс", (crash.m100(59794), crash.m100(59795), crash.m100(10 ** 9)), (99991, 100000, 100000))
     assert all(crash.m100(t) <= crash.m100(t + 1) for t in range(0, 70000, 7)), "множитель не убывает"
     assert max(crash.m100(t) for t in range(0, 80000, 13)) == crash.CAP_X100
     check("эффективное время", (crash.effective_ms(1000, 0), crash.effective_ms(100, 0), crash.effective_ms(0, 5000)), (850, 0, 0))
-    check("текст", [crash.text(v) for v in (0, 100, 101, 12345, 25000)], ["0.00", "1.00", "1.01", "123.45", "250.00"])
-    check("константы", (crash.DOUBLING_MS, crash.CAP_X100, crash.MIN_TARGET_X100, crash.GRACE_MS, crash.M), (6000, 25000, 101, 150, 2 ** 53))
+    check("текст", [crash.text(v) for v in (0, 100, 101, 12345, 100000)], ["0.00", "1.00", "1.01", "123.45", "1000.00"])
+    check("константы", (crash.DOUBLING_MS, crash.CAP_X100, crash.MIN_TARGET_X100, crash.GRACE_MS, crash.M), (6000, 100000, 101, 150, 2 ** 53))
 
     # ================= точка краха =================
     check("u=0 даёт 1.00", crash.crash_from_u(0), 100)
     check("u=M-1 ограничено", crash.crash_from_u(crash.M - 1), 10 ** 9)
     M = crash.M
-    for t in (101, 150, 200, 500, 1000, 5000, 25000):
+    for t in (101, 150, 200, 500, 1000, 5000, 25000, 100000):
         # вероятность crash_x100 >= t: число u, при которых 3600*M // (37*(M-u)) >= t, делённое на M
         n_u = 3600 * M // (37 * t)
         edge = M - n_u
         assert crash.crash_from_u(edge) >= t and crash.crash_from_u(edge - 1) < t, "граница u для t=%d" % t
     rtp_report = []
-    for t in (101, 150, 200, 500, 1000, 5000, 25000):
+    for t in (101, 150, 200, 500, 1000, 5000, 25000, 100000):
         p_win = Fraction(3600 * M // (37 * t), M)
         rtp = Fraction(t, 100) * p_win
         assert rtp <= Fraction(36, 37), "возврат выше 36/37 при t=%d" % t
@@ -161,13 +161,13 @@ try:
     check("авто: цель выше краха проигрывает", crash.decide_auto(201, 200), ("lose", 0))
     check("авто: ниже краха", crash.decide_auto(150, 200), ("win", 150))
     raises(ValueError, crash.decide_auto, 100, 500)
-    raises(ValueError, crash.decide_auto, 25001, 500)
     raises(ValueError, crash.decide_auto, 100001, 500)
-    check("выплата", (crash.payout(100, 150), crash.payout(7, 150), crash.payout(10 ** 9, 25000)), (150, 10, 25 * 10 ** 10))
+    check("авто: цель 25001 допустима", crash.decide_auto(25001, 30000), ("win", 25001))
+    check("выплата", (crash.payout(100, 150), crash.payout(7, 150), crash.payout(10 ** 9, crash.CAP_X100)), (150, 10, 10 ** 12))
     check("XP цели 200", crash.xp_for(10_000, 200), 10_000 * (7400 - 3600) // 7400)
     assert abs(crash.xp_for(10 ** 6, 200) / 10 ** 6 - 0.5135) < 0.0005
     assert abs(crash.xp_for(10 ** 6, 101) / 10 ** 6 - 0.03666) < 0.0005
-    assert abs(crash.xp_for(10 ** 6, crash.CAP_X100) / 10 ** 6 - 0.9961) < 0.0005
+    assert abs(crash.xp_for(10 ** 6, crash.CAP_X100) / 10 ** 6 - 0.9990) < 0.0005
     check("XP не отрицателен", crash.xp_for(100, 1), 0)
     check("m для XP", (crash.xp_multiplier("auto", "win", 200, 200), crash.xp_multiplier("auto", "lose", 0, 350),
                        crash.xp_multiplier("manual", "win", 180, None), crash.xp_multiplier("manual", "lose", 0, None)),
@@ -177,22 +177,22 @@ try:
     check("не разбился", crash.settle(500, 0, crash.GRACE_MS + 6000), None)       # m=200 <= 500
     check("разбился", crash.settle(150, 0, crash.GRACE_MS + 6000), ("lose", 0))   # m=200 > 150
     check("ровно на краху ещё жив", crash.settle(200, 0, crash.GRACE_MS + 6000), None)
-    check("предел с crash >= CAP: выигрыш", crash.settle(crash.CAP_X100, 0, crash.GRACE_MS + 47795), ("win", crash.CAP_X100))
-    check("предел с crash < CAP: проигрыш", crash.settle(crash.CAP_X100 - 1, 0, crash.GRACE_MS + 47795), ("lose", 0))
+    check("предел с crash >= CAP: выигрыш", crash.settle(crash.CAP_X100, 0, crash.GRACE_MS + 59795), ("win", crash.CAP_X100))
+    check("предел с crash < CAP: проигрыш", crash.settle(crash.CAP_X100 - 1, 0, crash.GRACE_MS + 59795), ("lose", 0))
     check("брошенный выше предела", crash.settle(10 ** 9, 0, 80_000), ("win", crash.CAP_X100))
     check("брошенный ниже предела", crash.settle(5000, 0, 80_000), ("lose", 0))
     raises(crash.TooEarly, crash.cashout_multiplier, 0, crash.GRACE_MS + 50)
     check("вывод на 1.01", crash.cashout_multiplier(0, crash.GRACE_MS + 87), 101)
 
-    # раунды с точкой краха выше потолка обрабатываются как автоматический выигрыш ×250
+    # раунды с точкой краха выше потолка обрабатываются как автоматический выигрыш ×1000
     high = [v for v in sample if v >= crash.CAP_X100]
-    assert len(high) > 500, len(high)
-    assert all(crash.settle(v, 0, crash.GRACE_MS + 47795) == ("win", crash.CAP_X100) for v in high[:5000])
-    assert all(crash.settle(v, 0, crash.GRACE_MS + 47794) is None for v in high[:5000]), "до потолка раунд идёт"
+    assert len(high) > 100, len(high)
+    assert all(crash.settle(v, 0, crash.GRACE_MS + 59795) == ("win", crash.CAP_X100) for v in high)
+    assert all(crash.settle(v, 0, crash.GRACE_MS + 59794) is None for v in high), "до потолка раунд идёт"
     share_high = len(high) / len(sample)
     assert abs(share_high - float(Fraction(3600 * M // (37 * crash.CAP_X100), M))) < 0.0005, share_high
-    print("доля раундов, дошедших до потолка ×250: %.5f (теория %.5f)" % (share_high, 36 / (37 * 250)))
-    check("XP потолка", crash.xp_for(10 ** 6, crash.CAP_X100), 10 ** 6 * (37 * 25000 - 3600) // (37 * 25000))
+    print("доля раундов, дошедших до потолка ×1000: %.5f (теория %.5f)" % (share_high, 36 / (37 * 1000)))
+    check("XP потолка", crash.xp_for(10 ** 6, crash.CAP_X100), 10 ** 6 * (37 * 100000 - 3600) // (37 * 100000))
 
     # ================= прежний краш закрыт: возврат ставок открытых партий =================
     path = new_db()

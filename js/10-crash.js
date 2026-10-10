@@ -7,7 +7,7 @@
 // Лента ставок: беседа видит ставки только своей беседы (с именами), вне беседы общая анонимная лента (имена «Игрок N»).
 const CR_BET_MAX = 1000000000;
 const CR_TARGET_MIN = 101;
-const CR_TARGET_MAX = 25000;     // ×250.00, как CAP_X100 на сервере
+const CR_TARGET_MAX = 100000;    // ×1000.00, как CAP_X100 на сервере
 const CR_DOUBLING_MS = 6000;     // как crash.DOUBLING_MS на сервере (только для показа; решает сервер)
 const CR_POLL_MS = 300;          // опрос в приёме ставок и полёте
 const CR_POLL_RESULT_MS = 1000;  // опрос в паузе итога
@@ -86,11 +86,11 @@ function setCrMessage(text, code, retry) {
   crEls.retry.hidden = !retry;
 }
 
-// Цель из поля: пусто = вручную (null); число 1.01..250 с двумя знаками; иначе undefined (ошибка)
+// Цель из поля: пусто = вручную (null); число 1.01..1000 с двумя знаками; иначе undefined (ошибка)
 function crParseTarget() {
   const raw = crEls.target.value.trim().replace(',', '.');
   if (raw === '') return null;
-  if (!/^\d{1,3}(\.\d{0,2})?$/.test(raw)) return undefined;
+  if (!/^\d{1,4}(\.\d{0,2})?$/.test(raw)) return undefined;
   const x = Math.round(parseFloat(raw) * 100);
   return x >= CR_TARGET_MIN && x <= CR_TARGET_MAX ? x : undefined;
 }
@@ -591,7 +591,7 @@ function crBet() {
   const bet = Number(crEls.bet.value);
   const target = crParseTarget();
   if (!Number.isSafeInteger(bet) || bet < 1 || bet > CR_BET_MAX) { setCrNotice('Введите целую ставку от 1 до ' + formatNumber(CR_BET_MAX)); return; }
-  if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 250 (или пусто для ручного режима)'); return; }
+  if (target === undefined) { setCrNotice('Авто-вывод: от 1.01 до 1000 (или пусто для ручного режима)'); return; }
   if (cr.balance !== null && bet > cr.balance) { setCrNotice('Не хватает фишек'); return; }
   const body = target === null ? { bet } : { bet, target_x100: target };
   crAct('/api/crash/live/bet', body, validCrBetDone, (d) => {

@@ -41,7 +41,7 @@ def post(w, init, path, body):
 async def run(w):
     p = w.page
     bob = w.users["bob"]
-    w.server.script(crash_live=[25000])
+    w.server.script(crash_live=[100000])
     await open_game(p, "crash")
     await p.wait(READY, 10, "панель ставки")
 
@@ -80,7 +80,7 @@ async def run(w):
 
     # --- вне беседы: общая анонимная лента (те же данные входа этой страницы заменяются на личный чат), ставки бесед в неё не попадают
     me = w.users["me"]
-    await server_to(w, p, fs + t_crash_ms(25000) + 4000 + 300)      # раунд закончен, пауза итога прошла
+    await server_to(w, p, fs + t_crash_ms(100000) + 4000 + 300)      # раунд закончен, пауза итога прошла
     await p.ev("localStorage.setItem('__init', %s)" % json.dumps(private_init(w.server.token, me.id, me.name)))
     await w.reload()
     if not await p.ev("document.querySelector('[data-screen=lobby]').hidden"):
