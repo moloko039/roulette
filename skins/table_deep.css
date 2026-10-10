@@ -125,3 +125,6 @@ html.skin-paused #table[data-scene="table_deep"] *::before,
 html.skin-paused #table[data-scene="table_deep"] *::after {
   animation-play-state: paused !important;
 }
+
+/* декор со своими z-index живёт внутри стола и не поднимает клетки над панелью ставок (она сверху всегда) */
+#table[data-scene="table_deep"] { isolation: isolate; }
