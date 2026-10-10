@@ -39,6 +39,42 @@ async def run(w):
           [await p.ev(SCENE), await p.ev(LINK), await p.ev("document.getElementById('keno-board').dataset.scene")],
           [1, 1, "keno_apple"])
     check("сцена не пуста", await p.ev("document.querySelector('#keno-board .skin-scene').children.length > 0"), True)
+    check("декор корзины виден на экране кено", await p.ev("""(() => {
+        const b = document.querySelector('.ska-basket');
+        const r = b ? b.getBoundingClientRect() : null;
+        return !!(r && r.width > 0 && r.height > 0 && getComputedStyle(b).display !== 'none' && getComputedStyle(b).visibility !== 'hidden');
+    })()"""), True)
+    check("изоляция экрана кено и z-index декора не выше 2", await p.ev("""(() => {
+        const screen = document.querySelector('[data-screen="keno"]');
+        const basket = document.querySelector('.ska-basket');
+        const branch = document.querySelector('.ska-branch');
+        const fx = document.querySelector('.ska-fx');
+        const iso = getComputedStyle(screen).isolation;
+        const bZ = parseInt(getComputedStyle(basket).zIndex, 10);
+        const brZ = parseInt(getComputedStyle(branch).zIndex, 10);
+        const fxZ = parseInt(getComputedStyle(fx).zIndex, 10);
+        return iso === 'isolate' && bZ <= 2 && brZ <= 2 && fxZ <= 2;
+    })()"""), True)
+
+    # --- меню выбора игр: декор под панелью, elementFromPoint возвращает элемент панели, а не корзину
+    await p.tap(".tab.main")
+    await p.wait("document.getElementById('game-menu').classList.contains('open')", 5, "меню выбора игр открыто")
+    await asyncio.sleep(0.3)
+    check("при открытом меню выбора игр декор не поверх листа: elementFromPoint в центре панели возвращает элемент панели, а не декор корзины",
+          await p.ev("""(() => {
+              const panel = document.getElementById('game-panel');
+              const r = panel.getBoundingClientRect();
+              const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return !!(el && panel.contains(el) && !el.closest('.ska-basket'));
+          })()"""), True)
+    await p.tap(".tab.main")
+    await p.wait("!document.getElementById('game-menu').classList.contains('open')", 5, "меню выбора игр закрыто")
+    await asyncio.sleep(0.3)
+    check("после закрытия меню выбора игр декор виден на экране кено", await p.ev("""(() => {
+        const b = document.querySelector('.ska-basket');
+        const r = b ? b.getBoundingClientRect() : null;
+        return !!(r && r.width > 0 && r.height > 0 && getComputedStyle(b).display !== 'none' && getComputedStyle(b).visibility !== 'hidden');
+    })()"""), True)
 
     for n in (1, 2, 3):
         await p.tap("button.keno-ball:nth-of-type(%d)" % n)
