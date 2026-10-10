@@ -1,0 +1,94 @@
+/* Скин значков мин «Пустота» (void_mines): DESIGN.md раздел 5 («Мины»).
+   Клетки — пустые квадраты-контуры 1 px;
+   Безопасная: контур становится сплошным белым квадратом на 300 мс и гаснет до тонкой точки в центре;
+   Мина: клетка полностью чёрная, без взрыва и частиц. */
+
+#mines-board-wrap[data-scene="void_mines"] .mines-grid {
+  background-color: #000000;
+}
+
+/* 1. Клетки — пустые квадраты-контуры 1 px */
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell {
+  position: relative;
+  background-color: #000000;
+  border: 1px solid #ffffff;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  transition: transform 0.12s ease-out;
+}
+
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Скрываем стандартные SVG-иконки мин и алмазов */
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell svg {
+  display: none !important;
+  filter: none !important;
+}
+
+/* 2. Безопасная клетка (.safe): контур становится сплошным белым квадратом на 300 мс и гаснет до тонкой точки в центре */
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.safe {
+  border-radius: 0;
+  box-shadow: none;
+  animation: void-mine-safe-flash 0.3s ease-out forwards;
+}
+
+@keyframes void-mine-safe-flash {
+  0% {
+    background-color: #ffffff;
+    border-color: #ffffff;
+  }
+  100% {
+    background-color: #000000;
+    border-color: transparent;
+  }
+}
+
+/* Тонкая точка в центре */
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.safe::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 3. Мина (.mine): клетка полностью чёрная, без взрыва и частиц */
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.mine,
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.mine.hit,
+:is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.mine.muted {
+  background-color: #000000;
+  border-color: #000000;
+  box-shadow: none;
+  animation: none;
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
+}
+
+/* При проигрыше контуры оставшихся закрытых клеток кратковременно гаснут */
+#mines-board-wrap[data-scene="void_mines"][data-status="lost"] .mines-cell:not(.safe):not(.mine) {
+  opacity: 0.2;
+  transition: opacity 0.3s ease-out;
+}
+
+/* prefers-reduced-motion и perf-lite отключают анимацию вспышки */
+@media (prefers-reduced-motion: reduce) {
+  :is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.safe {
+    animation: none;
+    background-color: #000000;
+    border-color: transparent;
+  }
+}
+
+html.perf-lite :is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.safe,
+html.skin-paused :is([data-scene="void_mines"], [data-skin-mine_icons="void_mines"]) .mines-cell.safe {
+  animation: none;
+  background-color: #000000;
+  border-color: transparent;
+}
