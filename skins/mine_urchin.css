@@ -1,1 +1,278 @@
-/* Скин «Глубина» (mine_urchin): заготовка, заполняется задачей пула */
+/* Сцена скина мин «Морские ежи» (коллекция «Глубина», DESIGN.md раздел 3).
+   1. Палитра: поверхность #2E8FB8, сумерки #12405E, полночь #06192B, бездна #020812, биолюминесценция #3CF2D8 и #9B7BFF, латунь #C49A52.
+   2. Материал: морское дно, песок с камешками, вода, перламутр, латунь.
+   3. Форма: закрытые клетки — песок с камешками и край раковины; безопасная — раковина с жемчужиной; мина — морская мина с шипами на цепи.
+   4. Декор: полуночное поле с латунной окантовкой, светящееся кольцо биолюминесценции под жемчужиной.
+   5. Покой: тихое покачивание раковины в толще воды на закрытых клетках.
+   6. События: открытие (.safe) — сдувание песка и сияние жемчужины; взрыв (.mine.hit) — ударная волна и пузыри вверх;
+      помутнение соседних клеток; выигрыш (data-view="result") — жемчужины вспыхивают волной (--ci * 40ms).
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. До ~15 КБ. */
+
+/* 1. Поле — полуночное морское дно с латунной окантовкой */
+#mines-board-wrap[data-scene="mine_urchin"] {
+  position: relative;
+}
+
+#mines-board-wrap[data-scene="mine_urchin"] .mines-grid {
+  position: relative;
+  box-sizing: border-box;
+  padding: 4px;
+  background-color: #06192B;
+  background-image:
+    radial-gradient(circle at 50% 20%, #12405E 0%, #06192B 65%, #020812 100%);
+  border: 5px solid #C49A52;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px #8A6A30,
+    0 2px 10px rgba(2, 8, 18, 0.65);
+}
+
+/* 2. Клетка — песчаное дно с камешками */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #25596E;
+  background-color: #0F2F3D;
+  background-image:
+    /* камешки */
+    radial-gradient(circle at 25% 30%, #12405E 0%, #12405E 1.8px, transparent 2px),
+    radial-gradient(circle at 75% 70%, #06192B 0%, #06192B 2.2px, transparent 2.5px),
+    radial-gradient(circle at 62% 22%, #C49A52 0%, #C49A52 1.4px, transparent 1.8px),
+    /* рябь песка на глубине */
+    linear-gradient(135deg, #164257 0%, #0F2F3D 55%, #0A222D 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(60, 242, 216, 0.12),
+    inset 0 -2px 3px rgba(2, 8, 18, 0.5);
+  transition: transform 0.12s ease-out;
+}
+
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell:active:not(:disabled) {
+  transform: scale(0.96);
+  background-color: #0B2430;
+}
+
+/* Скрываем стандартные svg-значки игры и гасим filter drop-shadow у safe-значка */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell svg {
+  display: none;
+  filter: none;
+}
+
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.safe svg {
+  filter: none;
+}
+
+/* 3. Закрытая клетка: песок, край перламутровой раковины торчит из дна */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell:not(.safe):not(.mine)::before {
+  content: '';
+  position: absolute;
+  width: 26px;
+  height: 24px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  pointer-events: none;
+  transform-origin: 50% 90%;
+  animation: urchin-shell-idle 3.5s ease-in-out infinite alternate;
+  animation-delay: calc(var(--ci, 0) * -220ms);
+}
+
+/* Чередование закрытых клеток (край раковины на нечётных клетках) */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell:not(.safe):not(.mine):nth-child(2n+1)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 22 C8 15 12 11 16 11 C20 11 24 15 23 22 Z' fill='%2312405E' stroke='%23C49A52' stroke-width='1.2'/%3E%3Cpath d='M16 11 L16 21 M16 11 L12 20 M16 11 L20 20' stroke='%233CF2D8' stroke-width='0.8' stroke-linecap='round' opacity='0.75'/%3E%3Ccircle cx='16' cy='18' r='1.8' fill='%239B7BFF' opacity='0.85'/%3E%3Cpath d='M6 22 Q16 19 26 22' fill='none' stroke='%230F2F3D' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell:not(.safe):not(.mine):nth-child(2n)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M11 23 C10 17 13 14 16 14 C19 14 22 17 21 23 Z' fill='%230B2430' stroke='%232E8FB8' stroke-width='1'/%3E%3Ccircle cx='16' cy='19' r='1.4' fill='%233CF2D8' opacity='0.75'/%3E%3Cpath d='M8 23 Q16 21 24 23' fill='none' stroke='%2306192B' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+@keyframes urchin-shell-idle {
+  0%   { transform: rotate(-2deg) scale(1); }
+  50%  { transform: rotate(1.2deg) scale(1.02); }
+  100% { transform: rotate(2deg) scale(1); }
+}
+
+/* Взрыв: соседние раковины никнут от песчаной бури */
+#mines-board-wrap[data-scene="mine_urchin"][data-status="lost"] .mines-cell:not(.safe):not(.mine)::before {
+  animation: urchin-shell-wilt 0.5s ease-out forwards;
+}
+
+@keyframes urchin-shell-wilt {
+  0%   { transform: rotate(0deg); opacity: 1; }
+  100% { transform: rotate(35deg) translateY(4px) scale(0.8); opacity: 0.5; }
+}
+
+/* 4. Безопасная клетка (.safe): песок сдувается, открывая раковину с жемчужиной */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.safe {
+  background-color: #06192B;
+  background-image: radial-gradient(circle at 50% 50%, #12405E 0%, #06192B 75%, #020812 100%);
+  border-color: #3CF2D8;
+  animation: urchin-safe-reveal 0.35s ease-out;
+}
+
+@keyframes urchin-safe-reveal {
+  0%   { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+/* Светящееся кольцо биолюминесценции под жемчужиной (на секунду светится, без blur) */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.safe::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='18' r='9' fill='none' stroke='%233CF2D8' stroke-width='2.2' opacity='0.9'/%3E%3Ccircle cx='16' cy='18' r='12' fill='none' stroke='%239B7BFF' stroke-width='1.2' stroke-dasharray='3 2' opacity='0.6'/%3E%3Ccircle cx='5' cy='7' r='1.5' fill='%23C49A52'/%3E%3Ccircle cx='27' cy='8' r='1.4' fill='%233CF2D8'/%3E%3Ccircle cx='4' cy='25' r='1.2' fill='%239B7BFF'/%3E%3Ccircle cx='28' cy='26' r='1.5' fill='%23C49A52'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: urchin-glow-ring 1s ease-out forwards;
+}
+
+@keyframes urchin-glow-ring {
+  0%   { transform: scale(0.3); opacity: 0; }
+  25%  { transform: scale(1.1); opacity: 0.95; }
+  60%  { transform: scale(1.0); opacity: 0.75; }
+  85%  { transform: scale(1.05); opacity: 0.35; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+
+/* Раковина с жемчужиной внутри безопасной клетки */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.safe::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  z-index: 2;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M7 17 C6 9 11 4 16 4 C21 4 26 9 25 17 C21 14 11 14 7 17 Z' fill='%230B283D' stroke='%23C49A52' stroke-width='1.2'/%3E%3Cpath d='M16 4 L16 14 M16 4 L11 13 M16 4 L21 13' stroke='%232E8FB8' stroke-width='0.8' stroke-linecap='round' opacity='0.7'/%3E%3Cpath d='M6 18 C5 26 10 29 16 29 C22 29 27 26 26 18 C26 14 21 12 16 12 C11 12 6 14 6 18 Z' fill='%2312405E' stroke='%23C49A52' stroke-width='1.2'/%3E%3Cpath d='M16 29 L16 18 M16 29 L11 20 M16 29 L21 20 M16 29 L7 22 M16 29 L25 22' stroke='%23C49A52' stroke-width='0.8' stroke-linecap='round' opacity='0.7'/%3E%3Ccircle cx='16' cy='18' r='5' fill='%23F4FBFE' stroke='%239B7BFF' stroke-width='0.8'/%3E%3Ccircle cx='14.5' cy='16.5' r='1.8' fill='%23FFFFFF'/%3E%3Cellipse cx='16' cy='20.5' rx='3' ry='1.2' fill='%233CF2D8' opacity='0.6'/%3E%3Crect x='14' y='27.5' width='4' height='2' rx='1' fill='%23C49A52'/%3E%3C/svg%3E");
+  animation: urchin-pearl-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes urchin-pearl-pop {
+  0%   { transform: scale(0.3) translateY(6px); opacity: 0; }
+  60%  { transform: scale(1.15) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* 5. Мина: морская мина с шипами на цепи */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.mine::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 23 L16 31' stroke='%23C49A52' stroke-width='1.8' stroke-linecap='round' stroke-dasharray='2 2'/%3E%3Cellipse cx='16' cy='24' rx='1.8' ry='2.2' fill='none' stroke='%238A6A30' stroke-width='1'/%3E%3Cellipse cx='16' cy='28' rx='1.8' ry='2.2' fill='none' stroke='%238A6A30' stroke-width='1'/%3Ccircle cx='16' cy='14' r='8' fill='%2306192B' stroke='%2312405E' stroke-width='1.4'/%3E%3Cpath d='M16 6 L16 2 M15 2 L17 2' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M9 19 L6 22 M5.5 21 L6.5 22.5' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M23 19 L26 22 M25.5 22.5 L26.5 21' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M9 9 L6 6 M5.5 7 L7 5.5' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M23 9 L26 6 M25 5.5 L26.5 7' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M8 14 L4 14 M4 13 L4 15' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Cpath d='M24 14 L28 14 M28 13 L28 15' stroke='%23C49A52' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='14' r='3.5' fill='%23020812' stroke='%23C49A52' stroke-width='0.8'/%3E%3Ccircle cx='16' cy='14' r='1.5' fill='%239B7BFF'/%3E%3Ccircle cx='14' cy='12' r='0.8' fill='%233CF2D8'/%3E%3C/svg%3E");
+}
+
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.mine.muted::before {
+  opacity: 0.55;
+}
+
+/* Взрыв (.mine.hit): детонация мины */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.mine.hit::before {
+  animation: urchin-mine-blast 0.45s cubic-bezier(0.2, 0.8, 0.4, 1.2) forwards;
+  opacity: 1;
+}
+
+@keyframes urchin-mine-blast {
+  0% {
+    transform: scale(0.4) rotate(0deg);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1.25) rotate(-5deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.95) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Ударная волна и пузыри вверх при взрыве мины */
+#mines-board-wrap[data-scene="mine_urchin"] .mines-cell.mine.hit::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='14' r='13' fill='none' stroke='%233CF2D8' stroke-width='2.2' opacity='0.9'/%3E%3Ccircle cx='16' cy='14' r='10' fill='none' stroke='%239B7BFF' stroke-width='1.2' opacity='0.7'/%3E%3Ccircle cx='11' cy='7' r='2.2' fill='%232E8FB8' stroke='%233CF2D8' stroke-width='0.8'/%3E%3Ccircle cx='10.3' cy='6.3' r='0.7' fill='%23FFFFFF'/%3E%3Ccircle cx='21' cy='5' r='2.5' fill='%232E8FB8' stroke='%233CF2D8' stroke-width='0.8'/%3E%3Ccircle cx='20.2' cy='4.2' r='0.8' fill='%23FFFFFF'/%3E%3Ccircle cx='15' cy='2' r='1.8' fill='%232E8FB8' stroke='%239B7BFF' stroke-width='0.7'/%3E%3Ccircle cx='14.5' cy='1.5' r='0.5' fill='%23FFFFFF'/%3E%3Ccircle cx='25' cy='10' r='1.5' fill='%232E8FB8' stroke='%233CF2D8' stroke-width='0.6'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: urchin-shockwave-bubbles 0.55s ease-out forwards;
+}
+
+@keyframes urchin-shockwave-bubbles {
+  0% {
+    transform: scale(0.35) translateY(6px);
+    opacity: 1;
+  }
+  55% {
+    transform: scale(1.25) translateY(-6px);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.65) translateY(-18px);
+    opacity: 0;
+  }
+}
+
+/* Соседние клетки на мгновение мутнеют от взбаламученного песка */
+#mines-board-wrap[data-scene="mine_urchin"]:has(.mine.hit) .mines-cell:not(.hit) {
+  animation: urchin-sand-murk 0.6s ease-out;
+}
+
+@keyframes urchin-sand-murk {
+  0%   { opacity: 1; }
+  30%  { opacity: 0.45; }
+  100% { opacity: 1; }
+}
+
+/* Взрыв: поле вздрагивает */
+#mines-board-wrap[data-scene="mine_urchin"][data-status="lost"] {
+  animation: urchin-field-quake 0.35s ease-out;
+}
+
+@keyframes urchin-field-quake {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-3px, 2px); }
+  40%  { transform: translate(3px, -2px); }
+  60%  { transform: translate(-2px, 1px); }
+  80%  { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* 6. Выигрыш / Забрать: жемчужины вспыхивают волной */
+#mines-board-wrap[data-scene="mine_urchin"][data-view="result"]:not([data-status="lost"]):not([data-status=""]) .mines-cell.safe::before {
+  animation: urchin-pearl-wave 0.5s ease-out;
+  animation-delay: calc(var(--ci, 0) * 40ms);
+}
+
+@keyframes urchin-pearl-wave {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-8px) scale(1.18); }
+  65%  { transform: translateY(2px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+#mines-board-wrap[data-scene="mine_urchin"][data-view="result"]:not([data-status="lost"]):not([data-status=""]) .mines-cell.safe::after {
+  animation: urchin-glow-wave 0.5s ease-out;
+  animation-delay: calc(var(--ci, 0) * 40ms);
+}
+
+@keyframes urchin-glow-wave {
+  0%   { transform: scale(0.8); opacity: 0; }
+  50%  { transform: scale(1.25); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 0; }
+}
