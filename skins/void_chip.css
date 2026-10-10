@@ -1,0 +1,78 @@
+/* Скин фишки «Пустота» (void_chip): DESIGN.md раздел 5 («Пустота»).
+   Тонкое белое кольцо 1 px, номинал внутри цифрами с font-variant-numeric: tabular-nums.
+   Номиналы различаются толщиной кольца, а не цветом.
+   Толщины заданы через переменные, как в css-скине chip_ring. */
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .chip,
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .stack {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--chip-text, #ffffff);
+  background-color: var(--chip-bg, #000000);
+  border: var(--chip-ring-width, 1px) solid var(--chip-ring, #ffffff);
+  box-shadow: none;
+  transition: transform 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .chip[aria-pressed="true"] {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff, 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+/* Номиналы различаются толщиной кольца, не цветом */
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) :is(.chip, .stack):is([data-amount="10"], [data-bet="10"], [data-kbet="10"], [data-jbet="10"], [data-cbet="10"], [data-hbet="10"]),
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .bet-chips .chip:nth-child(1) {
+  border-width: var(--chip-ring-width-10, 1px);
+  border-color: var(--chip-ring-10, #ffffff);
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) :is(.chip, .stack):is([data-amount="50"], [data-bet="50"], [data-kbet="50"], [data-jbet="50"], [data-cbet="50"], [data-hbet="50"]),
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .bet-chips .chip:nth-child(2) {
+  border-width: var(--chip-ring-width-50, 1.5px);
+  border-color: var(--chip-ring-50, #ffffff);
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) :is(.chip, .stack):is([data-amount="100"], [data-bet="100"], [data-kbet="100"], [data-jbet="100"], [data-cbet="100"], [data-hbet="100"]),
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .bet-chips .chip:nth-child(3) {
+  border-width: var(--chip-ring-width-100, 2px);
+  border-color: var(--chip-ring-100, #ffffff);
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) :is(.chip, .stack):is([data-amount="500"], [data-bet="500"], [data-kbet="500"], [data-jbet="500"], [data-cbet="500"], [data-hbet="500"]),
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .bet-chips .chip:nth-child(4) {
+  border-width: var(--chip-ring-width-500, 2.5px);
+  border-color: var(--chip-ring-500, #ffffff);
+}
+
+/* Событие «ставка»: кольцо появляется из точки (scale от 0, без подскока, строгая кривая) */
+@keyframes void-chip-drop {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+:is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .stack.drop {
+  animation: void-chip-drop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.perf-lite :is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .stack.drop,
+html.skin-paused :is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .stack.drop {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is([data-scene="void_chip"], [data-skin-chip="void_chip"]) .stack.drop {
+    animation: none;
+  }
+}
