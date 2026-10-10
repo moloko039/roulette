@@ -255,9 +255,20 @@
       return { left, top, angle };
     }
 
+    function stopCrashAnim() {
+      if (crashAnim) {
+        const a = crashAnim;
+        crashAnim = null;
+        a.cancel();
+      }
+      if (typeof penBox.getAnimations === 'function') {
+        penBox.getAnimations().forEach((a) => a.cancel());
+      }
+    }
+
     function reset() {
       broken = false;
-      if (crashAnim) { crashAnim.cancel(); crashAnim = null; }
+      stopCrashAnim();
       penBox.classList.remove('flying', 'broken', 'gone', 'cashout');
       pool.forEach((p) => { if (p.anim) p.anim.cancel(); p.busy = false; p.el.classList.remove('on'); });
       cashoutWrap.innerHTML = '';
@@ -275,6 +286,7 @@
       }
       if (d.phase === 'flight') {
         broken = false;
+        stopCrashAnim();
         penBox.classList.remove('broken', 'gone', 'cashout');
         penBox.classList.add('flying');
       }
@@ -317,7 +329,7 @@
       const startY = (curTop - 24).toFixed(1);
       const curRot = curAngle || 0;
 
-      if (crashAnim) { crashAnim.cancel(); crashAnim = null; }
+      stopCrashAnim();
       crashAnim = penBox.animate([
         { transform: 'translate(' + tX + 'px,' + startY + 'px) rotate(' + curRot.toFixed(1) + 'deg)', offset: 0 },
         { transform: 'translate(' + tX + 'px,' + tY0 + 'px) rotate(6deg)', offset: 0.35, easing: 'ease-in' },
@@ -327,9 +339,12 @@
         { transform: 'translate(' + tX + 'px,' + tY0 + 'px) rotate(0deg)', offset: 1.0 }
       ], { duration: 420, easing: 'linear', fill: 'forwards' });
 
-      crashAnim.onfinish = crashAnim.oncancel = () => {
+      crashAnim.onfinish = () => {
         penBox.style.transform = 'translate(' + tX + 'px,' + tY0 + 'px) rotate(0deg)';
         tipNow.y = 149;
+        stopCrashAnim();
+      };
+      crashAnim.oncancel = () => {
         crashAnim = null;
       };
 
@@ -386,7 +401,7 @@
         timers.forEach(clearTimeout);
         timers.clear();
         pool.forEach((p) => { if (p.anim) p.anim.cancel(); });
-        if (crashAnim) { crashAnim.cancel(); crashAnim = null; }
+        stopCrashAnim();
         root.textContent = '';
       }
     };

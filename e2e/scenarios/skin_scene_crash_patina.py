@@ -47,6 +47,27 @@ async def run(w):
 
     await p.wait("(() => { const c = document.getElementById('cr-chart').getBoundingClientRect(); const r = document.querySelector('.scpt-pen').getBoundingClientRect(); "
                  "return Math.abs(r.left + r.width / 2 - (c.left + 8)) < 4 && Math.abs(r.top + r.height / 2 - (c.top + 8 + 149 / 150 * (c.height - 16))) < 4; })()", 10, "перо на начале линии")
+    # Отсчёт до начала раунда виден и читаем на бумажной ленте, сцена не перекрывает его
+    await p.wait("/^Приём ставок: \\d+ с$/.test(document.getElementById('cr-label').textContent)", 5, "отсчёт до старта")
+    lbl_check = await p.ev(r"""(() => {
+        const lbl = document.getElementById('cr-label');
+        const r = lbl.getBoundingClientRect();
+        const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const col = getComputedStyle(lbl).color;
+        const sceneZ = parseInt(getComputedStyle(document.querySelector('.skin-scene')).zIndex) || 0;
+        const readoutZ = parseInt(getComputedStyle(document.querySelector('.cr-readout')).zIndex) || 0;
+        return {
+            hasText: /^Приём ставок: \d+ с$/.test(lbl.textContent.trim()),
+            visible: r.width > 0 && r.height > 0,
+            notCoveredByScene: !el || !el.closest('.skin-scene'),
+            sceneNotAbove: sceneZ < readoutZ,
+            color: col
+        };
+    })()""")
+    check("отсчёт до старта виден и не закрыт сценой",
+          [lbl_check["hasText"], lbl_check["visible"], lbl_check["notCoveredByScene"], lbl_check["sceneNotAbove"]],
+          [True, True, True, True])
+    check("цвет текста отсчёта из палитры скина (читаем на светлой ленте)", lbl_check["color"], "rgb(46, 36, 19)")
     check("перо в начале стоит на начале линии внизу графика", True, True)
     check("вес сцены: узлов в DOM немного", await p.ev("document.querySelector('.skin-scene').querySelectorAll('*').length") < 260, True)
 
@@ -95,11 +116,37 @@ async def run(w):
     await p.wait("document.querySelectorAll('.scpt-p.on').length === 0", 4, "все брызги вернулись в пул")
     check("через четыре секунды всех частиц 0", await p.ev(PARTICLES), 0)
 
-    # --- раунд 2 (×1.50): prefers-reduced-motion: ни движения, ни частиц, краш сменой кадра
+    # --- раунд 2 (×1.50): после crash:crash и следующего crash:phase betting стрелка снова в DOM и на старте
     await next_round(w, p, fs, 600)
-    await p.send("Emulation.setEmulatedMedia", STILL)
+    await p.wait("!!document.querySelector('.scpt-r')", 5, "стрелка в DOM")
+    await p.wait("!document.querySelector('.scpt-r.broken')", 5, "класс broken снят")
+    pen_betting = await p.ev("""(() => {
+        const pen = document.querySelector('.scpt-r');
+        if (!pen) return { exists: false, visible: false, atStart: false };
+        const s = getComputedStyle(pen);
+        const visible = s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) > 0;
+        const c = document.getElementById('cr-chart').getBoundingClientRect();
+        const r = document.querySelector('.scpt-pen').getBoundingClientRect();
+        const atStart = Math.abs(r.left + r.width / 2 - (c.left + 8)) < 4 &&
+                        Math.abs(r.top + r.height / 2 - (c.top + 8 + 149 / 150 * (c.height - 16))) < 4;
+        return { exists: true, visible, atStart };
+    })()""")
+    check("после crash:crash и crash:phase betting стрелка снова в DOM, видима и на старте",
+          [pen_betting["exists"], pen_betting["visible"], pen_betting["atStart"]],
+          [True, True, True])
+
+    # На новом раунде положение стрелки меняется по кадрам
     await bet(p, 100, "")
     fs = await flight_start(p)
+    await at_x(w, p, fs, 1000)
+    pos1 = await p.ev("getComputedStyle(document.querySelector('.scpt-r')).transform")
+    await at_x(w, p, fs, 2200)
+    pos2 = await p.ev("getComputedStyle(document.querySelector('.scpt-r')).transform")
+    check("на новом раунде положение стрелки меняется по кадрам",
+          pos1 != pos2 and pos1 != "none" and pos2 != "none", True)
+
+    # prefers-reduced-motion: ни движения, ни частиц, краш сменой кадра
+    await p.send("Emulation.setEmulatedMedia", STILL)
     await at_x(w, p, fs, 2500)
     await server_to(w, p, fs + t_crash_ms(150) + 150)
     await p.wait("!!document.querySelector('.scpt-r.broken')", 10, "краш сменой кадра")
