@@ -863,3 +863,6 @@ js/03-roulette.js (645 строк) разделён на js/03a-roulette-wheel.j
 
 ## 2026-10-11. Дробление крупных файлов: js/10-crash.js (пул 5ab8010a0815)
 js/10-crash.js (673 строки) разделён на js/10a-crash-chart.js (график и экран, 243), js/10b-crash-bets.js (ставки и цели, 117) и js/10-crash.js (состояние, опрос, связка, 316). Поведение, глобалы, лимиты (CR_TARGET_MAX 100000) и порядок загрузки прежние. Проверки в чистой копии: серверный набор 65/0; e2e crash, crash_auto_manual, crash_visibility, crash_feed, skin_scene_crash_patina, skin_scene_void_crash, skin_scene_draft_crash 7/0. Отчёт агента с «65/0» при хвосте «63/2 disk I/O» проверен отдельно. Агент упоминал симлинк на чужой venv; в ветку он не попал (bot/.venv не в git).
+
+## 2026-10-11. Дробление крупных файлов: bot/core/schema.py (пул f896d39a8d7e)
+core/schema.py (611 строк) разделён: core/schema_tables.py (CREATE TABLE и индексы по группам, 604), core/schema_migrations.py (миграции и очистка, 45), core/schema.py (init_db в прежнем порядке, 51). Все 71 SQL-строка сверены с исходным файлом: совпадают (с точностью до пробелов). Реэкспорт init_db сохранён, импорты в db.py и test_sets.py прежние. Проверки в чистой копии: серверный набор 65/0 (включая миграции старых баз и test_game_golden).
