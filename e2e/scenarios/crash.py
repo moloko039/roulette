@@ -12,6 +12,7 @@ async def run(w):
     w.server.script(crash_live=[5000, 150, 100000])      # точки краха первых трёх раундов: ×50, ×1.50, ×1000
     await open_game(p, "crash")
     await p.wait(READY, 10, "панель ставки, приём ставок")
+    await p.wait("/^Приём ставок: \\d+ с$/.test(document.getElementById('cr-label').textContent)", 5, "обратный отсчёт")
     check("в приёме ставок: множитель ×1.00 и обратный отсчёт", await p.ev("[document.getElementById('cr-mult').textContent, /^Приём ставок: \\d+ с$/.test(document.getElementById('cr-label').textContent)]"), ["×1.00", True])
     check("хэш раунда показан до старта", await p.ev("/^Хэш раунда [0-9a-f]{12}…/.test(document.getElementById('cr-proof').textContent)"), True)
 

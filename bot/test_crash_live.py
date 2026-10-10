@@ -341,6 +341,24 @@ try:
     check("усечённая лента: последние три ставки, нумерация сквозная (Игрок 3..5)", [(b["name"], b["bet"]) for b in feedF["bets"]], [("Игрок 3", 102), ("Игрок 4", 103), ("Игрок 5", 104)])
     check("своя ставка старше ленты всё равно отдаётся в me", feedF["me"]["bet"], 100)
 
+    # выплата на потолке: раунд с crash_x100 >= CAP_X100 закрывается на потолке, открытые ставки выплачиваются по ×1000
+    TF = T0 + 200_000_000
+    add_players([161, 162], at=TF)
+    sCap = seed_with(lambda c: c >= crash.CAP_X100, start=1)
+    rngCap = CustomRng(sCap)
+    roomCap = crash_live.room_key(chat_instance="gCap")
+    db.live_state(161, roomCap, TF, chat_instance="gCap", db_path=db_path, rng=rngCap)
+    db.place_bet(161, roomCap, "bCap1", 100, None, TF, db_path=db_path, rng=rngCap)
+    db.place_bet(162, roomCap, "bCap2", 100, 500, TF, db_path=db_path, rng=rngCap)
+    fsCap = TF + economy_config.CRASH_LIVE_BET_MS
+    tcCap = flight_time(crash.CAP_X100)
+    endCap = fsCap + tcCap + crash.GRACE_MS
+    stCap = db.live_state(161, roomCap, endCap, chat_instance="gCap", db_path=db_path, rng=rngCap)
+    check("раунд на потолке: фаза result", stCap["round"]["phase"], "result")
+    check("ручная ставка выиграла по потолку ×1000", (stCap["me"]["status"], stCap["me"]["cashed_x100"], stCap["me"]["payout"]), ("cashed", crash.CAP_X100, 100 * 1000))
+    check("баланс ручной ставки пополнен по потолку", balance_of(161), 1_000_000 - 100 + 100 * 1000)
+    check("автоставка выплачена по своей цели ×5.00", balance_of(162), 1_000_000 - 100 + 100 * 5)
+
     print("Все проверки прошли")
 finally:
     shutil.rmtree(tmp)
