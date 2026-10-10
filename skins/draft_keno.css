@@ -1,1 +1,141 @@
-/* Скин «Черновик» (draft_keno): заготовка, заполняется задачей пула */
+/* Сцена скина кено «Черновик» (skins/draft_keno.css, коллекция «Черновик», DESIGN.md раздел 4).
+   Числа как в бланке лотереи: напечатанная сетка, чернильные цифры, читаемость WCAG AA.
+   1. Палитра: бумага #F7F5EE, сетка #BFD8E8, ручка #1F3A93, карандаш #5A5A5A, маркер #F6EB61.
+   2. Материал: бланк лотереи с напечатанной сеткой (бумага #F7F5EE, рамки #BFD8E8).
+   3. Форма: прямоугольные клетки бланка со скруглёнными углами (4 px), цифры чернильные синей ручкой.
+   4. Декор: неровный овал обводки ручкой (.sel), маркерный штрих (.drawn), жёлтая полоса маркера (.hit),
+      серый карандашный крест (.miss).
+   5. Покой: нет.
+   6. События: выбор числа (.sel) — появление овала ручки (transform/opacity);
+      совпадение (.hit) — полоса жёлтого маркера поверх шарика (transform/opacity);
+      промах (.miss) — серый карандашный крест и приглушение.
+   Только transform и opacity в анимациях. Без filter, backdrop-filter, clip-path. До 15 КБ. */
+
+/* 1. Поле — бланк лотереи с напечатанной сеткой */
+#keno-board[data-scene="draft_keno"] {
+  position: relative;
+  background-color: #F7F5EE;
+  border: 1.5px solid #BFD8E8;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 1px 4px rgba(31, 58, 147, 0.08);
+}
+
+#keno-board[data-scene="draft_keno"] .skin-scene {
+  overflow: visible;
+}
+
+/* 2. Клетки бланка: напечатанная сетка, цифры чернильные с лёгким наклоном */
+#keno-board[data-scene="draft_keno"] .keno-ball {
+  position: relative;
+}
+
+#keno-board[data-scene="draft_keno"] .keno-ball span {
+  position: relative;
+  border-radius: 4px;
+  background-color: #F7F5EE;
+  border: 1px solid #BFD8E8;
+  color: #1F3A93;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(191, 216, 232, 0.25);
+  transition: transform 0.12s ease-out;
+}
+
+#keno-board[data-scene="draft_keno"] .keno-ball:active:not(:disabled) span {
+  transform: scale(0.95);
+  background-color: #E8E4D6;
+}
+
+/* 3. Выбранные (.sel): обведены ручкой (неровный овал SVG data:-URI, появление transform/opacity) */
+#keno-board[data-scene="draft_keno"] .keno-ball.sel span {
+  color: #1F3A93;
+  background-color: #F7F5EE;
+  border-color: #BFD8E8;
+}
+
+#keno-board[data-scene="draft_keno"] .keno-ball.sel span::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44' fill='none'%3E%3Cpath d='M22 3.5 C33 3 41.5 11 41 22 C40.5 33 32.5 41 21 40.5 C9.5 40 3 31.5 3.5 21.5 C4 10.5 12 4 23 3.5' stroke='%231F3A93' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  animation: draft-sel-circle 0.22s ease-out;
+}
+
+@keyframes draft-sel-circle {
+  0%   { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 4. Выпавшие (.drawn): помечаются маркером */
+#keno-board[data-scene="draft_keno"] .keno-ball.drawn:not(.sel) span {
+  color: #1F3A93;
+  box-shadow: inset 0 0 0 2px #5A5A5A;
+}
+
+#keno-board[data-scene="draft_keno"] .keno-ball.drawn:not(.sel) span::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  background-color: rgba(246, 235, 97, 0.45);
+  border-radius: 3px;
+  animation: draft-drawn-mark 0.24s ease-out;
+}
+
+@keyframes draft-drawn-mark {
+  0%   { transform: scale(0.4); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 5. Совпадение (.hit): поверх проходит жёлтый маркер (полупрозрачная полоса #F6EB61 поверх шарика с появлением transform/opacity) */
+#keno-board[data-scene="draft_keno"] .keno-ball.hit span {
+  color: #1F3A93;
+  background-color: #F7F5EE;
+  border-color: #BFD8E8;
+}
+
+#keno-board[data-scene="draft_keno"] .keno-ball.hit span::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 18%;
+  bottom: 18%;
+  pointer-events: none;
+  z-index: 2;
+  background-color: rgba(246, 235, 97, 0.65);
+  border-radius: 2px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 24' fill='none'%3E%3Cpath d='M1 3.5 C13 2 27 4.5 39 2.5 L38.5 21 C27 22.5 13 20 1.5 22 Z' fill='rgba(246,235,97,0.7)'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  animation: draft-marker-swipe 0.26s ease-out;
+}
+
+@keyframes draft-marker-swipe {
+  0%   { transform: scaleX(0.2); opacity: 0; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+/* 6. Выбранное, но не выпавшее (.miss): серый карандашный крест и приглушение */
+#keno-board[data-scene="draft_keno"] .keno-ball.miss span {
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'%3E%3Cpath d='M6 7 C12 13 19 20 25 25 M25 6 C19 13 12 19 6 25' stroke='%235A5A5A' stroke-width='1.8' stroke-linecap='round' stroke-dasharray='3 1.5'/%3E%3C/svg%3E");
+  background-size: 65% 65%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* 7. Анимация при выпадении шарика (.pop) */
+#keno-board[data-scene="draft_keno"] .keno-ball.pop span {
+  animation: draft-keno-pop 0.25s ease-out;
+}
+
+@keyframes draft-keno-pop {
+  0%   { transform: scale(0.85); }
+  60%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
