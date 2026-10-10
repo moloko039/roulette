@@ -1,0 +1,205 @@
+/* Скин рубашки карт «Патина» (back_patina): DESIGN.md раздел 8 («Рубашка»).
+   Тиснёная кожа с орнаментом. С износом углы протираются, тиснение мягчеет, появляются складки.
+   Стадия износа задаётся атрибутом data-patina-card_back="0..4" на корне.
+   CSS-only скин без анимаций. Палитры стадий заданы в css/01-skins.css. */
+
+/* 1. Базовые правила рубашки карт: блэкджек и хило */
+[data-scene="back_patina"] .bj-card.back,
+[data-scene="back_patina"] .hl-card.back,
+[data-skin-card_back="back_patina"] .bj-card.back,
+[data-skin-card_back="back_patina"] .hl-card.back {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--card-back-a);
+  background-image: linear-gradient(135deg, var(--card-back-a) 0%, var(--card-back-b) 100%);
+}
+
+/* 2. Слой тиснения орнаментом (::before):
+   повторяющийся SVG data-URI орнамента тиснёной кожи.
+   На стадиях 1–4 тиснение мягчеет (меньше контраста через opacity).
+   На стадиях 2–4 углы маскируются (без орнамента в углу). */
+[data-scene="back_patina"] .bj-card.back::before,
+[data-scene="back_patina"] .hl-card.back::before,
+[data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-skin-card_back="back_patina"] .hl-card.back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M10 1 L19 10 L10 19 L1 10 Z' fill='none' stroke='rgba(255,255,255,0.22)' stroke-width='1.2'/%3E%3Cpath d='M10 2 L18 10 L10 18 L2 10 Z' fill='none' stroke='rgba(0,0,0,0.38)' stroke-width='0.8'/%3E%3Ccircle cx='10' cy='10' r='3.5' fill='none' stroke='rgba(255,255,255,0.2)' stroke-width='0.8'/%3E%3Ccircle cx='10' cy='10' r='2' fill='rgba(0,0,0,0.28)'/%3E%3Cpath d='M0 0 L3 3 M20 0 L17 3 M0 20 L3 17 M20 20 L17 17' stroke='rgba(255,255,255,0.18)' stroke-width='1'/%3E%3Ccircle cx='0' cy='10' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='20' cy='10' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='10' cy='0' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='10' cy='20' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 20px 20px;
+  background-position: center;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+/* Стадия 1: тиснение чуть мягче */
+[data-patina-card_back="1"] [data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="1"] [data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="1"][data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="1"][data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="1"] [data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="1"] [data-skin-card_back="back_patina"] .hl-card.back::before,
+[data-patina-card_back="1"][data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="1"][data-skin-card_back="back_patina"] .hl-card.back::before {
+  opacity: 0.72;
+}
+
+/* Стадия 2: тиснение мягче, углы без орнамента */
+[data-patina-card_back="2"] [data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="2"] [data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="2"][data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="2"][data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="2"] [data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="2"] [data-skin-card_back="back_patina"] .hl-card.back::before,
+[data-patina-card_back="2"][data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="2"][data-skin-card_back="back_patina"] .hl-card.back::before {
+  opacity: 0.52;
+  -webkit-mask-image:
+    radial-gradient(circle at 0 0, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 100% 0, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 0 100%, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 100% 100%, transparent 0 8px, #000 13px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle at 0 0, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 100% 0, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 0 100%, transparent 0 8px, #000 13px),
+    radial-gradient(circle at 100% 100%, transparent 0 8px, #000 13px);
+  mask-composite: intersect;
+}
+
+/* Стадия 3: тиснение ещё мягче, углы без орнамента */
+[data-patina-card_back="3"] [data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="3"] [data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="3"][data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="3"][data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="3"] [data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="3"] [data-skin-card_back="back_patina"] .hl-card.back::before,
+[data-patina-card_back="3"][data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="3"][data-skin-card_back="back_patina"] .hl-card.back::before {
+  opacity: 0.38;
+  -webkit-mask-image:
+    radial-gradient(circle at 0 0, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 100% 0, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 0 100%, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 100% 100%, transparent 0 10px, #000 16px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle at 0 0, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 100% 0, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 0 100%, transparent 0 10px, #000 16px),
+    radial-gradient(circle at 100% 100%, transparent 0 10px, #000 16px);
+  mask-composite: intersect;
+}
+
+/* Стадия 4: тиснение совсем приглушённое, углы без орнамента */
+[data-patina-card_back="4"] [data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="4"] [data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="4"][data-scene="back_patina"] .bj-card.back::before,
+[data-patina-card_back="4"][data-scene="back_patina"] .hl-card.back::before,
+[data-patina-card_back="4"] [data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="4"] [data-skin-card_back="back_patina"] .hl-card.back::before,
+[data-patina-card_back="4"][data-skin-card_back="back_patina"] .bj-card.back::before,
+[data-patina-card_back="4"][data-skin-card_back="back_patina"] .hl-card.back::before {
+  opacity: 0.22;
+  -webkit-mask-image:
+    radial-gradient(circle at 0 0, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 100% 0, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 0 100%, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 100% 100%, transparent 0 12px, #000 18px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle at 0 0, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 100% 0, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 0 100%, transparent 0 12px, #000 18px),
+    radial-gradient(circle at 100% 100%, transparent 0 12px, #000 18px);
+  mask-composite: intersect;
+}
+
+/* 3. Слой износа (::after):
+   На стадиях 0–1: чистая рубашка (background-image: none).
+   На стадиях 2–4: протёртые углы (светлее, radial-gradient по 4 углам).
+   На стадиях 3–4: складки (тонкие контрастные линии под углом). */
+[data-scene="back_patina"] .bj-card.back::after,
+[data-scene="back_patina"] .hl-card.back::after,
+[data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-skin-card_back="back_patina"] .hl-card.back::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: none;
+  z-index: 2;
+}
+
+/* Стадия 2: только протёртые углы (светлее) */
+[data-patina-card_back="2"] [data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="2"] [data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="2"][data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="2"][data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="2"] [data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="2"] [data-skin-card_back="back_patina"] .hl-card.back::after,
+[data-patina-card_back="2"][data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="2"][data-skin-card_back="back_patina"] .hl-card.back::after {
+  background-image:
+    radial-gradient(circle at 0 0, rgba(215, 175, 125, 0.45) 0%, transparent 14px),
+    radial-gradient(circle at 100% 0, rgba(215, 175, 125, 0.45) 0%, transparent 14px),
+    radial-gradient(circle at 0 100%, rgba(215, 175, 125, 0.4) 0%, transparent 14px),
+    radial-gradient(circle at 100% 100%, rgba(215, 175, 125, 0.4) 0%, transparent 14px);
+}
+
+/* Стадия 3: протёртые углы + тонкие складки под углом */
+[data-patina-card_back="3"] [data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="3"] [data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="3"][data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="3"][data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="3"] [data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="3"] [data-skin-card_back="back_patina"] .hl-card.back::after,
+[data-patina-card_back="3"][data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="3"][data-skin-card_back="back_patina"] .hl-card.back::after {
+  background-image:
+    linear-gradient(28deg, transparent 40%, rgba(0, 0, 0, 0.45) 40.8%, rgba(245, 230, 205, 0.28) 41.3%, transparent 41.8%),
+    linear-gradient(-35deg, transparent 58%, rgba(0, 0, 0, 0.4) 58.7%, rgba(245, 230, 205, 0.24) 59.2%, transparent 59.7%),
+    radial-gradient(circle at 0 0, rgba(215, 175, 125, 0.55) 0%, transparent 16px),
+    radial-gradient(circle at 100% 0, rgba(215, 175, 125, 0.55) 0%, transparent 16px),
+    radial-gradient(circle at 0 100%, rgba(215, 175, 125, 0.5) 0%, transparent 16px),
+    radial-gradient(circle at 100% 100%, rgba(215, 175, 125, 0.5) 0%, transparent 16px);
+}
+
+/* Стадия 4: выраженные протёртости и сеть складок */
+[data-patina-card_back="4"] [data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="4"] [data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="4"][data-scene="back_patina"] .bj-card.back::after,
+[data-patina-card_back="4"][data-scene="back_patina"] .hl-card.back::after,
+[data-patina-card_back="4"] [data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="4"] [data-skin-card_back="back_patina"] .hl-card.back::after,
+[data-patina-card_back="4"][data-skin-card_back="back_patina"] .bj-card.back::after,
+[data-patina-card_back="4"][data-skin-card_back="back_patina"] .hl-card.back::after {
+  background-image:
+    linear-gradient(28deg, transparent 40%, rgba(0, 0, 0, 0.52) 40.8%, rgba(245, 230, 205, 0.32) 41.3%, transparent 41.8%),
+    linear-gradient(-35deg, transparent 58%, rgba(0, 0, 0, 0.46) 58.7%, rgba(245, 230, 205, 0.28) 59.2%, transparent 59.7%),
+    linear-gradient(65deg, transparent 72%, rgba(0, 0, 0, 0.38) 72.6%, rgba(245, 230, 205, 0.22) 73.1%, transparent 73.6%),
+    radial-gradient(circle at 0 0, rgba(215, 175, 125, 0.65) 0%, transparent 18px),
+    radial-gradient(circle at 100% 0, rgba(215, 175, 125, 0.65) 0%, transparent 18px),
+    radial-gradient(circle at 0 100%, rgba(215, 175, 125, 0.6) 0%, transparent 18px),
+    radial-gradient(circle at 100% 100%, rgba(215, 175, 125, 0.6) 0%, transparent 18px);
+}
+
+/* 4. Облегчённый режим и пауза (без анимаций) */
+html.perf-lite [data-scene="back_patina"] .bj-card.back,
+html.perf-lite [data-scene="back_patina"] .hl-card.back,
+html.skin-paused [data-scene="back_patina"] .bj-card.back,
+html.skin-paused [data-scene="back_patina"] .hl-card.back {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="back_patina"] .bj-card.back,
+  [data-scene="back_patina"] .hl-card.back {
+    transition: none !important;
+  }
+}
