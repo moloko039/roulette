@@ -13,7 +13,7 @@ SLOT_NAMES = {
 PUBLIC_SLOTS = ("avatar_frame", "badge")      # видны другим участникам беседы, только если игрок их надел и не скрыл
 RARITIES = ("starter", "common", "rare", "premium")    # редкость только визуальная
 PURCHASE_RETENTION_DAYS = 365   # журнал оплат Stars хранится столько дней после покупки (споры и возвраты), даже после удаления данных игрока
-SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift", "collection", "achievement", "referral")
+SOURCES = ("free", "owner_gift", "stars", "chips", "gems", "gift", "collection", "referral")
 
 
 class CosmeticsError(Exception):
@@ -129,10 +129,6 @@ _ROWS = (
     ("badge_none", "badge", "Без значка", "Ничего рядом с именем", "starter", True),
     ("badge_spade", "badge", "Пика", "Маленький значок масти рядом с именем", "common", True),
     ("badge_flame", "badge", "Пламя", "Язычок пламени рядом с именем", "rare", False),
-    ("achv_nearly", "badge", "Почти", "Клуб ×1.01", "common", True),
-    ("achv_sapper", "mine_icons", "Сапёр-оптимист", "Клуб ×1.01", "common", True),
-    ("achv_bust", "card_back", "Перебор", "Клуб ×1.01", "common", True),
-    ("achv_keno", "keno_ball", "Ноль из десяти", "Клуб ×1.01", "common", True),
     ("draft_crash", "crash", "Черновик", "Карандашный график на миллиметровке", "common", True),
     ("draft_mines", "mine_icons", "Черновик", "Нарисованные бомбочки", "common", True),
     ("draft_table", "table", "Черновик", "Клетчатый лист со скрепкой", "common", True),

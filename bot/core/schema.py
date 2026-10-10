@@ -590,19 +590,10 @@ def init_db(db_path=None):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_founders_founder ON chat_founders(founder_id, added_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_founders_instance ON chat_founders(chat_instance)")
 
-        # достижения (Клуб ×1.01)
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS achievement_progress (
-                telegram_id INTEGER NOT NULL,
-                code        TEXT    NOT NULL,
-                count       INTEGER NOT NULL,
-                streak      INTEGER NOT NULL,
-                done_at     INTEGER,
-                PRIMARY KEY (telegram_id, code)
-            )
-            """
-        )
+        # удаление антидостижений («Клуб ×1.01») по решению владельца
+        conn.execute("DROP TABLE IF EXISTS achievement_progress")
+        conn.execute("DELETE FROM cosmetic_items WHERE item_code LIKE 'achv_%'")
+        conn.execute("DELETE FROM cosmetic_equipped WHERE item_code LIKE 'achv_%'")
         
         _migrate_total_staked(conn)
         _migrate_xp(conn)
