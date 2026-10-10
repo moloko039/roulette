@@ -496,7 +496,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --chip-ring-100: #ffffff;
   --chip-ring-500: #ffffff;
   --chip-inner: none;
-  font-variant-numeric: tabular-nums;
 }
 
 [data-skin-badge="void_badge"] {
@@ -517,8 +516,7 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 [data-skin-avatar_frame="void_frame"] {
   --avatar-frame: 0 0 0 4px #000000, 0 0 0 5px #ffffff;
 }
-[data-skin-avatar_frame="void_frame"].avatar,
-[data-skin-avatar_frame="void_frame"] .avatar {
+.avatar[data-skin-avatar_frame="void_frame"] {
   border-color: transparent;
 }
 
