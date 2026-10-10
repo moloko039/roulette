@@ -812,3 +812,6 @@ css-скин skins/mine_patina.css: латунная пластина поля, 
 
 ## 2026-10-10. Рамка «Патина» (пул a29723c3cdb6)
 css-скин skins/frame_patina.css: блеск серебра через ::after (pointer-events: none, инициалы не перекрываются), натёртые края на 3–4, зеленоватая патина на 4. Отчёт агента «66/0» и «19/47» (нет модулей в его окружении) расходятся: в чистой копии ветки серверный набор 66/0. e2e skin_scene_frame_patina, skin_contrast, patina_apply, skin_founder 4/0.
+
+## 2026-10-10. Значок «Патина» с днями (пул 0ab9b7077a6f)
+css-скин skins/badge_patina.css: круглый латунный жетон, число дней из data-days через content: attr() в ::after, размер шрифта уменьшается на стадиях 2–4 (до 99999 дней), натёртый край со стадии 2. Серверный набор в чистой копии ветки 66/0. e2e skin_scene_badge_patina, skin_contrast, patina_apply, skin_founder 4/0.
