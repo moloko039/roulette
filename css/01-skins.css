@@ -1377,25 +1377,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --card-back-inset-hl: -8px;
 }
 
-/* achv_bust: перебор (клуб ×1.01) */
-[data-skin-card_back="achv_bust"] {
-  --card-back-a: #201014;
-  --card-back-b: #32161c;
-  --card-back-border: #962838;
-  --card-face: var(--text);
-  --card-ink: var(--on-accent);
-  --card-red: var(--red);
-  --card-back-image:
-    repeating-linear-gradient(45deg, rgba(168, 50, 64, 0.25) 0 2px, transparent 2px 8px),
-    linear-gradient(160deg, #32161c, #160a0d);
-  --card-back-image-hl:
-    repeating-linear-gradient(45deg, rgba(168, 50, 64, 0.25) 0 2px, transparent 2px 16px),
-    linear-gradient(160deg, #32161c, #160a0d);
-  --card-back-outline: 1px solid rgba(168, 50, 64, 0.6);
-  --card-back-inset-bj: -4px;
-  --card-back-inset-hl: -8px;
-}
-
 /* chip_gold: золотистый градиент с тонкой тёмной кромкой */
 [data-skin-chip="chip_gold"] {
   --chip-bg: #d4af37;
@@ -1448,48 +1429,6 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
   --mines-safe-text: #dcc4fc;
 }
 
-/* achv_sapper: сапёр-оптимист (клуб ×1.01) */
-[data-skin-mine_icons="achv_sapper"] {
-  --mines-cell-bg: #1f1b18;
-  --mines-cell-border: #4a3e35;
-  --mines-cell-text: #cfc2b6;
-  --mines-cell-active-bg: #2c2722;
-  --mines-safe-bg: #28211b;
-  --mines-safe-border: #d48b39;
-  --mines-safe-glow: rgba(212, 139, 57, 0.5);
-  --mines-bomb-bg: #8c2626;
-  --mines-bomb-text: #f5f5f2;
-  --mines-muted-bg: #1f1b18;
-  --mines-muted-text: #8a7c70;
-  --mines-hit-border: #f5f5f2;
-  --mines-hit-ring: rgba(220, 60, 60, 0.45);
-  --mines-opening-a: #1f1b18;
-  --mines-opening-b: #2c2722;
-  --mines-safe-text: #f5d4a4;
-}
-
-/* achv_keno: ноль из десяти (клуб ×1.01) */
-[data-skin-keno_ball="achv_keno"] {
-  --keno-bg: #1e1e24;
-  --keno-border: #3c3c4a;
-  --keno-text: #8e8e9e;
-  --keno-active-bg: #2c2c36;
-  --keno-sel-text: #f5f5f2;
-  --keno-sel-bg: #4f4f66;
-  --keno-sel-border: #8080a6;
-  --keno-sel-glow: 0 0 10px rgba(128, 128, 166, 0.5), inset 0 0 6px rgba(128, 128, 166, 0.2);
-  --keno-drawn-text: #f5f5f2;
-  --keno-drawn-ring: 0 0 0 2px rgba(160, 160, 190, 0.75);
-  --keno-hit-text: #f5f5f2;
-  --keno-hit-bg: #1e9e4a;
-  --keno-hit-glow: 0 0 14px rgba(30, 158, 74, 0.95), 0 0 0 2px rgba(245, 245, 242, 0.55);
-  --keno-miss-glow: 0 0 6px rgba(255, 255, 255, 0.3);
-  --keno-img: initial;
-  --keno-img-sel: initial;
-  --keno-img-drawn: initial;
-  --keno-img-hit: initial;
-}
-
 /* frame_double: два кольца с зазором */
 [data-skin-avatar_frame="frame_double"] {
   --avatar-frame: 0 0 0 2px #d4af37, 0 0 0 4px #0c0d10, 0 0 0 6px #d4af37;
@@ -1503,9 +1442,4 @@ svg.icon, .tab svg, .tile svg, .game-switch svg, .action svg {
 /* badge_flame: язычок пламени рядом с именем */
 [data-skin-badge="badge_flame"] {
   --badge-color: #ff6b35;
-}
-
-/* achv_nearly: почти (клуб ×1.01) */
-[data-skin-badge="achv_nearly"] {
-  --badge-color: #8c8c99;
 }

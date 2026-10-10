@@ -844,3 +844,16 @@ RTP: теория 36/37 на всех целях; выборка 200 000 рау�
 
 ## 2026-10-11. Изоляция превью «Пустоты» (skin_preview_isolation)
 Падение сценария на main с набором «Пустоты»: скины задавали переменные вне стартовой группы и протекали в образцы других слотов. Исправлено правками CSS (без изменения сценария): лишние переменные убраны, палитра фишки не задаёт font-variant-numeric на корне (наследовалось в образец краша), правила рамки и фишки ограничены элементом (.avatar[data-skin-…], правила void_chip по классам). Сценарий не ослаблен. Проверки: серверный набор 66/0; skin_preview_isolation, skin_scene_void, skin_scene_void_parts, skin_scene_void_crash, skin_vars, skin_contrast, wardrobe_thumbs 7/0.
+
+## 2026-10-11. Удаление антидостижений («Клуб ×1.01») по решению владельца
+Решение владельца: антидостижения («Клуб ×1.01»: achv_nearly, achv_sapper, achv_bust, achv_keno) полностью удалить.
+Что сделано:
+1. bot/core/achievements.py и bot/test_achievements.py удалены.
+2. Вызовы achievements.record и импорты убраны из crash_live_db.py, mines_db.py, keno_db.py, blackjack_db.py (выплаты, XP и экономика не затронуты).
+3. bot/cosmetics.py: удалены предметы achv_* из каталога, 'achievement' из SOURCES; bot/test_cosmetics.py обновлён (каталог 74 предмета).
+4. bot/core/schema.py: удалена таблица achievement_progress из CREATE; добавлена миграция DROP TABLE IF EXISTS achievement_progress и удаление строк achv_* из cosmetic_items и cosmetic_equipped.
+5. bot/features/data_rights_db.py: убран блок achievements из выгрузки /mydata и счётчик удаления achievement_progress.
+6. Клиент: удалён achv_nearly из BADGE_SVG в js/13a-wardrobe-catalog.js; удалены CSS-блоки achv_* из css/01-skins.css.
+7. Политика: убрана строка о прогрессе достижений в privacy.html, дата обновлена на 11 октября 2026 г., обновлены тесты test_privacy.py и test_antiabuse.py.
+8. Документация: ARCHITECTURE.md, API.md, COLLECTIONS.md, JOURNAL.md.
+

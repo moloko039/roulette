@@ -9,7 +9,6 @@ import crash_live
 import economy_config
 import wallet
 import xp
-from core import achievements
 from core.db_conn import _connect
 from games.round_common import pay_and_xp, add_staked
 from core.kernel import _accrue_write, _register_player
@@ -115,7 +114,6 @@ def _advance_round_in_tx(conn, now_ms, rng):
                 mode = "auto" if b["target_x100"] is not None else "manual"
                 xp_amount = xp.crash_xp(b["bet"], crash.xp_multiplier(mode, "lose", 0, b["target_x100"]))
                 pay_and_xp(conn, b["telegram_id"], 0, xp_amount, "crash", b["bet"], now_sec)
-                achievements.record(conn, b["telegram_id"], "crash_crash", now_sec, mult_x100=round_row["crash_x100"])
 
         if now_ms >= crash_live.next_open_ms(round_row):
             _advance_round_in_tx(conn, now_ms, rng)

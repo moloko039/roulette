@@ -114,9 +114,6 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT created_at FROM chat_boosts WHERE telegram_id = ? ORDER BY id",
                 (telegram_id,),
             ).fetchall()
-            achievement_rows = conn.execute(
-                "SELECT code, done_at FROM achievement_progress WHERE telegram_id = ? AND done_at IS NOT NULL ORDER BY done_at, code", (telegram_id,)
-            ).fetchall()
             invitee_row = conn.execute("SELECT 1 FROM referrals WHERE invitee_id = ? AND referrer_id != 0", (telegram_id,)).fetchone()
             referrer_counts = conn.execute("SELECT COUNT(*) AS invited_count, SUM(qualified_at IS NOT NULL) AS qualified_count, COALESCE(SUM(commission_paid), 0) AS commission FROM referrals WHERE referrer_id = ?", (telegram_id,)).fetchone()
             fno = founder_no(conn, telegram_id)
@@ -212,7 +209,6 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         "chats": [{"first_seen": c["first_seen"], "last_seen": c["last_seen"], "name": c["first_name"]}
                   for c in chats],
         "chat_boosts": [{"time": r["created_at"], "gems": 50} for r in chat_boost_rows],
-        "achievements": [{"code": r["code"], "time": r["done_at"]} for r in achievement_rows],
         "referral": {
             "invited_by_someone": invitee_row is not None,
             "invited_count": referrer_counts["invited_count"] if referrer_counts else 0,
@@ -287,7 +283,6 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             # подарки: полученные удаляются вместе с предметом; отправленные остаются у получателя без имени дарителя (предмет подарен, имя и id отправителя стираются)
             conn.execute("DELETE FROM gifts WHERE to_user = ?", (telegram_id,))
             conn.execute("UPDATE gifts SET from_user = 0, from_name = '' WHERE from_user = ?", (telegram_id,))
-            counts["achievement_progress"] = conn.execute("DELETE FROM achievement_progress WHERE telegram_id = ?", (telegram_id,)).rowcount
             conn.execute("DELETE FROM chat_boosts WHERE telegram_id = ?", (telegram_id,))
             counts["referrals_as_invitee"] = conn.execute("DELETE FROM referrals WHERE invitee_id = ?", (telegram_id,)).rowcount
             counts["referrals_as_referrer"] = conn.execute("UPDATE referrals SET referrer_id = 0 WHERE referrer_id = ?", (telegram_id,)).rowcount
