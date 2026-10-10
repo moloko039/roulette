@@ -1,1 +1,218 @@
-/* Скин «Глубина» (crash_deep): заготовка, заполняется задачей пула */
+/* Сцена скина краша «Глубина» (коллекция «Глубина», DESIGN.md раздел 3). Загружается при надевании скина и снимается вместе со сценой. Только transform, opacity и stroke-dashoffset. */
+
+/* читаемость множителя и подписи на любой зоне */
+.cr-chart[data-scene="crash_deep"] .cr-mult,
+.cr-chart[data-scene="crash_deep"] .cr-label {
+  background: rgba(2, 8, 18, 0.88);
+  border-radius: 12px;
+  padding: 2px 12px;
+}
+.cr-chart[data-scene="crash_deep"] .cr-label {
+  color: #8fb8c9;
+}
+.cr-chart[data-scene="crash_deep"][data-tone="crash"] .cr-mult {
+  color: #ff85a2;
+}
+.cr-chart[data-scene="crash_deep"][data-tone="crash"] .cr-label,
+.cr-chart[data-scene="crash_deep"][data-tone="win"] .cr-label {
+  color: #e2f4fb;
+}
+
+.scdp-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.scdp-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.scdp-zone {
+  opacity: 0;
+  transition: opacity 0.48s ease;
+}
+.scdp-zone.in {
+  opacity: 1;
+}
+.scdp-zone.out {
+  opacity: 0;
+}
+
+/* батискаф */
+.scdp-r {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  transform-origin: 22px 22px;
+  pointer-events: none;
+}
+.scdp-r.flying {
+  will-change: transform;
+}
+.scdp-r.gone {
+  opacity: 0;
+}
+.scdp-sub {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+.scdp-spotlight {
+  position: absolute;
+  left: 36px;
+  top: -8px;
+  width: 80px;
+  height: 60px;
+  display: block;
+  pointer-events: none;
+}
+.scdp-r.broken .scdp-spotlight {
+  opacity: 0;
+}
+
+/* трещины иллюминатора */
+.scdp-cracks {
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  opacity: 0;
+  transition: stroke-dashoffset 0.4s ease-out, opacity 0.1s ease-out;
+}
+.scdp-r.broken .scdp-cracks {
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+/* подсветка при выводе */
+.scdp-glow-ring {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.scdp-r.cashout .scdp-glow-ring {
+  opacity: 1;
+}
+
+/* оверлей затемнения при крахе */
+.scdp-darken {
+  position: absolute;
+  inset: 0;
+  background: #020812;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* шкала давления */
+.scdp-gauge {
+  position: absolute;
+  right: 12px;
+  top: 16px;
+  width: 14px;
+  height: 72px;
+  background: rgba(6, 25, 43, 0.88);
+  border: 1.5px solid #C49A52;
+  border-radius: 4px;
+  pointer-events: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.scdp-gauge-ticks {
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #C49A52 0,
+    #C49A52 1px,
+    transparent 1px,
+    transparent 7px
+  );
+  opacity: 0.65;
+}
+.scdp-needle {
+  position: absolute;
+  left: 2px;
+  top: 14px;
+  width: 8px;
+  height: 3px;
+  background: #3CF2D8;
+  border-radius: 1px;
+  animation: scdp-gauge-jitter 0.16s ease-in-out infinite alternate;
+}
+.cr-chart[data-tone="crash"] .scdp-needle,
+.cr-chart[data-tone="win"] .scdp-needle {
+  animation: none;
+}
+@keyframes scdp-gauge-jitter {
+  from { transform: translateY(0); }
+  to { transform: translateY(2px); }
+}
+
+/* отметка глубины */
+.scdp-depth {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #3CF2D8;
+  background: rgba(2, 8, 18, 0.88);
+  border: 1px solid rgba(60, 242, 216, 0.35);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+/* частицы */
+.scdp-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.scdp-p {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+}
+.scdp-p.on {
+  display: block;
+}
+
+/* медуза полного набора */
+.scdp-jelly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* анимации зон */
+.scdp-fish-school { animation: scdp-fish-drift 10s ease-in-out infinite alternate; }
+.scdp-rays { animation: scdp-rays-sway 8s ease-in-out infinite alternate; }
+.scdp-whale { animation: scdp-whale-drift 16s ease-in-out infinite alternate; }
+.scdp-jelly-drift { animation: scdp-jelly-bob 6s ease-in-out infinite alternate; }
+.scdp-pulse { animation: scdp-lure-pulse 2s ease-in-out infinite alternate; }
+.scdp-vent-bubbles { animation: scdp-vent-float 3s linear infinite; }
+.scdp-flashes { animation: scdp-sparkle 4s ease-in-out infinite alternate; }
+
+@keyframes scdp-fish-drift { from { transform: translateX(18px); } to { transform: translateX(-24px); } }
+@keyframes scdp-rays-sway { from { transform: skewX(-2deg); } to { transform: skewX(2deg); } }
+@keyframes scdp-whale-drift { from { transform: translateX(-28px); } to { transform: translateX(32px); } }
+@keyframes scdp-jelly-bob { from { transform: translateY(0); } to { transform: translateY(-7px); } }
+@keyframes scdp-lure-pulse { from { opacity: 0.4; } to { opacity: 1; } }
+@keyframes scdp-vent-float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-16px); opacity: 0.2; } }
+@keyframes scdp-sparkle { 0% { opacity: 0.15; } 50% { opacity: 0.85; } 100% { opacity: 0.2; } }
