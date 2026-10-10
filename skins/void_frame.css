@@ -1,0 +1,11 @@
+/* Скин рамки аватара «Пустота» (void_frame): DESIGN.md раздел 5 («Рамка»).
+   Отсутствие обводки, аватар с идеальным отступом и тонким кольцом 1 px на расстоянии 4 px. */
+
+[data-scene="void_frame"].avatar,
+[data-scene="void_frame"] .avatar,
+[data-skin-avatar_frame="void_frame"].avatar,
+[data-skin-avatar_frame="void_frame"] .avatar,
+.avatar[data-skin-avatar_frame="void_frame"] {
+  border-color: transparent;
+  box-shadow: 0 0 0 4px #000000, 0 0 0 5px #ffffff;
+}
