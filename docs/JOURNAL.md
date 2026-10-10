@@ -860,3 +860,6 @@ RTP: теория 36/37 на всех целях; выборка 200 000 рау�
 
 ## 2026-10-11. Дробление крупных файлов: js/03-roulette.js (пул b8713930d05c)
 js/03-roulette.js (645 строк) разделён на js/03a-roulette-wheel.js (колесо, canvas, анимация, 168 строк), js/03b-roulette-table.js (стол и ставки, 130 строк) и остаток в js/03-roulette.js (351 строка). Поведение, глобалы и порядок загрузки прежние. Проверки в чистой копии ветки: серверный набор 65/0; e2e roulette, layout, shared_core, betpanel_keyboard, resume, desktop_scroll 6/0; check_js_globals, stamp_client --check в порядке.
+
+## 2026-10-11. Дробление крупных файлов: js/10-crash.js (пул 5ab8010a0815)
+js/10-crash.js (673 строки) разделён на js/10a-crash-chart.js (график и экран, 243), js/10b-crash-bets.js (ставки и цели, 117) и js/10-crash.js (состояние, опрос, связка, 316). Поведение, глобалы, лимиты (CR_TARGET_MAX 100000) и порядок загрузки прежние. Проверки в чистой копии: серверный набор 65/0; e2e crash, crash_auto_manual, crash_visibility, crash_feed, skin_scene_crash_patina, skin_scene_void_crash, skin_scene_draft_crash 7/0. Отчёт агента с «65/0» при хвосте «63/2 disk I/O» проверен отдельно. Агент упоминал симлинк на чужой venv; в ветку он не попал (bot/.venv не в git).
