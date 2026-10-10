@@ -1,0 +1,121 @@
+/* Сцена скина краша «Пустота» (коллекция «Пустота», DESIGN.md раздел 5).
+   Линия графика 1 px, белая, никакого декора; множитель огромный тонким начертанием.
+   Зоны: на ×2 линия 1.5 px, на ×10 — 2 px, на ×50 — фон еле заметно светлеет к графиту (#111111).
+   Краш: линия обрывается, число исчезает мгновенно, на месте обрыва точка гаснет за 1 с.
+   Забрать: выигрыш тёплым белым #F5EBDD. */
+
+.cr-chart[data-scene="void_crash"] {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 20px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 20px);
+  transition: background-color 0.8s ease-out;
+}
+
+.cr-chart[data-scene="void_crash"] .cr-smoke {
+  display: none;
+}
+
+/* Линия графика: белая, без декора, меняет толщину по зонам */
+.cr-chart[data-scene="void_crash"] .cr-curve {
+  stroke: #FFFFFF;
+  stroke-width: 1px;
+}
+.cr-chart[data-scene="void_crash"][data-zone="1"] .cr-curve {
+  stroke-width: 1.5px;
+}
+.cr-chart[data-scene="void_crash"][data-zone="2"] .cr-curve,
+.cr-chart[data-scene="void_crash"][data-zone="3"] .cr-curve {
+  stroke-width: 2px;
+}
+
+/* Множитель: огромный, тонким начертанием, увеличивается по зонам */
+.cr-chart[data-scene="void_crash"] .cr-mult {
+  font-weight: 200;
+  font-size: 56px;
+  text-shadow: none;
+  letter-spacing: -0.02em;
+  transition: font-size 0.25s ease-out;
+}
+.cr-chart[data-scene="void_crash"][data-zone="1"] .cr-mult {
+  font-size: 64px;
+}
+.cr-chart[data-scene="void_crash"][data-zone="2"] .cr-mult {
+  font-size: 72px;
+}
+.cr-chart[data-scene="void_crash"][data-zone="3"] .cr-mult {
+  font-size: 80px;
+}
+
+/* Фон на ×50 еле заметно светлеет к графиту (#111111) */
+.cr-chart[data-scene="void_crash"][data-zone="3"] {
+  background-color: #111111;
+}
+
+/* Событие «краш»: линия обрывается, число исчезает мгновенно */
+.cr-chart[data-scene="void_crash"].cr-void-crashed .cr-curve,
+.cr-chart[data-scene="void_crash"][data-tone="crash"] .cr-curve {
+  opacity: 0;
+}
+.cr-chart[data-scene="void_crash"].cr-void-crashed .cr-mult,
+.cr-chart[data-scene="void_crash"][data-tone="crash"] .cr-mult {
+  opacity: 0;
+}
+
+/* Сцена: SVG-контейнер для зон, точки обрыва и отметки выигрыша */
+.scvc-svg {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  overflow: visible;
+  pointer-events: none;
+}
+.scvc-zone {
+  opacity: 0;
+  transition: opacity 0.48s ease;
+}
+.scvc-zone.in {
+  opacity: 1;
+}
+.scvc-zone.out {
+  opacity: 0;
+}
+
+.scvc-dot {
+  pointer-events: none;
+}
+
+/* Событие «забрать»: сумма выигрыша тёплым белым #F5EBDD */
+.scvc-win {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+}
+.scvc-win.show {
+  opacity: 1;
+}
+.scvc-win-text {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 32px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  color: #F5EBDD;
+  text-shadow: 0 0 16px rgba(245, 235, 221, 0.35);
+}
+
+.perf-lite .cr-chart[data-scene="void_crash"] .cr-mult,
+.perf-lite .cr-chart[data-scene="void_crash"] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cr-chart[data-scene="void_crash"] .cr-mult,
+  .cr-chart[data-scene="void_crash"] {
+    transition: none;
+  }
+}
