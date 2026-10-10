@@ -23,7 +23,7 @@ MEASURE = r"""
   const old = document.getElementById('iso-host'); if (old) old.remove();
   const host = document.createElement('div');
   host.id = 'iso-host';
-  Object.assign(host.style, {position: 'fixed', left: '0', top: '0', width: '320px', padding: '12px', background: '#000', zIndex: '99999'});   // не cssText: CSP страницы запрещает inline-стили
+  Object.assign(host.style, {position: 'fixed', left: '0', top: '0', width: '320px', padding: '12px', background: '#000', zIndex: '99999', fontVariantNumeric: 'normal'});   // не cssText: CSP страницы запрещает inline-стили
   const box = wdScene(slot, code, false);
   host.appendChild(box);
   document.body.appendChild(host);
