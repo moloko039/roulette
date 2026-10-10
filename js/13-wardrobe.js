@@ -9,10 +9,10 @@ const WD_SLOTS = [
 ];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
-  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina', 'draft_back', 'back_deep'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl', 'chip_leaf', 'draft_chip'],
-  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth', 'table_deep'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'mine_beetle', 'mine_patina', 'mine_urchin'],
-  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble', 'keno_apple', 'draft_keno', 'keno_patina'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep', 'crash_maple', 'crash_patina'],
-  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'ref_arch', 'frame_patina', 'frame_dacha', 'frame_wreath', 'draft_frame', 'frame_deep'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha', 'badge_pumpkin', 'badge_deep', 'badge_patina']
+  card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina', 'draft_back', 'void_back', 'back_deep'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl', 'chip_leaf', 'draft_chip'],
+  table: ['table_green', 'table_blue', 'table_violet', 'table_autumn', 'draft_table', 'void_table', 'table_oilcloth', 'table_deep'], mine_icons: ['mine_classic', 'mine_star', 'mine_gem', 'mine_acorn', 'draft_mines', 'void_mines', 'mine_beetle', 'mine_patina', 'mine_urchin'],
+  keno_ball: ['keno_round', 'keno_hex', 'keno_lotto', 'keno_bubble', 'keno_apple', 'draft_keno', 'keno_patina', 'void_keno'], crash: ['crash_line', 'crash_neon', 'draft_crash', 'crash_barrel', 'ref_comet', 'crash_deep', 'crash_maple', 'crash_patina', 'void_crash'],
+  avatar_frame: ['frame_plain', 'frame_thin', 'frame_double', 'frame_crown', 'ref_beacon', 'ref_arch', 'frame_patina', 'frame_dacha', 'frame_wreath', 'draft_frame', 'void_frame', 'frame_deep'], badge: ['badge_none', 'badge_spade', 'badge_flame', 'draft_badge', 'void_badge', 'ref_scout', 'badge_dacha', 'badge_pumpkin', 'badge_deep', 'badge_patina']
 };
 const skinKnown = (slot, code) => typeof code === 'string' && Object.prototype.hasOwnProperty.call(SKIN_CODES, slot) && SKIN_CODES[slot].includes(code);
 const skinStarter = (slot) => SKIN_CODES[slot][0];
