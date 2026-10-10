@@ -1,0 +1,101 @@
+/* Сцена скина краша «Патина» (коллекция «Патина», DESIGN.md раздел 8) */
+
+/* Скрытие стандартного дыма и оси: шкала рисуется приборным циферблатом */
+.cr-chart[data-scene="crash_patina"] .cr-smoke { display: none; }
+.cr-chart[data-scene="crash_patina"] .cr-axis { display: none; }
+
+/* Линия графика — след пера на бумаге */
+.cr-chart[data-scene="crash_patina"] .cr-curve {
+  stroke: var(--cr-line, #D9B25C);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: none;
+}
+
+/* Читаемость множителя и подписи */
+.cr-chart[data-scene="crash_patina"] .cr-mult {
+  color: #F5E8C7;
+  text-shadow: 0 2px 14px rgba(20, 16, 10, 0.95), 0 0 4px rgba(0, 0, 0, 0.8);
+}
+.cr-chart[data-scene="crash_patina"] .cr-label {
+  color: var(--cr-label, #CDBB93);
+}
+.cr-chart[data-scene="crash_patina"][data-tone="crash"] .cr-mult {
+  color: var(--cr-crash, #E0675C);
+}
+.cr-chart[data-scene="crash_patina"][data-tone="win"] .cr-mult {
+  color: var(--cr-win, #8FD0A3);
+}
+
+/* Бумажная лента самописца с координатной сеткой */
+.scpt-tape {
+  position: absolute;
+  inset: 0;
+  background-color: #F8F4E8;
+  background-image:
+    linear-gradient(to right, rgba(140, 107, 46, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(140, 107, 46, 0.12) 1px, transparent 1px),
+    linear-gradient(to right, rgba(140, 107, 46, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(140, 107, 46, 0.22) 1px, transparent 1px);
+  background-size:
+    10px 10px,
+    10px 10px,
+    50px 50px,
+    50px 50px;
+  pointer-events: none;
+  transition: background-color 0.3s ease;
+}
+
+/* Пожелтение бумажной ленты по стадиям износа 0..4 */
+[data-patina-crash="1"] .scpt-tape { background-color: #EFE6CD; }
+[data-patina-crash="2"] .scpt-tape { background-color: #E5D6AA; }
+[data-patina-crash="3"] .scpt-tape { background-color: #D6C088; }
+[data-patina-crash="4"] .scpt-tape { background-color: #C0A460; }
+
+.scpt-defs { position: absolute; width: 0; height: 0; }
+.scpt-bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.scpt-glass { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.scpt-event-svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; pointer-events: none; }
+
+/* Зоны шкалы циферблата */
+.scpt-zone { opacity: 0; transition: opacity 0.48s ease; }
+.scpt-zone.in { opacity: 1; }
+.scpt-zone.out { opacity: 0; }
+
+/* Царапины на стекле: скрыты по умолчанию, появляются со стадии 2+ */
+.scpt-scratch {
+  display: none;
+}
+[data-patina-crash="2"] .scpt-scratch.s2,
+[data-patina-crash="3"] .scpt-scratch.s2,
+[data-patina-crash="3"] .scpt-scratch.s3,
+[data-patina-crash="4"] .scpt-scratch.s2,
+[data-patina-crash="4"] .scpt-scratch.s3,
+[data-patina-crash="4"] .scpt-scratch.s4 {
+  display: block;
+}
+
+/* Стрелка-перо */
+.scpt-r {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 48px;
+  transform-origin: 24px 24px;
+  pointer-events: none;
+}
+.scpt-r.flying { will-change: transform; }
+.scpt-r.gone { opacity: 0; }
+.scpt-pen {
+  display: block;
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 2px 4px rgba(30, 20, 10, 0.45));
+}
+
+/* Частицы */
+.scpt-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.scpt-p { position: absolute; display: none; pointer-events: none; will-change: transform, opacity; }
+.scpt-p.on { display: block; }
