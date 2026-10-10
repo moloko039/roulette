@@ -1,1 +1,171 @@
-/* Скин «Черновик» (draft_chip): заготовка, заполняется задачей пула */
+/* Скин фишки «Черновик» (draft_chip): DESIGN.md раздел 4.
+   «Монета, нарисованная ручкой»: круг с двойной обводкой, штриховка по краю
+   (SVG data:-URI в background-image поверх цвета палитры).
+   Номиналы отличаются штриховкой:
+   - 10: точки
+   - 50: косые линии
+   - 100: клетка
+   - 500: сплошная заливка ручкой
+   - запасной вариант для других сумм (fallback).
+   Событие «ставка» (.stack.drop): монета «дорисовывается» за ~200 мс (transform/opacity).
+   Отключение анимаций при html.perf-lite, html.skin-paused и prefers-reduced-motion. */
+
+/* 1. Базовые стили фишки .chip и стопки .stack */
+[data-scene="draft_chip"] .chip {
+  position: relative;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  color: #F7F5EE;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 40px 40px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, border-color 0.12s ease-out;
+}
+
+[data-scene="draft_chip"] .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-scene="draft_chip"] .chip[aria-pressed="true"] {
+  border-color: #F6EB61;
+  box-shadow: 0 0 0 2px #F6EB61, 0 2px 8px rgba(246, 235, 97, 0.45);
+}
+
+/* Прямоугольные кнопки фишек в доке ставок: монета по левому краю + читаемая сумма */
+[data-scene="draft_chip"] .bets-dock .chip {
+  padding-left: 32px;
+  padding-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background-position: left 6px center;
+  background-size: 28px 28px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* Стопка .stack на клетке стола рулетки: круглая монета */
+[data-scene="draft_chip"] .stack {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+  font-size: 9.5px;
+  line-height: 22px;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #F7F5EE;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+/* 2. Номиналы: монеты со штриховкой */
+
+/* Запасной вариант (fallback) */
+[data-scene="draft_chip"] .chip,
+[data-scene="draft_chip"] .stack {
+  background-color: #1F3A93;
+  border-color: #BFD8E8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23BFD8E8' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23BFD8E8' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M86,50 H96 M50,86 V96 M14,50 H4 M50,14 V4 M75.5,75.5 L82.5,82.5 M24.5,75.5 L17.5,82.5 M24.5,24.5 L17.5,17.5 M75.5,24.5 L82.5,17.5 M83.3,63.8 L92.5,67.6 M63.8,83.3 L67.6,92.5 M36.2,83.3 L32.4,92.5 M16.7,63.8 L7.5,67.6 M16.7,36.2 L7.5,32.4 M36.2,16.7 L32.4,7.5 M63.8,16.7 L67.6,7.5 M83.3,36.2 L92.5,32.4' stroke='%23BFD8E8' stroke-width='1.2' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='14' fill='none' stroke='%23BFD8E8' stroke-width='1' stroke-dasharray='4 2'/%3E%3Cpath d='M44,50 H56 M50,44 V56' stroke='%23BFD8E8' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Номинал 10: точки (#BFD8E8) */
+[data-scene="draft_chip"] :is(.chip, .stack):is([data-amount="10"], [data-bet="10"], [data-kbet="10"], [data-jbet="10"], [data-cbet="10"], [data-hbet="10"]) {
+  background-color: #1F3A93;
+  border-color: #BFD8E8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23BFD8E8' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23BFD8E8' stroke-width='1.4' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='41' fill='none' stroke='%23BFD8E8' stroke-width='3.2' stroke-linecap='round' stroke-dasharray='0.1 12.87'/%3E%3Ctext x='50' y='57' font-family='sans-serif' font-style='italic' font-weight='800' font-size='20' fill='%23BFD8E8' text-anchor='middle'%3E10%3C/text%3E%3Cpath d='M40,63 Q50,65 60,63' fill='none' stroke='%23BFD8E8' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Номинал 50: косые линии (#F6EB61) */
+[data-scene="draft_chip"] :is(.chip, .stack):is([data-amount="50"], [data-bet="50"], [data-kbet="50"], [data-jbet="50"], [data-cbet="50"], [data-hbet="50"]) {
+  background-color: #1F3A93;
+  border-color: #F6EB61;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23F6EB61' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23F6EB61' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M86,50 L94.6,61.1 M83.3,63.8 L87.2,76.8 M75.5,75.5 L74.8,89.2 M63.8,83.3 L57.7,95.5 M50,86 L38.9,94.6 M36.2,83.3 L23.2,87.2 M24.5,75.5 L10.8,74.8 M16.7,63.8 L4.5,57.7 M14,50 L5.4,38.9 M16.7,36.2 L12.8,23.2 M24.5,24.5 L25.2,10.8 M36.2,16.7 L42.3,4.5 M50,14 L61.1,5.4 M63.8,16.7 L76.8,12.8 M75.5,24.5 L89.2,25.2 M83.3,36.2 L95.5,42.3' stroke='%23F6EB61' stroke-width='1.5' stroke-linecap='round'/%3E%3Ctext x='50' y='57' font-family='sans-serif' font-style='italic' font-weight='800' font-size='20' fill='%23F6EB61' text-anchor='middle'%3E50%3C/text%3E%3Cpath d='M40,63 Q50,65 60,63' fill='none' stroke='%23F6EB61' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Номинал 100: клетка (#F4B8B8) */
+[data-scene="draft_chip"] :is(.chip, .stack):is([data-amount="100"], [data-bet="100"], [data-kbet="100"], [data-jbet="100"], [data-cbet="100"], [data-hbet="100"]) {
+  background-color: #1F3A93;
+  border-color: #F4B8B8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23F4B8B8' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23F4B8B8' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M86,50 L94.6,61.1 M83.3,63.8 L87.2,76.8 M75.5,75.5 L74.8,89.2 M63.8,83.3 L57.7,95.5 M50,86 L38.9,94.6 M36.2,83.3 L23.2,87.2 M24.5,75.5 L10.8,74.8 M16.7,63.8 L4.5,57.7 M14,50 L5.4,38.9 M16.7,36.2 L12.8,23.2 M24.5,24.5 L25.2,10.8 M36.2,16.7 L42.3,4.5 M50,14 L61.1,5.4 M63.8,16.7 L76.8,12.8 M75.5,24.5 L89.2,25.2 M83.3,36.2 L95.5,42.3' stroke='%23F4B8B8' stroke-width='1.2' stroke-linecap='round'/%3E%3Cpath d='M86,50 L94.6,38.9 M83.3,36.2 L87.2,23.2 M75.5,24.5 L74.8,10.8 M63.8,16.7 L57.7,4.5 M50,14 L38.9,5.4 M36.2,16.7 L23.2,12.8 M24.5,24.5 L10.8,25.2 M16.7,36.2 L4.5,42.3 M14,50 L5.4,61.1 M16.7,63.8 L12.8,76.8 M24.5,75.5 L25.2,89.2 M36.2,83.3 L42.3,95.5 M50,86 L61.1,94.6 M63.8,83.3 L76.8,87.2 M75.5,75.5 L89.2,74.8 M83.3,63.8 L95.5,57.7' stroke='%23F4B8B8' stroke-width='1.2' stroke-linecap='round'/%3E%3Ctext x='50' y='57' font-family='sans-serif' font-style='italic' font-weight='800' font-size='18' fill='%23F4B8B8' text-anchor='middle'%3E100%3C/text%3E%3Cpath d='M36,63 Q50,65 64,63' fill='none' stroke='%23F4B8B8' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Номинал 500: сплошная заливка ручкой (#FFFFFF) */
+[data-scene="draft_chip"] :is(.chip, .stack):is([data-amount="500"], [data-bet="500"], [data-kbet="500"], [data-jbet="500"], [data-cbet="500"], [data-hbet="500"]) {
+  background-color: #1F3A93;
+  border-color: #FFFFFF;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23FFFFFF' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23FFFFFF' stroke-width='1.4' stroke-linecap='round'/%3E%3Ccircle cx='50' cy='50' r='41' fill='none' stroke='%23FFFFFF' stroke-width='8.5' stroke-dasharray='5 1.5 8 1 3 1.5' opacity='0.85'/%3E%3Cpath d='M86,50 L95,58 M83,64 L89,75 M75,75 L76,88 M64,83 L59,94 M50,86 L40,94 M36,83 L25,88 M25,75 L13,76 M17,64 L6,59 M14,50 L7,40 M17,36 L11,25 M25,25 L24,13 M36,17 L41,6 M50,14 L60,6 M64,17 L75,11 M75,25 L87,24 M83,36 L94,41' stroke='%23FFFFFF' stroke-width='1.4' stroke-linecap='round'/%3E%3Ctext x='50' y='57' font-family='sans-serif' font-style='italic' font-weight='800' font-size='18' fill='%23FFFFFF' text-anchor='middle'%3E500%3C/text%3E%3Cpath d='M36,63 Q50,65 64,63' fill='none' stroke='%23FFFFFF' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 3. Событие «ставка» (.stack.drop) */
+[data-scene="draft_chip"] .stack.drop {
+  animation: draft-chip-drop 0.2s ease-out forwards;
+}
+
+@keyframes draft-chip-drop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6) rotate(-14deg);
+    opacity: 0.2;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1.04) rotate(3deg);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* 4. Пауза и облегчённый режим (perf-lite, reduced-motion, skin-paused) */
+html.perf-lite [data-scene="draft_chip"] .stack.drop {
+  animation: none !important;
+}
+
+html.perf-lite [data-scene="draft_chip"] .stack,
+html.perf-lite [data-scene="draft_chip"] .chip,
+html.perf-lite [data-scene="draft_chip"] .stack::before,
+html.perf-lite [data-scene="draft_chip"] .stack::after,
+html.perf-lite [data-scene="draft_chip"] .chip::before,
+html.perf-lite [data-scene="draft_chip"] .chip::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-scene="draft_chip"] .stack.drop {
+    animation: none !important;
+  }
+  [data-scene="draft_chip"] .stack,
+  [data-scene="draft_chip"] .chip,
+  [data-scene="draft_chip"] .stack::before,
+  [data-scene="draft_chip"] .stack::after,
+  [data-scene="draft_chip"] .chip::before,
+  [data-scene="draft_chip"] .chip::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+html.skin-paused [data-scene="draft_chip"] .stack.drop {
+  animation-play-state: paused !important;
+}
+
+html.skin-paused [data-scene="draft_chip"] .stack,
+html.skin-paused [data-scene="draft_chip"] .chip,
+html.skin-paused [data-scene="draft_chip"] .stack::before,
+html.skin-paused [data-scene="draft_chip"] .stack::after,
+html.skin-paused [data-scene="draft_chip"] .chip::before,
+html.skin-paused [data-scene="draft_chip"] .chip::after {
+  animation-play-state: paused !important;
+}

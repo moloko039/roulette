@@ -1,1 +1,92 @@
-/* Скин «Черновик» (draft_table): заготовка, заполняется задачей пула */
+/* Скин стола «Черновик» (draft_table): DESIGN.md раздел 4.
+   Всё казино нарисовано синей шариковой ручкой на миллиметровке во время скучного совещания.
+   Слои:
+   1. Палитра: бумага #F7F5EE, сетка #BFD8E8, поля #E8A0A0, ручка #1F3A93.
+   2. Материал: миллиметровка (мелкая сетка 4 px и крупная 20 px репитинг-градиентами).
+   3. Поля: вертикальная красная линия полей слева (#E8A0A0).
+   4. Декор: кольцо от кофейной чашки (полупрозрачный SVG), скрепка в верхнем углу (::before, SVG),
+      загнутый уголок справа внизу (::after, треугольник с тенью градиентом).
+   Читаемость WCAG AA, клетки кликабельны (pointer-events: none у декора). */
+
+#table[data-scene="draft_table"] {
+  position: relative;
+  overflow: visible;
+  padding: 4px 4px 6px 14px;
+  border: 1px solid #BFD8E8;
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 4px rgba(31, 58, 147, 0.08);
+  background-color: #F7F5EE;
+  background-image:
+    /* Кольцо от кофейной чашки */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cellipse cx='50' cy='50' rx='40' ry='39' fill='rgba(139,90,43,0.03)' stroke='rgba(139,90,43,0.22)' stroke-width='3.2'/%3E%3Cellipse cx='50.5' cy='49.5' rx='38.5' ry='37.5' fill='none' stroke='rgba(110,65,25,0.16)' stroke-width='1.8' stroke-dasharray='16 3 24 2 10 3'/%3E%3Cellipse cx='49' cy='50.5' rx='41.5' ry='40.5' fill='none' stroke='rgba(139,90,43,0.08)' stroke-width='1.2'/%3E%3Ccircle cx='76' cy='36' r='2' fill='rgba(139,90,43,0.14)'/%3E%3Ccircle cx='80' cy='39' r='1.2' fill='rgba(139,90,43,0.12)'/%3E%3C/svg%3E"),
+    /* Вертикальная красная линия полей слева */
+    linear-gradient(90deg, transparent 10px, #E8A0A0 10px 11.5px, transparent 11.5px),
+    /* Крупная сетка 20 px */
+    repeating-linear-gradient(0deg, transparent 0 19px, rgba(191, 216, 232, 0.75) 19px 20px),
+    repeating-linear-gradient(90deg, transparent 0 19px, rgba(191, 216, 232, 0.75) 19px 20px),
+    /* Мелкая сетка 4 px */
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(191, 216, 232, 0.4) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(191, 216, 232, 0.4) 3px 4px);
+  background-position:
+    right 8px top 28px,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0;
+  background-size:
+    80px 80px,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto;
+  background-repeat:
+    no-repeat,
+    no-repeat,
+    repeat,
+    repeat,
+    repeat,
+    repeat;
+}
+
+/* Скрепка в верхнем углу (SVG) */
+#table[data-scene="draft_table"]::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 14px;
+  width: 22px;
+  height: 46px;
+  pointer-events: none;
+  z-index: 3;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 50' fill='none'%3E%3Cpath d='M8,8 V36 C8,42 18,42 18,36 V14 C18,9.5 12,9.5 12,14 V32 C12,34.5 15,34.5 15,32 V17' stroke='rgba(0,0,0,0.22)' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7,7 V35 C7,41 17,41 17,35 V13 C17,8.5 11,8.5 11,13 V31 C11,33.5 14,33.5 14,31 V16' stroke='%235A5A5A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7.6,7 V35 C7.6,40.2 16.4,40.2 16.4,35 V13 C16.4,9.2 11.6,9.2 11.6,13 V31 C11.6,32.8 13.4,32.8 13.4,31 V16' stroke='%23D0D8E0' stroke-width='0.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  transform: rotate(6deg);
+}
+
+/* Загнутый уголок справа внизу (треугольник с тенью градиентом) */
+#table[data-scene="draft_table"]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    linear-gradient(135deg, transparent 40%, rgba(0, 0, 0, 0.18) 47%, transparent 53%),
+    linear-gradient(315deg, #DFD9C7 0%, #EDE9DC 36%, #F4F0E4 48%, transparent 50%);
+  border-bottom-right-radius: inherit;
+}
+
+#table[data-scene="draft_table"] .skin-scene {
+  pointer-events: none;
+  overflow: visible;
+}
+
+#table[data-scene="draft_table"] .cell {
+  font-style: italic;
+}
