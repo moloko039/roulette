@@ -822,6 +822,6 @@ css-скин skins/badge_patina.css: круглый латунный жетон,
 
 ## 2026-10-10. Набор «Пустота»: восемь частей, 2000 💎 (пул b3f01c851ab6)
 Каталог: void_table, void_chip, void_badge (по 300 💎) плюс void_mines, void_keno, void_crash, void_back, void_frame (по 300 💎); набор 2000 💎 (сумма частей 2400 💎, набор выгоднее). Клиент: коды в SKIN_CODES. Решение владельца 2026-10-10.
-Стили: void_back, void_frame, void_mines, void_keno (css-скины по DESIGN.md раздел 5, пул). Часть void_crash (краш: тонкая белая линия, толщина по зонам) ещё не сделана.
+Стили: void_back, void_frame, void_mines, void_keno (css-скины по DESIGN.md раздел 5, пул); void_crash (краш: белая линия 1–2 px по зонам, обрыв и угасание точки, выигрыш тёплым белым; пул a3558a9581c2).
 Проверка объединённого состояния: серверный набор 66/0; e2e skin_scene_void_parts, skin_scene_void, skin_contrast, set_buy, wardrobe_flow, wardrobe_buy_chips, patina_apply, skin_vars 8/0. Отчёт агента «tests timed out» проверен отдельно.
-Открыто: краш-часть «Пустоты» (void_crash) и цена 2000 💎 требуют сверки с владельцем по составу (владелец подтвердил 8 частей и цену).
+Состав из восьми частей и цена 2000 💎 подтверждены владельцем 2026-10-10.
