@@ -12,7 +12,7 @@ import cosmetics
 import economy_config
 import wallet
 from features.founder_number import founder_no
-from features.patina_db import patina_stages
+from features.patina_db import patina_info, patina_stages
 from roulette import InsufficientFunds
 
 from core.db_conn import _connect
@@ -36,6 +36,9 @@ def _with_patina(conn, telegram_id, response):
     stages = patina_stages(conn, telegram_id, response["equipped"])
     if stages:
         response["patina"] = stages
+    info = patina_info(conn, telegram_id, response["equipped"])
+    if info:
+        response["patina_info"] = info
     return response
 
 
@@ -49,6 +52,9 @@ def cosmetics_state(telegram_id, db_path=None):
         patina = patina_stages(conn, telegram_id, equipped)
         if patina:
             res["patina"] = patina
+        info = patina_info(conn, telegram_id, equipped)
+        if info:
+            res["patina_info"] = info      # числа для рисунка надетой патины: засечки на жетоне, дни на именном жетоне
         owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
         res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["complete"]]
         res["founder_no"] = founder_no(conn, telegram_id)      # номер основателя для рамки «Арка» и значка «Камень» (null, если веху ещё не получали)

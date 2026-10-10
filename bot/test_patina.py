@@ -5,6 +5,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+import cosmetic_sets
 import db
 import economy_config
 
@@ -25,6 +26,12 @@ def patina_age_stage_for(days):
 def cosmetics_price(code):
     import cosmetics
     return cosmetics.item(code)["price"]["amount"]
+
+
+def _public_cosmetics_for(path, uid):
+    from features.chat_db import _public_cosmetics
+    sql(path, "INSERT OR REPLACE INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, 'badge', 'badge_patina')", (uid,))
+    return _public_cosmetics(path, [uid])[uid]
 
 
 def check(name, got, expected):
@@ -156,9 +163,29 @@ try:
     conn2.close()
     from features.cosmetics_db import buy_set
     bought = buy_set(P, "req-set-1", "patina", now=NOW, db_path=path)
-    check("набор за 1000: все четыре части, остаток 500", (sorted(bought["items"]), bought["price_gems"], bought["gems"]), (["back_patina", "chip_patina", "frame_patina", "mine_patina"], 1000, 500))
+    check("набор за 1000: все семь частей, остаток 500", (sorted(bought["items"]), bought["price_gems"], bought["gems"]), (sorted(cosmetic_sets.SETS["patina"]["parts"]), 1000, 500))
     check("части с источником gems", sorted(r[0] for r in sql(path, "SELECT DISTINCT source FROM cosmetic_items WHERE telegram_id = ?", (P,))), ["gems"])
-    check("часть дороже набора по отдельности (4 x 400 > 1000)", sum(cosmetics_price(c) for c in ("chip_patina", "back_patina", "mine_patina", "frame_patina")) > 1000, True)
+    check("часть дороже набора по отдельности (7 x 400 > 1000)", sum(cosmetics_price(c) for c in cosmetic_sets.SETS["patina"]["parts"]) > 1000, True)
+
+    # --- новые части (DESIGN.md раздел 8): кено по розыгрышам, краш по раундам, именной жетон по дням; засечки жетона не больше 24
+    from features.patina_db import patina_info
+    K = 424242440
+    add_player(path, K)
+    sql(path, "UPDATE players SET created_at = ? WHERE telegram_id = ?", (NOW - 400 * 86400, K))
+    for i in range(110):
+        sql(path, "INSERT INTO keno_rounds (telegram_id, request_id, bet, picks_json, draw_json, hit_count, payout, created_at) VALUES (?, ?, 1, '[]', '[]', 0, 0, ?)", (K, "k%d" % i, NOW))
+    for i in range(30):
+        sql(path, "INSERT INTO crash_games (telegram_id, bet, mode, target_x100, crash_x100, started_at_ms, status, created_at, finished_at) VALUES (?, 10, 'manual', NULL, 6000, 1, 'finished', 1, 2)", (K,))
+    eq = {"chip": "chip_patina", "keno_ball": "keno_patina", "crash": "crash_patina", "badge": "badge_patina"}
+    import sqlite3 as _sq
+    rconn = _sq.connect(path)
+    rconn.row_factory = _sq.Row
+    st = patina_stages(rconn, K, eq, now=NOW)
+    check("стадии новых частей: кено 110 розыгрышей = 2, краш 30 раундов = 1, жетон 400 дней = 4, фишка 30 крахов выше x50 = 3", (st["keno_ball"], st["crash"], st["badge"], st["chip"]), (2, 1, 4, 3))
+    check("числа для рисунка: засечек не больше 24, дней в игре", patina_info(rconn, K, eq, now=NOW), {"chip_notches": 24, "days": 400})
+    check("без надетой патины чисел нет", patina_info(rconn, K, {"chip": "chip_plain"}, now=NOW), {})
+    shown = _public_cosmetics_for(path, K)
+    check("другим участникам виден именной жетон: дни и стадия", (shown["badge"], shown["badge_days"], shown["badge_stage"]), ("badge_patina", 400, 4))
 
     conn.close()
     print("Все проверки прошли")
