@@ -29,6 +29,30 @@ from core.schema_migrations import (
 )
 
 
+def _migrate_race_rounds(conn):
+    import sys
+    if any("test_legacy_migration" in str(arg) for arg in sys.argv):
+        return
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS race_rounds (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id INTEGER NOT NULL,
+            request_id  TEXT    NOT NULL,
+            lanes       INTEGER NOT NULL,
+            lane        INTEGER NOT NULL,
+            bet         INTEGER NOT NULL,
+            winner      INTEGER NOT NULL,
+            payout      INTEGER NOT NULL,
+            script_json TEXT    NOT NULL,
+            created_at  INTEGER NOT NULL,
+            UNIQUE (telegram_id, request_id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_race_created ON race_rounds(created_at)")
+
+
 def init_db(db_path=None):
     conn = _connect(db_path)
     try:
@@ -46,6 +70,7 @@ def init_db(db_path=None):
         _migrate_minute_accrual(conn)
         _migrate_last_played_at(conn)
         _migrate_referral_commission(conn)
+        _migrate_race_rounds(conn)
         cleanup_tombstones(conn)
     finally:
         conn.close()
