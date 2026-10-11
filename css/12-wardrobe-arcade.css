@@ -784,6 +784,105 @@
   pointer-events: none;
 }
 
+/* ---------- Миниатюры скинов гардероба (card_back) ---------- */
+:is(.wd-mini, .wd-scene)[data-skin-card_back="back_patina"] .bj-card.back {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--card-back-a);
+  background-image: linear-gradient(135deg, var(--card-back-a) 0%, var(--card-back-b) 100%);
+}
+:is(.wd-mini, .wd-scene)[data-skin-card_back="back_patina"] .bj-card.back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M10 1 L19 10 L10 19 L1 10 Z' fill='none' stroke='rgba(255,255,255,0.22)' stroke-width='1.2'/%3E%3Cpath d='M10 2 L18 10 L10 18 L2 10 Z' fill='none' stroke='rgba(0,0,0,0.38)' stroke-width='0.8'/%3E%3Ccircle cx='10' cy='10' r='3.5' fill='none' stroke='rgba(255,255,255,0.2)' stroke-width='0.8'/%3E%3Ccircle cx='10' cy='10' r='2' fill='rgba(0,0,0,0.28)'/%3E%3Cpath d='M0 0 L3 3 M20 0 L17 3 M0 20 L3 17 M20 20 L17 17' stroke='rgba(255,255,255,0.18)' stroke-width='1'/%3E%3Ccircle cx='0' cy='10' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='20' cy='10' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='10' cy='0' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3Ccircle cx='10' cy='20' r='1.5' fill='rgba(0,0,0,0.25)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 20px 20px;
+  background-position: center;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+:is(.wd-mini, .wd-scene)[data-skin-card_back="void_back"] .bj-card.back {
+  position: relative;
+  overflow: hidden;
+  background-color: #000000;
+  background-image: none;
+  border-color: #ffffff;
+}
+:is(.wd-mini, .wd-scene)[data-skin-card_back="void_back"] .bj-card.back::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 25%;
+  right: 25%;
+  height: 1px;
+  background-color: #ffffff;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* ---------- Миниатюры скинов гардероба (table) ---------- */
+:is(.wd-mini, .wd-scene)[data-skin-table="draft_table"] .cell {
+  font-style: italic;
+}
+
+:is(.wd-mini, .wd-scene)[data-skin-table="void_table"] .cell {
+  border-color: #2a2a2a;
+}
+
+/* ---------- Миниатюры скинов гардероба (avatar_frame) ---------- */
+:is(.wd-mini, .wd-scene)[data-skin-avatar_frame="void_frame"] .avatar {
+  border-color: transparent;
+}
+
+/* ---------- Миниатюры скинов гардероба (badge) ---------- */
+:is(.wd-mini, .wd-scene)[data-skin-badge="badge_patina"] .rating-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 235, 175, 0.22) 0%, rgba(36, 28, 15, 0.95) 70%);
+  border: 1.5px solid var(--badge-color, #D9B25C);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  vertical-align: middle;
+}
+:is(.wd-mini, .wd-scene)[data-skin-badge="badge_patina"] .rating-badge svg {
+  display: none;
+}
+:is(.wd-mini, .wd-scene)[data-skin-badge="badge_patina"] .rating-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  color: var(--badge-color, #D9B25C);
+  text-shadow: 0 -0.5px 0 rgba(255, 245, 200, 0.5), 0 0.5px 0 rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 1;
+  white-space: nowrap;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+:is(.wd-mini, .wd-scene)[data-skin-badge="badge_patina"] .rating-badge[data-days]::after {
+  content: attr(data-days);
+}
+
 .wd-demo-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .wd-desc { margin: 0; font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .wd-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; padding: 0 var(--space-3); font-size: 13px; text-align: left; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); }
