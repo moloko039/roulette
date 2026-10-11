@@ -1,5 +1,5 @@
 python-telegram-bot==22.5
-uvicorn==0.39.0
+uvicorn==0.54.0
 httpx==0.28.1
 pynacl==1.6.2
 fastapi==0.142.2
