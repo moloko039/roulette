@@ -2,7 +2,7 @@ python-telegram-bot==22.5
 uvicorn==0.39.0
 httpx==0.28.1
 pynacl==1.6.2
-fastapi==0.142.2
+fastapi==0.143.0
 starlette==1.7.0
 anyio==4.15.1
 click==8.5.0
