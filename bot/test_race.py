@@ -22,8 +22,7 @@ import ratelimit
 from roulette import MAX_SAFE_INT, BalanceLimit, InsufficientFunds
 from tg_testutil import make_init_data
 import wallet
-import web.api
-from web.api import create_app
+from api import create_app
 
 TOKEN = "123456:TEST-TOKEN-not-real"
 ORIGIN = "https://pazrabi.github.io"

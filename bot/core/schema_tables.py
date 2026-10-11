@@ -293,6 +293,25 @@ def create_game_tables(conn):
             )
             """
     )
+    # раунды «Забега свинок»: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS race_rounds (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id INTEGER NOT NULL,
+            request_id  TEXT    NOT NULL,
+            lanes       INTEGER NOT NULL,
+            lane        INTEGER NOT NULL,
+            bet         INTEGER NOT NULL,
+            winner      INTEGER NOT NULL,
+            payout      INTEGER NOT NULL,
+            script_json TEXT    NOT NULL,
+            created_at  INTEGER NOT NULL,
+            UNIQUE (telegram_id, request_id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_race_created ON race_rounds(created_at)")
 
 
 def create_chat_tables(conn):

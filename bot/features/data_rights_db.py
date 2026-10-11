@@ -54,6 +54,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
                 (telegram_id, rounds_limit),
             ).fetchall()
+            race_rounds = conn.execute(
+                "SELECT created_at, lanes, lane, winner, bet, payout FROM race_rounds "
+                "WHERE telegram_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
             bj_games = conn.execute(
                 "SELECT created_at, bet, wager, player_json, dealer_json, result, payout, finished_at FROM blackjack_games "
                 "WHERE telegram_id = ? AND status = 'finished' ORDER BY created_at DESC, id DESC LIMIT ?",
@@ -127,7 +132,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None and not crash_live_bets:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not race_rounds and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None and not crash_live_bets:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -202,6 +207,11 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
              "round": json.loads(s["round_json"])}
             for s in slot_rounds
         ],
+        # раунд «Забега свинок»: ставка, выбранная и победившая дорожки, выплата (кадры анимации не хранятся для выдачи)
+        "race_rounds": [
+            {"time": r["created_at"], "lanes": r["lanes"], "lane": r["lane"], "winner": r["winner"], "bet": r["bet"], "payout": r["payout"]}
+            for r in race_rounds
+        ],
         "farm_purchases": [
             {"time": p["created_at"], "kind": p["kind"], "level": p["level_after"], "cost": p["cost"]}
             for p in purchases
@@ -272,6 +282,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
                 "DELETE FROM keno_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             counts["slot_rounds"] = conn.execute(
                 "DELETE FROM slot_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
+            counts["race_rounds"] = conn.execute(
+                "DELETE FROM race_rounds WHERE telegram_id = ?", (telegram_id,)).rowcount
             counts["player_best_win"] = conn.execute("DELETE FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).rowcount
             for table in ("cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions"):   # косметика удаляется вместе с игроком
                 conn.execute("DELETE FROM " + table + " WHERE telegram_id = ?", (telegram_id,))

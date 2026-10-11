@@ -1,0 +1,93 @@
+/* Забег свинок: экран, дорожки и свинки. База под скины: палитра по умолчанию задана переменными --race-* на :root,
+   скины меняют их на [data-skin-race="<код>"] (атрибут ставит среда скинов; каталога предметов пока нет). */
+:root {
+  --race-track: #1b1d22;
+  --race-lane: #23262d;
+  --race-lane-line: rgba(255, 255, 255, 0.08);
+  --race-lane-win: rgba(245, 235, 221, 0.16);
+  --race-pig-body: #f2b8c4;
+  --race-pig-snout: #e28fa1;
+  --race-pig-ear: #e28fa1;
+  --race-pig-leg: #c97384;
+  --race-pig-eye: #2a1a1a;
+  --race-finish: rgba(245, 235, 221, 0.5);
+  --race-win-text: #f5ebdd;
+}
+
+.race-lanes {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 4px 0 8px;
+}
+.race-small { min-height: 34px; padding: 0 14px; }
+.race-small[aria-pressed="true"] { outline: 2px solid var(--race-finish); outline-offset: 2px; }
+
+.race-track {
+  display: grid;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: var(--race-track);
+  position: relative;
+}
+.race-lane {
+  position: relative;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--race-lane);
+  overflow: hidden;
+  background-image: linear-gradient(90deg, transparent calc(100% - 3px), var(--race-finish) calc(100% - 3px));
+}
+.race-lane.win { background-color: var(--race-lane-win); }
+.race-pig {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 40px;
+  height: 28px;
+  transform: translateX(0);
+  will-change: transform;
+}
+.race-pig svg { width: 100%; height: 100%; display: block; }
+.race-pig-body { fill: var(--race-pig-body); }
+.race-pig-snout { fill: var(--race-pig-snout); }
+.race-pig-ear { fill: var(--race-pig-ear); }
+.race-pig-leg { fill: var(--race-pig-leg); }
+.race-pig-eye { fill: var(--race-pig-eye); }
+
+.race-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.race-pick-btn {
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--race-lane-line);
+  background: var(--race-lane);
+  color: inherit;
+  font: inherit;
+}
+.race-pick-btn[aria-pressed="true"] {
+  outline: 2px solid var(--race-finish);
+  outline-offset: 2px;
+  color: var(--race-win-text);
+}
+.race-pick-btn:disabled { opacity: 0.5; }
+
+.race-result {
+  text-align: center;
+  display: grid;
+  gap: 2px;
+  margin: 6px 0;
+  color: var(--race-win-text);
+}
+.race-result[hidden] { display: none; }
+.race-result strong { font-size: 18px; }
+.race-result span { color: var(--text-muted); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .race-pig { transition: none; }
+}

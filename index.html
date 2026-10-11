@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=856a65f7">
   <link rel="stylesheet" href="css/13-shop.css?v=eabe3d42">
   <link rel="stylesheet" href="css/14-skin-scenes.css?v=976b81a8">
+  <link rel="stylesheet" href="css/15b-race.css?v=a71038c4">
   <meta name="skin-js" data-code="crash_barrel" content="skins/crash_barrel.js?v=43b2c7bb">
   <meta name="skin-css" data-code="crash_barrel" content="skins/crash_barrel.css?v=356d58b8">
   <meta name="skin-css" data-code="mine_beetle" content="skins/mine_beetle.css?v=0197a975">
@@ -314,6 +315,47 @@
       <button type="button" class="mines-primary" id="mines-again">Играть снова</button>
     </div>
     <div class="mines-last" id="mines-last" hidden></div>
+  </section>
+  <section class="screen race" data-screen="race" hidden>
+    <header class="top">
+      <div class="balance">
+        <span class="balance-label">Баланс</span>
+        <strong id="race-balance">Загрузка…</strong>
+      </div>
+      <button type="button" class="game-switch" id="race-switch" aria-label="Сменить игру">
+        <span class="switch-icon" aria-hidden="true"></span>
+        <span class="switch-name">Забег свинок</span>
+        <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </header>
+    <p class="mines-notice" id="race-notice" aria-live="polite"></p>
+    <div class="race-lanes" role="group" aria-label="Число дорожек">
+      <button type="button" class="action race-small" data-race-lanes="3" aria-pressed="true">3 дорожки</button>
+      <button type="button" class="action race-small" data-race-lanes="4" aria-pressed="false">4 дорожки</button>
+    </div>
+    <div class="race-track" id="race-track" aria-label="Дорожки забега"></div>
+    <div class="race-pick" id="race-pick" role="group" aria-label="Выбери дорожку"></div>
+    <div class="race-result" id="race-result" aria-live="polite">
+      <strong id="race-result-title"></strong>
+      <span id="race-result-detail"></span>
+    </div>
+    <section class="bets bets-dock race-bets" id="race-bets">
+      <div class="row bet-chips">
+        <button type="button" class="chip" data-rbet="10" aria-pressed="false">10</button>
+        <button type="button" class="chip" data-rbet="50" aria-pressed="false">50</button>
+        <button type="button" class="chip" data-rbet="100" aria-pressed="false">100</button>
+        <button type="button" class="chip" data-rbet="500" aria-pressed="false">500</button>
+      </div>
+      <div class="row bet-row">
+        <button type="button" class="action step-btn" id="race-half" aria-label="Уменьшить вдвое">÷2</button>
+        <input id="race-bet" class="bet-input" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="10" aria-label="Сумма ставки">
+        <button type="button" class="action step-btn" id="race-double" aria-label="Увеличить вдвое">×2</button>
+        <button type="button" class="action bet-maxdone" id="race-max">Макс</button>
+      </div>
+      <div class="row">
+        <button type="button" id="race-play" class="keno-play">Старт</button>
+      </div>
+    </section>
   </section>
   <section class="screen mines keno" data-screen="keno" hidden>
     <header class="top">
@@ -699,9 +741,10 @@
   <script src="js/13a-wardrobe-catalog.js?v=8fd9e4c7"></script>
   <script src="js/13b-wardrobe-badges.js?v=1f1394a7"></script>
   <script src="js/13-wardrobe.js?v=41709923"></script>
-  <script src="js/14-lobby.js?v=af104cfe"></script>
+  <script src="js/14-lobby.js?v=a3e132f0"></script>
   <script src="js/14-streak.js?v=1121a120"></script>
   <script src="js/15-arcade.js?v=ca5ba0bc"></script>
+  <script src="js/15b-race.js?v=9840c42b"></script>
   <script src="js/16-a11y.js?v=09029a73"></script>
   <script src="js/17-start.js?v=a8abd05f"></script>
 </body>

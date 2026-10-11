@@ -49,6 +49,7 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "mines_games": export["mines_games"],
         "keno_rounds": export["keno_rounds"],
         "slot_rounds": export["slot_rounds"],
+        "race_rounds": export["race_rounds"],
         "blackjack_games": export["blackjack_games"],
         "blackjack_active": export["blackjack_active"],
         "crash_games": export["crash_games"],

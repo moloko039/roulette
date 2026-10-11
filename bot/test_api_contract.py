@@ -16,7 +16,6 @@ from fastapi.testclient import TestClient
 import db
 import mines
 import ratelimit
-import web.api
 from api import create_app
 from roulette import MAX_SAFE_INT
 from tg_testutil import make_init_data

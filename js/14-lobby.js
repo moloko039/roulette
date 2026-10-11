@@ -35,6 +35,7 @@ const GAMES = [
   { id: 'hilo',      label: 'Хило',      hint: 'Выше или ниже?', desc: 'Угадай: выше или ниже карта', ready: true,  icon: '<rect x="3" y="4" width="8" height="12" rx="2"/><rect x="13" y="8" width="8" height="12" rx="2"/><path d="M7 7.5v5M5.2 9.3 7 7.5l1.8 1.8M17 11.5v5M15.2 14.7 17 16.5l1.8-1.8"/>' },
   { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
   // раздел встроенных игр на фишках приложения: список внутри строится из EMBEDDED_GAMES
+  { id: 'race',      label: 'Свинки',    hint: 'Угадай дорожку', desc: 'Выбери дорожку и жди финиша', ready: true, icon: '<circle cx="9" cy="14" r="5"/><path d="M14 13h5M4 9l3 3M7 9V6"/>' },
   { id: 'arcade',    label: 'Не слоты',  hint: 'Другие игры', desc: 'Western Slot и другие игры', ready: true, icon: '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10v4M6 12h4M15 11h.01M17.5 13h.01"/>' }
 ];
 // Пока игра не выбрана (currentGame = 'lobby'), вкладка «Играть» показывает титульный экран. После выбора он не возвращается
