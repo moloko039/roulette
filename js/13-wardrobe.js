@@ -106,6 +106,10 @@ function wdScene(slot, code, mini) {
   if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina' || code === 'keno_patina' || code === 'crash_patina') {
     const stage = ownPatina[slot];
     if (stage !== undefined) box.setAttribute('data-patina-' + slot, String(stage));
+    if (code === 'chip_patina') {
+      const notches = Number.isInteger(ownPatinaInfo.chip_notches) && ownPatinaInfo.chip_notches > 0 ? ownPatinaInfo.chip_notches : 12;
+      box.style.setProperty('--patina-notches', String(notches));
+    }
   }
   const add = (cls, text, tag) => {
     const e = document.createElement(tag || 'div');
@@ -115,8 +119,11 @@ function wdScene(slot, code, mini) {
     return e;
   };
   if (slot === 'chip') {
-    (mini ? ['100'] : ['10', '100']).forEach((t) => add('chip', t, 'span').setAttribute('data-amount', t));
-    if (!mini) add('chip', '500', 'span').setAttribute('aria-pressed', 'true');
+    (mini ? ['100'] : ['10', '100', '500']).forEach((t) => {
+      const c = add('chip', t, 'span');
+      c.setAttribute('data-amount', t);
+      if (!mini && t === '500') c.setAttribute('aria-pressed', 'true');
+    });
   } else if (slot === 'card_back') {
     add('bj-card back');
     if (!mini) {
