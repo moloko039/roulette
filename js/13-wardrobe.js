@@ -103,7 +103,7 @@ function wdScene(slot, code, mini) {
   const box = document.createElement('div');
   box.className = mini ? 'wd-mini' : 'wd-scene';
   box.setAttribute('data-skin-' + slot, code);
-  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina' || code === 'keno_patina' || code === 'crash_patina') {
+  if (code === 'chip_patina' || code === 'back_patina' || code === 'mine_patina' || code === 'frame_patina' || code === 'keno_patina' || code === 'crash_patina' || code === 'badge_patina') {
     const stage = ownPatina[slot];
     if (stage !== undefined) box.setAttribute('data-patina-' + slot, String(stage));
     if (code === 'chip_patina') {
@@ -150,7 +150,8 @@ function wdScene(slot, code, mini) {
   } else if (slot === 'badge') {
     const who = add('wd-demo-name', '', 'span');
     if (!mini) who.appendChild(document.createTextNode('Игрок'));
-    const b = badgeEl(BADGE_SVG[code] ? code : null, undefined, ownPatinaInfo.days, ownPatina.badge);
+    const days = code === 'badge_patina' && !Number.isInteger(ownPatinaInfo.days) ? 12 : ownPatinaInfo.days;
+    const b = badgeEl(BADGE_SVG[code] ? code : null, undefined, days, ownPatina.badge);
     if (b) who.appendChild(b);
     else who.appendChild(document.createTextNode('без значка'));
   }
