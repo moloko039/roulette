@@ -8,7 +8,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css)/[^"?]+))(?:\?v=[0-9a-f]+)?(")|(<meta name="skin-(?:js|css)" data-code="[a-z0-9_]+" content="(skins/[^"?]+))(?:\?v=[0-9a-f]+)?(")')
+TAG = re.compile(r'(<(?:script src|link rel="stylesheet" href)="((?:js|css|skins)/[^"?]+))(?:\?v=[0-9a-f]+)?(")|(<meta name="skin-(?:js|css)" data-code="[a-z0-9_]+" content="(skins/[^"?]+))(?:\?v=[0-9a-f]+)?(")')
 
 
 def stamp(html):

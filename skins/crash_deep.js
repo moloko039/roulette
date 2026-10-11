@@ -281,6 +281,12 @@
     }
 
     let broken = false;
+    // Анимация ухода лодки при крахе держит конечное положение (fill: forwards) и перекрывает позицию по кадрам: её нужно снимать
+    let subAnim = null;
+    function stopSubAnim() {
+      if (subAnim) { subAnim.cancel(); subAnim = null; }
+      subBox.getAnimations().forEach((a) => a.cancel());
+    }
 
     // Расчёт позиции: отражение по вертикали y' = 149 - y, py' = 149 - py
     function place(x, y, px, py) {
@@ -298,6 +304,7 @@
 
     function reset() {
       broken = false;
+      stopSubAnim();
       subBox.classList.remove('flying', 'broken', 'gone', 'cashout');
       pool.forEach((p) => { if (p.anim) p.anim.cancel(); });
       setZone(0);
@@ -315,6 +322,7 @@
       }
       if (d.phase === 'flight') {
         broken = false;
+        stopSubAnim();
         subBox.classList.remove('broken', 'gone', 'cashout');
         subBox.classList.add('flying');
       }
@@ -394,7 +402,8 @@
 
       // Батискаф ускоряется вверх (короткий сдвиг вверх на 0.6 с)
       const currentTransform = subBox.style.transform;
-      subBox.animate([
+      stopSubAnim();
+      subAnim = subBox.animate([
         { transform: currentTransform },
         { transform: currentTransform + ' translateY(-20px)' }
       ], { duration: 600, easing: 'ease-out', fill: 'forwards' });

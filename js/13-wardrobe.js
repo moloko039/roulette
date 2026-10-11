@@ -88,7 +88,7 @@ function wdStatus(item) {
   if (wdWorn(item)) return 'Надето';
   if (!item.available) return 'Скоро';
   if (wdOwns(item)) return 'Есть';
-  if (wdCollectionOf(item)) return 'Коллекция';
+  if (wdCollectionOf(item)) return '';        // часть коллекции: без подписи (раньше было «Коллекция»)
   return item.price ? wdPriceText(item.price) : 'Не получено';
 }
 // что делает главная кнопка листа: надеть, снять, купить или ничего

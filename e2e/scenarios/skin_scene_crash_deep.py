@@ -120,6 +120,7 @@ async def run(w):
     await bet(p, 100, "")
     fs = await flight_start(p)
     await at_x(w, p, fs, 2500)
+    check("лодка после прошлого краха свободна: остаточных анимаций нет (раньше застревала на месте краха)", await p.ev("document.querySelector('.scdp-r').getAnimations().length"), 0)
     check("reduced-motion: стрелка манометра не дрожит", await p.ev(NEEDLE), "none")
     await server_to(w, p, fs + t_crash_ms(150) + 150)
     await p.wait("!!document.querySelector('.scdp-r.broken')", 10, "краш сменой кадра")

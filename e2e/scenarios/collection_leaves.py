@@ -1,5 +1,5 @@
 """Коллекция «Листопад» (настоящий сервер): на третий день серии входов награда дня даёт первую часть, сообщение называет коллекцию; в «Оформлении» видна полоса коллекции «1 из 3» с подписью, как получить;
-часть в слоте помечена «Коллекция» (не «Не получено»), её нельзя купить; надев все три части, при полном наборе у корня появляется атрибут эффекта."""
+часть в слоте без подписи (не «Не получено» и не «Коллекция»), её нельзя купить; надев все три части, при полном наборе у корня появляется атрибут эффекта."""
 import time
 
 from harness import check
@@ -33,7 +33,7 @@ async def run(w):
     statuses = await p.ev("Object.fromEntries([...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent]))")
     check("рубашки: Классика надета, Листопад есть, Уголь скоро", [statuses["Классика"], statuses["Листопад"], statuses["Уголь"]], ["Надето", "Есть", "Скоро"])
     await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол
-    check("стол Октябрь: часть коллекции, не «Не получено»", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].filter(c => c.dataset.code === 'table_autumn').map(c => c.querySelector('.wd-status').textContent)"), ["Коллекция"])
+    check("стол Октябрь: часть коллекции, подпись пустая (не «Не получено»)", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].filter(c => c.dataset.code === 'table_autumn').map(c => c.querySelector('.wd-status').textContent)"), [""])
     await p.tap("#wd-grid .wd-card[data-code=table_autumn]")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     check("предпросмотр части: нет кнопки покупки, подсказка про коллекцию", await p.ev("[document.getElementById('wd-prev-act').hidden, (%s)(document.getElementById('wd-prev-msg').textContent), document.getElementById('wd-gift-open').hidden]" % SP),
