@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 import db
 import mines
 import ratelimit
+import web.api
 from api import create_app
 from roulette import MAX_SAFE_INT
 from tg_testutil import make_init_data
@@ -112,6 +113,7 @@ SLOT_STEP = {"board": str, "wins": [{"sym": str, "length": int, "ways": int, "pa
 SLOT_SPIN = {"mode": str, "steps": [SLOT_STEP], "scatters": int, "freeSpinsAwarded": int, "totalWin": int, "capped": bool}
 SLOT_ROUND = {"base": SLOT_SPIN, "freeSpins": [SLOT_SPIN], "freeSpinsLeftAfter": [int], "totalWin": int, "bonusWin": int, "capped": bool, "bought": bool}
 SLOT = {"coin": int, "bought": bool, "cost": int, "payout": int, "round": SLOT_ROUND, "balance": int, "level": int, "xp": int, "replayed": bool}
+RACE = {"round_id": int, "lanes": int, "lane": int, "winner": int, "payout": int, "balance": int, "script": [[int]]}
 REFERRAL_RULES = {"invitee_chips": int, "inviter_chips": int, "inviter_gems": int, "qualify_hours": int, "qualify_level": int, "qualify_rounds": int,
                   "commission_pct": int, "commission_days": int, "commission_cap": int, "founder_chips": int, "founder_gems": int, "founder_players": int, "founder_level": int}
 REFERRAL = {"link": OPT(str), "invited": int, "qualified": int, "commission_earned": int, "milestones": [{"count": int, "item": str, "reached": bool}], "rules": REFERRAL_RULES}
@@ -419,6 +421,26 @@ try:
     r = client.post("/api/slot/spin", headers=auth(U), json={"request_id": rid(63), "coin": 50000, "buy": True})
     assert (r.status_code, r.json()) == (409, {"detail": "insufficient_funds"})
     r = client.post("/api/slot/spin", json=body)
+    assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
+
+    # ================= POST /api/race/play =================
+    race_body = {"request_id": rid(70), "lanes": 3, "lane": 0, "bet": 100}
+    r = client.post("/api/race/play", headers=auth(U), json=race_body)
+    assert r.status_code == 200, r.text
+    contract("race play 200", r.json(), RACE)
+    assert len(r.json()["script"]) == 40
+    assert len(r.json()["script"][0]) == 3
+    assert r.json()["script"][39][r.json()["winner"]] == 1000
+    r_rep = client.post("/api/race/play", headers=auth(U), json=race_body)
+    contract("race play replayed", r_rep.json(), RACE)
+    assert r_rep.json()["round_id"] == r.json()["round_id"]
+    r = client.post("/api/race/play", headers=auth(U), json={"request_id": rid(70), "lanes": 4, "lane": 0, "bet": 100})
+    assert (r.status_code, r.json()) == (409, {"detail": "request_conflict"})
+    r = client.post("/api/race/play", headers=auth(U), json={"request_id": rid(71), "lanes": 5, "lane": 0, "bet": 100})
+    assert (r.status_code, r.json()) == (400, {"detail": "invalid_request"})
+    r = client.post("/api/race/play", headers=auth(U), json={"request_id": rid(72), "lanes": 3, "lane": 0, "bet": 1_000_000})
+    assert (r.status_code, r.json()) == (409, {"detail": "insufficient_funds"})
+    r = client.post("/api/race/play", json=race_body)
     assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
 
     # ================= 429: общий формат =================
