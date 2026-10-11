@@ -1,4 +1,4 @@
-python-telegram-bot==22.5
+python-telegram-bot==22.8
 uvicorn==0.39.0
 httpx==0.28.1
 pynacl==1.6.2
