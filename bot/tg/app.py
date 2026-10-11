@@ -15,6 +15,7 @@ from tg.common import guarded, logger, warn_missing_config
 from tg.data import CALLBACK_PATTERN, delete_callback, deletemydata, mydata
 from tg.groups import my_chat_member, note_group
 from tg.owner import backupnow, give, givegems, giveitem, grantall, refund, regrant, stats, teststars
+from tg.support import support, support_message
 from tg.payments import paysupport, pre_checkout, successful_payment, terms
 from tg.user import balance, developer_info, help_command, play, privacy, start
 from tg import common
@@ -31,6 +32,7 @@ PRIVATE_COMMANDS = [
     BotCommand("developer_info", "О разработчике"),
     BotCommand("mydata", "Выгрузить мои данные"),
     BotCommand("deletemydata", "Удалить мои данные"),
+    BotCommand("support", "Написать в поддержку"),
     BotCommand("paysupport", "Помощь по оплате"),
     BotCommand("terms", "Условия покупок"),
 ]
@@ -73,9 +75,10 @@ def build_application(token, use_updater=True):
                           ("help", help_command), ("privacy", privacy),
                           ("developer_info", developer_info), ("mydata", mydata),
                           ("deletemydata", deletemydata), ("backupnow", backupnow),
-                          ("grantall", grantall), ("give", give), ("givegems", givegems), ("stats", stats), ("giveitem", giveitem), ("paysupport", paysupport), ("terms", terms),
+                          ("grantall", grantall), ("give", give), ("givegems", givegems), ("stats", stats), ("giveitem", giveitem), ("paysupport", paysupport), ("terms", terms), ("support", support),
                           ("refund", refund), ("regrant", regrant), ("teststars", teststars)):
         app.add_handler(CommandHandler(name, guarded(handler)))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, guarded(support_message)))
     app.add_handler(CallbackQueryHandler(guarded(delete_callback), pattern=CALLBACK_PATTERN))
     app.add_handler(PreCheckoutQueryHandler(guarded(pre_checkout)))
     app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, guarded(successful_payment)))

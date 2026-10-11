@@ -28,7 +28,7 @@
 | `ratelimit.py` | токен-бакет по (игрок, группа write/read) | – |
 | `antiabuse.py` | защита от повторной регистрации (хэши удалённых) | – |
 | `bot.py` | фасад: собирает имена обработчиков из `tg/` (на них ссылаются тесты и `api.py`) | tg |
-| `tg/` | обработчики бота: `common` (настройки окружения, ограничители, время `_clock`/`_wall`, `guarded`), `user` (/start, /play, /balance, /help), `data` (/mydata, /deletemydata), `payments` (Stars, возвраты), `owner` (скрытые команды, /grantall, /backupnow), `groups`, `app` (сборка Application). Подменяемое в тестах состояние патчится в модуле пакета (`tg.common._wall`) | db, backup, notify |
+| `tg/` | обработчики бота: `common` (настройки окружения, ограничители, время `_clock`/`_wall`, `guarded`), `user` (/start, /play, /balance, /help), `support` (/support: обращение владельцу и его ответ), `data` (/mydata, /deletemydata), `payments` (Stars, возвраты), `owner` (скрытые команды, /grantall, /backupnow), `groups`, `app` (сборка Application). Подменяемое в тестах состояние патчится в модуле пакета (`tg.common._wall`) | db, backup, notify |
 | `backup.py`, `backup_crypto.py`, `backup_send.py`, `backup_keys.py` | копии базы, шифрование публичным ключом, отправка владельцу, генерация ключей | db |
 | `verify_backup.py`, `decrypt_backup.py` | проверка и расшифровка копии на компьютере владельца | backup_crypto |
 | `notify.py` | уведомления владельцу | – |

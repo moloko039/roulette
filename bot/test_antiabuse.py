@@ -329,7 +329,7 @@ assert "<script" not in page.lower(), "на странице есть script"
 assert not re.search(r"https?://|//cdn|src=|<link|@import|url\(", page, re.I), "на странице есть внешние ресурсы"
 for label in ("[КОНТАКТ]", "[РЕГИОН]"):
     assert label not in page, "метка вернулась: " + label
-assert "user@example.invalid" in page
+assert "командой /support" in page
 for phrase in (
     "после удаления ваших данных на 30 дней сохраняется обезличенный (хэшированный) идентификатор и дата удаления: он нужен "
     "только для того, чтобы нельзя было сразу получить стартовые фишки заново",
@@ -339,7 +339,7 @@ for phrase in (
 ):
     assert phrase in page, "нет фразы: " + phrase[:50]
 assert "и для вас будет создана новая запись" not in page, "старая фраза осталась"
-assert "Дата последнего обновления: 11 октября 2026 г." in page
+assert "Дата последнего обновления: 12 октября 2026 г." in page
 
 # ---------- логи ----------
 root.removeHandler(cap)

@@ -118,6 +118,7 @@ PRIVATE_HELP = (
     "/developer_info — о разработчике\n"
     "/mydata — выгрузить мои данные\n"
     "/deletemydata — удалить мои данные\n"
+    "/support — написать в поддержку\n"
     "/paysupport — помощь по оплате\n"
     "/terms — условия покупки предметов"
 )
