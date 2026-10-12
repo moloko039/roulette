@@ -71,10 +71,12 @@ function validBestWins(d) {
   return rowsOk && (m === null || (!!m && typeof m === 'object' && isCount(m.rank) && isCount(m.net_amount) && typeof m.game === 'string' && isCount(m.total)));
 }
 
-// сумма «+1 250 000»; от миллиарда сокращённо, полное значение по нажатию (как в рейтинге)
+// сумма рекорда: до 10 000 полностью, дальше сокращённо («+1,2 млн»), полное значение по нажатию (формат чисел, UI_REVIEW 1.3)
 function setBestAmount(el, n) {
-  if (n >= 1e9) { setNumberLabel(el, '+', n); return; }
-  el.textContent = '+' + formatCompact(n);
+  if (n >= 1e4) { setNumberLabel(el, '+', n); return; }
+  el.classList.remove('num-tap');
+  el.title = '';
+  el.textContent = '+' + formatNumber(n);
 }
 
 function bestRankEl(rank) {

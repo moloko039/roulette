@@ -26,7 +26,7 @@
 }
 
 /* Скрываем встроенный SVG, так как жетон отрисован стилями CSS */
-[data-skin-badge="badge_patina"] svg {
+[data-skin-badge="badge_patina"]:not(html) svg {
   display: none;
 }
 

@@ -39,7 +39,7 @@ async def run(w):
 
     # ---- уровень 2: 11 000 очков, уровень идёт с 10 000 до 25 000, прогресс внутри уровня (11 000 - 10 000) / 15 000 = 6,7 %
     got = await open_rating(w)
-    check("уровень 2: строка видна, заголовок, подпись очков", (got["hidden"], got["title"], got["score"]), (False, "Беседа: уровень 2", "11 000 из 25 000 очков"))
+    check("уровень 2: строка видна, заголовок, подпись очков", (got["hidden"], got["title"], got["score"]), (False, "Беседа: уровень 2", "11 тыс. из 25 тыс. очков"))
     check("уровень 2: прогресс внутри уровня, а не доля от порога (aria-valuenow и ширина)", (got["now"], got["width"]), ("6", "6.7%"))
     check("у полосы есть роль и подпись", await p.ev("[document.getElementById('chat-level-bar').getAttribute('role'), document.getElementById('chat-level-bar').getAttribute('aria-label')]"),
           ["progressbar", "Прогресс уровня беседы"])
@@ -49,7 +49,7 @@ async def run(w):
     w.sql("UPDATE players SET total_staked = 1000 WHERE telegram_id = ?", (w.users["carol"].id,))
     await w.reload()
     got = await open_rating(w)
-    check("уровень 1: заголовок и подпись очков", (got["title"], got["score"]), ("Беседа: уровень 1", "8 000 из 10 000 очков"))
+    check("уровень 1: заголовок и подпись очков", (got["title"], got["score"]), ("Беседа: уровень 1", "8 000 из 10 тыс. очков"))
     check("уровень 1: прогресс 80 %", (got["now"], got["width"]), ("80", "80%"))
 
     # ---- личный чат: строки уровня нет, остальное работает

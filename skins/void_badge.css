@@ -10,11 +10,11 @@
   color: var(--badge-color, #ffffff);
 }
 
-[data-skin-badge="void_badge"] svg {
+[data-skin-badge="void_badge"]:not(html) svg {
   display: block;
 }
 
-[data-skin-badge="void_badge"] svg line {
+[data-skin-badge="void_badge"]:not(html) svg line {
   stroke: var(--badge-color, #ffffff);
   stroke-width: 2;
   stroke-linecap: round;
