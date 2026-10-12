@@ -190,8 +190,8 @@
 .rating-list li,
 .rating-me {
   display: grid;
-  grid-template-columns: 24px 36px minmax(0, 1fr) auto;
-  gap: 2px var(--space-2);
+  grid-template-columns: 24px 44px minmax(0, 1fr) auto;   /* колонка под самый крупный аватар (подиум), рамки не наезжают на имя */
+  gap: 2px var(--space-3);
   align-items: center;
   padding: 6px var(--space-2);
   font-size: 14px;
@@ -223,7 +223,7 @@
 }
 
 .rating-rank svg { width: 18px; height: 18px; color: var(--text); }
-.rating-list li .avatar, .rating-me .avatar { grid-row: 1 / span 2; width: 36px; height: 36px; font-size: 15px; }
+.rating-list li .avatar, .rating-me .avatar { grid-row: 1 / span 2; justify-self: center; width: 36px; height: 36px; font-size: 15px; }
 
 .rating-name {
   min-width: 0;
@@ -643,17 +643,9 @@
 
 /* ферма: картинка места (поле растёт с доходом, амбар заполняется с хранилищем), цель, компактный максимум */
 .farm-scene { width: 100%; max-width: 360px; }
-.farm-svg { display: block; width: 100%; height: auto; overflow: visible; }
-.farm-ground { fill: var(--surface-2); }
-.farm-stem { fill: none; stroke: var(--green); stroke-width: 2; stroke-linecap: round; }
-.farm-leaf { fill: var(--green); opacity: 0.85; }
-.farm-fruit { fill: var(--gold); }
+.farm-svg { display: block; width: 100%; height: auto; overflow: hidden; border-radius: var(--radius-md); }
 .farm-plant { transform-box: fill-box; transform-origin: 50% 100%; animation: farm-sway 4s ease-in-out var(--d, 0s) infinite alternate; }
-@keyframes farm-sway { from { transform: translate(var(--tx, 0), 0) rotate(-3deg); } to { transform: translate(var(--tx, 0), 0) rotate(3deg); } }
-.farm-barn { fill: var(--surface-3); stroke: var(--border-strong); stroke-width: 1; }
-.farm-roof { fill: var(--red); opacity: 0.8; }
-.farm-door { fill: var(--bg); }
-.farm-grain { fill: var(--gold); opacity: 0.9; }
+@keyframes farm-sway { from { transform: rotate(-2deg); } to { transform: rotate(2deg); } }
 html.perf-lite .farm-plant { animation: none; }
 @media (prefers-reduced-motion: reduce) { .farm-plant { animation: none; } }
 

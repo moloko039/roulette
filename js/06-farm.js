@@ -107,33 +107,53 @@ function validFarm(d) {
     && isLevelPair(d.storage, ['hours']) && nullable(d.storage, 'next_hours') && nullable(d.storage, 'next_cost');
 }
 
-// Картинка места (UI_REVIEW, ферма): поле растёт вместе с доходом, амбар заполняется вместе с хранилищем. Только рисунок по данным сервера
+// Картинка места в духе скина краша «Бочка» (UI_REVIEW, ферма): дача под вечерним небом, яблони растут и краснеют вместе с доходом,
+// бочка у дома наполняется вместе с хранилищем. Только рисунок по данным сервера
 function renderFarmScene(d) {
   const inc = Math.max(0, Math.min(1, d.income.level / Math.max(1, d.income.max)));
   const sto = Math.max(0, Math.min(1, d.storage.level / Math.max(1, d.storage.max)));
-  const plants = 3 + Math.round(inc * 5);                    // 3..8 грядок-растений
+  const trees = 2 + Math.round(inc * 4);                     // 2..6 яблонь
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 300 96');
+  svg.setAttribute('viewBox', '0 0 300 120');
   svg.setAttribute('class', 'farm-svg');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Дача: яблони и бочка');
   const add = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k])); parent.appendChild(e); return e; };
-  add('rect', { class: 'farm-ground', x: 0, y: 70, width: 300, height: 26 });
-  for (let i = 0; i < plants; i++) {                         // растения: стебель и листья, высота и густота растут с уровнем дохода
-    const x = 18 + i * (150 / Math.max(1, plants - 1));
-    const h = 10 + inc * 26 + (i % 2) * 4;
-    const g = add('g', { class: 'farm-plant', transform: 'translate(' + x.toFixed(1) + ' 70)' });
-    g.style.setProperty('--d', (i * 0.37).toFixed(2) + 's');           // через CSSOM: атрибут style закрыт CSP
-    add('path', { class: 'farm-stem', d: 'M0 0 V' + (-h).toFixed(1) }, g);
-    add('ellipse', { class: 'farm-leaf', cx: -4, cy: (-h * 0.55).toFixed(1), rx: 4.5, ry: 2.2 }, g);
-    add('ellipse', { class: 'farm-leaf', cx: 4, cy: (-h * 0.8).toFixed(1), rx: 4.5, ry: 2.2 }, g);
-    if (inc > 0.5) add('circle', { class: 'farm-fruit', cx: 0, cy: (-h - 2).toFixed(1), r: 3 }, g);
+  const defs = add('defs', {});
+  const sky = add('linearGradient', { id: 'farm-sky', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  add('stop', { offset: 0, 'stop-color': '#7FB2D9' }, sky);
+  add('stop', { offset: 1, 'stop-color': '#F7C27A' }, sky);
+  const clip = add('clipPath', { id: 'farm-barrel-clip' }, defs);
+  add('rect', { x: 255, y: 62, width: 28, height: 34, rx: 7 }, clip);
+  add('rect', { x: 0, y: 0, width: 300, height: 120, fill: 'url(#farm-sky)' });
+  add('circle', { cx: 246, cy: 30, r: 15, fill: '#FFE3A3', opacity: 0.9 });
+  add('path', { d: 'M0 86Q80 74 150 86T300 84V120H0z', fill: '#5C8A3A' });
+  for (let i = 0; i < trees; i++) {                          // яблони: ствол и крона, крона растёт и краснеет с уровнем дохода
+    const x = 26 + i * (150 / Math.max(1, trees - 1));
+    const r = 11 + inc * 9 + (i % 2) * 2;
+    const base = 92 - (i % 2) * 3;
+    const tree = add('g', { transform: 'translate(' + x.toFixed(1) + ' ' + base + ')' });
+    add('rect', { x: -3, y: -(r + 8), width: 6, height: r + 8, fill: '#8A5A35' }, tree);
+    const crown = add('g', { class: 'farm-plant' }, tree);
+    crown.style.setProperty('--d', (i * 0.37).toFixed(2) + 's');       // через CSSOM: атрибут style закрыт CSP
+    add('circle', { cx: 0, cy: -(r + 8), r, fill: '#4E7A31' }, crown);
+    const apples = inc > 0.15 ? 1 + Math.round(inc * 3) : 0;
+    for (let k = 0; k < apples; k++) add('circle', { cx: ((k % 2 ? 1 : -1) * (r * 0.45)).toFixed(1), cy: (-(r + 8) + (k - 1) * r * 0.4).toFixed(1), r: 2.3, fill: '#B8323A' }, crown);
   }
-  // амбар: стены, крыша, ворота; зерно в проёме поднимается с уровнем хранилища
-  add('rect', { class: 'farm-barn', x: 196, y: 28, width: 84, height: 58, rx: 3 });
-  add('path', { class: 'farm-roof', d: 'M190 30 L238 4 L286 30 Z' });
-  add('rect', { class: 'farm-door', x: 222, y: 46, width: 32, height: 40, rx: 2 });
-  const grain = add('rect', { class: 'farm-grain', x: 222, y: 86 - 40 * sto, width: 32, height: Math.max(0.01, 40 * sto), rx: 2 });
+  // дача: стены, крыша, окно; бочка справа, уровень зерна поднимается с хранилищем
+  add('rect', { x: 196, y: 62, width: 50, height: 30, fill: '#8A5A35' });
+  add('path', { d: 'M190 62l31-20 31 20z', fill: '#3B2A1E' });
+  add('rect', { x: 212, y: 72, width: 12, height: 12, fill: '#FFE3A3' });
+  add('rect', { x: 255, y: 62, width: 28, height: 34, rx: 7, fill: '#6B4528' });
+  const level = 34 * sto;
+  const grain = add('rect', { x: 255, y: 96 - level, width: 28, height: Math.max(0.01, level), fill: '#E8B04B', 'clip-path': 'url(#farm-barrel-clip)' });
   grain.setAttribute('data-level', String(d.storage.level));
+  add('rect', { x: 255, y: 70, width: 28, height: 3, fill: '#3B3F45' });
+  add('rect', { x: 255, y: 86, width: 28, height: 3, fill: '#3B3F45' });
+  add('path', { d: 'M0 120V99l3-4 3 4v21zM18 120V99l3-4 3 4v21zM36 120V99l3-4 3 4v21zM54 120V99l3-4 3 4v21zM72 120V99l3-4 3 4v21zM90 120V99l3-4 3 4v21zM108 120V99l3-4 3 4v21zM126 120V99l3-4 3 4v21zM144 120V99l3-4 3 4v21zM162 120V99l3-4 3 4v21zM180 120V99l3-4 3 4v21zM198 120V99l3-4 3 4v21zM216 120V99l3-4 3 4v21zM234 120V99l3-4 3 4v21zM252 120V99l3-4 3 4v21zM270 120V99l3-4 3 4v21zM288 120V99l3-4 3 4v21z', fill: '#E9DCC0' });
+  add('rect', { y: 104, width: 300, height: 2, fill: '#8A5A35' });
+  add('rect', { y: 114, width: 300, height: 2, fill: '#8A5A35' });
   farmEls.scene.textContent = '';
   farmEls.scene.appendChild(svg);
 }

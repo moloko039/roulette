@@ -11,7 +11,11 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--table-felt, var(--surface));
+  position: relative;
 }
+
+.stack-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.stack-slot { position: absolute; }
 
 .cell {
   position: relative;
@@ -123,7 +127,7 @@
   top: 100%;
   right: -4px;
   left: -4px;
-  height: var(--dock-gap);
+  height: calc(var(--dock-gap) + 12px);   /* с запасом под навигацию: содержимое не просвечивает у её края */
   background: var(--bg);
   pointer-events: none;
 }

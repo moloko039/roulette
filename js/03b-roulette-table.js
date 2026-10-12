@@ -63,17 +63,43 @@ function buildTable() {
 function renderChips() {
   const summary = document.getElementById('table-summary');
   if (summary) summary.textContent = 'Ставок: ' + bets.length + ' · Сумма: ' + formatCompact(bets.reduce((sum, b) => sum + b.amount, 0));   // заполняется по ходу (вместо «пока пусто»)
-  tableEl.querySelectorAll('.cell').forEach((cell) => {
-    const old = cell.querySelector('.stack');
-    if (old) old.remove();
-    const bet = bets.find((b) => `${b.type}:${b.value}` === cell.dataset.key);
-    if (!bet) return;
+  // Фишки лежат в отдельном слое поверх всех клеток (не внутри кнопок): соседняя клетка не закрывает фишку, а положение не зависит от вёрстки кнопки (Safari)
+  let layer = tableEl.querySelector('.stack-layer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.className = 'stack-layer';
+    tableEl.appendChild(layer);
+  }
+  layer.textContent = '';
+  bets.forEach((bet) => {
+    const slot = document.createElement('div');
+    slot.className = 'stack-slot';
+    slot.dataset.key = `${bet.type}:${bet.value}`;
     const chip = document.createElement('i');
     chip.className = 'stack';
     chip.textContent = bet.amount >= 1000 ? Math.round(bet.amount / 100) / 10 + 'k' : bet.amount;
-    cell.appendChild(chip);
+    slot.appendChild(chip);
+    layer.appendChild(slot);
+  });
+  layoutStacks();
+}
+
+// Слот каждой фишки совпадает с прямоугольником своей клетки
+function layoutStacks() {
+  const layer = tableEl.querySelector('.stack-layer');
+  if (!layer) return;
+  const t = tableEl.getBoundingClientRect();
+  layer.querySelectorAll('.stack-slot').forEach((slot) => {
+    const cell = tableEl.querySelector(`.cell[data-key="${slot.dataset.key}"]`);
+    if (!cell) return;
+    const r = cell.getBoundingClientRect();
+    slot.style.setProperty('left', (r.left - t.left - tableEl.clientLeft).toFixed(1) + 'px');
+    slot.style.setProperty('top', (r.top - t.top - tableEl.clientTop).toFixed(1) + 'px');
+    slot.style.setProperty('width', r.width.toFixed(1) + 'px');
+    slot.style.setProperty('height', r.height.toFixed(1) + 'px');
   });
 }
+if (window.ResizeObserver) new ResizeObserver(layoutStacks).observe(tableEl);
 
 // Ставки пока только на столе: сервер о них не знает. Лимита на размер ставки нет,
 // проверка «не больше доступного» — удобство, настоящую делает сервер
@@ -100,7 +126,7 @@ function placeBet(type, value = null) {
   renderBets();
   haptic('light');
   skinEvents.emit('bet:placed', { game: 'roulette', type, value });      // скин фишки: фишка садится на клетку
-  const stack = tableEl.querySelector(`.cell[data-key="${type}:${value}"] .stack`);
+  const stack = tableEl.querySelector(`.stack-slot[data-key="${type}:${value}"] .stack`);
   if (stack) stack.classList.add('drop'); // фишка «садится» на клетку
 }
 
