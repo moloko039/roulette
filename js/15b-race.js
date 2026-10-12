@@ -18,6 +18,7 @@ const raceEls = {
   pick: document.getElementById('race-pick'),
   result: document.getElementById('race-result'),
   resultTitle: document.getElementById('race-result-title'),
+  resultAmount: document.getElementById('race-result-amount'),
   resultDetail: document.getElementById('race-result-detail'),
   panel: document.getElementById('race-bets'),
   bet: document.getElementById('race-bet'),
@@ -199,9 +200,8 @@ async function postRaceOnce(payload, lanes, lane) {
   }
 }
 
-function showRaceResult(title, detail) {
-  raceEls.resultTitle.textContent = title;
-  raceEls.resultDetail.textContent = detail;
+function showRaceResult(r) {
+  fillResult(raceEls.result, r);
   raceEls.result.hidden = false;
 }
 
@@ -232,8 +232,9 @@ async function raceStart() {
       rc.pigs[d.winner].lane.classList.add('win');
       rc.result = { lane, winner: d.winner, payout: d.payout, bet };
       const won = d.payout > 0;
-      showRaceResult(won ? 'Выигрыш ' + formatNumber(d.payout) : 'Проигрыш',
-        won ? 'Дорожка ' + (d.winner + 1) + ' пришла первой' : 'Первой пришла дорожка ' + (d.winner + 1));
+      showRaceResult(won
+        ? { kind: 'win', title: 'Выигрыш', amount: d.payout - bet, sign: '+', note: 'Дорожка ' + (d.winner + 1) + ' пришла первой' }
+        : { kind: 'lose', title: 'Проигрыш', amount: bet, sign: '−', note: 'Первой пришла дорожка ' + (d.winner + 1) });
       srv.balance = d.balance;      // баланс на экране меняется только после анимации
       srv.loaded = true;
       srv.error = null;

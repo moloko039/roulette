@@ -476,7 +476,8 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-2)) var(--space-3) var(--dock-gap);
+  scroll-padding-bottom: calc(var(--dock-h) + var(--dock-gap) + var(--space-3));
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -506,7 +507,7 @@
 
 .mines-notice:empty { display: none; }
 
-.mines-panel, .mines-result, .mines-last, .mines-card {
+.mines-panel, .mines-last, .mines-card {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
@@ -625,11 +626,6 @@
 .mines-line { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
 .mines-expiry { font-size: 11px; text-align: center; color: var(--text-muted); }
 
-.mines-result { text-align: center; }
-.mines-result-title { font-family: var(--font-display); font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
-.mines-result-detail { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
-.mines-result.win { border-color: var(--green); }
-.mines-result.lose { border-color: var(--red); }
 .mines-last { font-size: 12px; color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
 
 

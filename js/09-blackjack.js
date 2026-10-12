@@ -165,27 +165,17 @@ function renderBjBanner() {
   const g = bj.game;
   const done = bj.view === 'result' && !bj.animating && g !== null && g.status === 'finished';
   bjEls.banner.hidden = !(done || bj.view === 'start');
-  bjEls.banner.classList.remove('win', 'lose');
-  bjEls.bannerDetail.textContent = '';
-  bjEls.bannerDetail.title = '';
   if (!done) {
-    bjEls.bannerTitle.textContent = bj.view === 'start' ? 'Сделайте ставку' : '';
-    bjEls.bannerTitle.title = '';
+    fillResult(bjEls.banner, { kind: '', title: bj.view === 'start' ? 'Сделайте ставку' : '' });
     return;
   }
   const profit = g.payout - g.wager;
-  const money = (sign, n) => ({ short: sign + formatCompact(n), full: sign + formatNumber(n) });
-  let title = '';
-  let detail = '';
-  if (g.result === 'blackjack') { const m = money('+', profit); title = 'Блэкджек! ' + m.short; detail = m.full; bjEls.banner.classList.add('win'); }
+  if (g.result === 'blackjack') fillResult(bjEls.banner, { kind: 'win', title: 'Блэкджек!', amount: profit, sign: '+' });
   else if (g.result === 'win' || g.result === 'dealer_bust') {
-    const m = money('+', profit); title = 'Победа ' + m.short; detail = g.result === 'dealer_bust' ? 'Перебор у дилера' : m.full; bjEls.banner.classList.add('win');
-  } else if (g.result === 'push') { title = 'Ничья'; detail = 'Ставка возвращена'; }
-  else if (g.result === 'bust') { const m = money('−', g.wager); title = 'Перебор ' + m.short; detail = m.full; bjEls.banner.classList.add('lose'); }
-  else { const m = money('−', g.wager); title = 'Проигрыш ' + m.short; detail = m.full; bjEls.banner.classList.add('lose'); }
-  bjEls.bannerTitle.textContent = title;
-  bjEls.bannerDetail.textContent = detail;
-  bjEls.bannerTitle.title = detail;
+    fillResult(bjEls.banner, { kind: 'win', title: 'Победа', amount: profit, sign: '+', note: g.result === 'dealer_bust' ? 'Перебор у дилера' : '' });
+  } else if (g.result === 'push') fillResult(bjEls.banner, { kind: 'push', title: 'Ничья', note: 'Ставка возвращена' });
+  else if (g.result === 'bust') fillResult(bjEls.banner, { kind: 'lose', title: 'Перебор', amount: g.wager, sign: '−' });
+  else fillResult(bjEls.banner, { kind: 'lose', title: 'Проигрыш', amount: g.wager, sign: '−' });
 }
 
 // Фишки ставки по серверному балансу блэкджека (те же номиналы, что в других играх)
@@ -254,7 +244,7 @@ function applyBjState(d, announce) {
     bj.shown = { player: d.player.cards.slice(), dealer: d.dealer.cards.slice() };
     bjDrawn = { player: bj.shown.player.length, dealer: bj.shown.dealer.length };
     if (announce && d.status === 'finished' && d.auto === true && !bj.seen.has(bjKey(d))) {
-      setBjNotice('Раздача закрылась автоматически: вы остановились, дилер доиграл');
+      showToast('Раздача закрылась автоматически: вы остановились, дилер доиграл');
     }
     if (d.status === 'finished') bj.seen.add(bjKey(d));
   }

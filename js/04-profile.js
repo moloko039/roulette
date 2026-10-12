@@ -54,7 +54,7 @@ function renderProfile() {
   } else if (srv.loaded) {
     profileEls.balance.textContent = formatNumber(srv.balance); // серверный, без вычета ставок на столе
     fitNumberFont(profileEls.balance, profileEls.balance.textContent.length);
-    profileEls.rate.textContent = formatNumber(srv.rate);
+    profileEls.rate.textContent = formatCompact(srv.rate);
     const hasUpgrades = srv.incomeLevel !== null && srv.storageLevel !== null;
     profileEls.upgradesRow.hidden = !hasUpgrades; // без поля от сервера строки нет
     if (hasUpgrades) profileEls.upgrades.textContent = `доход ${srv.incomeLevel}, хранилище ${srv.storageLevel}`;

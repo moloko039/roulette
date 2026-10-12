@@ -69,20 +69,6 @@
 .keno-count { flex: 1; min-width: 0; font-size: 12px; color: var(--text-muted); }
 .keno-small { height: 40px; padding: 0 var(--space-3); }
 
-/* итог раунда: место зарезервировано, чтобы экран не прыгал */
-.keno-result {
-  display: grid;
-  gap: 2px;
-  min-height: 44px;
-  align-content: center;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-.keno-result strong { font-family: var(--font-display); font-size: 18px; font-weight: 600; }
-.keno-result span { font-size: 13px; color: var(--text-muted); }
-.keno-result.win strong { color: var(--text); }
-.keno-result.win span { color: var(--green); }
-
 .keno-pay { display: grid; gap: 6px; }
 .keno-pay-list {
   display: grid;

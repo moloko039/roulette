@@ -10,12 +10,46 @@ const EMBEDDED_GAMES = [
 ];
 const arcadeEls = {
   grid: document.getElementById('arcade-grid'),
+  balance: document.getElementById('arcade-balance'),
+  info: document.getElementById('arcade-info'),
+  note: document.getElementById('arcade-note'),
   switchBtn: document.getElementById('arcade-switch'),
   view: document.getElementById('embed-view'),
   frame: document.getElementById('embed-frame'),
   title: document.getElementById('embed-title'),
   back: document.getElementById('embed-back')
 };
+// Шапка как у остальных игр: баланс слева (UI_REVIEW 1.5). Баланс один на приложение, серверный
+const ac = { balance: null };
+function renderArcade() {
+  if (srv.loaded) {
+    ac.balance = availableBalance();
+    arcadeEls.balance.classList.remove('skeleton');
+    arcadeEls.balance.textContent = spacedNumber(ac.balance);
+  } else {
+    arcadeEls.balance.textContent = srv.error ? '—' : 'Загрузка…';
+  }
+  fitNumberFont(arcadeEls.balance, arcadeEls.balance.textContent.length);
+}
+registerGame({ id: 'arcade', state: ac, render: renderArcade, busy: () => false });
+
+// Пояснение «баланс один на все игры»: при первом открытии раздела показано, дальше только по значку ⓘ
+function showArcadeNote(on) {
+  arcadeEls.note.hidden = !on;
+  arcadeEls.info.setAttribute('aria-expanded', String(on));
+}
+function arcadeScreenOpened() {
+  renderArcade();
+  let seen = false;
+  try { seen = localStorage.getItem('arcade_note_seen') === '1'; } catch (e) { /* без хранилища показываем каждый раз */ }
+  if (!seen) {
+    showArcadeNote(true);
+    try { localStorage.setItem('arcade_note_seen', '1'); } catch (e) { /* не страшно */ }
+  } else {
+    showArcadeNote(false);
+  }
+}
+arcadeEls.info.addEventListener('click', () => showArcadeNote(arcadeEls.note.hidden));
 const getEmbedded = (id) => EMBEDDED_GAMES.find((g) => g.id === id);
 
 // Открытая игра: один iframe, создаётся при открытии и удаляется при закрытии (звук и анимации останавливаются)
@@ -46,6 +80,7 @@ function closeEmbedded() {
   arcadeEls.frame.textContent = '';
   arcadeEls.view.hidden = true;
   document.body.classList.remove('embed-open');
+  renderArcade();
 }
 
 // ---------- мост Western Slot ----------

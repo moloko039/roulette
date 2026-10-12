@@ -100,9 +100,10 @@
 
 /* ---------- панель ставки (внизу, над навигацией) ---------- */
 
+/* зазор до выступающей центральной кнопки навигации (UI_REVIEW 1.1): панель не касается её, под панелью полоса цвета фона закрывает прокручиваемое содержимое */
 .bets {
   position: sticky;
-  bottom: 4px;
+  bottom: 0;   /* отступ даёт padding-bottom прокручиваемого экрана (sticky считает от его поля) */
   z-index: 1;
   box-shadow: 0 0 0 4px var(--bg);
   display: grid;
@@ -111,6 +112,17 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
+}
+
+.bets::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: -4px;
+  left: -4px;
+  height: var(--dock-gap);
+  background: var(--bg);
+  pointer-events: none;
 }
 
 /* тост над панелью: исчезает сам, не перекрывает нажатия */

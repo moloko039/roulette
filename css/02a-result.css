@@ -1,0 +1,31 @@
+/* ---------- единый блок результата (UI_REVIEW 1.6): заголовок, сумма крупно, пояснение ---------- */
+.res-box {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-3);
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.res-box[hidden] { display: none; }
+.res-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.res-amount {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: clamp(30px, 10vw, 40px);
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.res-amount[hidden], .res-note[hidden] { display: none; }
+.res-note { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+.res-box.win { border-color: var(--gold-line); }
+.res-box.win .res-title, .res-box.win .res-amount { color: var(--gold); }
+.res-box.lose .res-title, .res-box.lose .res-amount { color: var(--text-muted); }
+.res-box.push .res-title, .res-box.push .res-amount { color: var(--text); }
+
+/* пока блок только подсказка («Сделайте ставку»), без рамки и фона */
+.res-box[data-kind=""] { border-color: transparent; background: none; }
+.res-box[data-kind=""] .res-title { font-family: inherit; font-size: 14px; font-weight: 400; color: var(--text-muted); }

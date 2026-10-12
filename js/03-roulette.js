@@ -333,14 +333,14 @@ function showResult(round, data) {
   game.round = null;
   saveState();
   flash(data.net);
-  if (data.net > 0) setMessage(`Вы выиграли ${formatNumber(data.net)} фишек!`, 'win');
-  else if (data.net < 0) setMessage(`Вы проиграли ${formatNumber(-data.net)} фишек`, 'lose');
+  if (data.net > 0) setMessage(`Вы выиграли ${formatCompact(data.net)} фишек!`, 'win');
+  else if (data.net < 0) setMessage(`Вы проиграли ${formatCompact(-data.net)} фишек`, 'lose');
   else setMessage('Ничья: ставки вернулись', '');
   renderAll();
   // оформление результата: накрутка баланса, итог на колесе, вибрация (данные раунда не меняются)
   animateBalance(shownBefore, srv.balance);
   if (data.net !== 0) {
-    layerWinEl.textContent = (data.net > 0 ? '+' : '−') + formatNumber(Math.abs(data.net));
+    layerWinEl.textContent = (data.net > 0 ? '+' : '−') + formatCompact(Math.abs(data.net));
     layerWinEl.className = 'layer-win ' + (data.net > 0 ? 'win' : 'lose');
   }
   haptic(data.net > 0 ? 'success' : data.net < 0 ? 'error' : 'light');

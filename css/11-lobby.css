@@ -4,7 +4,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: calc(var(--inset-top) + var(--space-3)) var(--space-3) var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-3) var(--dock-gap);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -26,7 +26,7 @@
 .lobby.booting > * { visibility: hidden; }   /* до первого ответа сервера */
 .lobby-card {
   display: grid;
-  align-content: center;
+  align-content: start;
   justify-items: start;
   gap: 4px;
   min-height: 96px;

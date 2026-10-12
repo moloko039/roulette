@@ -226,3 +226,16 @@ function closeOnBackdropTap(backdrop, close) {
 
 // #endregion
 
+
+// Измеренная высота панели ставок (UI_REVIEW 1.2): CSS-переменная --dock-h нужна для scroll-padding, чтобы фокус и прокрутка к элементу
+// не прятали его под панелью. Наблюдатель следит за видимыми панелями открытых игр, не за константой
+if (window.ResizeObserver) {
+  const dockObserver = new ResizeObserver(() => {
+    let h = 0;
+    document.querySelectorAll('.bets-dock').forEach((el) => {
+      if (!el.hidden && el.offsetParent !== null) h = Math.max(h, Math.ceil(el.getBoundingClientRect().height));
+    });
+    document.documentElement.style.setProperty('--dock-h', h + 'px');
+  });
+  document.querySelectorAll('.bets-dock').forEach((el) => dockObserver.observe(el));
+}

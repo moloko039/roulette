@@ -55,6 +55,7 @@ const minesEls = {
   expiry: document.getElementById('mines-expiry'),
   result: document.getElementById('mines-result'),
   resultTitle: document.getElementById('mines-result-title'),
+  resultAmount: document.getElementById('mines-result-amount'),
   resultDetail: document.getElementById('mines-result-detail'),
   again: document.getElementById('mines-again'),
   last: document.getElementById('mines-last')
@@ -201,20 +202,11 @@ function renderMinesResult() {
   const lost = l.status === 'lost';
   renderMinesBoard(l.revealed, l.mine_cells, !lost, mn.hit, false);
   const refundedGame = l.status === 'refunded' || l.status === 'auto_refunded';
-  minesEls.result.classList.toggle('win', !lost && !refundedGame);
-  minesEls.result.classList.toggle('lose', lost);
-  minesEls.resultDetail.textContent = '';
-  if (lost) {
-    setNumberLabel(minesEls.resultTitle, 'Мина! Потеряно ', l.bet);
-  } else if (refundedGame) {
-    minesEls.resultTitle.textContent = 'Ставка возвращена';
-    minesEls.resultTitle.classList.remove('num-tap');
-    minesEls.resultTitle.title = '';
-  } else {
-    setNumberLabel(minesEls.resultTitle, 'Выигрыш ', l.payout);
+  if (lost) fillResult(minesEls.result, { kind: 'lose', title: 'Мина!', amount: l.bet, sign: '−' });
+  else if (refundedGame) fillResult(minesEls.result, { kind: 'push', title: 'Ставка возвращена' });
+  else {
     const profit = l.payout - l.bet;
-    if (profit > 0) setNumberLabel(minesEls.resultDetail, 'Чистая прибыль: ', profit);
-    else minesEls.resultDetail.textContent = 'Чистая прибыль: 0';
+    fillResult(minesEls.result, { kind: 'win', title: 'Выигрыш', amount: profit, sign: '+', note: 'Выплата ' + formatCompact(l.payout) });
   }
   minesEls.again.disabled = mn.busy;
 }
@@ -307,7 +299,7 @@ function applyMinesState(d, announce) {
   // автоматически закрытая игра: сообщаем один раз за сессию
   const l = d.last;
   if (announce && d.game === null && l && (l.status === 'auto_cashed' || l.status === 'auto_refunded') && !mn.seen.has(minesKey(l))) {
-    setMinesNotice(l.status === 'auto_cashed'
+    showToast(l.status === 'auto_cashed'
       ? 'Игра закрылась автоматически: выплата ' + formatCompact(l.payout)
       : 'Игра закрылась автоматически: ставка возвращена');
   }

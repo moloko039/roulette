@@ -132,28 +132,13 @@ function renderHlBanner() {
   const g = hl.game;
   const done = hl.view === 'result' && !hl.animating && g !== null && g.status !== 'active';
   hlEls.banner.hidden = !(done || hl.view === 'start');
-  hlEls.banner.classList.remove('win', 'lose');
-  hlEls.bannerDetail.textContent = '';
-  hlEls.bannerDetail.title = '';
-  hlEls.bannerTitle.title = '';
   if (!done) {
-    hlEls.bannerTitle.textContent = hl.view === 'start' ? 'Сделайте ставку' : '';
+    fillResult(hlEls.banner, { kind: '', title: hl.view === 'start' ? 'Сделайте ставку' : '' });
     return;
   }
-  const money = (sign, n) => ({ short: sign + formatCompact(n), full: sign + formatNumber(n) });
-  let title = '';
-  let detail = '';
-  if (g.status === 'lost') { const m = money('−', g.bet); title = 'Не угадали ' + m.short; detail = m.full; hlEls.banner.classList.add('lose'); }
-  else if (g.status === 'refunded') { title = 'Ставка возвращена'; detail = g.auto ? 'Партия закрылась автоматически' : ''; }
-  else {
-    const m = money('+', g.payout - g.bet);
-    title = (g.status === 'capped' ? 'Потолок ×' + parseInt(g.cap, 10) + '! ' : 'Забрали ') + m.short;
-    detail = g.auto ? 'Партия закрылась автоматически: выигрыш выплачен' : m.full;
-    hlEls.banner.classList.add('win');
-  }
-  hlEls.bannerTitle.textContent = title;
-  hlEls.bannerDetail.textContent = detail;
-  hlEls.bannerTitle.title = detail;
+  if (g.status === 'lost') fillResult(hlEls.banner, { kind: 'lose', title: 'Не угадали', amount: g.bet, sign: '−' });
+  else if (g.status === 'refunded') fillResult(hlEls.banner, { kind: 'push', title: 'Ставка возвращена' });
+  else fillResult(hlEls.banner, { kind: 'win', title: g.status === 'capped' ? 'Потолок ×' + parseInt(g.cap, 10) + '!' : 'Забрали', amount: g.payout - g.bet, sign: '+' });
 }
 
 function hlMoveText(m) {
@@ -237,7 +222,7 @@ function applyHlState(d, announce) {
     hl.view = d.status === 'active' ? 'play' : 'result';
     hl.shownCard = d.card;
     if (announce && d.status !== 'active' && d.auto === true && !hl.seen.has(hlKey(d))) {
-      setHlNotice(d.status === 'refunded' ? 'Партия закрылась автоматически: ставка возвращена' : 'Партия закрылась автоматически: выигрыш выплачен');
+      showToast(d.status === 'refunded' ? 'Партия закрылась автоматически: ставка возвращена' : 'Партия закрылась автоматически: выигрыш выплачен');
     }
     if (d.status !== 'active') hl.seen.add(hlKey(d));
   }

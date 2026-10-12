@@ -107,7 +107,7 @@ function renderFarmCard(kind, o, slots) {
   const c = farmCards[kind];
   c.lvl.textContent = `${o.level} / ${o.max}`;
   if (kind === 'income') {
-    c.effect.textContent = `${formatNumber(o.rate)} в час` + (o.next_rate !== null ? ` → ${formatNumber(o.next_rate)} в час` : '');
+    c.effect.textContent = `${formatCompact(o.rate)} в час` + (o.next_rate !== null ? ` → ${formatCompact(o.next_rate)} в час` : '');
   } else {
     c.effect.textContent = `${o.hours} ч` + (o.next_hours !== null ? ` → ${o.next_hours} ч` : '');
   }
@@ -134,7 +134,7 @@ function renderFarmIncome() {
   farmEls.income.hidden = !show;
   renderFarmChatBonus();
   if (!show) return;
-  farmEls.incHour.textContent = formatNumber(f.income_per_hour);
+  farmEls.incHour.textContent = formatCompact(f.income_per_hour);
   farmEls.incMin.textContent = f.per_minute_estimate;
   farmEls.incTimer.textContent = mmss((srv.deadline - performance.now()) / 1000);
   farmEls.incNote.textContent = 'Пока вас нет, доход копится до ' + f.hours_cap + ' ч, дальше не начисляется.';

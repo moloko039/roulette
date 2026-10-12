@@ -23,7 +23,8 @@
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  padding: calc(var(--inset-top) + 6px) var(--space-3) 4px;
+  padding: calc(var(--inset-top) + 6px) var(--space-3) var(--dock-gap);
+  scroll-padding-bottom: calc(var(--dock-h) + var(--dock-gap) + var(--space-3));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;

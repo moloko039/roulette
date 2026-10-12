@@ -50,20 +50,6 @@
 .bj-card.new { animation: bj-deal 0.22s ease-out; }
 @keyframes bj-deal { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
 
-/* итог раздачи: место зарезервировано, чтобы экран не прыгал */
-.bj-banner {
-  display: grid;
-  gap: 2px;
-  min-height: 48px;
-  align-content: center;
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-.bj-banner strong { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
-.bj-banner span { font-size: 13px; color: var(--text-muted); }
-.bj-banner.win strong { color: var(--green); }
-.bj-banner.lose strong { color: var(--red); }
-
 .bj-actions { gap: 6px; }
 .bj-stake { font-size: 13px; color: var(--text-muted); text-align: center; }
 .bj-buttons { display: flex; gap: 4px; }

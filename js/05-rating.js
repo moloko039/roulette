@@ -74,7 +74,7 @@ function validBestWins(d) {
 // сумма «+1 250 000»; от миллиарда сокращённо, полное значение по нажатию (как в рейтинге)
 function setBestAmount(el, n) {
   if (n >= 1e9) { setNumberLabel(el, '+', n); return; }
-  el.textContent = '+' + formatNumber(n);
+  el.textContent = '+' + formatCompact(n);
 }
 
 function bestRankEl(rank) {
@@ -233,7 +233,7 @@ function showRating(d) {
       bar.setAttribute('aria-valuenow', '100');
       fill.style.width = '100%';
     } else {
-      score.textContent = formatNumber(d.chat_points) + ' из ' + formatNumber(d.chat_next_points) + ' очков';
+      score.textContent = formatCompact(d.chat_points) + ' из ' + formatCompact(d.chat_next_points) + ' очков';
       // прогресс внутри текущего уровня: от начала уровня до порога следующего
       let progress = ((d.chat_points - d.chat_level_start_points) / (d.chat_next_points - d.chat_level_start_points)) * 100;
       if (progress > 100) progress = 100;
@@ -285,7 +285,7 @@ function showRating(d) {
     if (isCount(e.staked)) {
       const staked = document.createElement('span');
       staked.className = 'rating-staked';
-      staked.textContent = 'поставлено ' + formatNumber(e.staked);
+      staked.textContent = 'поставлено ' + formatCompact(e.staked);
       li.appendChild(staked);
     }
     ratingEls.list.appendChild(li);
@@ -316,11 +316,11 @@ function showRating(d) {
   setNumber(myBal, d.me.balance);
   const mySub = document.createElement('span');
   mySub.className = 'rating-staked';
-  mySub.textContent = `${d.me.rank}-е место из ${d.me.total}` + (isCount(d.me.staked) ? `, поставлено ${formatNumber(d.me.staked)}` : '');
+  mySub.textContent = `${d.me.rank}-е место из ${d.me.total}` + (isCount(d.me.staked) ? `, поставлено ${formatCompact(d.me.staked)}` : '');
   me.append(myRank, myAvatar, myWho, myBal, mySub);
   // итог по беседе (поле chat_staked); без поля строка скрыта
   if (isCount(d.chat_staked)) {
-    ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatNumber(d.chat_staked);
+    ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatCompact(d.chat_staked);
     ratingEls.total.hidden = false;
   } else {
     ratingEls.total.textContent = '';

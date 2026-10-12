@@ -49,10 +49,11 @@ const formatNumber = (() => {
   }
 })();
 
-// Сокращение от миллиона: «1,2 млн», «3,4 млрд». Полное значение остаётся в title и открывается нажатием
-const COMPACT_UNITS = [[1e15, 'квадр.'], [1e12, 'трлн'], [1e9, 'млрд'], [1e6, 'млн']];
+// Единый формат чисел (UI_REVIEW 1.3): до 10 000 полностью с пробелами («9 999»), дальше сокращение с одним знаком: «12,3 тыс.», «1,4 млн», «3,4 млрд».
+// Полное значение остаётся в title и открывается нажатием
+const COMPACT_UNITS = [[1e15, 'квадр.'], [1e12, 'трлн'], [1e9, 'млрд'], [1e6, 'млн'], [1e3, 'тыс.']];
 function formatCompact(n) {
-  if (!(n >= 1e6)) return formatNumber(n);
+  if (!(n >= 1e4)) return formatNumber(n);
   for (const [unit, name] of COMPACT_UNITS) {
     if (n >= unit) return String(Math.floor((n / unit) * 10) / 10).replace('.', ',') + ' ' + name;
   }

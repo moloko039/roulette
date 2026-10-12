@@ -19,6 +19,7 @@ const kenoEls = {
   clear: document.getElementById('keno-clear'),
   result: document.getElementById('keno-result'),
   resultTitle: document.getElementById('keno-result-title'),
+  resultAmount: document.getElementById('keno-result-amount'),
   resultDetail: document.getElementById('keno-result-detail'),
   payList: document.getElementById('keno-pay-list'),
   payNote: document.getElementById('keno-pay-note'),
@@ -119,12 +120,6 @@ const kenoChipBar = makeChipBar({
 const renderKenoChips = kenoChipBar.render;
 const syncKenoChips = kenoChipBar.sync;
 
-// одна строка текста: короткая запись на экране, полное число в подсказке
-function setKenoLine(el, shortText, fullText) {
-  el.textContent = shortText;
-  el.title = fullText;
-}
-
 function renderKenoPay() {
   const k = kn.picks.size;
   kenoEls.payList.textContent = '';
@@ -154,22 +149,14 @@ function renderKenoPay() {
 
 function renderKenoResult() {
   const r = kn.final ? kn.result : null;
-  kenoEls.result.classList.toggle('win', !!r && r.payout > 0);
+  kenoEls.result.hidden = !r;
   if (!r) {
-    kenoEls.resultTitle.textContent = '';
-    kenoEls.resultDetail.textContent = '';
-    kenoEls.resultTitle.title = kenoEls.resultDetail.title = '';
+    clearResult(kenoEls.result);
     return;
   }
-  kenoEls.resultTitle.textContent = 'Совпало ' + r.hits.length + ' из ' + r.picked;
-  if (r.payout > 0) {
-    const profit = r.payout - r.bet;
-    setKenoLine(kenoEls.resultDetail,
-      'Выигрыш ' + formatCompact(r.payout) + ', чистая прибыль ' + formatCompact(profit),
-      'Выигрыш ' + formatNumber(r.payout) + ', чистая прибыль ' + formatNumber(profit));
-  } else {
-    setKenoLine(kenoEls.resultDetail, 'Не повезло', 'Не повезло');
-  }
+  const title = 'Совпало ' + r.hits.length + ' из ' + r.picked;
+  if (r.payout > 0) fillResult(kenoEls.result, { kind: 'win', title, amount: r.payout - r.bet, sign: '+', note: 'Выплата ' + formatCompact(r.payout) });
+  else fillResult(kenoEls.result, { kind: 'lose', title, amount: r.bet, sign: '−' });
 }
 
 function renderKeno() {
