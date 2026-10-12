@@ -11,12 +11,18 @@ async def run(w):
     p = w.page
     await w.reload()
     await open_game(p, "race")
+    # баланс не «Загрузка…» сразу после входа в игру, без нажатия кнопок
+    check("баланс показан при входе", await p.ev("/^[0-9 \u00a0]+$/.test(document.getElementById('race-balance').textContent.trim())"), True)
     await p.wait("document.querySelectorAll('.race-lane').length === 3", 10, "три дорожки по умолчанию")
     await p.tap("[data-race-lanes='4']")
     await p.wait("document.querySelectorAll('.race-lane').length === 4", 10, "четыре дорожки")
     check("кнопка без дорожки", await p.ev("document.getElementById('race-play').textContent.trim() + '|' + document.getElementById('race-play').disabled"), "Выберите дорожку|true")
     await p.tap(".race-lane[data-lane='2']")
     await p.wait("document.querySelector(\".race-lane[data-lane='2']\").getAttribute('aria-pressed') === 'true'", 5, "выбрана дорожка 3 тапом по дорожке")
+    # фишки-пресеты ставят сумму и подсвечиваются
+    await p.tap("[data-rbet]:nth-of-type(2)")
+    chip = await p.ev("(() => { const b = document.querySelector('[data-rbet][aria-pressed=true]'); return [document.getElementById('race-bet').value, b ? b.dataset.rbet : null]; })()")
+    check("пресет ставки применился", chip[0] == chip[1] and chip[0] is not None, True)
     await set_bet(p, "race-bet", 10)
     check("кнопка со ставкой", await p.ev("document.getElementById('race-play').textContent.trim()"), "Старт · 10")
     await p.tap("#race-play")

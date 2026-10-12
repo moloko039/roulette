@@ -103,6 +103,7 @@ function renderProfileTimer() {
 
 // renderKeno и renderLobby появляются ниже по файлу (до их объявления остаются null)
 var kenoRender = null; // eslint-disable-line no-var
+var raceRender = null; // eslint-disable-line no-var
 var lobbyRender = null; // eslint-disable-line no-var
 
 function renderAll() {
@@ -110,6 +111,7 @@ function renderAll() {
   renderFarmIncome();
   renderBets();
   if (kenoRender) kenoRender();
+  if (raceRender) raceRender();
   if (lobbyRender) lobbyRender();
 }
 

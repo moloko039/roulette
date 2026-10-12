@@ -62,6 +62,7 @@ const rc = {
   noticeTimer: null
 };
 registerGame({ id: 'race', busy: () => rc.busy });
+raceRender = renderRace;   // ядро перерисовывает экран после ответа /api/me (баланс не «Загрузка…»)
 try { rc.fast = localStorage.getItem('race_fast') === '1'; } catch (e) { /* без хранилища обычный режим */ }
 
 // Свинка: один и тот же SVG на всех дорожках (ноги и хвост анимируются transform), цвета через переменные --pg-* (css/15b-race.css)
@@ -192,6 +193,8 @@ function resetRaceResult() {
 }
 
 function renderRace() {
+  raceChipBar.render();     // номиналы фишек по серверному балансу и подсветка нажатой
+  raceChipBar.sync();
   raceEls.laneButtons.forEach((btn) => {
     btn.setAttribute('aria-pressed', String(Number(btn.dataset.raceLanes) === rc.lanes));
     btn.disabled = rc.busy;
@@ -241,7 +244,7 @@ const raceChipBar = makeChipBar({
   attr: 'rbet',
   getBalance: () => (srv.loaded ? srv.balance : 0),
   getBet: () => Number(raceEls.bet.value),
-  setBet: (v) => { raceEls.bet.value = String(v); renderRace(); }
+  setBet: (v) => { raceEls.bet.value = String(v); }
 });
 const renderRaceChips = raceChipBar.render;
 const syncRaceChips = () => { raceChipBar.sync(); renderRace(); };
@@ -535,22 +538,23 @@ raceEls.fast.addEventListener('click', () => {
   renderRace();
 });
 raceEls.play.addEventListener('click', () => raceStart());
-raceEls.bet.addEventListener('input', () => renderRace());
-raceEls.half.addEventListener('click', () => {
-  if (rc.busy) return;
-  raceEls.bet.value = String(Math.max(1, Math.floor(Number(raceEls.bet.value) / 2)));
-  syncRaceChips();
+// поле ставки, ÷2, ×2, «Макс» и панель над клавиатурой: общая для всех игр логика (js/02-bet.js); фишки-пресеты ставят сумму тапом
+setupBetPanel({
+  input: raceEls.bet,
+  maxBtn: raceEls.maxBtn,
+  halfBtn: raceEls.half,
+  doubleBtn: raceEls.double,
+  getLimit: raceBetLimit
 });
-raceEls.double.addEventListener('click', () => {
+raceEls.bet.addEventListener('input', syncRaceChips);
+[raceEls.half, raceEls.double, raceEls.maxBtn].forEach((b) => b.addEventListener('click', () => { if (!rc.busy) syncRaceChips(); }));
+raceEls.panel.querySelectorAll('[data-rbet]').forEach((b) => b.addEventListener('click', () => {
   if (rc.busy) return;
-  raceEls.bet.value = String(Math.min(raceBetLimit(), Number(raceEls.bet.value) * 2));
+  raceEls.bet.value = b.dataset.rbet;
   syncRaceChips();
-});
-raceEls.maxBtn.addEventListener('click', () => {
-  if (rc.busy) return;
-  raceEls.bet.value = String(raceBetLimit());
-  syncRaceChips();
-});
+  refreshBetPanels();
+  haptic('light');
+}));
 raceEls.switchBtn.addEventListener('click', () => toggleGameMenu());   // функция из js/14-lobby.js
 
 buildRaceTrack();

@@ -82,6 +82,10 @@ function showTab(id) {
   if (started && screen === 'blackjack') loadBj('open');
   if (started && screen === 'crash') loadCrash('open');
   if (started && screen === 'hilo') loadHilo('open');
+  if (started && screen === 'race') {
+    loadServer('open');
+    renderRace();
+  }
   if (started && screen === 'arcade') {
     loadServer('open');
     arcadeScreenOpened();
