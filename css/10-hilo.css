@@ -8,12 +8,11 @@
   border-radius: var(--radius-lg);
 }
 .hl-table[hidden], .hl-banner[hidden], .hl-bets[hidden], .hl-actions[hidden] { display: none; }
-.hl-history { display: flex; gap: 3px; margin: 0; padding: 0; list-style: none; min-height: 40px; overflow: hidden; }
+.hl-history { display: flex; align-items: center; justify-content: center; gap: 2px; margin: 0; padding: 0; list-style: none; min-height: 44px; overflow: hidden; }
 .hl-mini {
-  flex: 1 1 0;
-  max-width: 30px;
-  min-width: 0;
-  height: 38px;
+  flex: none;
+  width: 28px;
+  height: 40px;
   display: grid;
   grid-template-rows: auto 1fr;
   justify-items: center;
@@ -31,9 +30,16 @@
 .hl-mini svg { align-self: end; width: 11px; height: 11px; fill: currentColor; }
 .hl-mini.red { color: var(--card-red); }
 .hl-mini.win { border-color: var(--green); }
+.hl-arrow { flex: none; display: grid; place-items: center; width: 18px; color: var(--text-dim); font-size: 14px; }
+.hl-arrow svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.hl-arrow.win { color: var(--green); }
+.hl-arrow.lose { color: var(--text-muted); }
+.hl-mini.lose, .hl-mini.skip { opacity: 0.55; }
+.hl-stats strong.tick { animation: hl-tick 0.3s ease-out; }
+@keyframes hl-tick { 0% { transform: scale(1.35); } 100% { transform: none; } }
 .hl-mini.tie { border-color: var(--text-muted); border-style: double; border-width: 3px; }
 .hl-mini.skip { opacity: 0.45; }
-.hl-mini.lose { border-color: var(--red); }
+.hl-mini.lose { border-color: var(--border-strong); }
 .hl-stage { display: grid; place-items: center; min-height: 176px; perspective: 700px; }
 .hl-card {
   position: relative;

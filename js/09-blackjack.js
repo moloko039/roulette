@@ -109,15 +109,16 @@ function bjCardEl(card, isNew) {
 }
 
 // Карты внахлёст: если ряд не помещается, соседние карты наезжают друг на друга (до 8 и больше без прокрутки)
-function bjFillCards(box, cards, newFrom) {
+function bjFillCards(box, cards, newFrom, flipAt = -1) {
   box.textContent = '';
   const width = box.clientWidth || 280;
-  const cardW = 46;
+  const cardW = 54;
   const n = cards.length;
-  const gap = 4;
+  const gap = -12;           // небольшое перекрытие веером: индекс (ранг и масть) каждой карты остаётся виден
   const free = n > 1 ? Math.min(gap, (width - 4 - cardW * n) / (n - 1)) : 0;
   cards.forEach((card, i) => {
-    const el = bjCardEl(card, i >= newFrom);
+    const el = bjCardEl(card, i >= newFrom && i !== flipAt);
+    if (i === flipAt) el.classList.add('flip');          // закрытая карта дилера переворачивается
     if (i > 0) el.style.marginLeft = Math.floor(free) + 'px';
     box.appendChild(el);
   });
@@ -125,7 +126,8 @@ function bjFillCards(box, cards, newFrom) {
 
 skinSetHost('card_back', () => document.getElementById(currentGame === 'hilo' ? 'hl-table' : 'bj-table'));      // контейнер сцены рубашки: стол блэкджека или хило
 
-let bjDrawn = { player: 0, dealer: 0 };   // сколько карт уже было нарисовано (новые получают анимацию)
+let bjDrawn = { player: 0, dealer: 0 };
+let bjFlipDealer = -1;                    // индекс открываемой закрытой карты дилера (на один кадр отрисовки)   // сколько карт уже было нарисовано (новые получают анимацию)
 
 function bjTotalText(hand, finished) {
   if (hand.cards.filter((c) => c !== null).length === 2 && hand.total === 21 && finished) return { text: 'Блэкджек!', cls: 'blackjack' };
@@ -139,7 +141,7 @@ function renderBjTable() {
   bjEls.table.hidden = !show;
   if (!show) return;
   bjFillCards(bjEls.playerCards, bj.shown.player, bjDrawn.player);
-  bjFillCards(bjEls.dealerCards, bj.shown.dealer, bjDrawn.dealer);
+  bjFillCards(bjEls.dealerCards, bj.shown.dealer, bjDrawn.dealer, bjFlipDealer);
   const dealt = bj.shown.player.length + bj.shown.dealer.length - bjDrawn.player - bjDrawn.dealer;
   bjDrawn = { player: bj.shown.player.length, dealer: bj.shown.dealer.length };
   if (dealt > 0) skinEvents.emit('cards:deal', { game: 'blackjack', count: dealt });
@@ -292,7 +294,9 @@ async function animateBj(prev, d, kind) {
     await sleep(BJ_DEALER_MS - BJ_DEAL_MS > 0 ? BJ_DEALER_MS - BJ_DEAL_MS : 0);
     bj.shown.dealer[1] = target.dealer[1];            // дилер открывает вторую карту
     bjDrawn.dealer = 1;                                 // открытая карта перерисуется новой
+    bjFlipDealer = 1;
     await step(BJ_DEALER_MS);
+    bjFlipDealer = -1;
     for (let i = bj.shown.dealer.length; i < target.dealer.length; i++) {   // и добирает по одной
       bj.shown.dealer.push(target.dealer[i]);
       await step(BJ_DEALER_MS);

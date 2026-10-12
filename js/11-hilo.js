@@ -114,10 +114,22 @@ function renderHlCard(animate, tone) {
   }
 }
 
+// Лента последних карт со стрелками ↑ и ↓ между ними (UI_REVIEW, хило): верно угаданный ход подсвечен зелёным, неверный приглушён
+const HL_HISTORY_SHOWN = 6;
+const HL_ARROW_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 11l6-6 6 6"/></svg>';
+const HL_ARROW_DOWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v13M6 13l6 6 6-6"/></svg>';
 function renderHlHistory() {
   hlEls.history.textContent = '';
-  const items = hl.game ? hl.game.history : [];
-  items.forEach((c) => {
+  const items = (hl.game ? hl.game.history : []).slice(-HL_HISTORY_SHOWN);
+  items.forEach((c, i) => {
+    if (i > 0) {
+      const prev = items[i - 1];
+      const arrow = document.createElement('li');
+      arrow.className = 'hl-arrow ' + (c.rank > prev.rank ? 'up' : c.rank < prev.rank ? 'down' : 'same') + (c.how === 'win' ? ' win' : c.how === 'lose' ? ' lose' : '');
+      arrow.setAttribute('aria-hidden', 'true');
+      arrow.innerHTML = c.rank > prev.rank ? HL_ARROW_UP : c.rank < prev.rank ? HL_ARROW_DOWN : '=';
+      hlEls.history.appendChild(arrow);
+    }
     const li = document.createElement('li');
     li.className = 'hl-mini ' + c.how + (hlIsRed(c) ? ' red' : '');
     li.innerHTML = '<span></span>' + BJ_SUIT_SVG[c.suit];
@@ -172,7 +184,13 @@ function renderHl() {
   hlEls.table.hidden = !showTable;
   if (showTable) {
     renderHlHistory();
-    hlEls.mult.textContent = g ? '×' + g.multiplier : '×1.00';
+    const multText = g ? '×' + g.multiplier : '×1.00';
+    if (hlEls.mult.textContent !== multText && hlEls.mult.textContent !== '' && !reducedMotion()) {   // множитель растёт «тиком»
+      hlEls.mult.classList.remove('tick');
+      void hlEls.mult.offsetWidth;
+      hlEls.mult.classList.add('tick');
+    }
+    hlEls.mult.textContent = multText;
     hlEls.steps.textContent = g ? String(g.steps) : '0';
     const nowValue = g && g.status === 'active' ? g.payout_now : (g && g.payout !== null ? g.payout : 0);
     hlEls.now.textContent = formatCompact(nowValue);

@@ -2,15 +2,27 @@
 .bj-table {
   display: grid;
   gap: var(--space-3);
+  position: relative;
   padding: var(--space-3);
-  background: var(--surface);
+  /* тонкая скатерть: мягкое свечение по центру стола */
+  background: radial-gradient(ellipse 85% 75% at 50% 58%, var(--green-soft), transparent 72%), var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
+/* колода в правом верхнем углу: карты вылетают из неё */
+.bj-deck { position: absolute; top: 10px; right: 12px; width: 34px; height: 48px; pointer-events: none; }
+.bj-deck i {
+  position: absolute;
+  inset: 0;
+  background: var(--card-back-image, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 4px, var(--card-back-b) 4px, var(--card-back-b) 8px));
+  border: 1px solid var(--card-back-border);
+  border-radius: 5px;
+}
+.bj-deck i:first-child { transform: translate(3px, 3px); opacity: 0.7; }
 .bj-table[hidden], .bj-banner[hidden], .bj-bets[hidden], .bj-actions[hidden] { display: none; }
 
 .bj-hand { display: grid; gap: 6px; }
-.bj-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 22px; }
+.bj-head { display: flex; align-items: center; justify-content: flex-start; gap: var(--space-2); min-height: 22px; }   /* очки рядом с подписью: правый верхний угол занимает колода */
 .bj-who { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-muted); }
 .bj-total {
   font-family: var(--font-display);
@@ -22,12 +34,12 @@
 .bj-total.blackjack { color: var(--green); }
 
 /* карты рядом внахлёст: сдвиг считает скрипт, чтобы до 8 карт помещались без горизонтальной прокрутки */
-.bj-cards { display: flex; min-height: 68px; overflow: hidden; padding: 2px 2px 4px; }
+.bj-cards { display: flex; justify-content: center; min-height: 84px; overflow: visible; padding: 2px 2px 4px; }
 .bj-card {
   position: relative;
   flex: none;
-  width: 46px;
-  height: 64px;
+  width: 54px;
+  height: 76px;
   color: var(--card-ink);
   background: var(--card-face);
   border: 1px solid rgba(10, 10, 11, 0.35);
@@ -37,10 +49,10 @@
 /* лицо: индекс слева сверху и перевёрнутый справа снизу, масть по центру (общее для блэкджека, хило и примерки скина) */
 .bj-card .idx, .hl-card .idx { position: absolute; top: 3px; left: 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
 .bj-card .idx-end, .hl-card .idx-end { top: auto; left: auto; right: 4px; bottom: 3px; transform: rotate(180deg); }
-.bj-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 13px; font-weight: 700; line-height: 1; }
-.bj-card .idx svg { width: 10px; height: 10px; fill: currentColor; }
+.bj-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 15px; font-weight: 700; line-height: 1; }
+.bj-card .idx svg { width: 12px; height: 12px; fill: currentColor; }
 .bj-card .pip, .hl-card .pip { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.bj-card .pip svg { width: 24px; height: 24px; fill: currentColor; }
+.bj-card .pip svg { width: 28px; height: 28px; fill: currentColor; }
 .bj-card.red { color: var(--card-red); }
 .bj-card.back {
   background: var(--card-back-image, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 4px, var(--card-back-b) 4px, var(--card-back-b) 8px));
@@ -48,8 +60,11 @@
   outline: var(--card-back-outline, none);
   outline-offset: var(--card-back-inset-bj, 0);
 }
-.bj-card.new { animation: bj-deal 0.22s ease-out; }
-@keyframes bj-deal { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.bj-card.new { animation: bj-deal 0.3s ease-out; }
+.bj-card.flip { animation: bj-flip 0.32s ease-out; }
+@keyframes bj-deal { from { opacity: 0; transform: translate(130px, -110px) rotate(14deg) scale(0.8); } to { opacity: 1; transform: none; } }
+@keyframes bj-flip { from { transform: rotateY(90deg); opacity: 0.3; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bj-card.new, .bj-card.flip { animation: none; } }
 
 .bj-actions { gap: 6px; }
 .bj-stake { font-size: 13px; color: var(--text-muted); text-align: center; }
