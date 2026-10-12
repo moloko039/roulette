@@ -6,7 +6,7 @@
 const KENO_BET_MAX = 1000000000;
 const KENO_FIELD = 40;
 const KENO_MAX_PICKS = 10;
-const KENO_STEP_MS = 250;           // пауза между вытянутыми числами (10 чисел ≈ 2,5 с)
+const KENO_STEP_MS = 200;           // пауза между вытянутыми числами (10 чисел ≈ 2 с; UI_REVIEW: 150–250 мс)
 const KENO_PAY_RETRY_MS = 10000;    // таблицу выплат при неудаче повторно не чаще, чем раз в 10 секунд
 
 const kenoEls = {
@@ -33,6 +33,7 @@ const kn = {
   picks: new Set(),     // выбранные числа
   busy: false,          // идёт раунд (запрос и анимация): поле и кнопки заблокированы
   revealed: new Set(),  // вытянутые числа, уже показанные на поле
+  press: 0,             // число, только что выбранное нажатием (анимация отскока)
   final: false,         // анимация закончилась, показан итог
   result: null,         // { hits: [..], picked, payout, bet } последнего раунда
   shownBalance: null,   // баланс в шапке на время раунда (обновляется после анимации)
@@ -83,8 +84,18 @@ function toggleKenoPick(n) {
   } else {
     kn.picks.add(n);
     haptic('light');
+    kn.press = n;                      // нажатие: короткий «отскок» выбранного числа
   }
   renderKeno();
+  if (kn.press) {
+    const ball = kenoBalls[kn.press - 1];
+    kn.press = 0;
+    if (!reducedMotion()) {
+      ball.classList.remove('press');
+      void ball.offsetWidth;
+      ball.classList.add('press');
+    }
+  }
   loadKenoPay();
 }
 
@@ -183,7 +194,8 @@ function renderKeno() {
     btn.disabled = kn.busy;
   });
   kenoEls.board.classList.toggle('locked', kn.busy);
-  kenoEls.count.textContent = 'Выбрано ' + kn.picks.size + ' из ' + KENO_MAX_PICKS;
+  const liveHits = kn.busy && kn.revealed.size > 0 ? Array.from(kn.revealed).filter((x) => kn.picks.has(x)).length : -1;
+  kenoEls.count.textContent = liveHits >= 0 ? 'Совпало ' + liveHits : 'Выбрано ' + kn.picks.size + ' из ' + KENO_MAX_PICKS;      // во время розыгрыша счётчик растёт
   renderKenoPay();
   renderKenoResult();
   const ready = !!(tg && tg.initData) && srv.loaded;

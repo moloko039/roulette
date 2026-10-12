@@ -63,6 +63,10 @@
 /* выбран, но не выпал (после раунда): то же свечение, приглушённое */
 .keno-ball.miss span { opacity: 0.5; box-shadow: var(--keno-miss-glow); }
 .keno-ball.pop span { animation: keno-pop 0.25s ease-out; }
+.keno-ball.press span { animation: keno-press 0.22s ease-out; }
+.keno-ball:active:not(:disabled) span { transform: scale(0.9); }
+@keyframes keno-press { 0% { transform: scale(0.82); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .keno-ball.press span { animation: none; } }
 @keyframes keno-pop { from { transform: scale(0.8); } 60% { transform: scale(1.14); } to { transform: scale(1); } }
 
 .keno-meta { display: flex; align-items: center; gap: 6px; }
@@ -70,19 +74,22 @@
 .keno-small { height: 40px; padding: 0 var(--space-3); }
 
 .keno-pay { display: grid; gap: 6px; }
+/* лента ступеней «совпало → множитель» над панелью ставок (UI_REVIEW, кено): горизонтально, достигнутая ступень подсвечена */
 .keno-pay-list {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  display: flex;
+  gap: 6px;
   margin: 0;
-  padding: 0;
+  padding: 0 0 2px;
+  overflow-x: auto;
   list-style: none;
+  scrollbar-width: none;
 }
+.keno-pay-list::-webkit-scrollbar { display: none; }
 .keno-pay-list li {
+  flex: none;
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   padding: 4px 8px;
   font-size: 13px;
   background: var(--surface);
@@ -90,6 +97,7 @@
   border-radius: var(--radius-sm);
 }
 .keno-pay-list li span { color: var(--text-muted); }
+.keno-pay-list li span::after { content: " →"; }
 .keno-pay-list li b { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-weight: 600; }
 .keno-pay-list li.won { background: var(--green-soft); border-color: var(--green); }
 .keno-pay-list li.won span { color: var(--text); }

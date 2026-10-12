@@ -90,10 +90,10 @@
   --keno-border: var(--border);
   --keno-text: var(--text-muted);
   --keno-active-bg: var(--surface-3);
-  --keno-sel-text: var(--text);
-  --keno-sel-bg: var(--white-soft);
-  --keno-sel-border: var(--text);
-  --keno-sel-glow: 0 0 10px rgba(255, 255, 255, 0.5), inset 0 0 6px rgba(255, 255, 255, 0.2);
+  --keno-sel-text: var(--on-accent);
+  --keno-sel-bg: var(--gold);
+  --keno-sel-border: var(--gold);
+  --keno-sel-glow: 0 0 10px rgba(227, 185, 100, 0.45);
   --keno-drawn-text: var(--text);
   --keno-drawn-ring: 0 0 0 2px rgba(245, 245, 242, 0.75);
   --keno-hit-text: var(--text);
