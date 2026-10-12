@@ -1,84 +1,267 @@
-/* Забег свинок: экран, дорожки и свинки. База под скины: палитра по умолчанию задана переменными --race-* на :root,
-   скины меняют их на [data-skin-race="<код>"] (атрибут ставит среда скинов; каталога предметов пока нет). */
+/* ---------- «Свинки»: забег на дорожках (UI_REVIEW, раздел 3) ----------
+   База под скины: палитра задана переменными --race-* на :root, скины меняют их на [data-skin-race="<код>"]
+   (атрибут ставит среда скинов; каталога предметов пока нет). Анимации только transform и opacity. */
 :root {
-  --race-track: #1b1d22;
-  --race-lane: #23262d;
-  --race-lane-line: rgba(255, 255, 255, 0.08);
-  --race-lane-win: rgba(245, 235, 221, 0.16);
-  --race-pig-body: #f2b8c4;
-  --race-pig-snout: #e28fa1;
-  --race-pig-ear: #e28fa1;
-  --race-pig-leg: #c97384;
-  --race-pig-eye: #2a1a1a;
+  --race-track: #0d0e11;
+  --race-lane: #15161a;
+  --race-lane-line: rgba(255, 255, 255, 0.07);
+  --race-lane-win: rgba(227, 185, 100, 0.16);
+  --race-ground: rgba(255, 255, 255, 0.06);          /* разметка дорожки, едет назад при беге */
+  --race-gate: rgba(245, 235, 221, 0.55);
+  --race-finish-a: #f4efe6;
+  --race-finish-b: #1b1c20;
   --race-finish: rgba(245, 235, 221, 0.5);
-  --race-win-text: #f5ebdd;
+  --race-win-text: #e3b964;
+  --race-pig-eye: #2a1a1a;
+  --race-spark: #e3b964;
 }
 
-.race-lanes {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin: 4px 0 8px;
-}
-.race-small { min-height: 34px; padding: 0 14px; }
-.race-small[aria-pressed="true"] { outline: 2px solid var(--race-finish); outline-offset: 2px; }
+/* переключатель дорожек и «Быстро» */
+.race-lanes { display: flex; gap: 8px; justify-content: center; }
+.race-small { min-height: 34px; padding: 0 14px; font-size: 14px; }
+.race-small[aria-pressed="true"] { border-color: var(--border-strong); background: var(--white-soft); }
+.race-fast { margin-left: auto; padding: 0 12px; color: var(--text-muted); }
+.race-fast[aria-pressed="true"] { color: var(--text); }
 
+/* поле забега */
+.race-field { position: relative; }
 .race-track {
   display: grid;
   gap: 6px;
-  padding: 10px 8px;
-  border-radius: 12px;
+  padding: 6px;
+  border-radius: var(--radius-lg);
   background: var(--race-track);
-  position: relative;
+  border: 1px solid var(--border);
 }
 .race-lane {
   position: relative;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--race-lane);
+  height: 66px;
   overflow: hidden;
-  background-image: linear-gradient(90deg, transparent calc(100% - 3px), var(--race-finish) calc(100% - 3px));
-}
-.race-lane.win { background-color: var(--race-lane-win); }
-.race-pig {
-  position: absolute;
-  left: 4px;
-  top: 4px;
-  width: 40px;
-  height: 28px;
-  transform: translateX(0);
-  will-change: transform;
-}
-.race-pig svg { width: 100%; height: 100%; display: block; }
-.race-pig-body { fill: var(--race-pig-body); }
-.race-pig-snout { fill: var(--race-pig-snout); }
-.race-pig-ear { fill: var(--race-pig-ear); }
-.race-pig-leg { fill: var(--race-pig-leg); }
-.race-pig-eye { fill: var(--race-pig-eye); }
-
-.race-pick {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
-  margin: 10px 0;
-}
-.race-pick-btn {
-  min-height: 40px;
   border-radius: 10px;
-  border: 1px solid var(--race-lane-line);
   background: var(--race-lane);
-  color: inherit;
-  font: inherit;
+  border: 1px solid var(--race-lane-line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
 }
-.race-pick-btn[aria-pressed="true"] {
-  outline: 2px solid var(--race-finish);
-  outline-offset: 2px;
+.race-lane:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.race-lane[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-2); }
+.race-lane.win { background-color: var(--race-lane-win); }
+.race-field.busy .race-lane { cursor: default; }
+
+/* мир дорожки: разметка, ворота, финиш. Камера двигает его одним transform */
+.race-scroll {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2400px;
+  background-image:
+    repeating-linear-gradient(90deg, var(--race-ground) 0 2px, transparent 2px 30px),
+    linear-gradient(90deg, var(--race-ground) 0 7px, transparent 7px);
+  background-size: auto, 61px 3px;
+  background-repeat: repeat, repeat-x;
+  background-position: 0 0, 0 calc(100% - 4px);
+  will-change: transform;
+  pointer-events: none;
+}
+.race-gate {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 72px;
+  width: 6px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(0deg, var(--race-gate) 0 6px, transparent 6px 10px);
+  transform-origin: 50% 100%;
+}
+.race-gate.open { animation: race-gate-open 0.35s ease-out forwards; }
+@keyframes race-gate-open { to { opacity: 0; transform: scaleY(0.2); } }
+.race-label {
+  position: absolute;
+  top: 4px;
+  left: 84px;
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.race-label b { font-weight: 600; color: var(--text); }
+.race-finish {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1400px;
+  width: 14px;
+  background:
+    repeating-conic-gradient(var(--race-finish-a) 0 25%, var(--race-finish-b) 0 50%) 0 0 / 14px 14px;
+  opacity: 0.9;
+}
+.race-finish.flash { animation: race-flash 0.5s ease-out; }
+@keyframes race-flash { 0% { opacity: 1; transform: scaleX(2.2); } 100% { opacity: 0.9; transform: none; } }
+
+/* свинка */
+.race-pig {
+  --pg-body: #d9a3ae;
+  --pg-ear: #c98593;
+  --pg-snout: #c98593;
+  --pg-leg: #b9707f;
+  --pg-blanket: #c9a24f;
+  --stride: 0.34s;
+  --bob: 1.6px;
+  --ph: 0s;
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  width: 60px;
+  height: 39px;
+  will-change: transform;
+  pointer-events: none;
+}
+.race-pig[data-char="1"] { --pg-body: #e8dcc8; --pg-ear: #d6c4a8; --pg-snout: #d8a9a0; --pg-leg: #c9b79a; --pg-blanket: #4f8f8a; --stride: 0.34s; --bob: 1.6px; --ph: -0.9s; }
+.race-pig[data-char="2"] { --pg-body: #e0d0c0; --pg-ear: #8a7466; --pg-snout: #d8a9a0; --pg-leg: #a89480; --pg-blanket: #b05a4a; --stride: 0.4s; --bob: 1.8px; --ph: -1.7s; }
+.race-pig[data-char="3"] { --pg-body: #7b6569; --pg-ear: #5e4a4e; --pg-snout: #9a7f82; --pg-leg: #54444a; --pg-blanket: #6f7fa6; --stride: 0.52s; --bob: 1.1px; --ph: -2.4s; }
+.race-pig[data-char="0"] { --stride: 0.26s; --bob: 2.2px; }
+.race-body { position: relative; width: 100%; height: 100%; }
+.race-pig svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pg-body { fill: var(--pg-body); }
+.pg-ear { fill: var(--pg-ear); }
+.pg-snout { fill: var(--pg-snout); }
+.pg-leg { fill: var(--pg-leg); }
+.pg-blanket { fill: var(--pg-blanket); }
+.pg-spot { fill: rgba(60, 44, 48, 0.55); display: none; }
+.race-pig[data-char="2"] .pg-spot { display: inline; }
+.pg-eye { fill: var(--race-pig-eye); }
+.pg-tail { fill: none; stroke: var(--pg-ear); stroke-width: 2; stroke-linecap: round; }
+.pg-nose { fill: rgba(60, 30, 36, 0.55); }
+.pg-eye, .pg-ear, .pg-tail, .pg-torso, .pg-head, .pg-legs { transform-box: fill-box; transform-origin: center; }
+.pg-legs { transform-origin: 50% 0; }
+.pg-ear { transform-origin: 20% 90%; }
+.pg-tail { transform-origin: 90% 80%; }
+.pg-torso { transform-origin: 50% 100%; }
+.pg-head { transform-origin: 20% 70%; }
+.race-num {
+  position: absolute;
+  left: 36%;
+  top: 27%;
+  width: 22%;
+  height: 31%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #121214;
+}
+/* бирка выбранной свинки: аватар игрока над свинкой */
+.race-tag {
+  position: absolute;
+  left: 8px;
+  top: -14px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 2px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 999px;
+}
+.race-tag[hidden] { display: none; }
+.race-tag .avatar { width: 14px; height: 14px; font-size: 8px; border-width: 0; box-shadow: none; color: var(--text); }
+.race-ring {
+  position: absolute;
+  inset: -4px -4px -2px -4px;
+  border: 2px solid var(--race-win-text);
+  border-radius: 14px;
+  opacity: 0;
+}
+.race-pig.mine.done .race-ring { opacity: 1; }
+
+/* ожидание: свинки живые, фазы сдвинуты, чтобы не двигались в унисон */
+.race-field:not(.running):not(.busy) .pg-torso { animation: pg-breath 3.2s ease-in-out var(--ph) infinite; }
+.race-field:not(.running):not(.busy) .pg-eye { animation: pg-blink 4.6s linear var(--ph) infinite; }
+.race-field:not(.running):not(.busy) .pg-ear { animation: pg-ear 5.4s ease-in-out var(--ph) infinite; }
+.race-field:not(.running):not(.busy) .pg-tail { animation: pg-tail 2.8s ease-in-out var(--ph) infinite; }
+.race-field:not(.running):not(.busy) .race-pig.sniff .pg-head { animation: pg-sniff 4.2s ease-in-out var(--ph) infinite; }
+@keyframes pg-breath { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.03); } }
+@keyframes pg-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes pg-ear { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-14deg); } 82% { transform: rotate(4deg); } }
+@keyframes pg-tail { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(18deg); } }
+@keyframes pg-sniff { 0%, 55%, 100% { transform: rotate(0) translateY(0); } 65%, 85% { transform: rotate(16deg) translateY(2px); } }
+
+/* бег: две пары ног качаются поочерёдно, тело подпрыгивает, хвост-пружинка */
+.race-field.running .pg-lf { animation: pg-leg var(--stride) ease-in-out infinite alternate; }
+.race-field.running .pg-lb { animation: pg-leg var(--stride) ease-in-out infinite alternate-reverse; }
+.race-field.running .pg-torso, .race-field.running .pg-head { animation: pg-bob calc(var(--stride) / 2) ease-in-out infinite alternate; }
+.race-field.running .pg-tail { animation: pg-tail calc(var(--stride) * 0.7) ease-in-out infinite; }
+@keyframes pg-leg { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
+@keyframes pg-bob { from { transform: translateY(0) scaleY(1); } to { transform: translateY(calc(var(--bob) * -1)) scaleY(1.03); } }
+/* финиш: победитель подпрыгивает, остальные пыхтят */
+.race-pig.winner .race-body { animation: pg-jump 0.5s ease-out 3; }
+.race-pig.winner .race-num { animation: pg-shake 0.12s linear 6; }
+.race-field.finished .race-pig:not(.winner) .pg-torso { animation: pg-pant 0.5s ease-in-out infinite; }
+@keyframes pg-jump { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-9px); } }
+@keyframes pg-shake { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(1px); } }
+@keyframes pg-pant { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.06); } }
+
+/* пыль из-под копыт: по одному облачку на дорожку, не больше четырёх одновременно */
+.race-dust, .race-spark {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+.race-dust { background: rgba(245, 235, 221, 0.28); }
+.race-spark { background: var(--race-spark); width: 5px; height: 5px; }
+
+/* отсчёт и «Марш!» */
+.race-lights {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  gap: 14px;
+  padding: 10px 16px;
+  background: rgba(5, 5, 6, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: opacity 0.2s ease-out;
+}
+.race-lights.on { opacity: 1; }
+.race-lights i { display: block; width: 16px; height: 16px; border-radius: 50%; background: #c0392b; transition: opacity 0.15s ease-out; }
+.race-lights i.off { opacity: 0.18; }
+.race-go {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 700;
   color: var(--race-win-text);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  pointer-events: none;
 }
-.race-pick-btn:disabled { opacity: 0.5; }
+.race-go.show { animation: race-go 0.8s ease-out; }
+@keyframes race-go { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); } 25% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); } }
 
-.race-result { margin: 6px 0; }
+.race-result { margin: 0; }
 
+/* облегчённый режим и уменьшенное движение: свинки скользят, без микро-анимаций, пыли и мигания */
+html.perf-lite .race-pig, html.perf-lite .race-pig * { animation: none !important; }
+html.perf-lite .race-dust, html.perf-lite .race-spark { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .race-pig { transition: none; }
+  .race-pig, .race-pig *, .race-gate, .race-finish, .race-go, .race-lane { animation: none !important; transition: none !important; }
+  .race-dust, .race-spark { display: none; }
 }
