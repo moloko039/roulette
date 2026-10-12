@@ -34,8 +34,9 @@ def collapse(seq):
 
 def drop_background_me(seq):
     """Фоновый GET /api/me (минутный тик, повтор после раунда) приходит между действиями в момент, зависящий от скорости машины:
-    его позиция не предмет проверки. Остаётся только первый запрос сценария."""
-    return [line for i, line in enumerate(seq) if not (i > 0 and line == "GET /api/me")]
+    его позиция не предмет проверки. Остаётся только первый запрос сценария. Так же отбрасывается фоновый опрос живой карточки краша
+    на главной (`GET /api/crash/live?peek=1…` раз в 1,5 с, число зависит от времени)."""
+    return [line for i, line in enumerate(seq) if not (i > 0 and line == "GET /api/me") and not line.startswith("GET /api/crash/live?peek=1")]
 
 
 def prep(seq, name):

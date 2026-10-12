@@ -11,6 +11,8 @@ async def run(w):
     check("при запуске виден только титульный экран", await p.ev(visible), "lobby")
     check("порядок игр на титульном экране", await p.ev("[...document.querySelectorAll('.lobby-card')].map(e => e.dataset.game)"), ORDER)
     check("баланс в лобби", await p.ev("document.getElementById('lobby-balance').textContent.replace(/\\s/g, '')"), "100000")
+    check("краш крупной карточкой во всю ширину", await p.ev("(() => { const c = document.querySelector('.lobby-card[data-game=crash]'); const g = document.getElementById('lobby-grid'); return c.classList.contains('wide') && Math.abs(c.getBoundingClientRect().width - g.getBoundingClientRect().width) < 2; })()"), True)
+    await p.wait("/^(Раунд общий|Приём ставок: \\d+ с|×\\d|Крах ×)/.test(document.querySelector('.lobby-live-cap').textContent)", 10, "живая подпись краша на карточке (опрос раунда)")
     check("все игры доступны (заглушек нет)", await p.ev("[...document.querySelectorAll('.lobby-card')].every(e => e.dataset.soon === 'false')"), True)
 
     await p.tap(".lobby-card[data-game=hilo]")

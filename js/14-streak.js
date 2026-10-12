@@ -31,6 +31,8 @@ function renderStreak() {
   if (!d) return;
   streakEls.card.disabled = d.claimed_today || streakState.busy;
   streakEls.card.setAttribute('aria-disabled', String(d.claimed_today));
+  streakEls.card.classList.toggle('claimable', !d.claimed_today);                  // золотая точка: награду можно забрать
+  streakEls.title.dataset.days = String(d.claimed_today ? d.streak_day : Math.max(0, d.streak_day - 1));      // огонёк с числом дней серии
   streakEls.title.textContent = d.claimed_today ? 'Награда получена' : 'Награда дня';
   streakEls.sub.textContent = d.claimed_today ? 'Завтра: ' + streakRewardText(d.reward.chips, d.reward.gems) : 'День ' + d.streak_day + ' из 7: ' + streakRewardText(d.reward.chips, d.reward.gems);
   streakEls.week.textContent = '';

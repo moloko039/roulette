@@ -64,6 +64,13 @@ try:
     check("POST cashout 401", ca.post("/api/crash/live/cashout", json={"request_id": "r1"}).status_code, 401)
 
     T = 1000000000000
+    # peek=1 (живая карточка на главной): пока раунда нет, он не открывается, ответ с пустым раундом
+    with mock.patch("crash_live.now_ms", return_value=T):
+        r = ca.get("/api/crash/live?peek=1", headers=auth(A))
+        check("peek: ответ без раунда", (r.status_code, r.json()["round"], r.json()["bets"], r.json()["v"]), (200, None, [], "peek"))
+        conn = sqlite3.connect(path)
+        check("peek: раунд не открыт", conn.execute("SELECT COUNT(*) FROM crash_rounds").fetchone()[0], 0)
+        conn.close()
     with mock.patch("crash_live.now_ms", return_value=T), mock.patch("crash_live.crash_from_seed", return_value=10000):
         # GET даёт ключи состояния и фазу betting
         r = ca.get("/api/crash/live", headers=auth(A))

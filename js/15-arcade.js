@@ -175,13 +175,35 @@ window.addEventListener('message', (e) => {
   }
 });
 
+// Превью карточки слота: поле 6×5 символов статичным кадром (рисунок, не кадр игры)
+const ARCADE_PREVIEW_SVG = (() => {
+  const cols = 6;
+  const rows = 4;
+  const symbols = [
+    '<circle cx="{x}" cy="{y}" r="7"/>',
+    '<rect x="{x0}" y="{y0}" width="13" height="13" rx="3"/>',
+    '<path d="M{x} {y1}L{x1} {y}L{x} {y2}L{x2} {y}Z"/>'
+  ];
+  let out = '<svg viewBox="0 0 252 96" preserveAspectRatio="xMidYMid meet" class="arcade-reels">';
+  for (let c = 0; c < cols; c++) {
+    out += '<rect class="reel" x="' + (c * 42 + 2) + '" y="2" width="38" height="92" rx="6"/>';
+    for (let r = 0; r < rows; r++) {
+      const x = c * 42 + 21;
+      const y = r * 22 + 13;
+      const s = symbols[(c * 3 + r * 2 + (c % 2)) % symbols.length];
+      out += '<g class="sym s' + ((c + r) % 3) + '">' + s.replace(/\{x0\}/g, x - 6.5).replace(/\{y0\}/g, y - 6.5).replace(/\{x1\}/g, x + 7).replace(/\{x2\}/g, x - 7).replace(/\{y1\}/g, y - 8).replace(/\{y2\}/g, y + 8).replace(/\{x\}/g, x).replace(/\{y\}/g, y) + '</g>';
+    }
+  }
+  return out + '</svg>';
+})();
+
 EMBEDDED_GAMES.forEach((game) => {
   const card = document.createElement('button');
   card.type = 'button';
   card.className = 'arcade-card';
   card.dataset.embedded = game.id;
   card.setAttribute('role', 'menuitem');
-  card.innerHTML = '<span class="arcade-name"></span><span class="arcade-hint"></span>';
+  card.innerHTML = '<span class="arcade-preview" aria-hidden="true">' + ARCADE_PREVIEW_SVG + '</span><span class="arcade-name"></span><span class="arcade-hint"></span>';
   card.querySelector('.arcade-name').textContent = game.label;
   card.querySelector('.arcade-hint').textContent = game.hint || '';
   card.addEventListener('click', () => openEmbedded(game.id));

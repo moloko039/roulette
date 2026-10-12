@@ -38,6 +38,9 @@ def register(app, ctx):
         args = dict(telegram_id=info["user_id"], room_key=r_key, now_ms=crash_live.now_ms(), chat_instance=chat_instance, db_path=db_path, client_v=v_param)
         # опрос: читающий путь (доли миллисекунды) прямо в цикле событий, запись (смена фазы раунда) в пуле потоков
         res = crash_live_db.live_state_read(**args)
+        if res is None and request.query_params.get("peek") == "1":
+            # «посмотреть, не начиная»: живая карточка на главной не должна открывать раунды и тратить запись (только читающий путь)
+            return {"server_ms": args["now_ms"], "v": "peek", "history": [], "round": None, "me": None, "bets": []}
         if res is None:
             res = await run_in_threadpool(lambda: crash_live_db.live_state(**args))
         return res

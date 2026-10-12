@@ -74,6 +74,7 @@ function showTab(id) {
   if (screen === 'crash') crResume();
   else crPause();
   skinScreenChanged(screen);                       // сцены скинов только у открытого экрана игры
+  if (typeof lobbyCrashStart === 'function') { if (screen === 'lobby') lobbyCrashStart(); else lobbyCrashStop(); }   // живая карточка краша на главной
   if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');
   if (started && screen === 'lobby') loadStreak();
   if (started && screen === 'rating') loadRating('open');
