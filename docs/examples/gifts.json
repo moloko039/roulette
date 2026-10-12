@@ -7,7 +7,7 @@
         "ref": "0123456789abcdef0123456789abcdef"
       }
     ],
-    "daily_left": 5,
+    "daily_left": 20,
     "gems": 400
   },
   "send": {
@@ -18,7 +18,7 @@
     },
     "recipient": "Боб",
     "gems": 250,
-    "daily_left": 4,
+    "daily_left": 19,
     "replayed": false
   }
 }

@@ -488,12 +488,12 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Покупка фишек (план экономики, этап E6). Фишки можно только купить: продать, вывести, обменять на деньги, Stars, подарки и ценности или передать другому игроку нельзя. Пакет равен нескольким часам фермы игрока: фишек в пакете = часы × доход в час игрока (не меньше часов × 100, не больше 10 000 000). Покупка не даёт опыт, не считается ставкой и не меняет уровень. Пакеты, цены и лимит лежат в `bot/economy_config.py` (`CHIP_PACKS`, `CHIP_PACK_DAILY_LIMIT`).
 
 ### GET /api/chips/packs
-Группа read. 200: `{"packs": [{"code" ("chips_*"), "gems" int, "hours" int, "chips" int}], "gems" int, "balance" int, "daily_left" int}`: пакеты по возрастанию цены с числом фишек именно для этого игрока, его кристаллы, фишки и сколько покупок осталось за скользящие 24 часа.
+Группа read. 200: `{"packs": [{"code" ("chips_*"), "gems" int, "hours" int, "chips" int}], "gems" int, "balance" int}`: пакеты по возрастанию цены с числом фишек именно для этого игрока, его кристаллы и фишки. Лимита покупок нет (снят решением владельца 2026-10-12).
 
 ### POST /api/chips/buy
-Группа write. Тело: `{"request_id", "pack_code"}`. 200: `{"pack_code", "gems_spent", "chips", "balance" (фишки после покупки), "gems" (кристаллы после покупки), "daily_left", "replayed"}`.
-Одна транзакция: повтор по `(игрок, request_id)`, суточный лимит, начисление дохода, `wallet.gems_debit` (причина `chip_purchase`), `wallet.credit`, запись в `chip_purchases` (365 дней). Повтор того же `request_id` отдаёт то же без списания.
-Ошибки: 400 `invalid_request`; 404 `unknown_pack`; 409 `insufficient_gems`, `daily_limit`, `balance_limit` (фишки не поместились бы под потолок баланса, кристаллы не списываются), `request_conflict`; 429. Примеры: `docs/examples/chips.json`.
+Группа write. Тело: `{"request_id", "pack_code"}`. 200: `{"pack_code", "gems_spent", "chips", "balance" (фишки после покупки), "gems" (кристаллы после покупки), "replayed"}`.
+Одна транзакция: повтор по `(игрок, request_id)`, начисление дохода, `wallet.gems_debit` (причина `chip_purchase`), `wallet.credit`, запись в `chip_purchases` (365 дней). Повтор того же `request_id` отдаёт то же без списания.
+Ошибки: 400 `invalid_request`; 404 `unknown_pack`; 409 `insufficient_gems`, `balance_limit` (фишки не поместились бы под потолок баланса, кристаллы не списываются), `request_conflict`; 429. Примеры: `docs/examples/chips.json`.
 
 ## Серия входов
 Ежедневная награда (`docs/ECONOMY_ADDITIONS.md`, п. 3). «День» по московскому времени (UTC+3, `economy_config.STREAK_UTC_OFFSET_HOURS`). Дни 1-6 цикла: фишки по нарастающей (300, 400, 500, 600, 800, 1000), день 7: те же 1000 фишек и 5 кристаллов; следующий цикл щедрее на 25 % (потолок x2, кристаллов до 8).

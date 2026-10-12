@@ -92,7 +92,7 @@ try:
     path = new_db(balance=10_000, rate=448, gems=300)
     before = me(path)
     r = db.buy_chip_pack(A, "chip-req-000001", "chips_24h", now=NOW, db_path=path)
-    check("ответ: фишки, кристаллы, баланс", (r["chips"], r["gems_spent"], r["balance"], r["gems"], r["daily_left"], r["replayed"]), (10_752, 100, 20_752, 200, 4, False))
+    check("ответ: фишки, кристаллы, баланс", (r["chips"], r["gems_spent"], r["balance"], r["gems"], r["replayed"]), (10_752, 100, 20_752, 200, False))
     after = me(path)
     check("фишки зачислены, а опыт, ставки, уровни и доход прежние", (after[0], after[1:]), (20_752, before[1:]))
     check("журнал кристаллов: списание с причиной и ref", sql(path, "SELECT delta, reason, ref FROM gems_ledger ORDER BY id DESC LIMIT 1"), [(-100, "chip_purchase", "chip-req-000001")])
@@ -121,15 +121,13 @@ try:
         raises(RuntimeError, db.buy_chip_pack, A, "chip-req-000022", "chips_6h", now=NOW, db_path=path)
     check("сбой после списания кристаллов: всё откатилось", (db.gems_state(A, path)["gems"], me(path)[0], sql(path, "SELECT COUNT(*) FROM chip_purchases")[0][0], ledger_ok(path)), (100, 1, 0, True))
 
-    # ================= суточный лимит =================
+    # ================= лимита покупок нет (решение владельца 2026-10-12) =================
     path = new_db(balance=0, rate=100, gems=1000)
-    for i in range(economy_config.CHIP_PACK_DAILY_LIMIT):
+    for i in range(12):
         r = db.buy_chip_pack(A, "chip-lim-%06d" % i, "chips_6h", now=NOW + i, db_path=path)
-    check("после лимита осталось 0", r["daily_left"], 0)
-    raises(db.DailyLimit, db.buy_chip_pack, A, "chip-lim-000099", "chips_6h", now=NOW + 10, db_path=path)
-    check("лимит: ничего не списано сверх", (db.gems_state(A, path)["gems"], me(path)[0]), (1000 - 5 * 30, 5 * 600))
-    check("повтор прежнего request_id при исчерпанном лимите всё равно отвечает", db.buy_chip_pack(A, "chip-lim-000001", "chips_6h", now=NOW + 11, db_path=path)["replayed"], True)
-    check("через 24 часа лимит снова доступен", db.buy_chip_pack(A, "chip-lim-000098", "chips_6h", now=NOW + 86400 + 10, db_path=path)["daily_left"], 4)
+    check("12 покупок подряд без лимита", (db.gems_state(A, path)["gems"], me(path)[0], "daily_left" in r), (1000 - 12 * 30, 12 * 600, False))
+    check("повтор прежнего request_id отвечает без списания", db.buy_chip_pack(A, "chip-lim-000001", "chips_6h", now=NOW + 13, db_path=path)["replayed"], True)
+    check("DailyLimit удалён", hasattr(db, "DailyLimit"), False)
 
     # ================= параллельные запросы =================
     path = new_db(balance=0, rate=100, gems=100)
@@ -169,10 +167,10 @@ try:
     r = client.get("/api/chips/packs", headers=auth())
     check("пакеты: фишки по доходу игрока, кристаллы, баланс, остаток на сегодня", (r.status_code, r.json()), (200, {"packs": [
         {"code": "chips_6h", "gems": 30, "hours": 6, "chips": 2688}, {"code": "chips_24h", "gems": 100, "hours": 24, "chips": 10752},
-        {"code": "chips_72h", "gems": 250, "hours": 72, "chips": 32256}], "gems": 130, "balance": 5000, "daily_left": 5}))
+        {"code": "chips_72h", "gems": 250, "hours": 72, "chips": 32256}], "gems": 130, "balance": 5000}))
     body = {"request_id": "chip-api-000001", "pack_code": "chips_24h"}
     r = client.post("/api/chips/buy", headers=auth(), json=body)
-    check("покупка через API", (r.status_code, r.json()), (200, {"pack_code": "chips_24h", "gems_spent": 100, "chips": 10752, "balance": 15752, "gems": 30, "daily_left": 4, "replayed": False}))
+    check("покупка через API", (r.status_code, r.json()), (200, {"pack_code": "chips_24h", "gems_spent": 100, "chips": 10752, "balance": 15752, "gems": 30, "replayed": False}))
     check("повтор", client.post("/api/chips/buy", headers=auth(), json=body).json()["replayed"], True)
     check("нехватка кристаллов", (lambda x: (x.status_code, x.json()))(client.post("/api/chips/buy", headers=auth(), json={"request_id": "chip-api-000002", "pack_code": "chips_72h"})), (409, {"detail": "insufficient_gems"}))
     check("неизвестный пакет", (lambda x: (x.status_code, x.json()))(client.post("/api/chips/buy", headers=auth(), json={"request_id": "chip-api-000003", "pack_code": "nope"})), (404, {"detail": "unknown_pack"}))

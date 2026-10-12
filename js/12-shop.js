@@ -15,7 +15,7 @@ const shopEls = {
 };
 const CHIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>';
 const CHIP_CONFIRM_MS = 5000;
-const chipShop = { packs: null, dailyLeft: null, loading: false, busy: false, confirm: null, timer: 0, msg: '' };
+const chipShop = { packs: null, loading: false, busy: false, confirm: null, timer: 0, msg: '' };
 const shop = { open: false, page: 'look', gems: null, packs: null, loading: false, busy: false, paying: false, payCode: null, pollGen: 0, msg: '' };
 
 // Ответ GET /api/gems/packs: пакеты с кодом gems_*, звёзды и кристаллы целые и разумные; всё остальное отбрасывается
@@ -80,8 +80,7 @@ function renderShop() {
 
 // ---------- фишки за кристаллы (E6) ----------
 function validChipPacks(d) {
-  return !!d && Array.isArray(d.packs) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
-    && Number.isSafeInteger(d.daily_left) && d.daily_left >= 0 && d.daily_left <= 1000;
+  return !!d && Array.isArray(d.packs) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0;
 }
 
 function normalizeChipPacks(d) {
@@ -109,7 +108,7 @@ function renderChipPacks() {
     btn.type = 'button';
     btn.className = 'gem-pack';
     btn.dataset.code = p.code;
-    btn.disabled = chipShop.busy || (chipShop.dailyLeft !== null && chipShop.dailyLeft <= 0);
+    btn.disabled = chipShop.busy;
     const icon = document.createElement('span');
     icon.className = 'gem-pack-icon';
     icon.innerHTML = CHIP_SVG;       // постоянная разметка значка
@@ -139,9 +138,8 @@ async function loadChipPacks() {
   try {
     const d = await fetchGameState('/api/chips/packs', validChipPacks);
     chipShop.packs = normalizeChipPacks(d);
-    chipShop.dailyLeft = d.daily_left;
     shop.gems = d.gems;
-    setChipMsg(d.daily_left <= 0 ? 'На сегодня пакеты закончились, попробуйте завтра' : '');
+    setChipMsg('');
   } catch (e) {
     setChipMsg(e && e.text ? e.text : 'Нет связи с сервером');
   } finally {
@@ -154,14 +152,13 @@ function chipErrorText(r) {
   if (r.kind === 'conflict') {
     return ({
       insufficient_gems: 'Не хватает кристаллов. Их можно купить на странице «Кристаллы»', balance_limit: 'Баланс фишек достиг предела',
-      daily_limit: 'Сегодня больше пакетов нельзя, попробуйте завтра', request_conflict: 'Запрос уже обработан, обновите экран', unknown_item: 'Такого пакета нет'
+      request_conflict: 'Запрос уже обработан, обновите экран', unknown_item: 'Такого пакета нет'
     })[r.detail] || 'Не удалось выполнить покупку';
   }
   return wdErrorText(r);
 }
 
-const validChipBuy = (d) => !!d && Number.isSafeInteger(d.chips) && Number.isSafeInteger(d.gems_spent) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0
-  && Number.isSafeInteger(d.daily_left) && d.daily_left >= 0;
+const validChipBuy = (d) => !!d && Number.isSafeInteger(d.chips) && Number.isSafeInteger(d.gems_spent) && Number.isSafeInteger(d.gems) && d.gems >= 0 && Number.isSafeInteger(d.balance) && d.balance >= 0;
 
 // Покупка пакета: первое нажатие просит подтвердить (5 секунд), второе отправляет один запрос с одним request_id
 async function buyChipPack(pack) {
@@ -187,7 +184,6 @@ async function buyChipPack(pack) {
   if (result && result.kind === 'ok') {
     const d = result.data;
     shop.gems = d.gems;
-    chipShop.dailyLeft = d.daily_left;
     wdApplyBalance(d.balance);
     setChipMsg('Куплено: ' + formatNumber(d.chips) + ' фишек за ' + formatNumber(d.gems_spent) + ' кристаллов');
     haptic('success');

@@ -93,7 +93,7 @@ try:
     # ---- получатели
     path = new_db()
     r = db.gift_recipients(A, CHAT, now=NOW, db_path=path)
-    check("получатели: Боб и Вера, без самого игрока и без чужой беседы, свежие первыми", ([x["name"] for x in r["recipients"]], r["daily_left"], r["gems"]), (["Боб", "Вера"], 5, 1000))
+    check("получатели: Боб и Вера, без самого игрока и без чужой беседы, свежие первыми", ([x["name"] for x in r["recipients"]], r["daily_left"], r["gems"]), (["Боб", "Вера"], 20, 1000))
     check("в ответе нет Telegram id", str(B) in json.dumps(r), False)
     raises(gifts_db.NoChat, db.gift_recipients, A, None, db_path=path)
     raises(gifts_db.NotInChat, db.gift_recipients, 999, CHAT, db_path=path)
@@ -102,7 +102,7 @@ try:
     # ---- отправка
     before = sql(path, "SELECT balance, xp, total_staked FROM players WHERE telegram_id = ?", (A,))[0]
     res, notice = db.send_gift(A, CHAT, "gift-req-000001", ref(B), "table_blue", "Алиса", now=NOW, db_path=path)
-    check("подарок: ответ", (res["item_code"], res["price"], res["recipient"], res["gems"], res["daily_left"], res["replayed"]), ("table_blue", {"currency": "gems", "amount": 150}, "Боб", 850, 4, False))
+    check("подарок: ответ", (res["item_code"], res["price"], res["recipient"], res["gems"], res["daily_left"], res["replayed"]), ("table_blue", {"currency": "gems", "amount": 150}, "Боб", 850, 19, False))
     check("уведомление для бота", notice, {"to_user": B, "from_name": "Алиса", "item_name": "Лагуна"})
     check("предмет у получателя с источником gift, у отправителя его нет", (sql(path, "SELECT source FROM cosmetic_items WHERE telegram_id = ? AND item_code = 'table_blue'", (B,)), sql(path, "SELECT COUNT(*) FROM cosmetic_items WHERE telegram_id = ?", (A,))[0][0]), ([("gift",)], 0))
     check("журнал кристаллов: списание gift_purchase", sql(path, "SELECT delta, reason, ref FROM gems_ledger WHERE delta < 0"), [(-150, "gift_purchase", "gift:gift-req-000001")])
@@ -138,7 +138,10 @@ try:
     # получатель не может передарить подаренное: подарить можно только предмет из магазина, но не «тот же экземпляр»; у получателя нет пути передачи
     check("у получателя подарок есть, но передачи нет (нет такого API и записи у отправителя)", (db.cosmetics_mine(B, db_path=path)["owned"][0]["code"], sql(path, "SELECT COUNT(*) FROM gifts WHERE from_user = ?", (B,))[0][0]), ("table_blue", 0))
 
-    # ---- суточный лимит
+    # ---- суточный лимит (по решению владельца 2026-10-12: 20 в сутки; проверку исчерпания делаем на лимите 5, чтобы не заводить 20 разных подарков)
+    check("лимит подарков в сутки", economy_config.GIFT_DAILY_LIMIT, 20)
+    limit_patch = __import__("unittest.mock", fromlist=["patch"]).patch.object(economy_config, "GIFT_DAILY_LIMIT", 5)
+    limit_patch.start()
     path = new_db(gems_a=2000)
     for i, code in enumerate(("table_blue", "crash_neon", "back_midnight", "keno_hex")):
         db.send_gift(A, CHAT, "gift-lim-%06d" % i, ref(B), code, "Алиса", now=NOW + i, db_path=path)
@@ -146,6 +149,7 @@ try:
     check("лимит: пять подарков за сутки исчерпаны", db.gift_recipients(A, CHAT, now=NOW + 20, db_path=path)["daily_left"], 0)
     raises(gifts_db.GiftDailyLimit, db.send_gift, A, CHAT, "gift-lim-000011", ref(C), "crash_neon", "Алиса", now=NOW + 20, db_path=path)
     check("через сутки лимит снова доступен", db.gift_recipients(A, CHAT, now=NOW + 86400 + 100, db_path=path)["daily_left"], 5)
+    limit_patch.stop()
 
     # ---- гонки
     path = new_db(gems_a=1000)

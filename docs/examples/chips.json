@@ -22,8 +22,7 @@
       }
     ],
     "gems": 130,
-    "balance": 1000,
-    "daily_left": 5
+    "balance": 1000
   },
   "buy": {
     "pack_code": "chips_24h",
@@ -31,7 +30,6 @@
     "chips": 2400,
     "balance": 3400,
     "gems": 30,
-    "daily_left": 4,
     "replayed": false
   }
 }
