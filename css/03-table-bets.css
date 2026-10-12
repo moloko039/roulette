@@ -46,6 +46,9 @@
   white-space: nowrap;
 }
 
+/* сводка ставок над столом */
+.table-summary { flex: none; margin: 0; font-size: 13px; color: var(--text-muted); font-variant-numeric: lining-nums tabular-nums; }
+
 /* внешние ставки одной сегментированной полосой: чёт, красное, чёрное, нечет */
 .outside-row {
   grid-column: 1 / -1;
@@ -302,3 +305,16 @@
 #spin:active:not(:disabled), .keno-play:active:not(:disabled) { transform: scale(0.98); }
 #spin:disabled, .keno-play:disabled { box-shadow: none; }
 
+
+/* выпавшее число на столе: золотое кольцо, мигает прозрачностью (только opacity) */
+.cell.hit::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--gold);
+  border-radius: 7px;
+  pointer-events: none;
+  animation: cell-hit 0.9s ease-in-out 3;
+}
+@keyframes cell-hit { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .cell.hit::after { animation: none; } }

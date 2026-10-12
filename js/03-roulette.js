@@ -65,13 +65,7 @@ function loadState() {
 
 function renderHistory() {
   historyEl.innerHTML = '';
-  if (spinHistory.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'history-empty';
-    li.textContent = 'пока пусто';
-    historyEl.appendChild(li);
-    return;
-  }
+  if (spinHistory.length === 0) return;      // пустую ленту не подписываем: под ней сводка ставок
   spinHistory.forEach((n) => {
     const li = document.createElement('li');
     li.className = getColor(n);
@@ -298,6 +292,22 @@ function spin() {
 }
 
 // Анимация к числу из ответа сервера; баланс на экране не меняется до её конца
+// Выпавшее число подсвечивается на столе, пока игрок не сделает следующую ставку или не пройдёт 4 секунды
+let hitTimer = 0;
+function markHitCell(n) {
+  clearHitCell();
+  const cell = tableEl.querySelector('.cell[data-key="number:' + n + '"]');
+  if (!cell) return;
+  cell.classList.add('hit');
+  hitTimer = setTimeout(clearHitCell, 4000);
+}
+function clearHitCell() {
+  clearTimeout(hitTimer);
+  tableEl.querySelectorAll('.cell.hit').forEach((c) => c.classList.remove('hit'));
+}
+const wheelSkipBtn = document.getElementById('wheel-skip');
+wheelSkipBtn.addEventListener('click', () => { spinSkip = true; });
+
 function playRound(round, data) {
   game.phase = 'animating';
   updateControls();
@@ -306,10 +316,13 @@ function playRound(round, data) {
   layerWinEl.className = 'layer-win';
   layerWinEl.textContent = '';
   wheelLayer.classList.add('active');
+  wheelSkipBtn.hidden = false;
   animateSpin(WHEEL_ORDER.indexOf(data.number), () => {
+    wheelSkipBtn.hidden = true;
     layerResultEl.textContent = data.number;
     layerResultEl.className = 'layer-result ' + getColor(data.number);
     showResult(round, data);
+    markHitCell(data.number);
     setTimeout(() => wheelLayer.classList.remove('active'), RESULT_HOLD_MS);
   });
 }

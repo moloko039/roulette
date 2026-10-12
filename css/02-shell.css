@@ -177,15 +177,3 @@
 .history-list li.black { background: var(--table-black); }
 .history-list li.green { background: var(--table-green); border-color: transparent; }
 .history-list li:first-child { border-color: var(--border-strong); }
-
-.history-list li.history-empty {
-  width: auto;
-  height: auto;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
-  border: none;
-  border-radius: 0;
-}
-

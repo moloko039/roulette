@@ -1,7 +1,8 @@
 // #region Колесо рулетки
 // ---------- рулетка: колесо и canvas ----------
 const SECTOR = 360 / WHEEL_ORDER.length; // угол одного сектора
-const SPIN_TIME_MS = 7000;               // сколько длится вращение колеса и шарика
+const SPIN_TIME_MS = 5500;               // сколько длится вращение колеса и шарика (UI_REVIEW: 4–6 с, «Пропустить» заканчивает сразу)
+let spinSkip = false;                    // нажата «Пропустить»: следующий кадр уже финальный
 
 const canvas = document.getElementById('wheel');
 const ctx = canvas.getContext('2d');
@@ -133,9 +134,10 @@ function animateSpin(index, onDone) {
   const startRel = finalRel + back - laps * 360;
   const startRadius = ballRadius;
   const t0 = performance.now();
+  spinSkip = false;
 
   function frame(now) {
-    const p = Math.min((now - t0) / SPIN_TIME_MS, 1);
+    const p = spinSkip ? 1 : Math.min((now - t0) / SPIN_TIME_MS, 1);
     const e = easeOutCubic(p);
     wheelAngle = wheelStart + wheelTravel * e;
 

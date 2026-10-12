@@ -12,7 +12,7 @@ let lastBets = []; // ставки предыдущего раунда — дл�
 const serverColumnOf = (n) => ((n - 1) % 3) + 1;
 
 // Строим вертикальный стол: 0 сверху, слева дюжины, три колонки чисел 1–36,
-// под ними ставки на колонки (2 к 1), внизу внешние ставки.
+// под ними ставки на колонки (2 к 1); внешние ставки (чёт, красное, чёрное, нечет) компактным рядом НАД сеткой (UI_REVIEW, рулетка).
 function buildTable() {
   const addCell = (parent, cls, label, type, value = null, place = {}) => {
     const btn = document.createElement('button');
@@ -29,27 +29,10 @@ function buildTable() {
   };
 
   // Сетка: колонка 1 — дюжины, колонки 2–4 — числа (в ряду r: 3r-2, 3r-1, 3r).
-  // Ряд 1: «0», ряды 2–13: числа, ряд 14: колонки, ряд 15: внешние ставки
-  addCell(tableEl, 'green', '0', 'number', 0, { row: '1', col: '1 / -1' });
-  for (let n = 1; n <= 36; n++) {
-    addCell(tableEl, getColor(n), String(n), 'number', n, {
-      row: String(2 + Math.floor((n - 1) / 3)),
-      col: String(2 + ((n - 1) % 3))
-    });
-  }
-  for (let d = 1; d <= 3; d++) {
-    addCell(tableEl, 'dozen', DOZEN_NAME[d], 'dozen', d, {
-      row: `${2 + (d - 1) * 4} / span 4`,
-      col: '1'
-    });
-  }
-  // ячейка под столбцом, где первое число i + 1 (1, 2 или 3)
-  for (let i = 1; i <= 3; i++) {
-    addCell(tableEl, 'column', '2 к 1', 'column', serverColumnOf(i), { row: '14', col: String(1 + i) });
-  }
+  // Ряд 1: внешние ставки, ряд 2: «0», ряды 3–14: числа, ряд 15: колонки
   const outsideRow = document.createElement('div');
   outsideRow.className = 'outside-row';
-  outsideRow.style.gridRow = '15';
+  outsideRow.style.gridRow = '1';
   tableEl.appendChild(outsideRow);
   [
     ['plain', 'Чёт', 'even'],
@@ -57,10 +40,29 @@ function buildTable() {
     ['black', 'Чёрн.', 'black'],
     ['plain', 'Нечет', 'odd']
   ].forEach(([cls, label, type]) => addCell(outsideRow, cls + ' outside', label, type));
+  addCell(tableEl, 'green', '0', 'number', 0, { row: '2', col: '1 / -1' });
+  for (let n = 1; n <= 36; n++) {
+    addCell(tableEl, getColor(n), String(n), 'number', n, {
+      row: String(3 + Math.floor((n - 1) / 3)),
+      col: String(2 + ((n - 1) % 3))
+    });
+  }
+  for (let d = 1; d <= 3; d++) {
+    addCell(tableEl, 'dozen', DOZEN_NAME[d], 'dozen', d, {
+      row: `${3 + (d - 1) * 4} / span 4`,
+      col: '1'
+    });
+  }
+  // ячейка под столбцом, где первое число i + 1 (1, 2 или 3)
+  for (let i = 1; i <= 3; i++) {
+    addCell(tableEl, 'column', '2 к 1', 'column', serverColumnOf(i), { row: '15', col: String(1 + i) });
+  }
 }
 
 // Кладём на клетки стола фишки с суммой ставки
 function renderChips() {
+  const summary = document.getElementById('table-summary');
+  if (summary) summary.textContent = 'Ставок: ' + bets.length + ' · Сумма: ' + formatCompact(bets.reduce((sum, b) => sum + b.amount, 0));   // заполняется по ходу (вместо «пока пусто»)
   tableEl.querySelectorAll('.cell').forEach((cell) => {
     const old = cell.querySelector('.stack');
     if (old) old.remove();
@@ -79,6 +81,7 @@ skinSetHost('table', () => document.getElementById('table'));
 
 function placeBet(type, value = null) {
   if (gameBusy() || !srv.loaded) return;
+  clearHitCell();
   const amount = Number(amountEl.value);
   if (!Number.isSafeInteger(amount) || amount < 1) {
     setMessage('Введите целую сумму ставки от 1', 'lose');

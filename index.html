@@ -11,12 +11,12 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="css/00-fonts-tokens.css?v=c30e2ac9">
   <link rel="stylesheet" href="css/01-skins.css?v=218128de">
-  <link rel="stylesheet" href="css/02-shell.css?v=40ce0c5b">
+  <link rel="stylesheet" href="css/02-shell.css?v=8e1a98df">
   <link rel="stylesheet" href="css/02a-result.css?v=405f0d68">
-  <link rel="stylesheet" href="css/03-table-bets.css?v=b642b2bb">
+  <link rel="stylesheet" href="css/03-table-bets.css?v=683e5e95">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
   <link rel="stylesheet" href="css/05-profile-rating.css?v=f9aac760">
-  <link rel="stylesheet" href="css/06-mines-wheel.css?v=3c32beb2">
+  <link rel="stylesheet" href="css/06-mines-wheel.css?v=8c4cbb96">
   <link rel="stylesheet" href="css/07-keno.css?v=2003465a">
   <link rel="stylesheet" href="css/08-blackjack.css?v=794d5086">
   <link rel="stylesheet" href="css/09-crash.css?v=7a2e179e">
@@ -116,6 +116,7 @@
       <ol class="history-list" id="history-list" aria-label="Последние числа"></ol>
     </div>
 
+    <p class="table-summary" id="table-summary" aria-live="polite">Ставок: 0 · Сумма: 0</p>
     <div class="table" id="table" aria-label="Стол"></div>
 
     <section class="bets bets-dock" id="bets">
@@ -700,6 +701,7 @@
       <canvas id="wheel" width="600" height="600"></canvas>
       <div class="ball" id="ball"></div>
     </div>
+    <button type="button" class="wheel-skip" id="wheel-skip">Пропустить</button>
     <div class="layer-result" id="layer-result"></div>
     <div class="layer-win" id="layer-win" aria-hidden="true"></div>
   </div>
@@ -767,9 +769,9 @@
   <script src="js/01a-skin-runtime.js?v=8e0bbaa7"></script>
   <script src="js/01b-result.js?v=c36f4dc6"></script>
   <script src="js/02-bet.js?v=abda8ac3"></script>
-  <script src="js/03a-roulette-wheel.js?v=abb5585d"></script>
-  <script src="js/03b-roulette-table.js?v=b1ab3b14"></script>
-  <script src="js/03-roulette.js?v=b1c23dea"></script>
+  <script src="js/03a-roulette-wheel.js?v=d4116f8f"></script>
+  <script src="js/03b-roulette-table.js?v=34563506"></script>
+  <script src="js/03-roulette.js?v=49ba2ba4"></script>
   <script src="js/04-profile.js?v=9ba848bd"></script>
   <script src="js/05-rating.js?v=5b1e8b67"></script>
   <script src="js/06-farm.js?v=157ee67a"></script>

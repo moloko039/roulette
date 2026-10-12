@@ -68,8 +68,6 @@
   justify-content: center;
   gap: var(--space-4);
   background: var(--scrim);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -81,6 +79,15 @@
   visibility: visible;
   pointer-events: auto;
 }
+.wheel-skip {
+  padding: 8px 20px;
+  font-size: 14px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.wheel-skip[hidden] { display: none; }
 
 .wheel-box {
   position: relative;
