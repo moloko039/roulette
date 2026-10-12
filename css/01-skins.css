@@ -62,9 +62,9 @@
   --mines-cell-border: var(--border);
   --mines-cell-text: var(--text);
   --mines-cell-active-bg: var(--surface-3);
-  --mines-safe-bg: var(--surface);
-  --mines-safe-border: var(--border-strong);
-  --mines-safe-glow: rgba(245, 245, 242, 0.5);
+  --mines-safe-bg: rgba(227, 185, 100, 0.12);       /* открытая клетка: тёплая заливка и золотой кристалл (UI_REVIEW, мины) */
+  --mines-safe-border: var(--gold-line);
+  --mines-safe-glow: rgba(227, 185, 100, 0.45);
   --mines-bomb-bg: var(--red);
   --mines-bomb-text: var(--text);
   --mines-muted-bg: var(--surface-2);
@@ -73,7 +73,7 @@
   --mines-hit-ring: var(--red-soft);
   --mines-opening-a: var(--surface-2);
   --mines-opening-b: var(--surface-3);
-  --mines-safe-text: initial;
+  --mines-safe-text: var(--gold);
 }
 
 :root,

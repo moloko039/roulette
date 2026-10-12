@@ -526,22 +526,7 @@
 .mines-label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-muted); }
 .mines-count-card { gap: var(--space-2); }
 
-.mines-count-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.mines-step { flex: none; width: 52px; height: 48px; padding: 0; font-size: 24px; }
-
-.mines-count {
-  flex: 1;
-  font-family: var(--font-display);
-  font-variant-numeric: lining-nums tabular-nums;
-  font-size: 32px;
-  font-weight: 600;
-  text-align: center;
-}
+.mines-hint { margin: 0; font-size: 13px; color: var(--text-muted); font-variant-numeric: lining-nums tabular-nums; }
 
 /* быстрые значения: пять равных колонок */
 .mines-quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
@@ -606,6 +591,14 @@
 .mines-cell.mine.muted { background: var(--mines-muted-bg); color: var(--mines-muted-text); border-color: var(--mines-cell-border); }
 .mines-cell.mine.hit { background: var(--mines-bomb-bg); color: var(--mines-bomb-text); border-color: var(--mines-hit-border); box-shadow: 0 0 0 2px var(--mines-hit-ring); }
 .mines-board.locked .mines-cell:not(.safe):not(.mine) { opacity: 0.6; }
+/* открытая клетка вспыхивает один раз (scale и opacity); проигрыш: поле вздрагивает, мины показываются по очереди */
+.mines-cell.safe.fresh { animation: mines-flash 0.28s ease-out; }
+@keyframes mines-flash { 0% { transform: scale(0.82); opacity: 0.4; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: none; } }
+.mines-board.shake { animation: mines-shake 0.36s ease-out; }
+@keyframes mines-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+.mines-board[data-status="lost"] .mines-cell.mine { animation: mines-reveal 0.22s ease-out backwards; animation-delay: calc(var(--mi, 0) * 50ms); }
+@keyframes mines-reveal { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mines-cell.safe.fresh, .mines-board.shake, .mines-board[data-status="lost"] .mines-cell.mine { animation: none; } }
 /* клетка, которую открывают сейчас: лёгкое мерцание, пока идёт запрос */
 .mines-board.locked .mines-cell.opening { opacity: 1; border-color: var(--border-strong); animation: mines-opening 0.8s ease-in-out infinite; }
 

@@ -10,12 +10,12 @@
   <title>Депная</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="css/00-fonts-tokens.css?v=c30e2ac9">
-  <link rel="stylesheet" href="css/01-skins.css?v=218128de">
+  <link rel="stylesheet" href="css/01-skins.css?v=089704d6">
   <link rel="stylesheet" href="css/02-shell.css?v=8e1a98df">
   <link rel="stylesheet" href="css/02a-result.css?v=405f0d68">
   <link rel="stylesheet" href="css/03-table-bets.css?v=683e5e95">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
-  <link rel="stylesheet" href="css/05-profile-rating.css?v=f9aac760">
+  <link rel="stylesheet" href="css/05-profile-rating.css?v=44f7c8ae">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=8c4cbb96">
   <link rel="stylesheet" href="css/07-keno.css?v=2003465a">
   <link rel="stylesheet" href="css/08-blackjack.css?v=794d5086">
@@ -281,12 +281,7 @@
         </div>
       </section>
       <section class="mines-card mines-count-card">
-        <div class="mines-label" id="mines-count-label">Мины</div>
-        <div class="mines-count-row">
-          <button type="button" class="action mines-step" id="mines-minus" aria-label="Меньше мин">−</button>
-          <output class="mines-count" id="mines-count" for="mines-minus mines-plus" aria-labelledby="mines-count-label">3</output>
-          <button type="button" class="action mines-step" id="mines-plus" aria-label="Больше мин">+</button>
-        </div>
+        <div class="mines-label" id="mines-count-label">Мин: <span id="mines-count">3</span></div>
         <div class="row mines-quick">
           <button type="button" class="chip" data-mines="1" aria-pressed="false">1</button>
           <button type="button" class="chip" data-mines="3" aria-pressed="false">3</button>
@@ -294,6 +289,7 @@
           <button type="button" class="chip" data-mines="10" aria-pressed="false">10</button>
           <button type="button" class="chip" data-mines="24" aria-pressed="false">24</button>
         </div>
+        <p class="mines-hint" id="mines-hint"></p>
       </section>
       <button type="button" class="mines-primary" id="mines-begin">Начать</button>
     </form>
@@ -775,7 +771,7 @@
   <script src="js/04-profile.js?v=9ba848bd"></script>
   <script src="js/05-rating.js?v=5b1e8b67"></script>
   <script src="js/06-farm.js?v=157ee67a"></script>
-  <script src="js/07-mines.js?v=7eb92f51"></script>
+  <script src="js/07-mines.js?v=c7715e5b"></script>
   <script src="js/08-keno.js?v=261a5b6e"></script>
   <script src="js/09-blackjack.js?v=f73793d9"></script>
   <script src="js/10a-crash-chart.js?v=1ffdd634"></script>

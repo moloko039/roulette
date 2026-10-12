@@ -42,8 +42,7 @@ const minesEls = {
   form: document.getElementById('mines-start'),
   bet: document.getElementById('mines-bet'),
   maxBtn: document.getElementById('mines-max'),
-  minus: document.getElementById('mines-minus'),
-  plus: document.getElementById('mines-plus'),
+  hint: document.getElementById('mines-hint'),
   count: document.getElementById('mines-count'),
   begin: document.getElementById('mines-begin'),
   boardWrap: document.getElementById('mines-board-wrap'),
@@ -71,6 +70,7 @@ const mn = {
   busy: false,          // идёт действие: поле и кнопки заблокированы
   pending: null,        // клетка, открываемая сейчас (для подсказки на поле)
   hit: null,            // клетка, на которой сработала мина (только в этой сессии)
+  fresh: -1,            // клетка, открытая последним ходом: вспыхивает один раз
   showLast: true,       // показывать блок прошлой игры под формой
   settings: { bet: 10, mines: 3 },
   seen: new Set(),      // завершённые игры, о которых пользователь уже знает (в этой сессии)
@@ -147,15 +147,17 @@ function renderMinesBoard(revealed, mineCells, muted, hit, interactive) {
   minesEls.boardWrap.classList.toggle('locked', mn.busy);
   minesEls.boardWrap.dataset.view = mn.view;                                         // метки состояния для css скинов: play | result
   minesEls.boardWrap.dataset.status = mn.view === 'result' && mn.last ? mn.last.status : '';
+  let mineOrder = 0;
   minesCells.forEach((btn, i) => {
     let cls = 'mines-cell';
     let html = '';
     if (open.has(i)) {
-      cls += ' safe';
+      cls += ' safe' + (i === mn.fresh && mn.view === 'play' ? ' fresh' : '');
       html = minesIcons.gem;
     } else if (bombs.has(i)) {
       cls += ' mine' + (muted ? ' muted' : '') + (i === hit ? ' hit' : '');
       html = minesIcons.mine;
+      btn.style.setProperty('--mi', i === hit ? '0' : String(++mineOrder));       // очерёдность показа мин после взрыва
     }
     if (mn.busy && i === mn.pending && !open.has(i) && !bombs.has(i)) cls += ' opening';
     btn.className = cls;
@@ -211,9 +213,21 @@ function renderMinesResult() {
   minesEls.again.disabled = mn.busy;
 }
 
+// Что даёт выбор числа мин: множитель первого шага и максимум (формула сервера: возврат 36/37, bot/mines.py; решает сервер, это только подсказка)
+function minesHintText(m) {
+  let c = 1;
+  for (let i = 0; i < m; i++) c = (c * (MINES_CELLS - i)) / (i + 1);          // C(25, m)
+  const first = (36 * MINES_CELLS) / (37 * (MINES_CELLS - m));
+  const max = (36 * c) / 37;
+  const floor2 = (v) => (Math.floor(v * 100 + 1e-9) / 100).toFixed(2);       // сервер округляет множитель вниз
+  const maxText = max >= 1e4 ? formatCompact(Math.floor(max)) : floor2(max);
+  return 'первый шаг ×' + floor2(first) + ', максимум ×' + maxText;
+}
+
 function renderMinesForm() {
   minesEls.bet.value = String(mn.settings.bet);
   minesEls.count.textContent = String(mn.settings.mines);
+  minesEls.hint.textContent = minesHintText(mn.settings.mines);
   minesEls.form.querySelectorAll('[data-bet]').forEach((b) => {
     b.setAttribute('aria-pressed', String(Number(b.dataset.bet) === mn.settings.bet));
   });
@@ -422,6 +436,7 @@ function minesReveal(cell) {
     if (d.result !== 'safe') { skinEvents.emit('mines:end', { status: d.result === 'mine' ? 'lost' : 'cashed', cell }); skinEvents.emit('round:end', { game: 'mines' }); }
     if (d.result === 'safe') {
       mn.game = d.game;
+      mn.fresh = cell;                       // только что открытая клетка вспыхивает один раз
       haptic('light');
       return;
     }
@@ -430,6 +445,12 @@ function minesReveal(cell) {
     mn.seen.add(minesKey(d.last));
     mn.view = 'result';
     mn.hit = d.result === 'mine' ? cell : null;
+    mn.fresh = -1;
+    if (d.result === 'mine' && !reducedMotion()) {          // поле вздрагивает, остальные мины показываются по очереди (в css через --mi)
+      minesEls.boardWrap.classList.remove('shake');
+      void minesEls.boardWrap.offsetWidth;
+      minesEls.boardWrap.classList.add('shake');
+    }
     haptic(d.result === 'mine' ? 'error' : 'success');
     loadServer('after');
   });
@@ -465,8 +486,6 @@ minesEls.again.addEventListener('click', () => {
   setMinesNotice('');
   renderMines();
 });
-minesEls.minus.addEventListener('click', () => setMinesCount(mn.settings.mines - 1));
-minesEls.plus.addEventListener('click', () => setMinesCount(mn.settings.mines + 1));
 minesEls.form.querySelectorAll('[data-bet]').forEach((b) => b.addEventListener('click', () => {
   mn.settings.bet = Number(b.dataset.bet);
   renderMinesForm();

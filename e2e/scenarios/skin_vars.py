@@ -128,7 +128,7 @@ async def run(w):
     await p.ev("document.getElementById('wheel').width")
     await p.ev(PROBES)
     base = await p.ev(READ)
-    check("размер фишки 44x44, карты 46x64 и 118x164", [base["chipSize"], base["bjSize"], base["hlSize"]], [[44, 44], [46, 64], [118, 164]])
+    check("размер фишки 44x44, карты 54x76 и 118x164", [base["chipSize"], base["bjSize"], base["hlSize"]], [[44, 44], [54, 76], [118, 164]])
 
     override = "".join("%s: %s !important;" % (k, v) for k, v in dict(SCARY, **SCARY_RAW).items())
     await p.ev("(() => { const s = document.createElement('style'); s.id = 'e2e-skin'; s.textContent = ':root { %s }'; document.head.appendChild(s); drawWheel(); return true; })()" % override)
