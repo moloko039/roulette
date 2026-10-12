@@ -330,9 +330,14 @@ try:
     check("в журнале причина owner_grant", sql(path, "SELECT delta, reason FROM gems_ledger WHERE telegram_id = ?", (OWNER,)), [(500, "owner_grant")])
     out = command(bot.givegems, fake, ["500"], uid=OWNER)
     check("повторная команда начисляет ещё раз (каждая команда отдельное начисление)", db.gems_state(OWNER, path)["gems"], 1000)
-    check("не владелец: молчание и ничего не начислено", (command(bot.givegems, fake, ["500"], uid=A), db.gems_state(A, path)["gems"]), ([], 0))
+    out = command(bot.givegems, fake, ["300", str(A)], uid=OWNER)
+    check("игроку: начислено, у владельца без изменений", (out, db.gems_state(A, path)["gems"], db.gems_state(OWNER, path)["gems"]),
+          (["Начислено кристаллов: 300. Баланс кристаллов: 300"], 300, 1000))
+    out = command(bot.givegems, fake, ["300", "999000999"], uid=OWNER)
+    check("игрока нет в базе", out, ["Игрока нет в базе: он должен хотя бы раз открыть игру"])
+    check("не владелец: молчание и ничего не начислено", (command(bot.givegems, fake, ["500"], uid=A), db.gems_state(A, path)["gems"]), ([], 300))
     check("в группе молчание", (lambda u: (run(bot.givegems(u, ctx(fake, ["500"]))), u.replies)[1])(FakeUpdate("group", user_id=OWNER)), [])
-    for bad in ([], ["0"], ["-5"], ["abc"], ["500", "x"], [str(economy_config.GEMS_GIVE_MAX + 1)], ["1" * 10]):
+    for bad in ([], ["0"], ["-5"], ["abc"], ["500", "x"], ["500", str(A), "1"], [str(economy_config.GEMS_GIVE_MAX + 1)], ["1" * 10]):
         out = command(bot.givegems, fake, bad, uid=OWNER)
         check("формат %r: подсказка, ничего не начислено" % (bad,), (out[0].startswith("Формат: /givegems"), db.gems_state(OWNER, path)["gems"]), (True, 1000))
     path2 = new_db()

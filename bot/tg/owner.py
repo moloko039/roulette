@@ -24,6 +24,10 @@ from tg.payments import CHARGE_ID_RE, _refund_and_record, _refund_gems_and_recor
 from tg import common
 
 
+MISSING_PLAYER = "Игрока нет в базе: он должен хотя бы раз открыть игру"
+MISSING_OWNER = "Вас ещё нет в базе: откройте игру один раз и повторите команду"
+
+
 async def backupnow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Скрытая команда владельца (нет в меню и в /help): отправить зашифрованную копию вне расписания.
     Все остальные (и любой чат, кроме личного) не получают ответа, в лог про них ничего не пишется."""
@@ -143,7 +147,7 @@ GRANT_TTL = 300   # подтверждение начисления действ
 
 
 async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Скрытая команда владельца (нет в меню и в /help): /give <сумма> начисляет фишки ТОЛЬКО самому владельцу.
+    """Скрытая команда владельца (нет в меню и в /help): /give <сумма> [id игрока] начисляет фишки себе или игроку.
     Все остальные (и любой чат, кроме личного) не получают ответа, в лог про них ничего не пишется."""
     if _chat_type(update) != "private":
         return
@@ -152,14 +156,16 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user is None or owner_id is None or user.id != owner_id:
         return
     args = list(context.args or [])
-    if len(args) != 1 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= db_module.GIVE_MAX_AMOUNT:
-        await _reply(update, "Формат: /give <сумма>, целое от 1 до 100000000")
+    if not 1 <= len(args) <= 2 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= db_module.GIVE_MAX_AMOUNT \
+            or (len(args) == 2 and not re.fullmatch(r"\d{1,15}", args[1])):
+        await _reply(update, "Формат: /give <сумма> [id игрока], сумма от 1 до 100000000. Без id начисляется вам")
         return
     amount = int(args[0])
+    target = int(args[1]) if len(args) == 2 else user.id
     try:
-        given, balance_now = await asyncio.to_thread(db_module.give_owner, user.id, amount)   # начисляется только user.id
+        given, balance_now = await asyncio.to_thread(db_module.give_owner, target, amount)
     except db_module.PlayerMissing:
-        await _reply(update, "Вас ещё нет в базе: откройте игру один раз и повторите команду")
+        await _reply(update, MISSING_OWNER if target == user.id else MISSING_PLAYER)
         return
     except Exception as exc:
         logger.error("Начисление владельцу не выполнено: %s", type(exc).__name__)
@@ -169,6 +175,8 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Начислено %d. Баланс: %d" % (given, balance_now))
     else:
         await _reply(update, "Баланс у потолка: начислено %d из %d. Баланс: %d" % (given, amount, balance_now))
+    if target != user.id and given > 0:
+        await _send_quiet(context, target, "Вам начислено фишек: %d" % given)
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -190,7 +198,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def givegems(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Скрытая команда владельца (нет в меню и в /help): /givegems <сумма> начисляет кристаллы ТОЛЬКО самому владельцу (для проверок магазина без оплаты Stars).
+    """Скрытая команда владельца (нет в меню и в /help): /givegems <сумма> [id игрока] начисляет кристаллы себе или игроку.
     Причина в журнале owner_grant. Все остальные (и любой чат, кроме личного) не получают ответа."""
     if _chat_type(update) != "private":
         return
@@ -199,15 +207,17 @@ async def givegems(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user is None or owner_id is None or user.id != owner_id:
         return
     args = list(context.args or [])
-    if len(args) != 1 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= economy_config.GEMS_GIVE_MAX:
-        await _reply(update, "Формат: /givegems <сумма>, целое от 1 до %d" % economy_config.GEMS_GIVE_MAX)
+    if not 1 <= len(args) <= 2 or not re.fullmatch(r"\d{1,9}", args[0]) or not 1 <= int(args[0]) <= economy_config.GEMS_GIVE_MAX \
+            or (len(args) == 2 and not re.fullmatch(r"\d{1,15}", args[1])):
+        await _reply(update, "Формат: /givegems <сумма> [id игрока], сумма от 1 до %d. Без id начисляется вам" % economy_config.GEMS_GIVE_MAX)
         return
     amount = int(args[0])
+    target = int(args[1]) if len(args) == 2 else user.id
     ref = "cmd-%d-%s" % (common._wall(), secrets.token_hex(4))
     try:
-        result = await asyncio.to_thread(db_module.owner_grant_gems, user.id, amount, ref, None, None, True)
+        result = await asyncio.to_thread(db_module.owner_grant_gems, target, amount, ref, None, None, True)
     except db_module.PlayerMissing:
-        await _reply(update, "Вас ещё нет в базе: откройте игру один раз и повторите команду")
+        await _reply(update, MISSING_OWNER if target == user.id else MISSING_PLAYER)
         return
     except wallet.GemsLimitExceeded:
         await _reply(update, "Баланс кристаллов у потолка, начисление отменено")
@@ -217,6 +227,8 @@ async def givegems(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Не удалось выполнить начисление (подробности в логах сервиса)")
         return
     await _reply(update, "Начислено кристаллов: %d. Баланс кристаллов: %d" % (amount, result["balance"]))
+    if target != user.id:
+        await _send_quiet(context, target, "Вам начислено кристаллов: %d" % amount)
 
 
 async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -244,7 +256,7 @@ async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         added = await asyncio.to_thread(db_module.grant_item, target, item["code"], "owner_gift")
     except cosmetics.NoSuchPlayer:
-        await _reply(update, "Игрока нет в базе: он должен хотя бы раз открыть игру")
+        await _reply(update, MISSING_PLAYER)
         return
     except Exception as exc:
         logger.error("Выдача предмета не выполнена: %s", type(exc).__name__)
@@ -253,6 +265,8 @@ async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if added:
         logger.info("Предмет выдан")
         await _reply(update, "Выдано: %s" % item["name"])
+        if target != user.id:
+            await _send_quiet(context, target, "Вам выдан предмет: %s. Он в разделе «Оформление»" % item["name"])
     else:
         await _reply(update, "Уже есть: %s" % item["name"])
 
