@@ -19,14 +19,9 @@ let lobbyStartDecided = false;   // при запуске выбор «титу�
 
 const profileEls = {
   data: document.getElementById('profile-data'),
-  balance: document.getElementById('profile-balance'),
   rate: document.getElementById('profile-rate'),
-  timer: document.getElementById('profile-timer'),
-  ring: document.getElementById('profile-ring'),
   skel: document.getElementById('profile-skel'),
   name: document.getElementById('profile-name'),
-  upgrades: document.getElementById('profile-upgrades'),
-  upgradesRow: document.getElementById('profile-upgrades-row'),
   avatar: document.getElementById('profile-avatar'),
   msg: document.getElementById('profile-msg'),
   code: document.getElementById('profile-code'),
@@ -52,18 +47,12 @@ function renderProfile() {
     profileEls.code.textContent = 'код: ' + srv.error.code;
     profileEls.retry.hidden = !srv.error.retry;
   } else if (srv.loaded) {
-    profileEls.balance.textContent = formatNumber(srv.balance); // серверный, без вычета ставок на столе
-    fitNumberFont(profileEls.balance, profileEls.balance.textContent.length);
-    profileEls.rate.textContent = formatCompact(srv.rate);
-    const hasUpgrades = srv.incomeLevel !== null && srv.storageLevel !== null;
-    profileEls.upgradesRow.hidden = !hasUpgrades; // без поля от сервера строки нет
-    if (hasUpgrades) profileEls.upgrades.textContent = `доход ${srv.incomeLevel}, хранилище ${srv.storageLevel}`;
+    profileEls.rate.textContent = formatCompact(srv.rate);       // экономика (баланс, улучшения, таймер) живёт на вкладке «Ферма»
     profileEls.skel.hidden = true;
     profileEls.data.hidden = false;
     profileEls.msg.textContent = '';
     profileEls.code.textContent = '';
     profileEls.retry.hidden = true;
-    renderProfileTimer();
   } else {
     profileEls.data.hidden = true;
     profileEls.skel.hidden = false; // скелетон вместо спиннера
@@ -85,22 +74,6 @@ function renderProfileIdentity() {
   profileEls.name.parentElement.hidden = !name;
 }
 
-// Кольцо до следующего начисления: фишки приходят каждую минуту (доход в час делится на минутные начисления)
-const ACCRUAL_PERIOD_S = 60;   // фишки приходят каждую минуту
-const RING_LENGTH = 2 * Math.PI * 52;
-let ringFraction = 0;
-
-function renderProfileTimer() {
-  const left = (srv.deadline - performance.now()) / 1000;
-  profileEls.timer.textContent = mmss(left);
-  const fraction = Math.min(1, Math.max(0, 1 - left / ACCRUAL_PERIOD_S));
-  profileEls.ring.style.strokeDasharray = String(RING_LENGTH);
-  // после начисления кольцо сбрасывается сразу, без обратной анимации
-  profileEls.ring.style.transition = fraction < ringFraction - 0.5 ? 'none' : '';
-  profileEls.ring.style.strokeDashoffset = String(RING_LENGTH * (1 - fraction));
-  ringFraction = fraction;
-}
-
 // renderKeno и renderLobby появляются ниже по файлу (до их объявления остаются null)
 var kenoRender = null; // eslint-disable-line no-var
 var raceRender = null; // eslint-disable-line no-var
@@ -118,7 +91,6 @@ function renderAll() {
 // Раз в секунду обновляем таймеры (по монотонным часам, а не по часам устройства)
 setInterval(() => {
   if (!started) return;
-  if (srv.loaded && !srv.error) renderProfileTimer();
   renderFarmIncome();
   renderStatus();
 }, 1000);
@@ -276,7 +248,11 @@ const refEls = {
   invited: document.getElementById('referral-invited'),
   qualified: document.getElementById('referral-qualified'),
   commission: document.getElementById('referral-commission'),
-  milestones: document.getElementById('referral-milestones'),
+  lead: document.getElementById('referral-lead'),
+  steps: document.getElementById('ref-steps'),
+  none: document.getElementById('referral-none'),
+  stats: document.getElementById('referral-stats'),
+  rulesBtn: document.getElementById('referral-rules-btn'),
   send: document.getElementById('referral-send'),
   copy: document.getElementById('referral-copy'),
   msg: document.getElementById('referral-msg'),
@@ -289,6 +265,7 @@ let refData = null;
 let refError = false;
 
 const REF_MILESTONE_NAMES = { ref_scout: 'значок «Камень»', ref_beacon: 'рамка «Колонна»', ref_arch: 'рамка «Арка»' };
+const REF_MILESTONE_SHORT = { ref_scout: ['Камень', 'значок'], ref_beacon: ['Колонна', 'рамка'], ref_arch: ['Арка', 'рамка'] };
 
 function validReferral(d) {
   if (!d || typeof d !== 'object') return false;
@@ -307,6 +284,43 @@ function validReferral(d) {
     if (!Number.isInteger(r[k]) || r[k] <= 0) return false;
   }
   return true;
+}
+
+// Три шага на линии прогресса: 3 «Камень» → 10 «Колонна» → 30 «Арка»; линия заполняется по числу друзей, дошедших до награды
+function renderRefSteps(d) {
+  refEls.steps.textContent = '';
+  const ms = d.milestones.slice().sort((a, b) => a.count - b.count);
+  if (!ms.length) return;
+  const n = ms.length;
+  const pos = (i) => (i + 0.5) / n;                              // центр i-го узла по ширине
+  let p = 0;
+  let prevCount = 0;
+  let prevPos = 0;
+  for (let i = 0; i < n; i++) {
+    if (d.qualified >= ms[i].count) { p = pos(i); prevCount = ms[i].count; prevPos = pos(i); continue; }
+    p = prevPos + ((d.qualified - prevCount) / (ms[i].count - prevCount)) * (pos(i) - prevPos);
+    break;
+  }
+  const line = document.createElement('li');
+  line.className = 'ref-line';
+  line.setAttribute('aria-hidden', 'true');
+  const fill = document.createElement('i');
+  fill.style.transform = 'scaleX(' + p.toFixed(3) + ')';
+  line.appendChild(fill);
+  refEls.steps.appendChild(line);
+  ms.forEach((m) => {
+    const li = document.createElement('li');
+    li.className = 'ref-step' + (m.reached ? ' reached' : '');
+    const short = REF_MILESTONE_SHORT[m.item] || ['Награда', ''];
+    const num = document.createElement('b');
+    num.textContent = m.reached ? '✓' : String(m.count);
+    const name = document.createElement('span');
+    name.textContent = short[0];
+    const kind = document.createElement('small');
+    kind.textContent = (m.reached ? '' : m.count + ' · ') + short[1];
+    li.append(num, name, kind);
+    refEls.steps.appendChild(li);
+  });
 }
 
 function renderReferral() {
@@ -337,7 +351,10 @@ function renderReferral() {
   refEls.invited.textContent = refData.invited;
   refEls.qualified.textContent = refData.qualified;
   refEls.commission.textContent = refData.commission_earned;
-  refEls.milestones.textContent = 'Награды за друзей, дошедших до награды: ' + refData.milestones.map((m) => `${m.count} — ${REF_MILESTONE_NAMES[m.item] || 'награда'}${m.reached ? ' ✓' : ''}`).join('; ') + '.';
+  refEls.lead.textContent = `За каждого друга, дошедшего до награды: ${r.inviter_chips} фишек и ${r.inviter_gems} 💎.`;
+  refEls.none.hidden = refData.invited > 0;                    // нулей не показываем, пока нет данных: одна строка «Пока никого»
+  refEls.stats.hidden = refData.invited === 0;
+  renderRefSteps(refData);
 
   if (refData.link === null) {
     refEls.actions.hidden = true;
@@ -379,6 +396,11 @@ new MutationObserver((mutations) => {
     }
   }
 }).observe(profileEls.data.parentElement, { attributes: true });
+
+refEls.rulesBtn.addEventListener('click', () => {
+  refEls.text.hidden = !refEls.text.hidden;
+  refEls.rulesBtn.setAttribute('aria-expanded', String(!refEls.text.hidden));
+});
 
 refEls.send.addEventListener('click', () => {
   if (!refData || !refData.link) return;

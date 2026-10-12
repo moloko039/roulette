@@ -106,7 +106,7 @@ async def run(w):
           "3")
 
     hit_rating = await p.ev("""(() => {
-        const el = document.querySelector('#rating-me .avatar');
+        const el = document.querySelector('#rating-list li.me .avatar');      // карточка «Вы» скрыта, когда игрок в топе: смотрим его строку в списке
         const r = el.getBoundingClientRect();
         const topEl = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return topEl === el;

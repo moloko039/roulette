@@ -331,7 +331,7 @@ try:
     check("фильтр по беседе: чужая беседа и не-участники не видны", (top["total"], [e["game"] for e in top["top"]]), (5, ["keno", "mines", "blackjack", "roulette", "crash"]))
     check("я: место среди участников с рекордом, is_me", (top["me"], [e["is_me"] for e in top["top"]]),
           ({"rank": 4, "net_amount": 5000, "game": "roulette", "total": 5}, [False, False, False, True, False]))
-    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "is_me", "cosmetics"})
+    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "day", "is_me", "cosmetics"})
     text = json.dumps(top)
     check("в ответе нет telegram_id и времени достижения", [str(u) in text for u in IDS], [False] * 12)
     other = db.chat_best_wins("chat-B", ids[5], db_path=path3)

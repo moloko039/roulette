@@ -218,13 +218,13 @@ def chat_best_wins(chat_instance, telegram_id, db_path=None):
 
     Участники определяются так же, как в chat_top: последние MAX_CHAT_MEMBERS участников этой беседы (chat_members), у которых есть
     строка в players; чужие беседы не видны. Только чтение: вызвавшего не регистрирует и не отмечает участником (это делает
-    рейтинг баланса). Порядок: сумма по убыванию, при равенстве раньше достигший, затем telegram_id. В ответе нет telegram_id и времени;
+    рейтинг баланса). Порядок: сумма по убыванию, при равенстве раньше достигший, затем telegram_id. В ответе нет telegram_id и точного времени (только день рекорда, `day`: начало суток UTC);
     member_ref как в chat_top (у себя None); рамка и значок по тем же правилам видимости. «me»: место среди участников с рекордом
     (None, если своего рекорда нет), total: сколько в беседе участников с рекордом."""
     conn = _connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT m.telegram_id, m.first_name, b.game, b.net_amount "
+            "SELECT m.telegram_id, m.first_name, b.game, b.net_amount, b.achieved_at "
             "FROM (SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
             "JOIN players p ON p.telegram_id = m.telegram_id "
             "JOIN player_best_win b ON b.telegram_id = m.telegram_id "
@@ -234,8 +234,8 @@ def chat_best_wins(chat_instance, telegram_id, db_path=None):
         conn.close()
     shown = _public_cosmetics(db_path, [r["telegram_id"] for r in rows[:TOP_SIZE]])
     top = [
-        {"rank": i + 1, "name": r["first_name"], "net_amount": r["net_amount"], "game": r["game"], "is_me": r["telegram_id"] == telegram_id,
-         "cosmetics": shown.get(r["telegram_id"], {})}
+        {"rank": i + 1, "name": r["first_name"], "net_amount": r["net_amount"], "game": r["game"], "day": r["achieved_at"] // 86400 * 86400,
+         "is_me": r["telegram_id"] == telegram_id, "cosmetics": shown.get(r["telegram_id"], {})}
         for i, r in enumerate(rows[:TOP_SIZE])
     ]
     me = None

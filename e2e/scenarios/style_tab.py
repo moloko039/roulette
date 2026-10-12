@@ -11,7 +11,7 @@ from scenarios.desktop_scroll import desktop, metrics, phone, to_end, wheel
 NAME = "style_tab"
 CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = {"me": {"rate": 0}}
-LABELS = ["Рубашка карт", "Фишки", "Стол", "Иконки мин", "Шарики кено", "Краш", "Рамка аватара", "Значок"]
+LABELS = ["Рубашка карт", "Жетоны", "Стол", "Иконки мин", "Шарики кено", "Краш", "Рамка аватара", "Значок"]
 READY = "!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0"
 
 

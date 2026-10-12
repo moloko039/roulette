@@ -17,6 +17,7 @@ async def run(w):
     
     # Запрос был ровно один
     check("запрос ушел", await p.ev("E.count('/api/referral')"), 1)
+    check("друзей нет: одна строка «Пока никого», нулей нет", await p.ev("[document.getElementById('referral-none').hidden, document.getElementById('referral-stats').hidden]"), [False, True])
     
     # Ссылка null (так как нет GAME_LINK на сервере), проверяем текст
     check("сообщение без ссылки", await p.ev("document.getElementById('referral-link-text').textContent"), "Ссылка приглашения пока недоступна")
@@ -72,11 +73,14 @@ async def run(w):
     await p.wait("!document.getElementById('referral-actions').hidden", 10, "появились кнопки рефералки")
     
     # Проверяем текст правил и числа
+    await p.tap("#referral-rules-btn")
+    await p.wait("!document.getElementById('referral-text').hidden", 5, "условия раскрыты")
     text = await p.ev(f"({SP})(document.getElementById('referral-text').textContent)")
     check("текст правил", text, "Друг получит 500 фишек при первом входе. Когда он проживёт 24 ч, дойдёт до 3 уровня и сыграет 10 раундов, ты получишь 2000 фишек и 10 💎, а ещё 90 дней 30% от того, что казино выиграет у друга (до 300000 фишек с одного друга). Добавь бота в беседу: когда в ней начнут играть 5 человек не ниже 3 уровня, получишь 3000 фишек и 30 💎.")
     check("приглашено", await p.ev("document.getElementById('referral-invited').textContent"), "5")
     check("квалифицировано", await p.ev("document.getElementById('referral-qualified').textContent"), "2")
-    check("вехи", await p.ev("document.getElementById('referral-milestones').textContent"), "Награды за друзей, дошедших до награды: 3 — значок «Камень» ✓; 10 — рамка «Колонна»; 30 — рамка «Арка».")
+    check("три шага: 3 «Камень» (получен), 10 «Колонна», 30 «Арка»", await p.ev("[...document.querySelectorAll('#ref-steps .ref-step')].map(li => [li.querySelector('b').textContent, li.querySelector('span').textContent, li.classList.contains('reached')])"), [["✓", "Камень", True], ["10", "Колонна", False], ["30", "Арка", False]])
+    check("есть данные: счётчики видны, «Пока никого» скрыто", await p.ev("[document.getElementById('referral-stats').hidden, document.getElementById('referral-none').hidden]"), [False, True])
     check("заработано с процента", await p.ev("document.getElementById('referral-commission').textContent"), "1234")
     
     # Нажимаем "Отправить другу"

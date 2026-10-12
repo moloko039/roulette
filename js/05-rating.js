@@ -66,12 +66,18 @@ function validBestWins(d) {
   if (d.scope === 'none') return true;
   if (d.scope !== 'chat' || !Array.isArray(d.top) || d.top.length > 10 || !isCount(d.total)) return false;
   const rowsOk = d.top.every((e) => e && typeof e === 'object' && isCount(e.rank) && isCount(e.net_amount)
-    && typeof e.name === 'string' && typeof e.is_me === 'boolean' && typeof e.game === 'string');
+    && typeof e.name === 'string' && typeof e.is_me === 'boolean' && typeof e.game === 'string' && (e.day === undefined || isCount(e.day)));
   const m = d.me;
   return rowsOk && (m === null || (!!m && typeof m === 'object' && isCount(m.rank) && isCount(m.net_amount) && typeof m.game === 'string' && isCount(m.total)));
 }
 
 // сумма рекорда: до 10 000 полностью, дальше сокращённо («+1,2 млн»), полное значение по нажатию (формат чисел, UI_REVIEW 1.3)
+const BEST_MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function bestDayText(day) {
+  const d = new Date(day * 1000);
+  return d.getUTCDate() + ' ' + BEST_MONTHS[d.getUTCMonth()];
+}
+
 function setBestAmount(el, n) {
   if (n >= 1e4) { setNumberLabel(el, '+', n); return; }
   el.classList.remove('num-tap');
@@ -121,7 +127,7 @@ function showBestWins(d) {
     setBestAmount(amount, e.net_amount);
     const game = document.createElement('span');
     game.className = 'rating-staked';
-    game.textContent = BEST_GAMES[e.game];
+    game.textContent = BEST_GAMES[e.game] + (isCount(e.day) ? ' · ' + bestDayText(e.day) : '');      // игра и день рекорда
     li.append(bestRankEl(e.rank), bestAvatarEl(e.name, pub.avatar_frame, pub.frame_stage, pub.founder_no), who, amount, game);
     bestEls.list.appendChild(li);
   });
@@ -182,9 +188,15 @@ function ratingSetBadge(sets) {
   if (!Array.isArray(sets) || sets.length === 0) return null;
   const el = document.createElement('span');
   el.className = 'rating-set-badge';
-  el.textContent = 'коллекция';
+  el.textContent = '✦';                                    // значок собранной коллекции; название по нажатию (на телефоне подсказки title нет)
   const title = sets.map((c) => ratingSetNames[c] || c).join(', ');
+  el.setAttribute('role', 'button');
+  el.tabIndex = 0;
+  el.setAttribute('aria-label', 'Собрана коллекция' + (title ? ': ' + title : ''));
   if (title) el.title = title;
+  const tell = (e) => { e.stopPropagation(); showToast('Собрана коллекция' + (title ? ': ' + title : '')); };
+  el.addEventListener('click', tell);
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tell(e); } });
   return el;
 }
 
@@ -320,6 +332,7 @@ function showRating(d) {
   mySub.className = 'rating-staked';
   mySub.textContent = `${d.me.rank}-е место из ${d.me.total}` + (isCount(d.me.staked) ? `, поставлено ${formatCompact(d.me.staked)}` : '');
   me.append(myRank, myAvatar, myWho, myBal, mySub);
+  me.hidden = d.top.some((e) => e.is_me);           // карточка «Вы» только если игрока нет среди показанных строк (UI_REVIEW, рейтинг)
   // итог по беседе (поле chat_staked); без поля строка скрыта
   if (isCount(d.chat_staked)) {
     ratingEls.total.textContent = 'Поставлено участниками беседы за всё время: ' + formatCompact(d.chat_staked);

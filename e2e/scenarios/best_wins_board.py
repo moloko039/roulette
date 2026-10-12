@@ -5,6 +5,7 @@ import os
 import sys
 import time
 
+import re
 from harness import BOT, check, open_game, set_bet
 
 NAME = "best_wins_board"
@@ -66,12 +67,12 @@ async def run(w):
     await open_rating(p)
     rows = await p.ev(ROWS)
     check("порядок по сумме, место", [(r["name"], r["rank"]) for r in rows], [("bob", "crown"), (LONG, "2"), ("carol", "3")])
-    check("сумма «+1,2 млн» и русское название игры", [(r["amount"], r["game"]) for r in rows], [("+1,2 млн", "Кено"), ("+5 000", "Рулетка"), ("+700", "Мины")])
+    check("сумма «+1,2 млн», русское название игры и день рекорда", [(r["amount"], r["game"].split(" · ")[0], bool(re.fullmatch(r"\d{1,2} [а-я]{3,4}", r["game"].split(" · ")[1]))) for r in rows], [("+1,2 млн", "Кено", True), ("+5 000", "Рулетка", True), ("+700", "Мины", True)])
     check("длинное имя усечено, остальные нет", [r["cut"] for r in rows], [False, True, False])
     check("рамка и значок: у bob видны, у скрывшей carol нет", [(r["frame"], r["badge"]) for r in rows], [("frame_thin", "badge_spade"), (None, None), (None, None)])
     check("высоты строк одинаковы, аватары 36x36", [(r["h"], r["avatar"]) for r in rows], [(rows[0]["h"], [36, 36])] * 3)
     lay = await p.ev(LAYOUT)
-    check("высота строки как в основном рейтинге", rows[0]["h"], lay["mainRowH"])
+    # высота строки рекордов больше не совпадает с основным рейтингом: у его первой тройки подиум (UI_REVIEW), строки рекордов остаются плотными
     check("нет горизонтальной прокрутки, блок в пределах экрана", (lay["hscroll"], lay["inside"], lay["below"]), (False, True, True))
     check("у меня нет рекорда: закреплённой строки нет, пустого состояния нет", await p.ev(
         "[getComputedStyle(document.getElementById('best-me')).display, document.getElementById('best-empty').hidden]"), ["none", True])
@@ -104,7 +105,7 @@ async def run(w):
     await p.wait("document.querySelectorAll('#best-list li').length === 4", 15, "четыре рекорда")
     rows = await p.ev(ROWS)
     mine = [r for r in rows if r["me"]]
-    check("моя строка в списке: сумма и игра с сервера", [(r["amount"], r["game"], r["rank"]) for r in mine], [(text, "Кено", str(place))])
+    check("моя строка в списке: сумма и игра с сервера", [(r["amount"], r["game"].split(" · ")[0], r["rank"]) for r in mine], [(text, "Кено", str(place))])
     pinned = await p.ev("(() => { const m = document.getElementById('best-me'); return [m.querySelector('.rating-name').textContent, m.querySelector('.best-amount').textContent.replace(/\\s/g, ' '), m.querySelector('.rating-staked').textContent]; })()")
     check("закреплённая строка: «Вы», сумма, игра и место", pinned, ["Вы", text, "Кено, %d-е место из 4" % place])
     check("высоты строк по-прежнему одинаковы", len({r["h"] for r in rows}), 1)

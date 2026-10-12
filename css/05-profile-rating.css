@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: var(--space-3);
-  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--dock-gap);
   text-align: center;
   overflow-y: auto;
 }
@@ -87,34 +87,6 @@
 #profile-balance { min-width: 0; font-size: 28px; overflow-wrap: anywhere; }
 
 /* кольцо до следующего начисления: белое на тусклой дорожке, таймер внутри */
-.ring-wrap {
-  position: relative;
-  justify-self: center;
-  width: 132px;
-  height: 132px;
-}
-
-.ring { width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring circle { fill: none; stroke-width: 6; }
-.ring-track { stroke: var(--border); }
-.ring-fill {
-  stroke: var(--accent);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.9s linear;
-}
-
-.ring-inner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.ring-inner strong { font-size: 26px; }
-.ring-inner small { font-size: 11px; color: var(--text-muted); }
-
 .profile-msg {
   max-width: 300px;
   margin: 0;
@@ -315,7 +287,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: var(--space-3);
-  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--space-3);
+  padding: calc(var(--inset-top) + var(--space-3)) var(--space-4) var(--dock-gap);
   text-align: center;
   overflow-x: hidden;
   overflow-y: auto;
@@ -646,3 +618,61 @@
   user-select: all;
   margin-top: var(--space-2);
 }
+
+/* награды за друзей: три шага на линии прогресса */
+.ref-steps { position: relative; display: flex; margin: 0; padding: 0; list-style: none; }
+.ref-step { position: relative; z-index: 1; flex: 1 1 0; display: grid; justify-items: center; gap: 2px; min-width: 0; font-size: 13px; text-align: center; }
+.ref-step b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums;
+  font-size: 15px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+}
+.ref-step small { font-size: 11px; color: var(--text-muted); }
+.ref-step.reached b { color: var(--on-accent); background: var(--gold); border-color: var(--gold); }
+.ref-line { position: absolute; top: 15px; right: 0; left: 0; height: 2px; background: var(--border); }
+.ref-line i { display: block; height: 100%; background: var(--gold); transform-origin: 0 50%; }
+.profile-income { padding: var(--space-3); }
+
+/* ферма: картинка места (поле растёт с доходом, амбар заполняется с хранилищем), цель, компактный максимум */
+.farm-scene { width: 100%; max-width: 360px; }
+.farm-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.farm-ground { fill: var(--surface-2); }
+.farm-stem { fill: none; stroke: var(--green); stroke-width: 2; stroke-linecap: round; }
+.farm-leaf { fill: var(--green); opacity: 0.85; }
+.farm-fruit { fill: var(--gold); }
+.farm-plant { transform-box: fill-box; transform-origin: 50% 100%; animation: farm-sway 4s ease-in-out var(--d, 0s) infinite alternate; }
+@keyframes farm-sway { from { transform: translate(var(--tx, 0), 0) rotate(-3deg); } to { transform: translate(var(--tx, 0), 0) rotate(3deg); } }
+.farm-barn { fill: var(--surface-3); stroke: var(--border-strong); stroke-width: 1; }
+.farm-roof { fill: var(--red); opacity: 0.8; }
+.farm-door { fill: var(--bg); }
+.farm-grain { fill: var(--gold); opacity: 0.9; }
+html.perf-lite .farm-plant { animation: none; }
+@media (prefers-reduced-motion: reduce) { .farm-plant { animation: none; } }
+
+.farm-goal { width: 100%; max-width: 360px; padding: var(--space-2) var(--space-3); text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.farm-goal[hidden] { display: none; }
+.farm-goal-text { font-size: 13px; color: var(--text); font-variant-numeric: lining-nums tabular-nums; }
+.farm-goal-bar { height: 3px; margin-top: 6px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.farm-goal-bar i { display: block; height: 100%; background: var(--gold); transform-origin: 0 50%; }
+.farm-card.maxed { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
+.farm-card.maxed .farm-card-head { display: contents; }
+.farm-card.maxed .farm-effect, .farm-card.maxed .farm-cost, .farm-card.maxed .farm-buy, .farm-card.maxed .farm-reason { display: none; }
+.farm-card.maxed .farm-lvl { color: var(--gold); }
+.bump { animation: bump 0.35s ease-out; }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* подиум: первая тройка крупнее остальных */
+#rating-list li.top1, #rating-list li.top2, #rating-list li.top3 { padding-top: var(--space-3); padding-bottom: var(--space-3); }
+#rating-list li.top1 .avatar, #rating-list li.top2 .avatar, #rating-list li.top3 .avatar { width: 44px; height: 44px; font-size: 18px; }
+#rating-list li.top1 .rating-name, #rating-list li.top2 .rating-name, #rating-list li.top3 .rating-name { font-size: 16px; }
+#rating-list li.top1 .rating-bal { font-size: 20px; }
+#rating-list li.top1 { border-color: var(--gold-line); }
+#rating-list li.top1 .rating-rank svg { fill: var(--gold); stroke: var(--gold); }

@@ -15,14 +15,14 @@
   <link rel="stylesheet" href="css/02a-result.css?v=405f0d68">
   <link rel="stylesheet" href="css/03-table-bets.css?v=683e5e95">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
-  <link rel="stylesheet" href="css/05-profile-rating.css?v=44f7c8ae">
+  <link rel="stylesheet" href="css/05-profile-rating.css?v=921c9a8d">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=8c4cbb96">
   <link rel="stylesheet" href="css/07-keno.css?v=df7a5056">
   <link rel="stylesheet" href="css/08-blackjack.css?v=794d5086">
   <link rel="stylesheet" href="css/09-crash.css?v=7a2e179e">
   <link rel="stylesheet" href="css/10-hilo.css?v=e668ff8d">
   <link rel="stylesheet" href="css/11-lobby.css?v=36ba2797">
-  <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=8cf7701e">
+  <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=3c3ecc12">
   <link rel="stylesheet" href="css/13-shop.css?v=eabe3d42">
   <link rel="stylesheet" href="css/14-skin-scenes.css?v=976b81a8">
   <link rel="stylesheet" href="css/15b-race.css?v=06daa2ce">
@@ -203,6 +203,11 @@
   <section class="screen farm" data-screen="farm" hidden>
     <h2>Ферма</h2>
     <div class="farm-body" id="farm-body" hidden>
+      <div class="farm-scene" id="farm-scene" aria-hidden="true"></div>
+      <div class="farm-goal" id="farm-goal" hidden>
+        <div class="farm-goal-text" id="farm-goal-text"></div>
+        <div class="farm-goal-bar"><i id="farm-goal-fill"></i></div>
+      </div>
       <div class="farm-profile">
         <div class="farm-top">
           <strong class="farm-level" id="farm-level"></strong>
@@ -655,17 +660,8 @@
       <span class="profile-name" id="profile-name"></span>
       <span class="rating-badge" id="profile-badge" hidden aria-hidden="true"></span>
     </div>
-    <div class="profile-card" id="profile-data" hidden>
-      <div class="stat"><span class="stat-label">Баланс на сервере</span><strong id="profile-balance"></strong></div>
+    <div class="profile-card profile-income" id="profile-data" hidden>
       <div class="stat"><span class="stat-label">Доход</span><span><strong id="profile-rate"></strong> в час</span></div>
-      <div class="stat" id="profile-upgrades-row" hidden><span class="stat-label">Улучшения</span><span id="profile-upgrades"></span></div>
-      <div class="ring-wrap">
-        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="ring-track" cx="60" cy="60" r="52"/>
-          <circle class="ring-fill" id="profile-ring" cx="60" cy="60" r="52"/>
-        </svg>
-        <div class="ring-inner"><strong class="num" id="profile-timer"></strong><small>до начисления</small></div>
-      </div>
     </div>
     <div class="skeleton-card" id="profile-skel" hidden aria-hidden="true">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton tall"></div>
@@ -673,17 +669,22 @@
     
     <div class="profile-card" id="referral-card" hidden>
       <h3>Пригласи друга</h3>
-      <p id="referral-text" class="referral-text"></p>
-      <div class="stat"><span class="stat-label">Приглашено:</span><strong id="referral-invited"></strong></div>
-      <div class="stat"><span class="stat-label">Дошли до награды:</span><strong id="referral-qualified"></strong></div>
-      <div class="stat"><span class="stat-label">Заработано с процента:</span><strong id="referral-commission"></strong></div>
-      <p id="referral-milestones" class="referral-text"></p>
+      <p id="referral-lead" class="referral-text"></p>
+      <ol class="ref-steps" id="ref-steps" aria-label="Награды за друзей"></ol>
+      <p class="referral-text" id="referral-none" hidden>Пока никого</p>
+      <div id="referral-stats">
+        <div class="stat"><span class="stat-label">Приглашено:</span><strong id="referral-invited"></strong></div>
+        <div class="stat"><span class="stat-label">Дошли до награды:</span><strong id="referral-qualified"></strong></div>
+        <div class="stat"><span class="stat-label">Заработано с процента:</span><strong id="referral-commission"></strong></div>
+      </div>
       <div class="referral-actions" id="referral-actions">
         <button type="button" class="action" id="referral-send">Отправить другу</button>
         <button type="button" class="action" id="referral-copy">Скопировать ссылку</button>
       </div>
       <p class="profile-msg" id="referral-msg" aria-live="polite" hidden></p>
       <div class="referral-link-text" id="referral-link-text"></div>
+      <button type="button" class="dialog-change" id="referral-rules-btn" aria-expanded="false">Условия</button>
+      <p id="referral-text" class="referral-text" hidden></p>
     </div>
 
     <p class="profile-msg" id="profile-msg" aria-live="polite"></p>
@@ -768,9 +769,9 @@
   <script src="js/03a-roulette-wheel.js?v=d4116f8f"></script>
   <script src="js/03b-roulette-table.js?v=34563506"></script>
   <script src="js/03-roulette.js?v=49ba2ba4"></script>
-  <script src="js/04-profile.js?v=9ba848bd"></script>
-  <script src="js/05-rating.js?v=5b1e8b67"></script>
-  <script src="js/06-farm.js?v=157ee67a"></script>
+  <script src="js/04-profile.js?v=5b481e67"></script>
+  <script src="js/05-rating.js?v=ce4a44ee"></script>
+  <script src="js/06-farm.js?v=f471fd4d"></script>
   <script src="js/07-mines.js?v=c7715e5b"></script>
   <script src="js/08-keno.js?v=b1f78dfe"></script>
   <script src="js/09-blackjack.js?v=f73793d9"></script>
@@ -780,9 +781,9 @@
   <script src="js/11-hilo.js?v=726721b1"></script>
   <script src="js/12-shop.js?v=3d7d63f6"></script>
   <script src="js/13-gift.js?v=8a502217"></script>
-  <script src="js/13a-wardrobe-catalog.js?v=8fd9e4c7"></script>
+  <script src="js/13a-wardrobe-catalog.js?v=56dfebde"></script>
   <script src="js/13b-wardrobe-badges.js?v=1f1394a7"></script>
-  <script src="js/13-wardrobe.js?v=1aab6b9b"></script>
+  <script src="js/13-wardrobe.js?v=9e2f940e"></script>
   <script src="js/14-lobby.js?v=211d6819"></script>
   <script src="js/14-streak.js?v=1121a120"></script>
   <script src="js/15-arcade.js?v=24824298"></script>

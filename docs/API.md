@@ -107,7 +107,7 @@
 | me | объект\|null | место вызвавшего среди участников с рекордом; null, если своего рекорда нет |
 | total | int | сколько в беседе участников с рекордом |
 
-Элемент `top`: `rank int`, `name str`, `net_amount int`, `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
+Элемент `top`: `rank int`, `name str`, `net_amount int`, `day int` (день рекорда: начало суток UTC, без времени), `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
 В ответе нет `telegram_id`, времени достижения и идентификатора беседы. Отдельный маршрут, а не поле в `/api/chat/top`: сбой или рост рекордов не ломает основной рейтинг. Кэша нет (`no-store`), как у остальных ответов API. Примеры: `docs/examples/best_wins.json`. Ошибки: 401 `{"detail": "Unauthorized"}`, 429 `{"error": "too_many_requests"}`.
 
 ## GET /api/farm

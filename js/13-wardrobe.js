@@ -84,6 +84,12 @@ const wdOwns = (item) => item.starter || (wd.mine && wd.mine.owned.has(item.code
 const wdWorn = (item) => !!wd.mine && wd.mine.equipped[item.slot] === item.code;
 const wdCanEquip = (item) => item.available && wdOwns(item);
 const wdBuyable = (item) => item.available && !wdOwns(item) && !!item.price;
+// Градиент у правого края ряда категорий: подсказка, что список прокручивается; на конце прокрутки пропадает
+function wdUpdateTabsFade() {
+  const t = wdEls.tabs;
+  t.classList.toggle('more', t.scrollWidth > t.clientWidth + 2 && t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
+}
+
 function wdStatus(item) {
   if (wdWorn(item)) return 'Надето';
   if (!item.available) return 'Скоро';
@@ -212,10 +218,11 @@ function renderWardrobe() {
       wdEls.grid.appendChild(retry);
     }
   } else {
-    wd.catalog.filter((i) => i.slot === wd.slot).forEach((item) => {
+    // «Скоро» уходят в конец списка и бледнеют (UI_REVIEW, магазин); порядок остальных прежний
+    wd.catalog.filter((i) => i.slot === wd.slot).sort((a, b) => (a.available === b.available ? 0 : a.available ? -1 : 1)).forEach((item) => {
       const card = document.createElement('button');
       card.type = 'button';
-      card.className = 'wd-card' + (wdWorn(item) ? ' on' : '') + (wdOwns(item) && item.available ? '' : ' dim');
+      card.className = 'wd-card' + (wdWorn(item) ? ' on' : '') + (wdOwns(item) && item.available ? '' : ' dim') + (item.available ? '' : ' soon');
       card.dataset.code = item.code;
       const name = document.createElement('span');
       name.className = 'wd-name';
@@ -224,12 +231,14 @@ function renderWardrobe() {
       status.className = 'wd-status';
       status.textContent = wdStatus(item);
       if (wdBuyable(item)) status.classList.add('price');
+      if (item.available && wdOwns(item) && !wdWorn(item)) status.dataset.own = '1';      // «Есть»: в сетке значок ✓, текст остаётся для чтения с экрана
       card.append(wdScene(item.slot, item.code, true), name, status);
       card.addEventListener('click', () => openWdPreview(item));
       wdEls.grid.appendChild(card);
     });
   }
   wdEls.tabs.scrollLeft = tabsLeft;
+  wdUpdateTabsFade();
   wdEls.grid.scrollTop = gridTop;
   const on = !!wd.mine && wd.mine.showInRating;
   wdEls.vis.setAttribute('aria-checked', String(on));
@@ -608,5 +617,6 @@ wdEls.setAct.addEventListener('click', () => {
 wdEls.terms.addEventListener('click', openTerms);
 closeOnBackdropTap(wdEls.pDim, closeWdPreview);
 
+wdEls.tabs.addEventListener('scroll', wdUpdateTabsFade, { passive: true });
 // #endregion
 

@@ -4,6 +4,10 @@
 // Покупка: POST /api/farm/buy, до 3 попыток с одним request_id; 429 повторяется в postJson.
 const farmEls = {
   body: document.getElementById('farm-body'),
+  scene: document.getElementById('farm-scene'),
+  goal: document.getElementById('farm-goal'),
+  goalText: document.getElementById('farm-goal-text'),
+  goalFill: document.getElementById('farm-goal-fill'),
   skel: document.getElementById('farm-skel'),
   msg: document.getElementById('farm-msg'),
   code: document.getElementById('farm-code'),
@@ -71,7 +75,7 @@ Object.keys(FARM_KINDS).forEach((kind) => {
   reason.className = 'farm-reason';
   card.append(head, effect, cost, btn, reason);
   farmEls.cards.appendChild(card);
-  farmCards[kind] = { lvl, effect, cost, btn, reason };
+  farmCards[kind] = { card, lvl, effect, cost, btn, reason };
 });
 
 function setFarmNote(text, kind = '') {
@@ -103,9 +107,59 @@ function validFarm(d) {
     && isLevelPair(d.storage, ['hours']) && nullable(d.storage, 'next_hours') && nullable(d.storage, 'next_cost');
 }
 
+// Картинка места (UI_REVIEW, ферма): поле растёт вместе с доходом, амбар заполняется вместе с хранилищем. Только рисунок по данным сервера
+function renderFarmScene(d) {
+  const inc = Math.max(0, Math.min(1, d.income.level / Math.max(1, d.income.max)));
+  const sto = Math.max(0, Math.min(1, d.storage.level / Math.max(1, d.storage.max)));
+  const plants = 3 + Math.round(inc * 5);                    // 3..8 грядок-растений
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 300 96');
+  svg.setAttribute('class', 'farm-svg');
+  const add = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k])); parent.appendChild(e); return e; };
+  add('rect', { class: 'farm-ground', x: 0, y: 70, width: 300, height: 26 });
+  for (let i = 0; i < plants; i++) {                         // растения: стебель и листья, высота и густота растут с уровнем дохода
+    const x = 18 + i * (150 / Math.max(1, plants - 1));
+    const h = 10 + inc * 26 + (i % 2) * 4;
+    const g = add('g', { class: 'farm-plant', transform: 'translate(' + x.toFixed(1) + ' 70)' });
+    g.style.setProperty('--d', (i * 0.37).toFixed(2) + 's');           // через CSSOM: атрибут style закрыт CSP
+    add('path', { class: 'farm-stem', d: 'M0 0 V' + (-h).toFixed(1) }, g);
+    add('ellipse', { class: 'farm-leaf', cx: -4, cy: (-h * 0.55).toFixed(1), rx: 4.5, ry: 2.2 }, g);
+    add('ellipse', { class: 'farm-leaf', cx: 4, cy: (-h * 0.8).toFixed(1), rx: 4.5, ry: 2.2 }, g);
+    if (inc > 0.5) add('circle', { class: 'farm-fruit', cx: 0, cy: (-h - 2).toFixed(1), r: 3 }, g);
+  }
+  // амбар: стены, крыша, ворота; зерно в проёме поднимается с уровнем хранилища
+  add('rect', { class: 'farm-barn', x: 196, y: 28, width: 84, height: 58, rx: 3 });
+  add('path', { class: 'farm-roof', d: 'M190 30 L238 4 L286 30 Z' });
+  add('rect', { class: 'farm-door', x: 222, y: 46, width: 32, height: 40, rx: 2 });
+  const grain = add('rect', { class: 'farm-grain', x: 222, y: 86 - 40 * sto, width: 32, height: Math.max(0.01, 40 * sto), rx: 2 });
+  grain.setAttribute('data-level', String(d.storage.level));
+  farmEls.scene.textContent = '';
+  farmEls.scene.appendChild(svg);
+}
+
+// Следующая цель: ближайшее улучшение и сколько до него не хватает; если улучшать нечего, цель следующий уровень профиля
+function renderFarmGoal(d) {
+  const options = [['доход', d.income], ['хранилище', d.storage]].filter(([, o]) => o.next_cost !== null && o.level < o.max);
+  let text = '';
+  let ratio = 0;
+  if (options.length) {
+    const [name, o] = options.sort((a, b) => a[1].next_cost - b[1].next_cost)[0];
+    ratio = Math.min(1, d.balance / o.next_cost);
+    text = 'Цель: ' + name + ' ' + (o.level + 1) + ' уровня, ' + formatCompact(o.next_cost) + ' фишек' + (d.balance >= o.next_cost ? ' (хватает)' : ' (ещё ' + formatCompact(o.next_cost - d.balance) + ')');
+  } else if (d.profile.next_threshold !== null && isCount(d.profile.xp)) {
+    ratio = Math.min(1, d.profile.xp / d.profile.next_threshold);
+    text = 'Цель: уровень ' + (d.profile.level + 1) + ', ещё ' + formatCompact(d.profile.next_threshold - d.profile.xp) + ' опыта';
+  }
+  farmEls.goal.hidden = !text;
+  farmEls.goalText.textContent = text;
+  farmEls.goalFill.style.transform = 'scaleX(' + ratio.toFixed(3) + ')';
+}
+
 function renderFarmCard(kind, o, slots) {
   const c = farmCards[kind];
-  c.lvl.textContent = `${o.level} / ${o.max}`;
+  c.card.classList.toggle('maxed', o.level >= o.max);        // максимум: одна компактная строка (UI_REVIEW, ферма)
+  c.lvl.textContent = o.level >= o.max ? 'максимум' : `${o.level} / ${o.max}`;
   if (kind === 'income') {
     c.effect.textContent = `${formatCompact(o.rate)} в час` + (o.next_rate !== null ? ` → ${formatCompact(o.next_rate)} в час` : '');
   } else {
@@ -200,6 +254,9 @@ function showAccrualPop(amount) {
   const host = ['.screen:not([hidden]) .balance strong', '.screen:not([hidden]) #profile-balance', '.screen:not([hidden]) #farm-balance']
     .map((sel) => document.querySelector(sel)).find((el) => el && el.getBoundingClientRect().width > 0);
   if (!host) return;
+  host.classList.remove('bump');            // сам баланс «подпрыгивает» при начислении
+  void host.offsetWidth;
+  host.classList.add('bump');
   const rect = host.getBoundingClientRect();
   const pop = document.createElement('span');
   pop.className = 'accrual-pop';
@@ -262,6 +319,8 @@ function renderFarm(d) {
   farmEls.slots.textContent = `Слоты улучшений: ${d.slots.used} / ${d.slots.total}`;
   renderFarmCard('income', d.income, d.slots);
   renderFarmCard('storage', d.storage, d.slots);
+  renderFarmScene(d);
+  renderFarmGoal(d);
 }
 
 function updateFarmButtons() {

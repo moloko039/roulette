@@ -3,7 +3,7 @@
 // Коды с сервера проверяются по белому списку SKIN_CODES: неизвестные игнорируются; тексты каталога выводятся только через textContent,
 // разметка (SVG) берётся из констант клиента по проверенному коду. Покупок и цен нет: предметы выдаёт владелец.
 const WD_SLOTS = [
-  { slot: 'card_back', label: 'Рубашка карт' }, { slot: 'chip', label: 'Фишки' }, { slot: 'table', label: 'Стол' },
+  { slot: 'card_back', label: 'Рубашка карт' }, { slot: 'chip', label: 'Жетоны' }, { slot: 'table', label: 'Стол' },
   { slot: 'mine_icons', label: 'Иконки мин' }, { slot: 'keno_ball', label: 'Шарики кено' }, { slot: 'crash', label: 'Краш' },
   { slot: 'avatar_frame', label: 'Рамка аватара' }, { slot: 'badge', label: 'Значок' }
 ];
