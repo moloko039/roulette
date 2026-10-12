@@ -24,19 +24,20 @@ function renderLobby() {
 lobbyRender = renderLobby;
 
 // Реестр игр: чтобы добавить игру, нужна запись здесь и экран с data-screen="<id>".
+// Название и короткое описание (desc) одни на лобби и нижнюю шторку выбора игры (UI_REVIEW 1.8).
 // Порядок записей = порядок карточек на титульном экране и пунктов меню (два столбца: слева направо, сверху вниз).
 // Для ready: false игра не открывается: нажатие показывает «Скоро».
 // Иконка — вложенный SVG (24×24, контур)
 const GAMES = [
-  { id: 'crash',     label: 'Краш',      hint: 'Забери вовремя', desc: 'Успей забрать до краха', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
-  { id: 'roulette',  label: 'Рулетка',   hint: 'Угадай цвет', desc: 'Классическая европейская рулетка', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
-  { id: 'keno',      label: 'Кено',      hint: 'Угадай числа', desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' },
-  { id: 'mines',     label: 'Мины',      hint: 'Обойди мины', desc: 'Открывай клетки и забирай выигрыш', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
-  { id: 'hilo',      label: 'Хило',      hint: 'Выше или ниже?', desc: 'Угадай: выше или ниже карта', ready: true,  icon: '<rect x="3" y="4" width="8" height="12" rx="2"/><rect x="13" y="8" width="8" height="12" rx="2"/><path d="M7 7.5v5M5.2 9.3 7 7.5l1.8 1.8M17 11.5v5M15.2 14.7 17 16.5l1.8-1.8"/>' },
-  { id: 'blackjack', label: 'Блэкджек',  hint: 'Набери 21', desc: 'Набери 21', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
+  { id: 'crash',     label: 'Краш',      desc: 'Успей забрать до краха', ready: true, icon: '<path d="M3 20h18M4 16l5-5 4 3 7-8M15 6h5v5"/>' },
+  { id: 'roulette',  label: 'Рулетка',   desc: 'Классическая европейская рулетка', ready: true,  icon: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>' },
+  { id: 'keno',      label: 'Кено',      desc: 'Выбери числа и жди розыгрыш', ready: true, icon: '<circle cx="6" cy="6" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>' },
+  { id: 'mines',     label: 'Мины',      desc: 'Открывай клетки и забирай выигрыш', ready: true, icon: '<circle cx="11" cy="14" r="7"/><path d="M16 9l3-3M18 4l2 2M11 3v2M4 14H2M20 14h2"/>' },
+  { id: 'hilo',      label: 'Хило',      desc: 'Выше или ниже следующая карта', ready: true,  icon: '<rect x="3" y="4" width="8" height="12" rx="2"/><rect x="13" y="8" width="8" height="12" rx="2"/><path d="M7 7.5v5M5.2 9.3 7 7.5l1.8 1.8M17 11.5v5M15.2 14.7 17 16.5l1.8-1.8"/>' },
+  { id: 'blackjack', label: 'Блэкджек',  desc: 'Набери 21, не перебрав', ready: true, icon: '<rect x="4" y="6" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 0 1 2 2v12"/>' },
   // раздел встроенных игр на фишках приложения: список внутри строится из EMBEDDED_GAMES
-  { id: 'race',      label: 'Свинки',    hint: 'Угадай дорожку', desc: 'Выбери дорожку и жди финиша', ready: true, icon: '<circle cx="9" cy="14" r="5"/><path d="M14 13h5M4 9l3 3M7 9V6"/>' },
-  { id: 'arcade',    label: 'Не слоты',  hint: 'Другие игры', desc: 'Western Slot и другие игры', ready: true, icon: '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10v4M6 12h4M15 11h.01M17.5 13h.01"/>' }
+  { id: 'race',      label: 'Свинки',    desc: 'Выбери дорожку и жди финиша', ready: true, icon: '<circle cx="9" cy="14" r="5"/><path d="M14 13h5M4 9l3 3M7 9V6"/>' },
+  { id: 'arcade',    label: 'Не слоты',  desc: 'Western Slot и другие игры', ready: true, icon: '<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10v4M6 12h4M15 11h.01M17.5 13h.01"/>' }
 ];
 // Пока игра не выбрана (currentGame = 'lobby'), вкладка «Играть» показывает титульный экран. После выбора он не возвращается
 // до следующего запуска; выбранная игра хранится только в памяти.
@@ -155,7 +156,7 @@ GAMES.forEach((game, i) => {
   tile.style.setProperty('--i', i);
   tile.setAttribute('role', 'menuitem');
   tile.dataset.soon = String(!game.ready);
-  tile.innerHTML = `${iconSvg(game.icon)}<span class="tile-name">${game.label}</span><span class="tile-hint">${game.hint || ''}</span>`;
+  tile.innerHTML = `${iconSvg(game.icon)}<span class="tile-name">${game.label}</span><span class="tile-hint">${game.desc || ''}</span>`;
   tile.addEventListener('click', () => selectGame(game.id));
   gameGrid.appendChild(tile);
 

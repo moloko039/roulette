@@ -25,21 +25,22 @@
 .bj-cards { display: flex; min-height: 68px; overflow: hidden; padding: 2px 2px 4px; }
 .bj-card {
   position: relative;
-  display: grid;
   flex: none;
-  grid-template-rows: auto 1fr;
-  justify-items: start;
   width: 46px;
   height: 64px;
-  padding: 3px 4px;
   color: var(--card-ink);
   background: var(--card-face);
   border: 1px solid rgba(10, 10, 11, 0.35);
   border-radius: 7px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
 }
-.bj-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 15px; font-weight: 700; line-height: 1; }
-.bj-card svg { align-self: end; justify-self: end; width: 22px; height: 22px; fill: currentColor; }
+/* лицо: индекс слева сверху и перевёрнутый справа снизу, масть по центру (общее для блэкджека, хило и примерки скина) */
+.bj-card .idx, .hl-card .idx { position: absolute; top: 3px; left: 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1; }
+.bj-card .idx-end, .hl-card .idx-end { top: auto; left: auto; right: 4px; bottom: 3px; transform: rotate(180deg); }
+.bj-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 13px; font-weight: 700; line-height: 1; }
+.bj-card .idx svg { width: 10px; height: 10px; fill: currentColor; }
+.bj-card .pip, .hl-card .pip { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.bj-card .pip svg { width: 24px; height: 24px; fill: currentColor; }
 .bj-card.red { color: var(--card-red); }
 .bj-card.back {
   background: var(--card-back-image, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 4px, var(--card-back-b) 4px, var(--card-back-b) 8px));

@@ -27,12 +27,18 @@ if (tg) {
   });
 }
 
-// Вибрация: 'light' (касание), 'success' (выигрыш), 'error' (проигрыш или отказ). Без Telegram ничего не делает
+// Вибрация (UI_REVIEW 1.7): 'light' (ставка, выбор клетки), 'medium' («Забрать», старт), 'success' (выигрыш), 'error' (проигрыш, краш, мина),
+// 'selection' (пошаговые события). Не чаще одного вызова в 80 мс. Без Telegram ничего не делает
+let lastHapticAt = 0;
 function haptic(kind) {
   try {
     const h = tg && tg.HapticFeedback;
     if (!h) return;
-    if (kind === 'light') h.impactOccurred('light');
+    const now = performance.now();
+    if (now - lastHapticAt < 80) return;
+    lastHapticAt = now;
+    if (kind === 'light' || kind === 'medium') h.impactOccurred(kind);
+    else if (kind === 'selection') h.selectionChanged();
     else h.notificationOccurred(kind);
   } catch (e) {
     // вибрация необязательна
@@ -64,7 +70,16 @@ const BJ_SUIT_SETS = {
     C: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="4.4"/><circle cx="6.8" cy="14.6" r="4.4"/><circle cx="17.2" cy="14.6" r="4.4"/><path d="M12 12.5l-2.8 9.5h5.6z"/></svg>'
   }
 };
-let BJ_SUIT_SVG = BJ_SUIT_SETS.default;      // набор мастей зависит от скина рубашки (applySkins); стартовый набор один
+let BJ_SUIT_SVG = BJ_SUIT_SETS.default;
+// Лицо игральной карты (блэкджек, хило, примерка скина): индекс (ранг и масть) в левом верхнем углу и перевёрнутый в правом нижнем, крупная масть в центре (UI_REVIEW 1.9)
+const cardFaceHtml = (suit) => {
+  const idx = '<span class="idx"><span class="rank"></span>' + BJ_SUIT_SVG[suit] + '</span>';
+  return idx + '<span class="pip">' + BJ_SUIT_SVG[suit] + '</span>' + idx.replace('class="idx"', 'class="idx idx-end"');
+};
+function setCardFace(el, rankText, suit) {
+  el.innerHTML = cardFaceHtml(suit);
+  el.querySelectorAll('.rank').forEach((r) => { r.textContent = rankText; });
+}      // набор мастей зависит от скина рубашки (applySkins); стартовый набор один
 
 // Тост поверх нижней панели (общий для «Скоро», «Отправлено», «Вам перевели»)
 let toastTimer = null;

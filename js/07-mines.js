@@ -437,6 +437,7 @@ function minesReveal(cell) {
 
 function minesCashout() {
   if (mn.view !== 'play' || mn.busy) return;
+  haptic('medium');
   minesAct('/api/mines/cashout', {}, validMinesCashout, (d) => {
     skinEvents.emit('mines:end', { status: d.last.status, cell: null });
     skinEvents.emit('round:end', { game: 'mines' });

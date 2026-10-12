@@ -23,13 +23,13 @@
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
-  color: var(--on-accent);
-  background: var(--text);
+  color: var(--card-ink);
+  background: var(--card-face);
   border: 2px solid transparent;
   border-radius: 5px;
 }
 .hl-mini svg { align-self: end; width: 11px; height: 11px; fill: currentColor; }
-.hl-mini.red { color: var(--red); }
+.hl-mini.red { color: var(--card-red); }
 .hl-mini.win { border-color: var(--green); }
 .hl-mini.tie { border-color: var(--text-muted); border-style: double; border-width: 3px; }
 .hl-mini.skip { opacity: 0.45; }
@@ -37,20 +37,19 @@
 .hl-stage { display: grid; place-items: center; min-height: 176px; perspective: 700px; }
 .hl-card {
   position: relative;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  justify-items: start;
   width: 118px;
   height: 164px;
-  padding: 8px 10px;
   color: var(--card-ink);
   background: var(--card-face);
   border: 2px solid rgba(10, 10, 11, 0.35);
   border-radius: 14px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
 }
-.hl-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 38px; font-weight: 700; line-height: 1; }
-.hl-card svg { align-self: end; justify-self: end; width: 56px; height: 56px; fill: currentColor; }
+.hl-card .idx { top: 8px; left: 10px; gap: 2px; }
+.hl-card .idx-end { top: auto; left: auto; right: 10px; bottom: 8px; }
+.hl-card .rank { font-family: var(--font-display); font-variant-numeric: lining-nums; font-size: 30px; font-weight: 700; line-height: 1; }
+.hl-card .idx svg { width: 20px; height: 20px; fill: currentColor; }
+.hl-card .pip svg { width: 64px; height: 64px; fill: currentColor; }
 .hl-card.red { color: var(--card-red); }
 .hl-card.back {
   background: var(--card-back-image-hl, repeating-linear-gradient(45deg, var(--card-back-a), var(--card-back-a) 6px, var(--card-back-b) 6px, var(--card-back-b) 12px));

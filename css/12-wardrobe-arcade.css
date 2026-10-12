@@ -33,9 +33,9 @@
   --card-back-a: #17171b;
   --card-back-b: #24242a;
   --card-back-border: var(--border-strong);
-  --card-face: var(--text);
+  --card-face: #F4EFE6;
   --card-ink: var(--on-accent);
-  --card-red: var(--red);
+  --card-red: #8E2A2F;
   --card-back-image: initial;
   --card-back-image-hl: initial;
   --card-back-outline: initial;

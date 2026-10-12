@@ -60,6 +60,7 @@ function crBet() {
 function crCash() {
   const me = crMe();
   if (!me || me.status !== 'open' || cr.busy) return;
+  haptic('medium');
   crAct('/api/crash/live/cashout', {}, validCrCashDone, (d) => {
     cr.balance = d.balance;
     haptic('success');

@@ -128,7 +128,7 @@ function wdScene(slot, code, mini) {
     add('bj-card back');
     if (!mini) {
       const face = add('bj-card red');
-      face.innerHTML = '<span class="rank">A</span>' + BJ_SUIT_SVG.H;
+      setCardFace(face, 'A', 'H');
     }
   } else if (slot === 'table') {
     add('cell red', '7', 'span'); add('cell black', '8', 'span');

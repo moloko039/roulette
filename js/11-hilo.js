@@ -103,8 +103,7 @@ function renderHlCard(animate, tone) {
   el.className = 'hl-card';
   el.textContent = '';
   if (!c) { el.classList.add('back'); el.setAttribute('aria-label', 'Карта не выбрана'); return; }
-  el.innerHTML = '<span class="rank"></span>' + BJ_SUIT_SVG[c.suit];
-  el.firstChild.textContent = hlRankText(c);
+  setCardFace(el, hlRankText(c), c.suit);
   el.setAttribute('aria-label', hlRankText(c) + ' ' + HL_SUIT_NAMES[c.suit]);
   if (hlIsRed(c)) el.classList.add('red');
   if (hl.game && hl.game.status === 'lost' && !hl.animating) el.classList.add('lost');

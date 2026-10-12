@@ -101,8 +101,7 @@ function bjCardEl(card, isNew) {
     const rank = card.slice(0, -1);
     const suit = card.slice(-1);
     el.className = 'bj-card' + (suit === 'H' || suit === 'D' ? ' red' : '');
-    el.innerHTML = '<span class="rank"></span>' + BJ_SUIT_SVG[suit];
-    el.firstChild.textContent = rank;
+    setCardFace(el, rank, suit);
     el.setAttribute('aria-label', rank + ' ' + { S: 'пик', H: 'червей', D: 'бубен', C: 'треф' }[suit]);
   }
   if (isNew) el.classList.add('new');
