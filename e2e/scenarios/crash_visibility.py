@@ -52,7 +52,7 @@ async def run(w):
     await server_to(w, p, fs + t_crash_ms(200) + 400)      # раунд закончился на сервере, пока экран закрыт
     await p.ev("window.__multLog = []")
     await p.tap(".tab[data-tab=play]")
-    await p.wait("document.getElementById('cr-banner-title').textContent.startsWith('Крах ×2.00, потеряно 100')", 10, "после возврата показан итог раунда")
+    await p.wait("(document.getElementById('cr-banner-title').textContent + ' ' + document.getElementById('cr-banner-amount').textContent).startsWith('Крах ×2.00 −100')", 10, "после возврата показан итог раунда")
     await p.wait(BANNER_LOSE, 5, "баннер проигрыша")
     await asyncio.sleep(1.0)
     log = await p.ev("window.__multLog")
@@ -98,7 +98,7 @@ async def run(w):
     check("пока приложение скрыто, запросов состояния нет", await p.ev("window.__polls"), polls)
     await server_to(w, p, fs + t_crash_ms(200) + 400)
     await p.ev("window.__multLog = []; " + SHOW)      # сброс журнала и возврат одним вызовом: при имитации скрытия кадры ещё идут и до возврата
-    await p.wait("document.getElementById('cr-banner-title').textContent.startsWith('Крах ×2.00, потеряно 100')", 10, "после возврата в приложение показан итог")
+    await p.wait("(document.getElementById('cr-banner-title').textContent + ' ' + document.getElementById('cr-banner-amount').textContent).startsWith('Крах ×2.00 −100')", 10, "после возврата в приложение показан итог")
     await asyncio.sleep(1.0)
     log = await p.ev("window.__multLog")
     check("скрытие приложения: после возврата множитель не выше ×2.00", [v for v in log if v > 2.0], [])

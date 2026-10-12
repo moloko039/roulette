@@ -4,6 +4,7 @@
 // Порядок от верхнего окна к нижнему: Escape закрывает первое открытое.
 const A11Y_OVERLAYS = [
   { el: () => arcadeEls.view, isOpen: (el) => !el.hidden, close: () => closeEmbedded(), focus: () => document.getElementById('embed-back') },
+  { el: () => crEls.proofSheet, isOpen: (el) => !el.hidden, close: () => closeCrProof(), focus: (el) => el.querySelector('[role="dialog"]') },
   { el: () => wdEls.pSheet, isOpen: (el) => !el.hidden, close: () => closeWdPreview(), focus: (el) => el.querySelector('[role="dialog"]') },
   { el: () => gameMenu, isOpen: (el) => el.classList.contains('open'), close: () => closeGameMenu(), focus: () => gamePanel }
 ];

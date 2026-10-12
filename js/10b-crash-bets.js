@@ -6,8 +6,16 @@ const CR_TARGET_MAX = 100000;    // ×1000.00, как CAP_X100 на сервер
 
 const crBetLimit = () => Math.max(1, Math.min(CR_BET_MAX, cr.balance === null ? CR_BET_MAX : cr.balance));
 
-// Цель из поля: пусто = вручную (null); число 1.01..1000 с двумя знаками; иначе undefined (ошибка)
+// Переключатель «Авто»: выключен = вручную; включён показывает поле множителя и быстрые цели (UI_REVIEW, краш)
+function crSetAuto(on) {
+  crEls.auto.setAttribute('aria-pressed', String(on));
+  crEls.targetRow.hidden = !on;
+  if (!on) crEls.target.value = '';
+}
+
+// Цель из поля: «Авто» выключено или пусто = вручную (null); число 1.01..1000 с двумя знаками; иначе undefined (ошибка)
 function crParseTarget() {
+  if (crEls.auto.getAttribute('aria-pressed') !== 'true') return null;
   const raw = crEls.target.value.trim().replace(',', '.');
   if (raw === '') return null;
   if (!/^\d{1,4}(\.\d{0,2})?$/.test(raw)) return undefined;
@@ -91,7 +99,13 @@ crEls.target.addEventListener('input', () => {
   const dot = v.indexOf('.');
   if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
   crEls.target.value = v.slice(0, 7);
+  if (crEls.target.value !== '' && crEls.auto.getAttribute('aria-pressed') !== 'true') crSetAuto(true);   // ввод цели включает «Авто»
   syncCrChips();
+});
+crEls.auto.addEventListener('click', () => {
+  crSetAuto(crEls.auto.getAttribute('aria-pressed') !== 'true');
+  syncCrChips();
+  haptic('light');
 });
 crEls.target.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); crEls.target.blur(); } });
 crEls.target.addEventListener('focus', () => {
@@ -108,7 +122,8 @@ crEls.target.addEventListener('blur', () => {
 crEls.maxBtn.addEventListener('click', () => { if (document.activeElement === crEls.target) crEls.target.blur(); });
 crEls.bets.querySelectorAll('[data-ctarget]').forEach((b) => b.addEventListener('click', () => {
   const same = crParseTarget() === Math.round(parseFloat(b.dataset.ctarget) * 100);
-  crEls.target.value = same ? '' : b.dataset.ctarget;   // повторное нажатие возвращает ручной режим
+  crSetAuto(true);
+  crEls.target.value = same ? '' : b.dataset.ctarget;   // повторное нажатие снимает цель (поле пустое: вручную)
   syncCrChips();
   haptic('light');
 }));

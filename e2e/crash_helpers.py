@@ -3,7 +3,7 @@ import math
 
 from harness import set_bet
 
-TITLE = "document.getElementById('cr-banner-title').textContent.replace(/\\s/g, ' ')"
+TITLE = "(document.getElementById('cr-banner-title').textContent + ' ' + document.getElementById('cr-banner-amount').textContent).replace(/\\s+/g, ' ').trim()"   # «Забрали ×2.00 +100», «Крах ×1.50 −100»
 READY = "!document.getElementById('cr-bets').hidden && !document.getElementById('cr-start').disabled"
 CASH_VISIBLE = "!document.getElementById('cr-actions').hidden && !document.getElementById('cr-cash').disabled"
 CAP_X100 = 100000
@@ -33,11 +33,11 @@ async def flight_start(p):
 
 
 async def bet(p, amount, target):
-    """Ставка amount с целью автовывода target (пусто: вручную); ждёт баннер «Ставка принята»."""
+    """Ставка amount с целью автовывода target (пусто: вручную); ждёт кнопку «Ставка принята»."""
     await set_bet(p, "cr-bet", amount)
     await p.ev("(() => { const i = document.getElementById('cr-target'); i.value = %r; i.dispatchEvent(new Event('input')); })()" % target)
     await p.tap("#cr-start")
-    await p.wait("%s.startsWith('Ставка принята')" % TITLE, 10, "ставка принята")
+    await p.wait("document.getElementById('cr-start').textContent.trim() === 'Ставка принята'", 10, "ставка принята")
 
 
 async def next_round(w, p, fs, crash_x100):

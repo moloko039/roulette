@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=3c32beb2">
   <link rel="stylesheet" href="css/07-keno.css?v=2003465a">
   <link rel="stylesheet" href="css/08-blackjack.css?v=0f3d27f9">
-  <link rel="stylesheet" href="css/09-crash.css?v=3412f4d2">
+  <link rel="stylesheet" href="css/09-crash.css?v=7a2e179e">
   <link rel="stylesheet" href="css/10-hilo.css?v=ed3c79a2">
   <link rel="stylesheet" href="css/11-lobby.css?v=36ba2797">
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=372b53ce">
@@ -495,7 +495,7 @@
     <p class="profile-msg" id="cr-msg"></p>
     <small class="profile-code" id="cr-code"></small>
     <button type="button" class="action profile-retry" id="cr-retry" hidden>Повторить</button>
-    <div class="cr-chart" id="cr-chart" data-tone="idle" hidden>
+    <div class="cr-chart" id="cr-chart" data-tone="idle" data-zone="1" hidden>
       <svg class="cr-svg" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
         <path class="cr-axis" d="M0 149H300M1 0V150"/>
         <path class="cr-smoke" id="cr-smoke" d="M0 149"/>
@@ -505,17 +505,22 @@
         <strong class="cr-mult" id="cr-mult">×1.00</strong>
         <span class="cr-label" id="cr-label"></span>
       </div>
+      <div class="cr-crowd" id="cr-crowd" aria-hidden="true"></div>
+      <button type="button" class="cr-proof-btn" id="cr-proof-btn">Проверка честности</button>
+      <ol class="cr-ticker" id="cr-ticker" aria-hidden="true"></ol>
+      <div class="cr-bar" id="cr-bar" aria-hidden="true"><i id="cr-bar-fill"></i></div>
+      <span class="cr-pop" id="cr-pop" aria-hidden="true"></span>
     </div>
     <ol class="cr-history" id="cr-history" aria-label="Последние точки краха" hidden></ol>
-    <div class="bj-banner cr-banner" id="cr-banner" aria-live="polite" hidden>
-      <strong id="cr-banner-title"></strong>
-      <span id="cr-banner-detail"></span>
+    <div class="bj-banner cr-banner res-box" id="cr-banner" aria-live="polite" hidden>
+      <strong class="res-title" id="cr-banner-title"></strong>
+      <span class="res-amount" id="cr-banner-amount" hidden></span>
+      <span class="res-note" id="cr-banner-detail" hidden></span>
     </div>
     <section class="cr-feed-wrap" aria-label="Ставки в раунде">
       <h3 class="cr-feed-title" id="cr-feed-title"></h3>
       <ol class="cr-feed" id="cr-feed"></ol>
     </section>
-    <p class="cr-proof" id="cr-proof" hidden></p>
     <section class="bets bets-dock cr-bets" id="cr-bets" hidden>
       <div class="row bet-chips">
         <button type="button" class="chip" data-cbet="10" aria-pressed="false">10</button>
@@ -529,8 +534,12 @@
         <button type="button" class="action step-btn" id="cr-double-bet" aria-label="Увеличить вдвое">×2</button>
         <button type="button" class="action bet-maxdone" id="cr-max">Макс</button>
       </div>
-      <div class="cr-target-row">
-        <input id="cr-target" class="bet-input cr-target" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="Авто ×" aria-label="Авто-вывод, множитель (пусто: вручную)">
+      <div class="cr-auto-row">
+        <button type="button" class="action cr-auto-toggle" id="cr-auto" aria-pressed="false">Авто</button>
+        <span class="cr-auto-hint">забрать на ×</span>
+      </div>
+      <div class="cr-target-row" id="cr-target-row" hidden>
+        <input id="cr-target" class="bet-input cr-target" type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" placeholder="×2.00" aria-label="Авто-вывод, множитель (пусто: вручную)">
         <button type="button" class="chip" data-ctarget="1.5" aria-pressed="false">1.5×</button>
         <button type="button" class="chip" data-ctarget="2" aria-pressed="false">2×</button>
         <button type="button" class="chip" data-ctarget="5" aria-pressed="false">5×</button>
@@ -705,6 +714,18 @@
 
   <!-- кнопки строятся в js/*.js из массива TABS -->
   <div class="soon-toast wd-toast" id="wd-toast" role="status" aria-live="polite"></div>
+  <div class="dialog-sheet" id="cr-proof-sheet" hidden>
+    <div class="dialog-dim" id="cr-proof-dim"></div>
+    <section class="dialog-panel" role="dialog" aria-modal="true" aria-label="Проверка честности раунда">
+      <div class="dialog-head"><strong>Проверка честности</strong><span class="wd-status" id="cr-proof-status"></span></div>
+      <p class="wd-desc">Раунд общий, точка краха одна на всех и определена до начала. Здесь хэш секрета раунда: после краха секрет раскрывается, и его хэш можно сверить с этим.</p>
+      <p class="cr-proof-hash" id="cr-proof-hash"></p>
+      <p class="wd-desc" id="cr-proof-text"></p>
+      <div class="row dialog-actions">
+        <button type="button" class="action" id="cr-proof-close">Закрыть</button>
+      </div>
+    </section>
+  </div>
   <div class="dialog-sheet" id="wd-prev-sheet" hidden>
     <div class="dialog-dim" id="wd-prev-dim"></div>
     <section class="dialog-panel wd-prev-panel" role="dialog" aria-modal="true" aria-label="Предпросмотр">
@@ -743,7 +764,7 @@
   <script src="js/00-config.js?v=fe03424e"></script>
   <script src="js/01-core.js?v=7ad4645b"></script>
   <script src="js/01a-skin-runtime.js?v=8e0bbaa7"></script>
-  <script src="js/01b-result.js?v=fd0cb472"></script>
+  <script src="js/01b-result.js?v=c36f4dc6"></script>
   <script src="js/02-bet.js?v=abda8ac3"></script>
   <script src="js/03a-roulette-wheel.js?v=abb5585d"></script>
   <script src="js/03b-roulette-table.js?v=b1ab3b14"></script>
@@ -754,9 +775,9 @@
   <script src="js/07-mines.js?v=7eb92f51"></script>
   <script src="js/08-keno.js?v=261a5b6e"></script>
   <script src="js/09-blackjack.js?v=3e9be92a"></script>
-  <script src="js/10a-crash-chart.js?v=f5549677"></script>
-  <script src="js/10-crash.js?v=33046176"></script>
-  <script src="js/10b-crash-bets.js?v=79ac39c9"></script>
+  <script src="js/10a-crash-chart.js?v=1ffdd634"></script>
+  <script src="js/10-crash.js?v=143b0c1c"></script>
+  <script src="js/10b-crash-bets.js?v=1f5ef9c1"></script>
   <script src="js/11-hilo.js?v=d7ddcf53"></script>
   <script src="js/12-shop.js?v=3d7d63f6"></script>
   <script src="js/13-gift.js?v=8a502217"></script>
@@ -766,8 +787,8 @@
   <script src="js/14-lobby.js?v=211d6819"></script>
   <script src="js/14-streak.js?v=1121a120"></script>
   <script src="js/15-arcade.js?v=24824298"></script>
-  <script src="js/15b-race.js?v=1323871b"></script>
-  <script src="js/16-a11y.js?v=09029a73"></script>
+  <script src="js/15b-race.js?v=878ef72e"></script>
+  <script src="js/16-a11y.js?v=0ac5195d"></script>
   <script src="js/17-start.js?v=a8abd05f"></script>
 </body>
 </html>

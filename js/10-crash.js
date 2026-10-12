@@ -22,14 +22,26 @@ const crEls = {
   chart: document.getElementById('cr-chart'),
   curve: document.getElementById('cr-curve'),
   smoke: document.getElementById('cr-smoke'),
-  smoke: document.getElementById('cr-smoke'),
   mult: document.getElementById('cr-mult'),
   label: document.getElementById('cr-label'),
   history: document.getElementById('cr-history'),
   banner: document.getElementById('cr-banner'),
   bannerTitle: document.getElementById('cr-banner-title'),
+  bannerAmount: document.getElementById('cr-banner-amount'),
   bannerDetail: document.getElementById('cr-banner-detail'),
-  proof: document.getElementById('cr-proof'),
+  crowd: document.getElementById('cr-crowd'),
+  ticker: document.getElementById('cr-ticker'),
+  barFill: document.getElementById('cr-bar-fill'),
+  pop: document.getElementById('cr-pop'),
+  proofBtn: document.getElementById('cr-proof-btn'),
+  proofSheet: document.getElementById('cr-proof-sheet'),
+  proofDim: document.getElementById('cr-proof-dim'),
+  proofStatus: document.getElementById('cr-proof-status'),
+  proofHash: document.getElementById('cr-proof-hash'),
+  proofText: document.getElementById('cr-proof-text'),
+  proofClose: document.getElementById('cr-proof-close'),
+  auto: document.getElementById('cr-auto'),
+  targetRow: document.getElementById('cr-target-row'),
   feedTitle: document.getElementById('cr-feed-title'),
   feed: document.getElementById('cr-feed'),
   bets: document.getElementById('cr-bets'),
@@ -64,7 +76,12 @@ const cr = {
   resync: false,        // после возврата на экран ждём ответ сервера: кадры не рисуются
   verified: new Map(),  // номер раунда -> 'ok' | 'bad' | 'unknown' (проверка честности)
   settled: new Set(),   // раунды, по итогу которых уже обновили баланс (проигрыш)
-  cashSeen: new Set()   // раунды, где мой вывод (ручной или автовывод) уже показан и баланс обновлён
+  cashSeen: new Set(),  // раунды, где мой вывод (ручной или автовывод) уже показан и баланс обновлён
+  tickRound: 0,         // раунд, для которого ведётся лента «забрал ×N»
+  tickSeen: new Set(),  // выводы этого раунда, уже показанные в ленте
+  popShown: new Set(),  // раунды, где «+X» моего вывода уже всплывал
+  countRound: 0,        // раунд, сумма выигрыша которого сейчас «набегает», и момент конца набегания
+  countUntil: 0
 };
 registerGame({ id: 'crash', state: cr, render: renderCrash, busy: () => cr.busy, keepBalance: () => false });
 
@@ -155,17 +172,30 @@ function crCheckProof(round) {
   });
 }
 
+// Окно «Проверка честности»: хэш секрета раунда и состояние сверки (раньше строка над ставками)
 function renderCrProof() {
   const r = crRound();
-  if (!r) { crEls.proof.hidden = true; return; }
-  crEls.proof.hidden = false;
-  const short = r.seed_hash.slice(0, 12) + '…';
-  const v = cr.verified.get(r.id);
-  if (r.result && v === 'ok') crEls.proof.textContent = 'Честность раунда проверена: секрет раскрыт, хэш ' + short + ' и точка краха сошлись';
-  else if (r.result && v === 'bad') crEls.proof.textContent = 'Проверка раунда не сошлась (хэш ' + short + '): сообщите владельцу';
-  else if (r.result && v === 'unknown') crEls.proof.textContent = 'Секрет раскрыт (хэш ' + short + '), автоматическая проверка недоступна на этом устройстве';
-  else crEls.proof.textContent = 'Хэш раунда ' + short + ': секрет откроется после краха, и точку можно будет проверить';
+  const short = r ? r.seed_hash.slice(0, 12) + '…' : '';
+  const v = r ? cr.verified.get(r.id) : undefined;
+  crEls.proofHash.textContent = r ? r.seed_hash : '';
+  let status = '';
+  let text = 'Секрет откроется после краха, и точку можно будет проверить.';
+  if (r && r.result && v === 'ok') { status = 'Проверено'; text = 'Секрет раскрыт, хэш ' + short + ' и точка краха сошлись.'; }
+  else if (r && r.result && v === 'bad') { status = 'Не сошлось'; text = 'Проверка раунда не сошлась (хэш ' + short + '): сообщите владельцу.'; }
+  else if (r && r.result && v === 'unknown') { status = 'Недоступно'; text = 'Секрет раскрыт (хэш ' + short + '), автоматическая проверка недоступна на этом устройстве.'; }
+  else if (r) status = 'До краха';
+  crEls.proofStatus.textContent = status;
+  crEls.proofText.textContent = text;
 }
+
+function openCrProof() {
+  renderCrProof();
+  crEls.proofSheet.hidden = false;
+}
+function closeCrProof() { crEls.proofSheet.hidden = true; }
+crEls.proofBtn.addEventListener('click', openCrProof);
+crEls.proofClose.addEventListener('click', closeCrProof);
+closeOnBackdropTap(crEls.proofDim, closeCrProof);
 
 // #endregion
 

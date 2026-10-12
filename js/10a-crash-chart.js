@@ -48,7 +48,13 @@ function crEmitSkin(phase, r, x100, elapsed) {
   }
 }
 
-function crSetTone(tone) { crEls.chart.dataset.tone = tone; }
+function crSetTone(tone) { if (crEls.chart.dataset.tone !== tone) crEls.chart.dataset.tone = tone; }
+// Зона множителя (UI_REVIEW, краш): 1 до ×2, 2 до ×10, 3 выше; меняет цвет цифры и свечение за ней. Фаза нужна полоске приёма ставок
+function crSetZone(x100) {
+  const zone = x100 >= 1000 ? '3' : x100 >= 200 ? '2' : '1';
+  if (crEls.chart.dataset.zone !== zone) crEls.chart.dataset.zone = zone;
+}
+function crSetPhase(phase) { if (crEls.chart.dataset.phase !== phase) crEls.chart.dataset.phase = phase; }
 function crShowMult(x100) { crEls.mult.textContent = crText(x100); }
 
 // Показанная фаза по локальным часам: приём ставок сменяется полётом в момент flight_start_ms, не дожидаясь ответа (график не запаздывает на интервал опроса);
@@ -70,6 +76,8 @@ function crDraw() {
     const elapsed = Math.max(0, crServerNow() - r.flight_start_ms);
     const x100 = crM100(elapsed);
     crSetTone('idle');
+    crSetPhase('flight');
+    crSetZone(x100);
     crShowMult(x100);
     crDrawCurve(elapsed);
     crEmitSkin('flight', r, x100, elapsed);
@@ -77,12 +85,18 @@ function crDraw() {
     if (me && me.status === 'open' && !cr.busy) crEls.cash.textContent = 'Забрать ' + formatCompact(Math.floor(me.bet * x100 / 100));
   } else if (phase === 'betting') {
     crSetTone('idle');
+    crSetPhase('betting');
+    crSetZone(100);
+    const total = Math.max(1, r.flight_start_ms - r.bet_open_ms);
+    crEls.barFill.style.transform = 'scaleX(' + Math.min(1, Math.max(0, (r.flight_start_ms - crServerNow()) / total)).toFixed(3) + ')';   // полоска убывает до старта полёта
     crShowMult(100);
     crDrawCurve(0);
     crEmitSkin('betting', r, 100, 0);
     crEls.label.textContent = 'Приём ставок: ' + crSeconds(r.flight_start_ms - crServerNow()) + ' с';
   } else if (r.result) {
     crSetTone('crash');
+    crSetPhase('result');
+    crSetZone(100);
     crShowMult(r.result.crash_x100);
     crDrawCurve(CR_DOUBLING_MS * Math.log2(Math.max(1, r.result.crash_x100 / 100)));
     crEmitSkin('result', r, r.result.crash_x100, CR_DOUBLING_MS * Math.log2(Math.max(1, r.result.crash_x100 / 100)));
@@ -121,7 +135,8 @@ function renderCrHistory() {
   hist.forEach((h) => {
     const li = document.createElement('li');
     li.textContent = crText(h.crash_x100);
-    if (h.crash_x100 >= 200) li.className = 'high';
+    if (h.crash_x100 >= 1000) li.className = 'z3';           // серый до ×2, янтарный до ×10, золотой выше
+    else if (h.crash_x100 >= 200) li.className = 'z2';
     crEls.history.appendChild(li);
   });
 }
@@ -151,54 +166,95 @@ function renderCrFeed() {
   });
 }
 
+// Итог моей ставки единым блоком результата (UI_REVIEW 1.6). Пока ставка только принята или идёт полёт, блока нет: ставка видна на кнопке и в ленте
 function renderCrBanner() {
   const r = crRound();
   const me = crMe();
-  crEls.banner.hidden = !r;
-  crEls.banner.classList.remove('win', 'lose');
-  crEls.bannerDetail.textContent = '';
-  crEls.bannerDetail.title = '';
-  crEls.bannerTitle.title = '';
-  if (!r) return;
-  const phase = r.phase;
-  if (phase === 'betting') {
-    if (me) {
-      crEls.bannerTitle.textContent = 'Ставка принята: ' + formatCompact(me.bet);
-      crEls.bannerDetail.textContent = me.target_x100 === null ? 'Забирайте вручную в полёте' : 'Автовывод на ' + crText(me.target_x100);
-    } else {
-      crEls.bannerTitle.textContent = 'Сделайте ставку';
-      crEls.bannerDetail.textContent = 'Раунд общий: точка краха одна на всех';
-    }
-  } else if (phase === 'flight') {
-    if (me && me.status === 'cashed') {
-      crEls.bannerTitle.textContent = 'Выведено ' + crText(me.cashed_x100) + ': +' + formatCompact(me.payout - me.bet);
-      crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(me.payout - me.bet);
-      crEls.banner.classList.add('win');
-    } else if (me) {
-      crEls.bannerTitle.textContent = 'Ваша ставка в игре: ' + formatCompact(me.bet);
-    } else {
-      crEls.bannerTitle.textContent = 'Раунд идёт';
-      crEls.bannerDetail.textContent = 'Ставки следующего раунда откроются после краха';
-    }
-  } else if (r.result) {
-    const crashX = crText(r.result.crash_x100);
-    if (me && me.status === 'cashed') {
-      const profit = me.payout - me.bet;
-      crEls.bannerTitle.textContent = 'Выигрыш +' + formatCompact(profit) + ' (' + crText(me.cashed_x100) + ')';
-      crEls.bannerTitle.title = 'Выигрыш +' + formatNumber(profit);
-      crEls.bannerDetail.textContent = 'Крах был ' + crashX;
-      crEls.banner.classList.add('win');
-    } else if (me) {
-      crEls.bannerTitle.textContent = 'Крах ' + crashX + ', потеряно ' + formatCompact(me.bet);
-      crEls.bannerTitle.title = 'Потеряно ' + formatNumber(me.bet);
-      crEls.banner.classList.add('lose');
-    } else {
-      crEls.bannerTitle.textContent = 'Крах ' + crashX;
-      crEls.bannerDetail.textContent = 'Вы в этом раунде не играли';
-    }
-  } else {
-    crEls.bannerTitle.textContent = 'Ждём следующий раунд';
+  let show = false;
+  if (r && me && me.status === 'cashed' && (r.phase === 'flight' || r.result)) {
+    const profit = me.payout - me.bet;
+    const counting = cr.countRound === r.id && performance.now() < cr.countUntil;
+    fillResult(crEls.banner, { kind: 'win', title: 'Забрали ' + crText(me.cashed_x100), amount: profit, sign: '+', note: r.result ? 'Крах был ' + crText(r.result.crash_x100) : '', keepAmount: counting });
+    show = true;
+    crCountUpOnce(r.id, profit);
+  } else if (r && r.result && me && me.status === 'lost') {
+    fillResult(crEls.banner, { kind: 'lose', title: 'Крах ' + crText(r.result.crash_x100), amount: me.bet, sign: '−' });
+    show = true;
   }
+  crEls.banner.hidden = !show;
+}
+
+// Выигрыш «набегает» цифрами и всплывает «+X» (один раз за раунд; без анимации при уменьшенном движении)
+function crCountUpOnce(roundId, profit) {
+  if (cr.popShown.has(roundId)) return;
+  if (cr.popShown.size > 30) cr.popShown.clear();
+  cr.popShown.add(roundId);
+  if (reducedMotion()) return;
+  cr.countRound = roundId;
+  cr.countUntil = performance.now() + 650;
+  const el = crEls.bannerAmount;
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / 600);
+    const v = Math.round(profit * (1 - Math.pow(1 - k, 3)));
+    el.textContent = '+' + formatCompact(v);
+    if (k < 1) requestAnimationFrame(step);
+    else el.textContent = '+' + formatCompact(profit);
+  };
+  requestAnimationFrame(step);
+  const pop = crEls.pop;
+  pop.textContent = '+' + formatCompact(profit);
+  if (pop.animate) pop.animate([{ opacity: 0, transform: 'translate(-50%, 8px) scale(0.8)' }, { opacity: 1, transform: 'translate(-50%, -6px) scale(1.1)', offset: 0.3 }, { opacity: 0, transform: 'translate(-50%, -34px) scale(1)' }], { duration: 1200, easing: 'ease-out' });
+}
+
+// Стопка аватарок игроков раунда (до пяти) и «+N»: раунд общий, это должно быть видно
+function renderCrCrowd() {
+  const bets = cr.state ? cr.state.bets : [];
+  const key = bets.length + ':' + bets.slice(0, 5).map((b) => b.name).join('|');
+  if (crEls.crowd.dataset.key === key) return;
+  crEls.crowd.dataset.key = key;
+  crEls.crowd.textContent = '';
+  bets.slice(0, 5).forEach((b) => {
+    const av = document.createElement('span');
+    av.className = 'avatar';
+    av.textContent = initialOf(b.name);
+    crEls.crowd.appendChild(av);
+  });
+  if (bets.length > 5) {
+    const more = document.createElement('span');
+    more.className = 'cr-crowd-more';
+    more.textContent = '+' + (bets.length - 5);
+    crEls.crowd.appendChild(more);
+  }
+}
+
+// Лента «Имя забрал ×N» над графиком: до трёх строк, появляются и гаснут. Новые выводы берём из разницы ответов (при входе в раунд ленту не заливаем историей)
+function crTickerUpdate() {
+  const r = crRound();
+  const bets = cr.state ? cr.state.bets : [];
+  if (!r) return;
+  const first = cr.tickRound !== r.id;
+  if (first) { cr.tickRound = r.id; cr.tickSeen = new Set(); }
+  bets.forEach((b) => {
+    if (b.status !== 'cashed') return;
+    const key = b.name + '|' + b.bet + '|' + b.cashed_x100;
+    if (cr.tickSeen.has(key)) return;
+    cr.tickSeen.add(key);
+    if (!first && r.phase === 'flight' && !reducedMotion()) crTickerPush(b.name, b.cashed_x100);
+  });
+}
+
+function crTickerPush(name, x100) {
+  const li = document.createElement('li');
+  const nick = document.createElement('span');
+  nick.textContent = name + ' забрал ';
+  const x = document.createElement('b');
+  x.textContent = crText(x100);
+  li.append(nick, x);
+  crEls.ticker.appendChild(li);
+  while (crEls.ticker.children.length > 3) crEls.ticker.firstChild.remove();
+  if (!li.animate) { setTimeout(() => li.remove(), 3500); return; }
+  li.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none', offset: 0.1 }, { opacity: 1, transform: 'none', offset: 0.8 }, { opacity: 0, transform: 'none' }], { duration: 3500, easing: 'ease-out' }).onfinish = () => li.remove();
 }
 
 // шапка и кнопки без перерисовки графика
@@ -229,6 +285,8 @@ function renderCrash() {
   renderCrFeed();
   renderCrBanner();
   renderCrProof();
+  renderCrCrowd();
+  crTickerUpdate();
   renderCrChips();
   syncCrChips();
   const canBet = betting && !me && !cr.busy && cr.balance !== null;

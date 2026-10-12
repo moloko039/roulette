@@ -528,6 +528,15 @@ async function raceStart() {
   loadServer('after');
 }
 
+// Одноразовые анимации (надпись «Марш!», прыжок победителя, вспышка финиша) снимают свой класс по окончании: иначе при возврате на экран
+// (display: none -> block) CSS запускает их заново на уже законченном раунде
+raceEls.go.addEventListener('animationend', () => raceEls.go.classList.remove('show'));
+raceEls.track.addEventListener('animationend', (e) => {
+  if (e.target.classList.contains('race-body')) e.target.closest('.race-pig').classList.remove('winner');
+  else if (e.target.classList.contains('race-finish')) e.target.classList.remove('flash');
+  else if (e.target.classList.contains('race-num')) e.target.style.animation = 'none';
+});
+
 raceEls.laneButtons.forEach((btn) => {
   btn.addEventListener('click', () => setRaceLanes(Number(btn.dataset.raceLanes)));
 });

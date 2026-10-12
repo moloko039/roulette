@@ -34,6 +34,14 @@ async def run(w):
     pos = await p.ev("Array.from(document.querySelectorAll('.race-pig')).map((e) => e.getBoundingClientRect().right > document.querySelector('.race-lane').getBoundingClientRect().left + document.querySelector('.race-lane').clientWidth * 0.8)")
     check("все свинки в финишной части дорожки", pos, [True, True, True])
 
+    # возврат на экран после законченного раунда: «Марш!», прыжок победителя и вспышка финиша заново не играют
+    await p.ev("E.sleep(2200)")
+    await p.tap(".tab[data-tab=rating]")
+    await p.wait("document.querySelector('[data-screen=rating]') && !document.querySelector('[data-screen=rating]').hidden", 10, "рейтинг")
+    await p.tap(".tab[data-tab=play]")
+    await p.wait("!document.querySelector('[data-screen=race]').hidden", 10, "возврат в «Свинки»")
+    check("после возврата нет повторных анимаций", await p.ev("[document.getElementById('race-go').classList.contains('show'), document.querySelectorAll('.race-pig.winner, .race-finish.flash').length, document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest('#race-field') && ['race-go', 'pg-jump', 'race-flash', 'pg-shake'].includes(a.animationName)).length]"), [False, 0, 0])
+
     # облегчённый режим: прямая линия, без ворот и параллакса
     await p.ev("document.documentElement.classList.add('perf-lite')")
     await p.tap("#race-play")

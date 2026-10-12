@@ -12,7 +12,9 @@ function fillResult(box, r) {
   RES_KINDS.forEach((k) => box.classList.toggle(k, r.kind === k));
   box.dataset.kind = RES_KINDS.includes(r.kind) ? r.kind : '';
   title.textContent = r.title || '';
-  if (typeof r.amount === 'number') {
+  if (r.keepAmount) {
+    amount.hidden = false;      // сумма сейчас «набегает» (краш): её текст не трогаем
+  } else if (typeof r.amount === 'number') {
     const sign = r.sign || '';
     const short = sign + formatCompact(r.amount);
     const full = sign + formatNumber(r.amount);
