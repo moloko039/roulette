@@ -125,7 +125,7 @@ check("webhook: без updater", a.updater, None)
 a = build_application(TOKEN)
 assert a.updater is not None
 # 8 команд меню, скрытые /backupnow, /grantall и /give и кнопки удаления
-check("обработчики", len(a.handlers[0]), 26)
+check("обработчики", len(a.handlers[0]), 28)
 
 # ---------- DB_PATH: папка создаётся ----------
 tmp = tempfile.mkdtemp()

@@ -271,25 +271,93 @@ async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Уже есть: %s" % item["name"])
 
 
+PANEL_CHIPS = (10_000, 100_000, 1_000_000)
+PANEL_GEMS = (50, 250, 1000)
+
+
+def _card_text(c):
+    return "%s%s\nid: %d\nФишки: %d, кристаллы: %d" % (c["name"] or "Без имени", " (@%s)" % c["username"] if c["username"] else "", c["id"], c["balance"], c["gems"])
+
+
+def _card_markup(c):
+    rows = [[InlineKeyboardButton("+%d фишек" % n, callback_data="own:c:%d:%d" % (n, c["id"])) for n in PANEL_CHIPS],
+            [InlineKeyboardButton("+%d кристаллов" % n, callback_data="own:g:%d:%d" % (n, c["id"])) for n in PANEL_GEMS]]
+    return InlineKeyboardMarkup(rows)
+
+
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Скрытая команда владельца: /find <ник> показывает id игрока по юзернейму Telegram (ник запоминается, когда игрок открывает игру).
-    Все остальные (и любой чат, кроме личного) не получают ответа; ник и id в лог не пишутся."""
+    """Скрытая панель владельца: /player <id | ник | часть имени> (так же /find). Одно совпадение: карточка с кнопками начисления фишек
+    и кристаллов; несколько: список, из которого открывается карточка. Предметы: /giveitem <код> <id> (id есть в карточке).
+    Все остальные (и любой чат, кроме личного) не получают ответа; id, ники и имена в лог не пишутся."""
     if not _owner_private(update):
         return
-    args = list(context.args or [])
-    if len(args) != 1 or db_module.normalize_username(args[0]) is None:
-        await _reply(update, "Формат: /find <ник>, например /find durov (с @ или без)")
+    query = " ".join(context.args or []).strip()
+    if not query or len(query) > 64:
+        await _reply(update, "Формат: /player <id, ник или часть имени>, например /player durov или /player Ярик")
         return
     try:
-        found = await asyncio.to_thread(db_module.find_by_username, args[0])
+        cards = await asyncio.to_thread(db_module.search_players, query)
     except Exception as exc:
         logger.error("Поиск игрока не выполнен: %s", type(exc).__name__)
         await _reply(update, "Не удалось выполнить поиск (подробности в логах сервиса)")
         return
-    if found is None:
-        await _reply(update, "Игрок с таким ником не найден: ник запоминается, когда игрок открывает игру (у кого нет юзернейма, найти нельзя)")
+    if not cards:
+        await _reply(update, "Никого не нашёл. Ищу по id, юзернейму (запоминается, когда игрок открывает игру) и по имени в играх")
         return
-    await _reply(update, "id: %d" % found)
+    if len(cards) == 1:
+        await update.effective_message.reply_text(_card_text(cards[0]), reply_markup=_card_markup(cards[0]))
+        return
+    rows = [[InlineKeyboardButton("%s · %d" % (c["name"] or "Без имени", c["id"]), callback_data="own:o:0:%d" % c["id"])] for c in cards]
+    await update.effective_message.reply_text("Нашлось несколько игроков, выберите:", reply_markup=InlineKeyboardMarkup(rows))
+
+
+OWNER_CALLBACK_PATTERN = r"^own:[cgo]:\d{1,9}:\d{1,15}$"
+
+
+async def owner_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Кнопки панели: открыть карточку (o), начислить фишки (c) или кристаллы (g). Только владелец в личном чате; чужим не отвечаем."""
+    query = update.callback_query
+    user = update.effective_user
+    owner_id = load_owner_id()
+    message = query.message if query is not None else None
+    if query is None or message is None or user is None or owner_id is None or user.id != owner_id or message.chat.type != "private":
+        return
+    _, action, amount_s, target_s = query.data.split(":")
+    amount, target = int(amount_s), int(target_s)
+    await query.answer()
+    if action == "o":
+        card = await asyncio.to_thread(db_module.player_card, target)
+        if card is None:
+            await message.reply_text(MISSING_PLAYER)
+            return
+        await message.reply_text(_card_text(card), reply_markup=_card_markup(card))
+        return
+    try:
+        if action == "c":
+            if amount not in PANEL_CHIPS:
+                return
+            given, _ = await asyncio.to_thread(db_module.give_owner, target, amount)
+            note = "Вам начислено фишек: %d" % given if given > 0 else None
+        else:
+            if amount not in PANEL_GEMS:
+                return
+            ref = "btn-%d-%s" % (common._wall(), secrets.token_hex(4))
+            await asyncio.to_thread(db_module.owner_grant_gems, target, amount, ref, None, None, True)
+            note = "Вам начислено кристаллов: %d" % amount
+    except db_module.PlayerMissing:
+        await message.reply_text(MISSING_PLAYER)
+        return
+    except wallet.GemsLimitExceeded:
+        await message.reply_text("Баланс кристаллов у потолка, начисление отменено")
+        return
+    except Exception as exc:
+        logger.error("Начисление из панели не выполнено: %s", type(exc).__name__)
+        await message.reply_text("Не удалось выполнить начисление (подробности в логах сервиса)")
+        return
+    card = await asyncio.to_thread(db_module.player_card, target)
+    await message.reply_text("Готово.\n" + _card_text(card), reply_markup=_card_markup(card))
+    if note:
+        await _send_quiet(context, target, note)
 
 
 async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
