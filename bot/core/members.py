@@ -20,12 +20,18 @@ MAX_CHAT_MEMBERS = 1000
 _BIDI = set("\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
 
 
+# символы, которые рисуются пустым местом или не рисуются совсем: нулевая ширина, мягкий перенос, «пустые» хангыль и брайль.
+# ZWNJ и ZWJ не трогаем: они нужны письменностям с лигатурами и составным эмодзи
+_BLANK = set("\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180e\u200b\u2060\u2062\u2063\u2064\u2800\u3164\ufeff\uffa0")
+
+
 def clean_name(name):
-    """Убирает управляющие символы, обрезает пробелы по краям и длину до 32 символов."""
+    """Убирает управляющие и «пустые» символы, схлопывает повторные пробелы в один, обрезает пробелы по краям и длину до 32 символов
+    (имя с невидимым символом иначе выглядело как два слова с пробелом, UI_REVIEW, профиль)."""
     if not isinstance(name, str):
         return DEFAULT_NAME
-    kept = "".join(ch for ch in name if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in _BIDI)
-    kept = kept.strip()[:NAME_MAX].strip()
+    kept = "".join(ch for ch in name if unicodedata.category(ch) not in ("Cc", "Cs") and ch not in _BIDI and ch not in _BLANK)
+    kept = " ".join(kept.split())[:NAME_MAX].strip()
     return kept or DEFAULT_NAME
 
 
