@@ -110,6 +110,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
                 "SELECT pack_code, amount_stars, gems, status, created_at FROM gem_purchases WHERE telegram_id = ? ORDER BY created_at", (telegram_id,)).fetchall()
             best_win = conn.execute(
                 "SELECT game, net_amount, achieved_at FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
+            nick_row = conn.execute("SELECT username FROM player_usernames WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
                 "WHERE telegram_id = ? ORDER BY first_seen, last_seen",
@@ -136,6 +137,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
         return None
     return {
         "player": dict(player) if player is not None else None,
+        "username": nick_row["username"] if nick_row is not None else None,
         "crash_live": [{"round_id": b["round_id"], "time_ms": b["created_at_ms"], "bet": b["bet"], "target_x100": b["target_x100"], "status": b["status"], "cashed_x100": b["cashed_x100"], "payout": b["payout"]} for b in crash_live_bets],
         "rounds": [
             {"time": r["created_at"], "bets": json.loads(r["bets_json"]), "number": r["number"],
@@ -248,6 +250,7 @@ def delete_player_data(telegram_id, db_path=None, now=None):
     try:
         conn.execute("BEGIN IMMEDIATE")
         try:
+            conn.execute("DELETE FROM player_usernames WHERE telegram_id = ?", (telegram_id,))     # в счётчики не входит
             counts = {
                 "players": conn.execute("DELETE FROM players WHERE telegram_id = ?", (telegram_id,)).rowcount,
                 "roulette_rounds": conn.execute(

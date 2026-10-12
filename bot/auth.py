@@ -90,7 +90,7 @@ def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
     достаются уже из проверенной строки; отсутствующие или неверного вида дают None.
     """
     user_id = validate_init_data(init_data, bot_token, now=now, max_age=max_age)
-    chat_type = chat_instance = first_name = start_param = None
+    chat_type = chat_instance = first_name = start_param = username = None
     try:
         fields = dict(parse_qsl(init_data, keep_blank_values=True))
         value = fields.get("chat_type")
@@ -99,9 +99,13 @@ def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
         value = fields.get("chat_instance")
         if isinstance(value, str) and CHAT_INSTANCE_RE.fullmatch(value):
             chat_instance = value
-        name = json.loads(fields["user"]).get("first_name")
+        user = json.loads(fields["user"])
+        name = user.get("first_name")
         if isinstance(name, str):
             first_name = name
+        nick = user.get("username")
+        if isinstance(nick, str):
+            username = nick
         start = fields.get("start_param")
         if isinstance(start, str) and start:
             start_param = start
@@ -111,4 +115,6 @@ def validate_init_data_full(init_data, bot_token, now=None, max_age=MAX_AGE):
            "first_name": first_name}
     if start_param:
         res["start_param"] = start_param
+    if username:
+        res["username"] = username
     return res

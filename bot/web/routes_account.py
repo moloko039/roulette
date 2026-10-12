@@ -72,6 +72,10 @@ def register(app, ctx):
             logger.error("check_qualification error", exc_info=True)
 
         player = get_player(user_id, now=now, db_path=db_path)
+        try:
+            db.remember_username(user_id, info.get("username"), now=now, db_path=db_path)   # ник для поиска id владельцем
+        except Exception:
+            logger.error("remember_username error", exc_info=True)
         if _in_group(info):
             try:
                 touch_chat_member(info["chat_instance"], user_id, info["first_name"], now=now, db_path=db_path)

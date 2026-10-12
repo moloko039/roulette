@@ -44,6 +44,7 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "generated_at": now,
         "generated_at_iso": _iso(now),
         "player": export["player"],
+        "username": export["username"],
         "rounds": export["rounds"],
         "farm_purchases": export["farm_purchases"],
         "mines_games": export["mines_games"],

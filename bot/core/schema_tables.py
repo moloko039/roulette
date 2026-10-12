@@ -21,6 +21,17 @@ def create_player_tables(conn):
             )
             """
     )
+    # юзернейм Telegram: только для поиска id владельцем (/find); ник уникален, строка исчезает с профилем
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS player_usernames (
+                telegram_id INTEGER PRIMARY KEY,
+                username    TEXT    NOT NULL,
+                updated_at  INTEGER NOT NULL
+            )
+            """
+    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_player_usernames_name ON player_usernames (username)")
 
 
 def create_game_tables(conn):

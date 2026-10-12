@@ -271,6 +271,27 @@ async def giveitem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _reply(update, "Уже есть: %s" % item["name"])
 
 
+async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Скрытая команда владельца: /find <ник> показывает id игрока по юзернейму Telegram (ник запоминается, когда игрок открывает игру).
+    Все остальные (и любой чат, кроме личного) не получают ответа; ник и id в лог не пишутся."""
+    if not _owner_private(update):
+        return
+    args = list(context.args or [])
+    if len(args) != 1 or db_module.normalize_username(args[0]) is None:
+        await _reply(update, "Формат: /find <ник>, например /find durov (с @ или без)")
+        return
+    try:
+        found = await asyncio.to_thread(db_module.find_by_username, args[0])
+    except Exception as exc:
+        logger.error("Поиск игрока не выполнен: %s", type(exc).__name__)
+        await _reply(update, "Не удалось выполнить поиск (подробности в логах сервиса)")
+        return
+    if found is None:
+        await _reply(update, "Игрок с таким ником не найден: ник запоминается, когда игрок открывает игру (у кого нет юзернейма, найти нельзя)")
+        return
+    await _reply(update, "id: %d" % found)
+
+
 async def grantall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Скрытая команда владельца (нет в меню и в /help): разовое начисление фишек всем игрокам.
     /grantall <сумма> <id> показывает, сколько игроков и фишек, /grantall confirm <id> выполняет (в течение 5 минут;

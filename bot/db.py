@@ -45,6 +45,7 @@ from core.kernel import (
 )
 from core.members import _member_name, NAME_MAX, DEFAULT_NAME, TOUCH_INTERVAL, MAX_CHAT_MEMBERS, _BIDI, clean_name, _touch_member
 from core.players import get_player
+from features.username_db import find_by_username, normalize_username, remember_username
 from features.give_db import GIVE_MAX_AMOUNT, PlayerMissing, give_owner
 from features.chat_db import TOP_SIZE, touch_chat_member, chat_top, chat_best_wins
 from features.active_game_db import active_game_of
