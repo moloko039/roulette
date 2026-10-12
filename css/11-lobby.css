@@ -145,3 +145,6 @@
 .lobby-card.wide[data-tone="z2"] .lobby-live-line, .lobby-card.wide[data-tone="z2"] .lobby-live-cap { stroke: var(--amber); color: var(--amber); }
 .lobby-card.wide[data-tone="z3"] .lobby-live-line, .lobby-card.wide[data-tone="z3"] .lobby-live-cap { stroke: var(--gold); color: var(--gold); }
 .lobby-card.wide[data-tone="crash"] .lobby-live-cap { color: var(--red); }
+
+/* «Не слоты» во всю ширину, как краш */
+.lobby-card[data-game="arcade"] { grid-column: 1 / -1; min-height: 96px; }
