@@ -259,6 +259,7 @@ function openWdPreview(item) {
 function closeWdPreview() {
   if (wd.busy) return;
   resetGiftBox();
+  wdTryStop();
   wdEls.pSheet.hidden = true;
   wd.preview = null;
   wd.confirm = false;
@@ -267,6 +268,7 @@ function closeWdPreview() {
 
 function renderWdPreview() {
   const item = wd.preview;
+  wdTryStop();                                              // образец пересобирается: идущая примерка на старом образце не нужна
   if (!item || wdEls.pSheet.hidden) return;
   wdEls.pTitle.textContent = item.name;
   wdEls.pStatus.textContent = wdStatus(item);
@@ -291,6 +293,7 @@ function renderWdPreview() {
   renderWdSetBox();
   wdEls.pClose.textContent = confirming || wd.setConfirm ? 'Отмена' : 'Закрыть';
   wdEls.pClose.disabled = wd.busy;
+  wdTryButtonSync();
   renderGiftControls();
 }
 
