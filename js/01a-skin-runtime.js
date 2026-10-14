@@ -173,6 +173,61 @@ function skinSync(slot) {
   skinFpsStart();
 }
 
+// ----- примерка (js/13c-wardrobe-tryon.js): сцена монтируется на образец в окне предпросмотра со СВОЕЙ шиной событий и убирается вместе с ним; живая игра и её сцена не затрагиваются -----
+function skinPreviewReady(code) {
+  return new Promise((resolve) => {
+    const files = SKIN_FILES[code] || {};
+    if (skinScenes[code] || !files.js) { resolve(true); return; }
+    skinLoad(code);
+    let tries = 0;
+    const t = setInterval(() => {
+      tries += 1;
+      if (skinScenes[code] || skinLoading[code] === 'failed' || tries > 30) { clearInterval(t); resolve(!!skinScenes[code]); }
+    }, 100);
+  });
+}
+
+function skinPreviewOpen(code, box, host) {
+  const files = SKIN_FILES[code] || {};
+  const def = skinScenes[code] || (files.css && !files.js ? SKIN_CSS_ONLY : null);
+  if (!files.css && !def) return null;
+  let link = null;
+  if (files.css) {
+    link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = files.css;
+    document.head.appendChild(link);
+  }
+  const handlers = new Map();
+  const bus = {
+    on(name, fn) { let set = handlers.get(name); if (!set) handlers.set(name, (set = new Set())); set.add(fn); return () => set.delete(fn); },
+    emit(name, detail) { const set = handlers.get(name); if (set) set.forEach((fn) => { try { fn(detail); } catch (e) { /* сцена не должна ломать примерку */ } }); }
+  };
+  box.dataset.scene = code;
+  host.dataset.scene = code;
+  let root = null;
+  let inst = null;
+  if (def && def !== SKIN_CSS_ONLY) {
+    root = document.createElement('div');
+    root.className = 'skin-scene';
+    root.setAttribute('aria-hidden', 'true');
+    host.insertBefore(root, host.firstChild);
+    try {
+      inst = def.mount({ root, host, still: skinStill, hasSet: skinHasSet, on: bus.on }) || null;
+    } catch (e) { /* сломанная сцена: остаётся палитра */ }
+  }
+  return {
+    emit: bus.emit,
+    destroy() {
+      try { if (inst && inst.destroy) inst.destroy(); } catch (e) { /* уборка не должна падать */ }
+      if (root) root.remove();
+      if (link) link.remove();
+      delete box.dataset.scene;
+      delete host.dataset.scene;
+    }
+  };
+}
+
 // Какие слоты скинов живут на каких экранах (data-screen): сцена слота существует, только пока открыт один из его экранов. Хосты (контейнеры сцен) регистрируют игры (skinSetHost).
 const SKIN_SCREEN_SLOTS = {
   crash: ['crash', 'chip'], mines: ['mine_icons', 'chip'], keno: ['keno_ball', 'chip'], blackjack: ['card_back', 'chip'], hilo: ['card_back', 'chip'], roulette: ['table', 'chip']

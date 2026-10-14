@@ -954,3 +954,8 @@
 .arcade-reels .sym.s1 { fill: var(--gold); }
 .arcade-reels .sym.s2 { fill: var(--red); opacity: 0.8; }
 .arcade-card .arcade-hint { font-size: 12px; }
+
+/* кнопка «Примерить» под образцом в окне предпросмотра */
+.wd-try { width: 100%; height: 40px; }
+.wd-try[hidden] { display: none; }
+.wd-scene { position: relative; }   /* сцена скина в примерке (.skin-scene, absolute) ограничена образцом */
