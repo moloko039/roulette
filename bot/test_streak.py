@@ -134,7 +134,7 @@ try:
         return {"Authorization": "tma " + make_init_data(TOKEN, user_id=uid, auth_date=int(time.time()), first_name="Игрок")}
     check("без подписи: 401", (client.get("/api/streak").status_code, client.post("/api/streak/claim", json={}).status_code), (401, 401))
     r = client.get("/api/streak", headers=auth())
-    check("карточка: ключи", (r.status_code, sorted(r.json())), (200, ["claimed_today", "cycle", "reward", "seconds_to_next_day", "streak_day", "week"]))
+    check("карточка: ключи", (r.status_code, sorted(r.json())), (200, ["claimed_today", "collection_days", "cycle", "reward", "seconds_to_next_day", "streak_day", "week"]))
     r = client.post("/api/streak/claim", headers=auth(), json={})
     check("сбор через API", (r.status_code, sorted(r.json()), r.json()["chips"], r.json()["replayed"]), (200, ["balance", "chips", "collection_part", "cycle", "gems", "gems_balance", "gems_capped", "replayed", "streak_day"], 300, False))
     check("повтор: replayed", client.post("/api/streak/claim", headers=auth(), json={}).json()["replayed"], True)

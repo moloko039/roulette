@@ -501,7 +501,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 Пропуск дня откатывает на день 1 текущего цикла (если неделя была закончена, начинается следующий цикл). Бесплатные кристаллы не больше 100 за календарный месяц (`FREE_GEMS_MONTHLY_CAP`), сверх этого кристаллы урезаются (`gems_capped`). Опыт и ставки не меняются.
 
 ### GET /api/streak
-Группа read. 200: `{"claimed_today" bool, "streak_day" int (1..7: день цикла, который даст ближайший сбор; после сегодняшнего сбора это завтрашний), "cycle" int, "reward": {"chips" int, "gems" int}, "week": [{"day", "chips", "gems"}] (семь дней текущего цикла), "seconds_to_next_day" int}`.
+Группа read. 200: `{"claimed_today" bool, "streak_day" int (1..7: день цикла, который даст ближайший сбор; после сегодняшнего сбора это завтрашний), "cycle" int, "reward": {"chips" int, "gems" int}, "week": [{"day", "chips", "gems"}] (семь дней текущего цикла), "seconds_to_next_day" int, "collection_days" [int] (дни цикла не раньше `streak_day`, за которые ещё выдастся часть коллекции сезона, например [3, 5, 7]; пусто вне сезона или когда все части собраны)}`.
 
 ### POST /api/streak/claim
 Группа write. Тело пустое: `{}`. 200: `{"streak_day", "cycle", "chips", "gems", "gems_capped" bool, "collection_part" (объект или null: выданная часть коллекции), "balance" (фишки после), "gems_balance" (кристаллы после), "replayed" bool}`. Один раз в «день» (запись `streak_claims` с ключом игрок и день); повтор в тот же день отдаёт то же с `replayed: true` и ничего не начисляет.

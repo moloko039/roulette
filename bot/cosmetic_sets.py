@@ -89,3 +89,12 @@ def streak_part_to_grant(owned_codes, streak_day, day_index):
             if part not in owned:
                 return code, part
     return None
+
+
+def streak_part_days(owned_codes, from_day, day_index):
+    """Дни цикла (из economy_config.COLLECTION_STREAK_DAYS, не раньше from_day), за которые ещё выдастся часть коллекции: по числу недостающих
+    частей коллекций с источником streak, идущих сезоном. Для меток на ленте недели."""
+    owned = set(owned_codes)
+    missing = sum(1 for code, c in COLLECTIONS.items() if c["source"] == "streak" and season_active(code, day_index)
+                  for part in c["parts"] if part not in owned)
+    return [d for d in economy_config.COLLECTION_STREAK_DAYS if d >= from_day][:missing]

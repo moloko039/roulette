@@ -45,7 +45,8 @@
         "gems": 5
       }
     ],
-    "seconds_to_next_day": 43200
+    "seconds_to_next_day": 43200,
+    "collection_days": [3, 5, 7]
   },
   "claim": {
     "streak_day": 1,

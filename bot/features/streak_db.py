@@ -99,8 +99,10 @@ def streak_status(telegram_id, now=None, db_path=None):
         else:
             day, cycle = next_position(last, today)
         chips, gems = reward_for(day, cycle)
+        owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
         return {"claimed_today": claimed, "streak_day": day, "cycle": cycle, "reward": {"chips": chips, "gems": gems},
-                "week": _preview(day, cycle), "seconds_to_next_day": seconds_to_next_day(now)}
+                "week": _preview(day, cycle), "seconds_to_next_day": seconds_to_next_day(now),
+                "collection_days": cosmetic_sets.streak_part_days(owned, day, today + 1 if claimed else today)}
     finally:
         conn.close()
 

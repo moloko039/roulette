@@ -38,6 +38,7 @@ function renderStreak() {
   streakEls.week.textContent = '';
   for (let i = 1; i <= 7; i += 1) {
     const dot = document.createElement('span');
+    dot.dataset.part = Array.isArray(d.collection_days) && d.collection_days.includes(i) ? '1' : '0';           // метка награды коллекции «Листопад»
     dot.className = 'streak-dot' + (i < d.streak_day ? ' done' : '') + (i === d.streak_day && !d.claimed_today ? ' now' : '') + (i === 7 ? ' gem' : '');
     streakEls.week.appendChild(dot);
   }

@@ -148,3 +148,8 @@
 
 /* «Не слоты» во всю ширину, как краш */
 .lobby-card[data-game="arcade"] { grid-column: 1 / -1; min-height: 96px; }
+
+/* день, за который выдаётся часть коллекции сезона («Листопад»): золотой ромбик над точкой недели */
+.streak-week { padding-top: 8px; }
+.streak-dot[data-part="1"] { position: relative; }
+.streak-dot[data-part="1"]::after { content: ""; position: absolute; top: -9px; left: 50%; width: 6px; height: 6px; margin-left: -3px; background: var(--gold); transform: rotate(45deg); }

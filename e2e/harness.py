@@ -141,6 +141,7 @@ class StaticServer:
                     return
                 super().do_GET()
         self.port = free_port()
+        ThreadingHTTPServer.request_queue_size = 128     # очередь по умолчанию 5: Chrome открывает десятки соединений сразу, лишние сбрасывались (ERR_CONNECTION_RESET)
         self.httpd = ThreadingHTTPServer(("127.0.0.1", self.port), Handler)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
