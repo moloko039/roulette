@@ -44,7 +44,7 @@ _orig_execute = db_conn.TimedConnection.execute
 
 def _logged_execute(self, sql, *args):
     log = SQL_LOG[0]
-    if log is not None and "player_best_win" not in sql:     # запись личного рекорда (core.kernel._record_best_win) в эталон денежных операций не входит: её проверяет test_best_wins.py
+    if log is not None and "player_best_win" not in sql and "player_game_stats" not in sql:     # запись личного рекорда (core.kernel._record_best_win) и счётчики игр (_count_round) в эталон денежных операций не входят: их проверяют test_best_wins.py и test_game_stats.py
         log.append((re.sub(r"\s+", " ", sql.strip()), repr(args[0]) if args else ""))
     return _orig_execute(self, sql, *args)
 

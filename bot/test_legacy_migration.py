@@ -23,9 +23,9 @@ A, B, C = 900000001, 900000002, 900000003
 
 # фикстура -> таблицы, которых в той версии ещё не было (их должна добавить миграция)
 NEW_TABLES = {
-    "dbc9242": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets"},
-    "1e602d6": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "cosmetic_purchases", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets"},
-    "981d2c0": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets"},
+    "dbc9242": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "cosmetic_items", "cosmetic_equipped", "cosmetic_prefs", "cosmetic_actions", "cosmetic_purchases", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets", "player_game_stats"},
+    "1e602d6": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "cosmetic_purchases", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets", "player_game_stats"},
+    "981d2c0": {"referral_codes", "referrals", "chat_founders", "founder_numbers", "player_best_win", "slot_rounds", "race_rounds", "player_usernames", "gems_ledger", "gem_balances", "gem_purchases", "chip_purchases", "streak_claims", "gifts", "chat_boosts", "crash_rounds", "crash_bets", "race_live_rounds", "race_live_bets", "player_game_stats"},
 }
 BALANCES = {A: 12345, B: 1_000_000, C: 0}
 

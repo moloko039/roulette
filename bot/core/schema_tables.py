@@ -506,6 +506,22 @@ def create_economy_tables(conn):
             )
             """
     )
+    # счётчики игрока по играм за всё время (профиль, «Статистика»): одна строка на игрока и игру, детальные раунды при этом хранятся 30 дней;
+    # пишет только core.kernel._round_finished (то же место, что личный рекорд)
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS player_game_stats (
+                telegram_id INTEGER NOT NULL,
+                game        TEXT    NOT NULL,
+                rounds      INTEGER NOT NULL DEFAULT 0,
+                wins        INTEGER NOT NULL DEFAULT 0,
+                staked      INTEGER NOT NULL DEFAULT 0,
+                paid        INTEGER NOT NULL DEFAULT 0,
+                first_at    INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, game)
+            )
+            """
+    )
     # кристаллы (план экономики, E2): журнал только дописывается, баланс-кэш пишет только wallet, баланс всегда равен сумме журнала
     conn.execute(
         """

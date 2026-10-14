@@ -146,10 +146,22 @@ def _record_best_win(conn, telegram_id, game, stake, paid, now):
     return True
 
 
+def _count_round(conn, telegram_id, game, stake, paid, now):
+    """Счётчики игрока по игре за всё время: раундов, побед (выплата больше ставки), поставлено, выплачено. Числа ограничены MAX_SAFE_INT.
+    Пишет только _round_finished, в той же транзакции, что выплата; детальных данных раунда здесь нет."""
+    paid = min(paid, MAX_SAFE_INT)
+    conn.execute(
+        "INSERT INTO player_game_stats (telegram_id, game, rounds, wins, staked, paid, first_at) VALUES (?, ?, 1, ?, ?, ?, ?) "
+        "ON CONFLICT(telegram_id, game) DO UPDATE SET rounds = MIN(rounds + 1, ?), wins = MIN(wins + excluded.wins, ?), "
+        "staked = MIN(staked + excluded.staked, ?), paid = MIN(paid + excluded.paid, ?)",
+        (telegram_id, game, 1 if paid > stake else 0, min(stake, MAX_SAFE_INT), paid, now, MAX_SAFE_INT, MAX_SAFE_INT, MAX_SAFE_INT, MAX_SAFE_INT))
+
+
 def _round_finished(conn, telegram_id, game, stake, paid, now):
     """Исход раунда для всех игр (и выигрыш, и проигрыш, и возврат), ВНУТРИ транзакции выплаты: личный рекорд и процент пригласившему от выигрыша казино
     (core.referral.commission_in). stake: все поставленные в раунде суммы, paid: фактически зачисленное игроку. Игры ничего не знают о рефералке."""
     _record_best_win(conn, telegram_id, game, stake, paid, now)
+    _count_round(conn, telegram_id, game, stake, paid, now)
     commission_in(conn, telegram_id, stake, paid, now)
 
 

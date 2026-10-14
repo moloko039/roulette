@@ -16,6 +16,7 @@
     },
     "active_game": null,
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",
@@ -56,6 +57,7 @@
     },
     "active_game": "mines",
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",
@@ -96,6 +98,7 @@
     },
     "active_game": "blackjack",
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",
@@ -136,6 +139,7 @@
     },
     "active_game": "crash",
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",
@@ -176,6 +180,7 @@
     },
     "active_game": null,
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",
@@ -216,6 +221,7 @@
     },
     "active_game": null,
     "best_win": null,
+    "stats": {"since": null, "games": []},
     "cosmetics": {
       "equipped": {
         "card_back": "back_classic",

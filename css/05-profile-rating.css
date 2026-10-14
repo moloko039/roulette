@@ -668,3 +668,10 @@ html.perf-lite .farm-plant { animation: none; }
 #rating-list li.top1 .rating-bal { font-size: 20px; }
 #rating-list li.top1 { border-color: var(--gold-line); }
 #rating-list li.top1 .rating-rank svg { fill: var(--gold); stroke: var(--gold); }
+
+/* статистика игр в профиле */
+.stat-games { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.stat-games li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); font-size: 14px; }
+.stat-games li:first-child { padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.stat-games li span { color: var(--text-muted); }
+.stat-games li strong { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }

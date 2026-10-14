@@ -164,7 +164,7 @@ try:
         check("имя файла", doc["filename"], "mydata.json")
         text = doc["data"].decode("utf-8")
         data = json.loads(text)
-        check("поля", sorted(data), ["blackjack_active", "blackjack_games", "chats", "cosmetics", "crash_active", "crash_games", "farm_purchases", "generated_at", "generated_at_iso", "hilo_active", "hilo_games", "keno_rounds", "mines_games", "player", "race_live", "race_rounds", "rounds", "slot_rounds", "transfers", "username"])
+        check("поля", sorted(data), ["blackjack_active", "blackjack_games", "chats", "cosmetics", "crash_active", "crash_games", "farm_purchases", "game_stats", "generated_at", "generated_at_iso", "hilo_active", "hilo_games", "keno_rounds", "mines_games", "player", "race_live", "race_rounds", "rounds", "slot_rounds", "transfers", "username"])
         check("время", (data["generated_at"], data["generated_at_iso"]), (1_700_000_000, "2023-11-14T22:13:20Z"))
         check("player", (data["player"]["telegram_id"], data["player"]["balance"]), (ME, 7654321))
         check("раунды", [(r["number"], r["stake_total"], r["payout_total"]) for r in data["rounds"]], [(17, 5, 180), (17, 10, 0)])
@@ -268,8 +268,8 @@ try:
     # ================= db: удаление =================
     seed(path)
     init_db(path)
-    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "race_rounds": 0, "race_live_bets": 0, "blackjack_games": 0, "crash_games": 0, "crash_bets": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 1, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
-    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "race_rounds": 0, "race_live_bets": 0, "blackjack_games": 0, "crash_games": 0, "crash_bets": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
+    check("удалено по таблицам", delete_player_data(OTHER, db_path=path), {"players": 1, "roulette_rounds": 2, "chat_members": 1, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "race_rounds": 0, "race_live_bets": 0, "player_game_stats": 1, "blackjack_games": 0, "crash_games": 0, "crash_bets": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 1, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
+    check("повтор ничего не удаляет", delete_player_data(OTHER, db_path=path), {"players": 0, "roulette_rounds": 0, "chat_members": 0, "farm_purchases": 0, "mines_games": 0, "keno_rounds": 0, "slot_rounds": 0, "race_rounds": 0, "race_live_bets": 0, "player_game_stats": 0, "blackjack_games": 0, "crash_games": 0, "crash_bets": 0, "hilo_games": 0, "transfers": 0, "transfers_anonymized": 0, "player_best_win": 0, "referrals_as_invitee": 0, "referrals_as_referrer": 0, "referral_codes": 0})
     check("другие не затронуты", counts(path, ME)[0], 1)
 
     # ================= логи =================

@@ -24,3 +24,14 @@ async def run(w):
     await p.tap(".tab[data-tab=profile]")
     await p.wait("!document.getElementById('profile-best').hidden", 10, "строка рекорда без множителя")
     check("прежний рекорд без множителя", await p.ev("document.getElementById('profile-best-value').textContent.trim()"), "+12,5 тыс. · Кено")
+
+    # статистика игр: блока нет без раундов, с раундами строки «Всего» и по играм, плюс дата начала учёта
+    check("без раундов блока статистики нет", await p.ev("document.getElementById('profile-stats').hidden"), True)
+    w.sql("INSERT INTO player_game_stats (telegram_id, game, rounds, wins, staked, paid, first_at) VALUES (?, 'crash', 120, 56, 5000, 4800, ?)", (uid, int(time.time()) - 86400))
+    w.sql("INSERT INTO player_game_stats (telegram_id, game, rounds, wins, staked, paid, first_at) VALUES (?, 'race', 3, 1, 300, 380, ?)", (uid, int(time.time())))
+    await w.reload()
+    await p.tap(".tab[data-tab=profile]")
+    await p.wait("!document.getElementById('profile-stats').hidden", 10, "блок статистики")
+    rows = await p.ev("Array.from(document.querySelectorAll('#stat-games li')).map((li) => li.textContent.replace(/\\s+/g, ' ').trim())")
+    check("строки статистики", rows, ["Всего123 раунда · 46% побед", "Краш120 раундов · 47% побед", "Свинки3 раунда · 33% побед"])
+    check("начало учёта показано", (await p.ev("document.getElementById('stat-note').textContent")).startswith("Учёт ведётся с "), True)

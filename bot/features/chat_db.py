@@ -255,3 +255,16 @@ def best_win_of(telegram_id, db_path=None):
         return {"game": r["game"], "net_amount": r["net_amount"], "mult_x100": r["mult_x100"], "day": r["achieved_at"] // 86400 * 86400}
     finally:
         conn.close()
+
+
+def game_stats_of(telegram_id, db_path=None):
+    """Счётчики игрока за всё время для профиля: {"since": день первой записи (начало суток UTC) или None, "games": [{game, rounds, wins, staked, paid}]}
+    по убыванию числа раундов. Только чтение; игр без раундов нет."""
+    conn = _connect(db_path)
+    try:
+        rows = conn.execute("SELECT game, rounds, wins, staked, paid, first_at FROM player_game_stats WHERE telegram_id = ? ORDER BY rounds DESC, game", (telegram_id,)).fetchall()
+    finally:
+        conn.close()
+    since = min((r["first_at"] for r in rows), default=None)
+    return {"since": None if since is None else since // 86400 * 86400,
+            "games": [{"game": r["game"], "rounds": r["rounds"], "wins": r["wins"], "staked": r["staked"], "paid": r["paid"]} for r in rows]}

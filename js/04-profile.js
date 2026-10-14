@@ -20,6 +20,9 @@ let lobbyStartDecided = false;   // при запуске выбор «титу�
 const profileEls = {
   data: document.getElementById('profile-data'),
   rate: document.getElementById('profile-rate'),
+  stats: document.getElementById('profile-stats'),
+  statGames: document.getElementById('stat-games'),
+  statNote: document.getElementById('stat-note'),
   best: document.getElementById('profile-best'),
   bestValue: document.getElementById('profile-best-value'),
   skel: document.getElementById('profile-skel'),
@@ -40,6 +43,30 @@ let srvFetchTimer = null;       // отложенный запрос (ноль �
 const srvWanted = () => activeTab === 'profile' || activeTab === 'farm'
   || (activeTab === 'play' && (currentGame === 'lobby' || currentGame === 'roulette' || currentGame === 'mines' || currentGame === 'keno' || currentGame === 'blackjack' || currentGame === 'crash' || currentGame === 'hilo'));
 
+// «Статистика»: счётчики по играм за всё время (раундов и доля раундов с выигрышем); без раундов блока нет
+const statPlural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many));
+
+function renderProfileStats() {
+  const st = srv.stats;
+  const games = st ? st.games.filter((g) => isBestGame(g.game)) : [];
+  profileEls.stats.hidden = !games.length;
+  profileEls.statGames.textContent = '';
+  if (!games.length) return;
+  const row = (name, rounds, wins) => {
+    const li = document.createElement('li');
+    const a = document.createElement('span');
+    a.textContent = name;
+    const b = document.createElement('strong');
+    b.textContent = formatCompact(rounds) + ' ' + statPlural(rounds, 'раунд', 'раунда', 'раундов') + ' · ' + Math.round((wins * 100) / Math.max(1, rounds)) + '% побед';
+    li.append(a, b);
+    profileEls.statGames.appendChild(li);
+  };
+  const total = games.reduce((acc, g) => ({ rounds: acc.rounds + g.rounds, wins: acc.wins + g.wins }), { rounds: 0, wins: 0 });
+  row('Всего', total.rounds, total.wins);
+  games.forEach((g) => row(BEST_GAMES[g.game], g.rounds, g.wins));
+  profileEls.statNote.textContent = isCount(st.since) ? 'Учёт ведётся с ' + bestDayText(st.since) : '';
+}
+
 function renderProfile() {
   renderProfileIdentity();
   if (srv.error) {
@@ -50,6 +77,7 @@ function renderProfile() {
     profileEls.retry.hidden = !srv.error.retry;
   } else if (srv.loaded) {
     profileEls.rate.textContent = formatCompact(srv.rate);       // экономика (баланс, улучшения, таймер) живёт на вкладке «Ферма»
+    renderProfileStats();
     const bw = srv.bestWin;      // рекорд: сумма, игра и множитель; без выигрышей строки нет
     profileEls.best.hidden = !bw || typeof isBestGame !== 'function' || !isBestGame(bw.game);
     if (bw && !profileEls.best.hidden) profileEls.bestValue.textContent = '+' + formatCompact(bw.net_amount) + ' · ' + BEST_GAMES[bw.game] + (isCount(bw.mult_x100) && bw.mult_x100 > 0 ? ' · ×' + bestMultText(bw.mult_x100) : '');
@@ -214,6 +242,9 @@ async function loadServer(reason) {
       && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
     const bw = d.best_win;
     srv.bestWin = bw && typeof bw === 'object' && typeof bw.game === 'string' && isCount(bw.net_amount) && bw.net_amount > 0 ? bw : null;       // личный рекорд для профиля
+    const gs = d.stats;
+    srv.stats = gs && typeof gs === 'object' && Array.isArray(gs.games)
+      && gs.games.every((g) => g && typeof g.game === 'string' && isCount(g.rounds) && isCount(g.wins) && g.wins <= g.rounds) && (gs.since === null || isCount(gs.since)) ? gs : null;
     const c = d.chat;
     srv.chat = c && typeof c === 'object' && typeof c.in_chat === 'boolean'
       && isCount(c.bonus_pct) && c.bonus_pct <= 45 && isCount(c.active_today)

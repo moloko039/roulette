@@ -81,7 +81,7 @@ LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells"
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
       "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
-      "active_game": OPT(str), "best_win": OPT({"game": str, "net_amount": int, "mult_x100": OPT(int), "day": int}), "gems": int,
+      "active_game": OPT(str), "stats": {"since": OPT(int), "games": [{"game": str, "rounds": int, "wins": int, "staked": int, "paid": int}]}, "best_win": OPT({"game": str, "net_amount": int, "mult_x100": OPT(int), "day": int}), "gems": int,
       "cosmetics": {"equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
                                  "avatar_frame": str, "badge": str}, "show_in_rating": bool, "patina": dict, "patina_info": dict, "complete_sets": [str], "founder_no": OPT(int)},
       "chat": {"in_chat": bool, "bonus_pct": int, "active_today": int, "boost_until": OPT(int), "boost_gems": int}}
