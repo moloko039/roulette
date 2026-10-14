@@ -81,7 +81,7 @@ LAST = {"status": str, "bet": int, "mines": int, "revealed": [int], "mine_cells"
         "finished_at": int}
 ME = {"balance": int, "rate": int, "seconds_to_next": int, "level": int, "income_level": int, "storage_level": int,
       "farm": {"income_per_hour": int, "per_minute_estimate": str, "next_tick_in_s": int, "hours_cap": int, "accrued_now": int},
-      "active_game": OPT(str), "gems": int,
+      "active_game": OPT(str), "best_win": OPT({"game": str, "net_amount": int, "mult_x100": OPT(int), "day": int}), "gems": int,
       "cosmetics": {"equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
                                  "avatar_frame": str, "badge": str}, "show_in_rating": bool, "patina": dict, "patina_info": dict, "complete_sets": [str], "founder_no": OPT(int)},
       "chat": {"in_chat": bool, "bonus_pct": int, "active_today": int, "boost_until": OPT(int), "boost_gems": int}}
@@ -91,8 +91,8 @@ TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": i
             "complete_sets": [str]}
 TOP_ME = {"rank": int, "balance": int, "total": int, "staked": int, "level": int}
 CHAT_TOP = {"scope": str, "top": [TOP_ITEM], "me": TOP_ME, "chat_staked": int, "chat_level": int, "chat_points": int, "chat_level_start_points": int, "chat_next_points": OPT(int), "set_names": dict}
-BEST_ITEM = {"rank": int, "name": str, "net_amount": int, "game": str, "day": int, "is_me": bool, "cosmetics": dict}
-BEST_WINS = {"scope": str, "top": [BEST_ITEM], "me": OPT({"rank": int, "net_amount": int, "game": str, "total": int}), "total": int}
+BEST_ITEM = {"rank": int, "name": str, "net_amount": int, "game": str, "mult_x100": OPT(int), "day": int, "is_me": bool, "cosmetics": dict}
+BEST_WINS = {"scope": str, "top": [BEST_ITEM], "me": OPT({"rank": int, "net_amount": int, "game": str, "mult_x100": OPT(int), "total": int}), "total": int}
 FARM_PART = {"level": int, "max": int, "can_buy": bool, "reason": OPT(str), "next_cost": OPT(int)}
 FARM = {
     "balance": int,
@@ -255,7 +255,7 @@ try:
     sqlite3.connect(path).execute("INSERT OR REPLACE INTO player_best_win (telegram_id, game, net_amount, achieved_at) VALUES (2001, 'keno', 777, 1)").connection.commit()
     r = client.get("/api/chat/best-wins", headers=auth(2001, group=True))
     contract("chat/best-wins с рекордом", r.json(), BEST_WINS)
-    assert r.json()["me"] == {"rank": 1, "net_amount": 777, "game": "keno", "total": 1} and "member_ref" not in r.json()["top"][0]
+    assert r.json()["me"] == {"rank": 1, "net_amount": 777, "game": "keno", "mult_x100": None, "total": 1} and "member_ref" not in r.json()["top"][0]
     r = client.get("/api/chat/best-wins")
     assert (r.status_code, r.json()) == (401, {"detail": "Unauthorized"})
 

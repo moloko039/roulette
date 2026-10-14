@@ -39,6 +39,7 @@
 | storage_level | int | всегда |
 | farm | `{income_per_hour int, per_minute_estimate str, next_tick_in_s int, hours_cap int, accrued_now int}` | всегда: поминутное начисление дохода (ниже) |
 | active_game | str\|null | всегда: `"mines"`, `"blackjack"`, `"crash"`, `"hilo"` (незавершённая игра игрока; если активных несколько, та, где действие было позже) или null |
+| best_win | `{game str, net_amount int, mult_x100 int\|null, day int}`\|null | всегда: личный рекорд выигрыша игрока (лучший чистый выигрыш за раунд, множитель в сотых, день без времени); null, если выигрышей ещё не было |
 | gems | int | всегда: баланс кристаллов (премиум-валюта, покупается за Stars, раздел «Кристаллы»); 0, если кристаллов нет |
 | cosmetics | `{equipped {слот: код}, show_in_rating bool, patina {слот: стадия}, patina_info {chip_notches 0..24, days}, complete_sets [код коллекции], founder_no int|null}` (порядковый номер основателя, выдаётся при первой вехе рефералки; виден и в `cosmetics` рейтинга как `founder_no` у надевших значок «Камень» или рамку «Арка») | всегда: косметика: надетое по 8 слотам и показ рамки и значка в рейтинге. Необязательное поле `patina` присутствует только при надетой патине и только для надетых слотов (значения соответствуют достигнутым порогам: `chip_patina` (chip, засечки за краш ≥×50: 1, 5, 15, 40), `back_patina` (card_back, сыграно раундов: 200, 1000, 3000, 8000), `mine_patina` (mine_icons, взрывов мин: 10, 40, 120, 300)) |
 | chat | `{in_chat bool, bonus_pct int, active_today int, boost_until int\|null, boost_gems int}` | всегда: атрибуция к беседе, активные участники сегодня и бусты |
@@ -107,7 +108,7 @@
 | me | объект\|null | место вызвавшего среди участников с рекордом; null, если своего рекорда нет |
 | total | int | сколько в беседе участников с рекордом |
 
-Элемент `top`: `rank int`, `name str`, `net_amount int`, `day int` (день рекорда: начало суток UTC, без времени), `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
+Элемент `top`: `rank int`, `name str`, `net_amount int`, `mult_x100 int|null` (множитель рекорда: выплата / ставка раунда в сотых, например 250 = ×2.50; у рекордов, поставленных до появления поля, null; в `me` тоже), `day int` (день рекорда: начало суток UTC, без времени), `game str` (код игры: `roulette`, `mines`, `keno`, `blackjack`, `crash`, `hilo`, `slot`, `race`; клиент показывает русское название и неизвестные коды игнорирует), `is_me bool`), `cosmetics {слот: код}` (рамка и значок по тем же правилам видимости, что в `/api/chat/top`). `me`: `rank int`, `net_amount int`, `game str`, `total int`.
 В ответе нет `telegram_id`, времени достижения и идентификатора беседы. Отдельный маршрут, а не поле в `/api/chat/top`: сбой или рост рекордов не ломает основной рейтинг. Кэша нет (`no-store`), как у остальных ответов API. Примеры: `docs/examples/best_wins.json`. Ошибки: 401 `{"detail": "Unauthorized"}`, 429 `{"error": "too_many_requests"}`.
 
 ## GET /api/farm

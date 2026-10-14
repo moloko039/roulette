@@ -23,7 +23,7 @@ const bestEls = {
   empty: document.getElementById('best-empty'),
   me: document.getElementById('best-me')
 };
-const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило', slot: 'Western Slot' };
+const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило', slot: 'Western Slot', race: 'Свинки' };
 let bestLast = null;          // последний ответ (перерисовывается при смене своих рамки и значка)
 let bestInFlight = false;
 
@@ -66,13 +66,18 @@ function validBestWins(d) {
   if (d.scope === 'none') return true;
   if (d.scope !== 'chat' || !Array.isArray(d.top) || d.top.length > 10 || !isCount(d.total)) return false;
   const rowsOk = d.top.every((e) => e && typeof e === 'object' && isCount(e.rank) && isCount(e.net_amount)
-    && typeof e.name === 'string' && typeof e.is_me === 'boolean' && typeof e.game === 'string' && (e.day === undefined || isCount(e.day)));
+    && typeof e.name === 'string' && typeof e.is_me === 'boolean' && typeof e.game === 'string' && (e.day === undefined || isCount(e.day)) && (e.mult_x100 === undefined || e.mult_x100 === null || isCount(e.mult_x100)));
   const m = d.me;
   return rowsOk && (m === null || (!!m && typeof m === 'object' && isCount(m.rank) && isCount(m.net_amount) && typeof m.game === 'string' && isCount(m.total)));
 }
 
 // сумма рекорда: до 10 000 полностью, дальше сокращённо («+1,2 млн»), полное значение по нажатию (формат чисел, UI_REVIEW 1.3)
 const BEST_MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+// множитель рекорда (выплата / ставка раунда, в сотых): до ×100 с двумя знаками, дальше целым
+function bestMultText(x100) {
+  return x100 < 10000 ? (x100 / 100).toFixed(2) : String(Math.floor(x100 / 100));
+}
+
 function bestDayText(day) {
   const d = new Date(day * 1000);
   return d.getUTCDate() + ' ' + BEST_MONTHS[d.getUTCMonth()];
@@ -127,7 +132,7 @@ function showBestWins(d) {
     setBestAmount(amount, e.net_amount);
     const game = document.createElement('span');
     game.className = 'rating-staked';
-    game.textContent = BEST_GAMES[e.game] + (isCount(e.day) ? ' · ' + bestDayText(e.day) : '');      // игра и день рекорда
+    game.textContent = BEST_GAMES[e.game] + (isCount(e.mult_x100) && e.mult_x100 > 0 ? ' · ×' + bestMultText(e.mult_x100) : '') + (isCount(e.day) ? ' · ' + bestDayText(e.day) : '');      // игра и день рекорда
     li.append(bestRankEl(e.rank), bestAvatarEl(e.name, pub.avatar_frame, pub.frame_stage, pub.founder_no), who, amount, game);
     bestEls.list.appendChild(li);
   });

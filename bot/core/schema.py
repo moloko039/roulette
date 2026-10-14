@@ -6,6 +6,7 @@ from antiabuse import COOLDOWN_SECONDS
 
 from core.db_conn import _apply_journal_mode, _connect, _resolve_path
 from core.migrations import (
+    _migrate_best_win_mult,
     _migrate_farm_levels,
     _migrate_last_played_at,
     _migrate_minute_accrual,
@@ -46,6 +47,7 @@ def init_db(db_path=None):
         _migrate_minute_accrual(conn)
         _migrate_last_played_at(conn)
         _migrate_referral_commission(conn)
+        _migrate_best_win_mult(conn)
         cleanup_tombstones(conn)
     finally:
         conn.close()

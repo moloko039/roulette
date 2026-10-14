@@ -20,6 +20,8 @@ let lobbyStartDecided = false;   // при запуске выбор «титу�
 const profileEls = {
   data: document.getElementById('profile-data'),
   rate: document.getElementById('profile-rate'),
+  best: document.getElementById('profile-best'),
+  bestValue: document.getElementById('profile-best-value'),
   skel: document.getElementById('profile-skel'),
   name: document.getElementById('profile-name'),
   avatar: document.getElementById('profile-avatar'),
@@ -48,6 +50,9 @@ function renderProfile() {
     profileEls.retry.hidden = !srv.error.retry;
   } else if (srv.loaded) {
     profileEls.rate.textContent = formatCompact(srv.rate);       // экономика (баланс, улучшения, таймер) живёт на вкладке «Ферма»
+    const bw = srv.bestWin;      // рекорд: сумма, игра и множитель; без выигрышей строки нет
+    profileEls.best.hidden = !bw || typeof isBestGame !== 'function' || !isBestGame(bw.game);
+    if (bw && !profileEls.best.hidden) profileEls.bestValue.textContent = '+' + formatCompact(bw.net_amount) + ' · ' + BEST_GAMES[bw.game] + (isCount(bw.mult_x100) && bw.mult_x100 > 0 ? ' · ×' + bestMultText(bw.mult_x100) : '');
     profileEls.skel.hidden = true;
     profileEls.data.hidden = false;
     profileEls.msg.textContent = '';
@@ -207,6 +212,8 @@ async function loadServer(reason) {
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
       && isCount(f.next_tick_in_s) && isCount(f.hours_cap) && isCount(f.accrued_now) ? f : null;
+    const bw = d.best_win;
+    srv.bestWin = bw && typeof bw === 'object' && typeof bw.game === 'string' && isCount(bw.net_amount) && bw.net_amount > 0 ? bw : null;       // личный рекорд для профиля
     const c = d.chat;
     srv.chat = c && typeof c === 'object' && typeof c.in_chat === 'boolean'
       && isCount(c.bonus_pct) && c.bonus_pct <= 45 && isCount(c.active_today)

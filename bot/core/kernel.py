@@ -139,10 +139,10 @@ def _record_best_win(conn, telegram_id, game, stake, paid, now):
     if game not in BEST_WIN_GAMES:
         raise ValueError("unknown game")
     conn.execute(
-        "INSERT INTO player_best_win (telegram_id, game, net_amount, achieved_at) VALUES (?, ?, ?, ?) "
+        "INSERT INTO player_best_win (telegram_id, game, net_amount, achieved_at, mult_x100) VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(telegram_id) DO UPDATE SET game = excluded.game, net_amount = excluded.net_amount, "
-        "achieved_at = excluded.achieved_at WHERE excluded.net_amount > player_best_win.net_amount",
-        (telegram_id, game, net, now))
+        "achieved_at = excluded.achieved_at, mult_x100 = excluded.mult_x100 WHERE excluded.net_amount > player_best_win.net_amount",
+        (telegram_id, game, net, now, min(paid, MAX_SAFE_INT) * 100 // stake if stake > 0 else None))
     return True
 
 

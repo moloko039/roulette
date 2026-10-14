@@ -501,7 +501,8 @@ def create_economy_tables(conn):
                 telegram_id INTEGER PRIMARY KEY,
                 game        TEXT    NOT NULL,
                 net_amount  INTEGER NOT NULL,
-                achieved_at INTEGER NOT NULL
+                achieved_at INTEGER NOT NULL,
+                mult_x100   INTEGER
             )
             """
     )

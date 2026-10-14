@@ -224,7 +224,7 @@ def chat_best_wins(chat_instance, telegram_id, db_path=None):
     conn = _connect(db_path)
     try:
         rows = conn.execute(
-            "SELECT m.telegram_id, m.first_name, b.game, b.net_amount, b.achieved_at "
+            "SELECT m.telegram_id, m.first_name, b.game, b.net_amount, b.achieved_at, b.mult_x100 "
             "FROM (SELECT telegram_id, first_name FROM chat_members WHERE chat_instance = ? ORDER BY last_seen DESC, telegram_id LIMIT ?) m "
             "JOIN players p ON p.telegram_id = m.telegram_id "
             "JOIN player_best_win b ON b.telegram_id = m.telegram_id "
@@ -234,12 +234,24 @@ def chat_best_wins(chat_instance, telegram_id, db_path=None):
         conn.close()
     shown = _public_cosmetics(db_path, [r["telegram_id"] for r in rows[:TOP_SIZE]])
     top = [
-        {"rank": i + 1, "name": r["first_name"], "net_amount": r["net_amount"], "game": r["game"], "day": r["achieved_at"] // 86400 * 86400,
+        {"rank": i + 1, "name": r["first_name"], "net_amount": r["net_amount"], "game": r["game"], "mult_x100": r["mult_x100"], "day": r["achieved_at"] // 86400 * 86400,
          "is_me": r["telegram_id"] == telegram_id, "cosmetics": shown.get(r["telegram_id"], {})}
         for i, r in enumerate(rows[:TOP_SIZE])
     ]
     me = None
     for i, r in enumerate(rows):
         if r["telegram_id"] == telegram_id:
-            me = {"rank": i + 1, "net_amount": r["net_amount"], "game": r["game"], "total": len(rows)}
+            me = {"rank": i + 1, "net_amount": r["net_amount"], "game": r["game"], "mult_x100": r["mult_x100"], "total": len(rows)}
     return {"scope": "chat", "top": top, "me": me, "total": len(rows)}
+
+
+def best_win_of(telegram_id, db_path=None):
+    """Личный рекорд игрока для экрана «Профиль»: {game, net_amount, mult_x100 (или None), day} или None, если выигрышей ещё не было. Только чтение."""
+    conn = _connect(db_path)
+    try:
+        r = conn.execute("SELECT game, net_amount, achieved_at, mult_x100 FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
+        if r is None:
+            return None
+        return {"game": r["game"], "net_amount": r["net_amount"], "mult_x100": r["mult_x100"], "day": r["achieved_at"] // 86400 * 86400}
+    finally:
+        conn.close()

@@ -109,7 +109,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             gem_purchase_rows = conn.execute(
                 "SELECT pack_code, amount_stars, gems, status, created_at FROM gem_purchases WHERE telegram_id = ? ORDER BY created_at", (telegram_id,)).fetchall()
             best_win = conn.execute(
-                "SELECT game, net_amount, achieved_at FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
+                "SELECT game, net_amount, achieved_at, mult_x100 FROM player_best_win WHERE telegram_id = ?", (telegram_id,)).fetchone()
             nick_row = conn.execute("SELECT username FROM player_usernames WHERE telegram_id = ?", (telegram_id,)).fetchone()
             chats = conn.execute(
                 "SELECT first_seen, last_seen, first_name FROM chat_members "
@@ -201,7 +201,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             "chip_purchases": [{"pack": r["pack_code"], "gems": r["gems"], "chips": r["chips"], "time": r["created_at"]} for r in chip_purchase_rows],
         },
         # личный рекорд (лучший чистый выигрыш за раунд); его видят участники бесед: имя, сумма и игра
-        "best_win": None if best_win is None else {"game": best_win["game"], "net_amount": best_win["net_amount"], "achieved_at": best_win["achieved_at"]},
+        "best_win": None if best_win is None else {"game": best_win["game"], "net_amount": best_win["net_amount"], "achieved_at": best_win["achieved_at"], "mult_x100": best_win["mult_x100"]},
         "keno_rounds": [
             {"time": k["created_at"], "bet": k["bet"], "picks": json.loads(k["picks_json"]),
              "draw": json.loads(k["draw_json"]), "hits": k["hit_count"], "payout": k["payout"]}

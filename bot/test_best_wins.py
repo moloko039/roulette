@@ -149,6 +149,7 @@ try:
     res = db.spin_roulette(A, rid(), bets(("number", 17, 100), ("red", None, 100)), now=NOW, db_path=path, rng=lambda n: 17)
     check("рулетка: выплата 3600 при ставках 200", (res["payout_total"], res["stake_total"]), (3600, 200))
     check("рулетка: рекорд = 3600 - 200", best(path, A), ("roulette", 3400, NOW))
+    check("рулетка: множитель рекорда = выплата / ставка раунда (3600 / 200 = 18.00)", sql(path, "SELECT mult_x100 FROM player_best_win WHERE telegram_id = ?", (A,))[0][0], 1800)
     check("рулетка: баланс изменился ровно по правилам игры", balance(path, A), b0 - 200 + 3600)
     # меньший выигрыш рекорд не трогает; проигрыш и ничья (возврат ставки) тоже
     db.spin_roulette(A, rid(), bets(("number", 17, 10)), now=NOW + 5, db_path=path, rng=lambda n: 17)
@@ -330,8 +331,8 @@ try:
     check("ничья 5000: у ids[2] и ids[6] время 100, раньше по id; ids[0] время 300 последний", [e["rank"] for e in top["top"]], [1, 2, 3, 4, 5])
     check("фильтр по беседе: чужая беседа и не-участники не видны", (top["total"], [e["game"] for e in top["top"]]), (5, ["keno", "mines", "blackjack", "roulette", "crash"]))
     check("я: место среди участников с рекордом, is_me", (top["me"], [e["is_me"] for e in top["top"]]),
-          ({"rank": 4, "net_amount": 5000, "game": "roulette", "total": 5}, [False, False, False, True, False]))
-    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "day", "is_me", "cosmetics"})
+          ({"rank": 4, "net_amount": 5000, "game": "roulette", "mult_x100": None, "total": 5}, [False, False, False, True, False]))
+    check("поля записи рейтинга", set(top["top"][0]), {"rank", "name", "net_amount", "game", "mult_x100", "day", "is_me", "cosmetics"})
     text = json.dumps(top)
     check("в ответе нет telegram_id и времени достижения", [str(u) in text for u in IDS], [False] * 12)
     other = db.chat_best_wins("chat-B", ids[5], db_path=path3)
@@ -386,7 +387,7 @@ try:
 
     # ================= данные игрока: экспорт, удаление, бэкап =================
     ex = db.get_player_export(ids[1], db_path=path3)
-    check("/mydata: рекорд игрока (игра, сумма, дата)", ex["best_win"], {"game": "keno", "net_amount": 9000, "achieved_at": 200})
+    check("/mydata: рекорд игрока (игра, сумма, дата)", ex["best_win"], {"game": "keno", "net_amount": 9000, "achieved_at": 200, "mult_x100": None})
     check("/mydata без рекорда: поле None", db.get_player_export(ids[4], db_path=path3)["best_win"], None)
     sql(path3, "DELETE FROM players WHERE telegram_id = ?", (ids[8],))
     sql(path3, "DELETE FROM chat_members WHERE telegram_id = ?", (ids[8],))

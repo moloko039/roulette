@@ -165,3 +165,21 @@ def _migrate_last_played_at(conn):
     except Exception:
         conn.execute("ROLLBACK")
         raise
+
+
+def _migrate_best_win_mult(conn):
+    """Добавляет player_best_win.mult_x100 в старую базу (идемпотентно): множитель рекорда (выплата / ставка раунда, сотые). У прежних рекордов NULL:
+    клиент показывает их без множителя."""
+    def has_column():
+        return any(r["name"] == "mult_x100" for r in conn.execute("PRAGMA table_info(player_best_win)"))
+
+    if has_column():
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if not has_column():
+            conn.execute("ALTER TABLE player_best_win ADD COLUMN mult_x100 INTEGER")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
