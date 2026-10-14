@@ -214,6 +214,7 @@ function renderRace() {
   raceEls.play.textContent = rc.lane === null ? 'Выберите дорожку' : (rc.played ? 'Ещё раз' : 'Старт') + betText;
   raceEls.balance.textContent = srv.loaded ? spacedNumber(availableBalance()) : (srv.error ? '—' : 'Загрузка…');
   raceEls.balance.classList.toggle('skeleton', !srv.loaded && !srv.error);
+  if (typeof raceLiveRender === 'function') raceLiveRender();       // режим «Общий»: кнопка ставки, лента, таймер (js/15c-race-live.js)
 }
 
 function setRaceLanes(n) {
@@ -227,6 +228,7 @@ function setRaceLanes(n) {
 }
 
 function pickRaceLane(n) {
+  if (typeof raceLivePick === 'function' && raceLivePick(n)) return;      // общий режим (js/15c-race-live.js)
   if (rc.running) {            // во время забега тап по дорожке показывает финиш (результат уже известен серверу)
     if (rc.skip) rc.skip();
     return;
@@ -449,6 +451,7 @@ async function postRaceOnce(payload, lanes, lane) {
 function showRaceResult(r) {
   fillResult(raceEls.result, r);
   raceEls.result.hidden = false;
+  if (raceEls.result.scrollIntoView) raceEls.result.scrollIntoView({ block: 'nearest' });      // итог не прячется под панелью ставок (scroll-padding экрана учитывает её высоту)
 }
 
 async function raceStart() {
@@ -546,7 +549,7 @@ raceEls.fast.addEventListener('click', () => {
   try { localStorage.setItem('race_fast', rc.fast ? '1' : '0'); } catch (e) { /* не страшно */ }
   renderRace();
 });
-raceEls.play.addEventListener('click', () => raceStart());
+raceEls.play.addEventListener('click', () => (raceLiveActive() ? raceLiveBet() : raceStart()));
 // поле ставки, ÷2, ×2, «Макс» и панель над клавиатурой: общая для всех игр логика (js/02-bet.js); фишки-пресеты ставят сумму тапом
 setupBetPanel({
   input: raceEls.bet,

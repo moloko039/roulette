@@ -430,6 +430,13 @@ casinch с пресетом original-like): 6 барабанов высотой 
 401 `{"detail": "Unauthorized"}`; 409 `{"detail": "insufficient_funds"}`, `{"detail": "request_conflict"}` (тот же `request_id` с другими параметрами),
 `{"detail": "balance_limit"}` (баланс плюс наибольшая выплата превышает `MAX_SAFE_INT`); 413 `{"detail": "payload_too_large"}`; 429 `{"error": "too_many_requests"}`.
 
+### Общий забег (GET /api/race/live, POST /api/race/live/bet)
+Раунд один на весь сервер, расписание по времени без фоновых задач: окно 30 с (`round.id` = `server_ms // 30000`): приём ставок первые 20 с (`phase: "bets"`), забег 8 с (`"race"`), итог до конца окна (`"result"`). Дорожек всегда 4, выплата как в одиночной игре `floor(ставка * 4 * 36 / 37)`, опыт и рекорды те же. Победитель выбирается (`secrets.randbelow`) первым запросом после закрытия приёма и тогда же выплачиваются все ставки раунда; до закрытия его нет нигде. Одна ставка на игрока в раунд. Комната-лента: беседа (по подписанному `chat_instance`), вне беседы общая анонимная комната (имя «Игрок»).
+
+**GET /api/race/live** (группа live). 200: `{"server_ms", "lanes": 4, "round": {"id", "phase", "start_ms", "close_ms", "race_end_ms", "next_ms"}, "bets": [{"name", "lane", "bet", "payout" (null до итога), "me" bool}] (последние 50 ставок комнаты), "counts": [int x4] (ставок комнаты по дорожкам), "me": {"lane", "bet", "payout"} или null (моя ставка в этом раунде), "result": {"winner", "script" (40 кадров позиций, как в одиночной игре)} или null до закрытия приёма, "last": {"round_id", "lane", "bet", "payout", "winner"} или null (моя ставка в одном из двух прошлых раундов), "balance" int или null}`. Баланс клиент показывает после конца забега (`race_end_ms`).
+
+**POST /api/race/live/bet** (группа write). Тело: `{"request_id": str, "lane": 0..3, "bet": 1..1000000}`. 200: `{"round_id", "lane", "bet", "balance", "replayed"}`; повтор того же `request_id` и параметров отдаёт сохранённую ставку. Ошибки: 400 `invalid_request`; 409 `betting_closed`, `already_bet`, `round_full` (потолок `RACE_LIVE_ROUND_BETS_MAX`), `insufficient_funds`, `request_conflict`, `balance_limit`; 413; 429. Хранение 30 дней, `/mydata` (ключ `race_live`), удаление и очистка как у раундов.
+
 ## Переводы удалены
 Переводов между игроками больше нет (план экономики, этап E1). `POST /api/transfers/send`, `GET /api/transfers` и `GET /api/chat/members` отвечают
 410 `{"detail": "gone"}` без проверки подписи; из `/api/me` убраны `incoming_unseen` и `transfer_limits`, из рейтинга и рекордов `member_ref`.

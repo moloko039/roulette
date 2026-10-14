@@ -73,6 +73,7 @@ function showTab(id) {
   if (screen === 'shop') { if (started) openShop(); } else closeShop();
   if (screen === 'crash') crResume();
   else crPause();
+  if (typeof raceLiveScreen === 'function') raceLiveScreen(screen === 'race');       // общий забег опрашивается, только пока открыт экран «Свинки»
   skinScreenChanged(screen);                       // сцены скинов только у открытого экрана игры
   if (typeof lobbyCrashStart === 'function') { if (screen === 'lobby') lobbyCrashStart(); else lobbyCrashStop(); }   // живая карточка краша на главной
   if (started && (screen === 'profile' || screen === 'roulette' || screen === 'lobby')) loadServer('open');

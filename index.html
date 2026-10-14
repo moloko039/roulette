@@ -25,7 +25,7 @@
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=a552670f">
   <link rel="stylesheet" href="css/13-shop.css?v=eabe3d42">
   <link rel="stylesheet" href="css/14-skin-scenes.css?v=976b81a8">
-  <link rel="stylesheet" href="css/15b-race.css?v=06daa2ce">
+  <link rel="stylesheet" href="css/15b-race.css?v=d280059e">
   <!-- рамки и значки видны в рейтинге и профиле на любом экране: их css не привязан к сцене игры, поэтому подключается всегда -->
   <link rel="stylesheet" href="skins/frame_patina.css?v=2d08e350">
   <link rel="stylesheet" href="skins/badge_patina.css?v=e666bddf">
@@ -338,6 +338,14 @@
       </button>
     </header>
     <p class="mines-notice" id="race-notice" aria-live="polite"></p>
+    <div class="race-modes" role="group" aria-label="Режим забега">
+      <button type="button" class="action race-small" data-race-mode="solo" aria-pressed="true">Один</button>
+      <button type="button" class="action race-small" data-race-mode="live" aria-pressed="false">Общий</button>
+    </div>
+    <div class="race-live" id="race-live" hidden>
+      <div class="race-live-head"><span id="race-live-phase">Загрузка…</span><span id="race-live-time"></span></div>
+      <div class="race-live-bar"><i id="race-live-fill"></i></div>
+    </div>
     <div class="race-lanes" role="group" aria-label="Число дорожек">
       <button type="button" class="action race-small" data-race-lanes="3" aria-pressed="true">3 дорожки</button>
       <button type="button" class="action race-small" data-race-lanes="4" aria-pressed="false">4 дорожки</button>
@@ -348,6 +356,7 @@
       <div class="race-lights" id="race-lights" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="race-go" id="race-go" aria-hidden="true">Марш!</div>
     </div>
+    <ul class="race-feed" id="race-feed" aria-label="Ставки беседы" hidden></ul>
     <div class="race-result res-box" id="race-result" aria-live="polite" hidden>
       <strong class="res-title" id="race-result-title"></strong>
       <span class="res-amount" id="race-result-amount" hidden></span>
@@ -786,11 +795,12 @@
   <script src="js/13b-wardrobe-badges.js?v=1f1394a7"></script>
   <script src="js/13c-wardrobe-tryon.js?v=4119c95f"></script>
   <script src="js/13-wardrobe.js?v=480989ed"></script>
-  <script src="js/14-lobby.js?v=f03e9584"></script>
+  <script src="js/14-lobby.js?v=104f0bdc"></script>
   <script src="js/14a-lobby-crash.js?v=d0e95dcf"></script>
   <script src="js/14-streak.js?v=7c03de64"></script>
   <script src="js/15-arcade.js?v=1181550c"></script>
-  <script src="js/15b-race.js?v=878ef72e"></script>
+  <script src="js/15b-race.js?v=576924bd"></script>
+  <script src="js/15c-race-live.js?v=4fb4637a"></script>
   <script src="js/16-a11y.js?v=0ac5195d"></script>
   <script src="js/17-start.js?v=a8abd05f"></script>
 </body>

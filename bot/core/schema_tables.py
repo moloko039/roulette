@@ -323,6 +323,34 @@ def create_game_tables(conn):
         """
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_race_created ON race_rounds(created_at)")
+    # общий забег: раунд один на весь сервер, номер = окно времени (race_live.round_id); итог (победитель и сид анимации) записывается при закрытии приёма
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS race_live_rounds (
+            id            INTEGER PRIMARY KEY,
+            winner        INTEGER NOT NULL,
+            seed          INTEGER NOT NULL,
+            settled_at_ms INTEGER NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS race_live_bets (
+            round_id      INTEGER NOT NULL,
+            telegram_id   INTEGER NOT NULL,
+            room_key      TEXT    NOT NULL,
+            lane          INTEGER NOT NULL,
+            bet           INTEGER NOT NULL,
+            payout        INTEGER,
+            request_id    TEXT    NOT NULL,
+            created_at_ms INTEGER NOT NULL,
+            PRIMARY KEY (round_id, telegram_id),
+            UNIQUE (telegram_id, request_id)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_race_live_room ON race_live_bets(round_id, room_key)")
 
 
 def create_chat_tables(conn):

@@ -265,3 +265,20 @@ html.perf-lite .race-dust, html.perf-lite .race-spark { display: none; }
   .race-pig, .race-pig *, .race-gate, .race-finish, .race-go, .race-lane { animation: none !important; transition: none !important; }
   .race-dust, .race-spark { display: none; }
 }
+
+/* общий забег (режим «Общий», js/15c-race-live.js): переключатель режима, таймер раунда, лента ставок беседы, число ставок на дорожке */
+.race-modes { display: flex; gap: 8px; justify-content: center; }
+.race.live .race-lanes { display: none; }
+.race-live { display: grid; gap: 4px; padding: 0 var(--space-1); }
+.race-live[hidden] { display: none; }
+.race-live-head { display: flex; align-items: baseline; justify-content: space-between; font-size: 13px; color: var(--text-muted); }
+.race-live-head #race-live-time { font-family: var(--font-display); font-variant-numeric: lining-nums tabular-nums; font-size: 16px; color: var(--text); }
+.race-live-bar { height: 3px; overflow: hidden; background: var(--border); border-radius: 2px; }
+.race-live-bar i { display: block; height: 100%; background: var(--gold); transform-origin: 0 50%; }
+.race-crowd { position: absolute; top: 4px; right: 6px; min-width: 20px; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--on-accent); background: var(--accent); border-radius: 10px; pointer-events: none; z-index: 2; }
+.race-crowd[hidden] { display: none; }
+.race-feed { display: grid; gap: 2px; margin: 0; padding: 0 var(--space-2); list-style: none; font-size: 13px; color: var(--text-muted); }
+.race-feed[hidden] { display: none; }
+.race-feed li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.race-feed li b { color: var(--text); font-weight: 600; }
+.race-feed li.me b { color: var(--gold); }
