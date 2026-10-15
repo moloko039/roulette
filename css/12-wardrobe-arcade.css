@@ -959,3 +959,7 @@
 .wd-try { width: 100%; height: 40px; }
 .wd-try[hidden] { display: none; }
 .wd-scene { position: relative; }   /* сцена скина в примерке (.skin-scene, absolute) ограничена образцом */
+
+/* превью карточки Bloody Slot: пять символов в ряд */
+.arcade-pics { display: flex; justify-content: center; gap: 6px; padding: 4px 0; }
+.arcade-pics img { width: 18%; max-width: 56px; height: auto; aspect-ratio: 1; border-radius: 6px; }

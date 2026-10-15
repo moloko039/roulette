@@ -20,20 +20,50 @@ def stamp(html):
     return TAG.sub(one, html)
 
 
+GAME_DIR = os.path.join("games", "bloody-slot")
+GAME_TAG = re.compile(r'((?:src|href)=")((?:game\.css|fx\.js|game\.js))(?:\?v=[0-9a-f]+)?(")')
+
+
+def stamp_game(html):
+    """Bloody Slot: у game.css, fx.js, game.js в games/bloody-slot/index.html тоже метка версии (страница игры запрашивается свежей, файлы кэшируются)."""
+    def one(m):
+        with open(os.path.join(ROOT, GAME_DIR, m.group(2)), "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()[:8]
+        return "%s%s?v=%s%s" % (m.group(1), m.group(2), digest, m.group(3))
+    return GAME_TAG.sub(one, html)
+
+
+def stamp_file(rel, fn, check):
+    path = os.path.join(ROOT, rel)
+    with open(path, encoding="utf-8") as f:
+        old = f.read()
+    new = fn(old)
+    if new == old:
+        return 0
+    if check:
+        print("%s: метки версий устарели, запусти python scripts/stamp_client.py" % rel)
+        return 1
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new)
+    print("%s: метки версий обновлены" % rel)
+    return 0
+
+
 def main():
+    game = stamp_file(os.path.join(GAME_DIR, "index.html"), stamp_game, "--check" in sys.argv)
     path = os.path.join(ROOT, "index.html")
     with open(path, encoding="utf-8") as f:
         old = f.read()
     new = stamp(old)
     if new == old:
-        return 0
+        return game
     if "--check" in sys.argv:
         print("index.html: метки версий устарели, запусти python scripts/stamp_client.py")
         return 1
     with open(path, "w", encoding="utf-8") as f:
         f.write(new)
     print("index.html: метки версий обновлены")
-    return 0
+    return game
 
 
 if __name__ == "__main__":

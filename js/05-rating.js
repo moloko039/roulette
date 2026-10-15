@@ -23,7 +23,7 @@ const bestEls = {
   empty: document.getElementById('best-empty'),
   me: document.getElementById('best-me')
 };
-const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило', slot: 'Western Slot', race: 'Свинки' };
+const BEST_GAMES = { roulette: 'Рулетка', mines: 'Мины', keno: 'Кено', blackjack: 'Блэкджек', crash: 'Краш', hilo: 'Хило', slot: 'Western Slot', race: 'Свинки', bloody: 'Bloody Slot' };
 let bestLast = null;          // последний ответ (перерисовывается при смене своих рамки и значка)
 let bestInFlight = false;
 

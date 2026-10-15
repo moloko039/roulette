@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#0b0809">
+  <title>Bloody Slot</title>
+  <link rel="stylesheet" href="game.css?v=753e166b">
+</head>
+<body>
+  <div class="app" id="app" aria-live="polite">
+    <header class="top">
+      <div class="title"><span>Bloody</span> Slot</div>
+      <div class="stat"><small>Баланс</small><b id="balance">—</b></div>
+      <button type="button" class="icon-btn" id="btn-menu" aria-label="Правила и таблица выплат">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </header>
+
+    <section class="mode" id="mode" aria-live="polite">
+      <b id="mode-title">Основная игра</b>
+      <span id="mode-note">Виртуальные фишки, вывода нет</span>
+    </section>
+
+    <section class="bar" id="bar" aria-label="Ritual bar">
+      <div class="bar-levels" id="bar-levels"></div>
+      <div class="bar-track"><i id="bar-fill"></i></div>
+      <div class="bar-text"><span id="bar-level">Ритуал: уровень 0</span><span id="bar-points">0 / 20</span></div>
+    </section>
+
+    <div class="floor" id="floor" aria-hidden="true"></div>
+    <section class="board-wrap" id="board-wrap">
+      <div class="board" id="board" role="img" aria-label="Игровое поле 5 на 4"></div>
+      <div class="wildrow" id="wildrow" aria-label="Закреплённый ряд Wild"></div>
+      <div class="fx" id="fx" aria-hidden="true"></div>
+    </section>
+
+    <section class="winline" id="winline">
+      <span>Выигрыш раунда</span><b id="win-total">0</b><em id="win-mult"></em>
+    </section>
+
+    <section class="panel">
+      <div class="info">
+        <div><small>Ставка</small><b id="bet-value">20</b></div>
+        <div id="cost-box" hidden><small id="cost-label">Общая стоимость</small><b id="cost-value">0</b></div>
+      </div>
+      <div class="row-main">
+        <button type="button" class="round-btn" id="btn-star" aria-label="Быстрые ставки">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>
+        </button>
+        <button type="button" class="step-btn" id="bet-minus" aria-label="Уменьшить ставку">−</button>
+        <button type="button" class="spin" id="btn-spin" aria-label="Крутить">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" class="ring"/><path d="M32 8l6 18h19L42 37l6 19-16-11-16 11 6-19L7 26h19z" class="star"/></svg>
+          <svg class="ringrun" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30"/></svg><span id="spin-label">Крутить</span>
+        </button>
+        <button type="button" class="step-btn" id="bet-plus" aria-label="Увеличить ставку">+</button>
+        <button type="button" class="round-btn bolt" id="btn-buy" aria-label="Купить функцию">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg>
+        </button>
+      </div>
+      <div class="row-sub">
+        <button type="button" class="toggle" id="btn-auto" aria-pressed="false">Авто</button>
+        <button type="button" class="toggle" id="btn-turbo" aria-pressed="false">Турбо</button>
+        <button type="button" class="toggle" id="btn-bets" aria-label="Выбрать ставку">Ставки</button>
+      </div>
+    </section>
+
+    <div class="fxtop" id="fxtop" aria-hidden="true"></div>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <div class="cut" id="cut" hidden></div>
+    <div class="intro" id="intro" hidden></div>
+    <div class="banner" id="banner" hidden></div>
+    <div class="sheet" id="sheet" hidden>
+      <div class="sheet-dim" id="sheet-dim"></div>
+      <section class="sheet-panel" role="dialog" aria-modal="true">
+        <header><b id="sheet-title"></b><button type="button" class="icon-btn" id="sheet-close" aria-label="Закрыть">✕</button></header>
+        <div class="sheet-body" id="sheet-body"></div>
+      </section>
+    </div>
+  </div>
+  <script src="fx.js?v=eaa5e9b6"></script>
+  <script src="game.js?v=c3d3605f"></script>
+</body>
+</html>

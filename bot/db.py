@@ -79,6 +79,7 @@ from games.blackjack_db import (
 )
 from features.crash_legacy_db import refund_legacy_crash
 from features.crash_live_db import advance_round, place_bet, cashout, live_state
+from games.bloody_db import (bloody_start, bloody_spin, bloody_state, settle_expired_bloody, close_expired_bloody)  # noqa: F401
 from games.hilo_db import (
     _hilo_active, HOW_TEXT, _hilo_cards, _hilo_moves, _hilo_view, _hilo_none_view, _hilo_response, _hilo_finish, _hilo_settle_in,
     settle_expired_hilo, HILO_CLOSE_BATCH, close_expired_hilo, _run_hilo_action, hilo_start, hilo_guess, hilo_cashout, hilo_state,

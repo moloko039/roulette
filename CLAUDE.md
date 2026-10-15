@@ -56,6 +56,7 @@ Telegram Mini App: рулетка на виртуальных фишках.
   скины = CSS-переменные + data-skin-<слот> (applySkins), раздел «Оформление» магазина (гардероб) с покупкой (цены только из каталога), рамка и значок (docs/ARCHITECTURE.md).
 - Хило: 13 достоинств (туз=1), равенство выигрывает, ход k=13 запрещён, пропуск бесплатный; шаг 13/k*36/37 точной дробью,
   выплата floor(ставка*M), потолок x1000; следующая карта нигде не хранится; 24 ч без действий: как у мин; опыт bet*(1-36/(37M)).
+- Bloody Slot (ветка feature/bloody-slot, в main только по решению владельца): каскадный слот 5×4 с ритуальной шкалой; партия по шаблону round_common (bot/bloody_round.py, games/bloody_db.py, bloody_config.py), /api/bloody/*, интерфейс games/bloody-slot (мост в js/15-arcade.js); описание docs/BLOODY_SLOT.md, RTP по симулятору tools/simulate_bloody_slot.py.
 - Общий забег свинок (bot/race_live.py, features/race_live_db.py, web/routes_race_live.py): раунд на весь сервер по расписанию (окно 30 с: приём 20, забег 8, итог), 4 дорожки, победитель и выплаты при первом запросе после закрытия приёма, лента ставок комнаты беседы; таблицы race_live_rounds, race_live_bets (docs/API.md).
 - «Не слоты»: раздел встроенных игр (реестр EMBEDDED_GAMES в js/15-arcade.js, сборки в games/<id>/, iframe во весь экран). Первая игра Western Slot
   (games/western-slot, исходники в проекте casinch) играет на фишки приложения: правила и генератор на сервере (bot/slot.py, порт движка casinch,
