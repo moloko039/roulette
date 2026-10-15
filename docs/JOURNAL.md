@@ -993,3 +993,8 @@ core/schema.py (611 строк) разделён: core/schema_tables.py (CREATE 
 
 - Покупки gibbet, reign, xbet1, xbet2 в bloody_round.new_round и games/bloody_db.bloody_start(buy=...), цены BUY_COST_UNITS, опыт по режиму. Симулятор tools/simulate_bloody_slot.py (многопроцессный, реальный движок), результаты прогона на 5 000 000 раундов на режим в docs/bloody_slot_rtp.json и docs/BLOODY_SLOT.md: основная игра 94,33%, Виселица 94,14%, Reign 93,97%, xBet 1 93,69%, xBet 2 94,00% (все в диапазоне 93,5–94,5%).
 - Чтобы попасть в RTP, пришлось ввести ручки подгонки (потолки каскадов по уровню и режиму, веса высоких символов по уровню, отдельные веса Reign и xBet 2, закреплённый ряд Wild в Reign выключен). Без них поле с открытыми Wild и пятью символами выдавало выплаты в сотни и тысячи ставок за спин. Reign в основной игре практически не выпадает (достижим покупкой). Подробности и вопрос по xBet 1: docs/BLOODY_SLOT.md. Ветка feature/bloody-slot.
+
+## 2026-10-15: Bloody slot, этап 5 (интерфейс и интеграция)
+
+- Маршруты /api/bloody/state|start|spin (web/routes_bloody.py, тест test_bloody_api.py, docs/API.md); игра games/bloody-slot (графика владельца + нарисованное в том же стиле), мост в js/15-arcade.js, карточка в «Не слотах», рекорды (Bloody Slot), privacy.html (раунды и состояние незавершённого раунда), e2e bloody_slot (настоящий сервер: спин, баланс, запись раунда), harness копирует папку games. Анимации по ТЗ владельца (docs/BLOODY_SLOT.md). Ветка feature/bloody-slot, в main не вливалось.
+- Проверено снимками в Chrome: падение и заряд, взрыв, сумма и пути, очки, уровень и пламя, xSplit со штампом ×2, Reign, подтверждение покупки, катсцены. Не проверено на iPhone.

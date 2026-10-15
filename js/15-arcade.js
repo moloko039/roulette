@@ -6,7 +6,9 @@
 // Чтобы добавить игру: положить её сборку в games/<id>/ (вход index.html, пути относительные) и добавить запись сюда; игре на фишках
 // приложения нужен серверный эндпоинт по образцу /api/slot/spin и свой мост по образцу slot ниже.
 const EMBEDDED_GAMES = [
-  { id: 'western-slot', label: 'Western Slot', hint: 'Каскадный слот, 3600 способов, бонус с множителями', url: 'games/western-slot/index.html?host=depnaya', bridge: 'slot' }
+  { id: 'western-slot', label: 'Western Slot', hint: 'Каскадный слот, 3600 способов, бонус с множителями', url: 'games/western-slot/index.html?host=depnaya', bridge: 'slot' },
+  { id: 'bloody-slot', label: 'Bloody Slot', hint: 'Готический каскадный слот, 1024 способа, ритуальная шкала и бонусы', url: 'games/bloody-slot/index.html?host=depnaya', bridge: 'bloody',
+    preview: ['H1', 'H2', 'Wild', 'H3', 'H4'] }
 ];
 const arcadeEls = {
   grid: document.getElementById('arcade-grid'),
@@ -72,11 +74,16 @@ function openEmbedded(id) {
     sl.frame = frame;
     if (!srv.loaded) loadServer('open');   // баланс для игры: без него она не даст крутить
   }
+  if (game.bridge === 'bloody') {
+    bl.frame = frame;
+    if (!srv.loaded) loadServer('open');
+  }
   haptic('light');
 }
 
 function closeEmbedded() {
   sl.frame = null;   // ответ на запрос, ушедший до закрытия, обновит баланс приложения, игре уже не отправится
+  bl.frame = null;
   arcadeEls.frame.textContent = '';
   arcadeEls.view.hidden = true;
   document.body.classList.remove('embed-open');
@@ -175,6 +182,80 @@ window.addEventListener('message', (e) => {
   }
 });
 
+// ---------- мост Bloody Slot ----------
+// Игра (iframe) денег не считает и к API не ходит. Сообщения игры: bloody:hello; bloody:call {id, action: state | start | spin, bet, buy}; bloody:haptic {kind}.
+// Ответы приложения: bloody:ready; bloody:reply {id, ok, data} или {id, ok: false, code, text}. Форма ответов сервера: docs/API.md (/api/bloody/*).
+// Принимаются только сообщения из открытого iframe; игра сама проверяет лог спина перед показом.
+const bl = { frame: null, busy: false };
+registerGame({ id: 'bloody', state: bl, render: () => {}, busy: () => bl.busy });
+const BLOODY_NOTES = { insufficient_funds: 'Не хватает фишек', balance_limit: 'Достигнут потолок баланса', active_round: 'Раунд уже идёт', no_active_round: 'Нет активного раунда', bad_bet: 'Такой ставки нет', request_conflict: 'Повтор запроса с другими параметрами' };
+
+function blPost(msg) {
+  const win = bl.frame && bl.frame.contentWindow;
+  if (!win) return;
+  try { win.postMessage(msg, window.location.origin && window.location.origin !== 'null' ? window.location.origin : '*'); } catch (e) { /* iframe закрыт */ }
+}
+
+function validBloody(d) {
+  return !!d && typeof d === 'object' && typeof d.status === 'string' && isCount(d.balance) && (d.round === null || (!!d.round && isCount(d.round.units)))
+    && (d.spin === null || (!!d.spin && Array.isArray(d.spin.steps) && !!d.spin.start && Array.isArray(d.spin.start.grid)));
+}
+
+async function blCall(msg) {
+  const id = typeof msg.id === 'string' ? msg.id.slice(0, 32) : '';
+  const fail = (code, text) => blPost({ type: 'bloody:reply', id, ok: false, code, text });
+  if (!id || bl.busy) { fail('bad_request', 'Неверные параметры'); return; }
+  bl.busy = true;
+  let path = '';
+  let payload = null;
+  try {
+    if (msg.action === 'state') {
+      try {
+        const d = await fetchGameState('/api/bloody/state', validBloody);
+        if (isCount(d.balance)) { srv.balance = d.balance; srv.loaded = true; srv.error = null; renderBalance(); }
+        blPost({ type: 'bloody:reply', id, ok: true, data: d });
+      } catch (e) { fail('network', e && e.text ? e.text : 'Нет связи с сервером'); }
+      return;
+    }
+    const requestId = makeRequestId();
+    if (!requestId) { fail('no_request_id', 'Не удалось создать запрос'); return; }
+    if (msg.action === 'start') {
+      if (!Number.isInteger(msg.bet) || !(msg.buy === null || typeof msg.buy === 'string')) { fail('bad_request', 'Неверные параметры'); return; }
+      path = '/api/bloody/start';
+      payload = { request_id: requestId, bet: msg.bet, buy: msg.buy };
+    } else if (msg.action === 'spin') {
+      path = '/api/bloody/spin';
+      payload = { request_id: requestId };
+    } else { fail('bad_request', 'Неверные параметры'); return; }
+    const result = await postWithRetries(() => postMinesOnce(path, payload, validBloody));
+    if (result && result.kind === 'ok') {
+      const d = result.data;
+      srv.balance = d.balance;
+      srv.loaded = true;
+      srv.error = null;
+      renderBalance();
+      blPost({ type: 'bloody:reply', id, ok: true, data: d });
+      return;
+    }
+    if (result && result.kind === 'conflict') { fail(result.detail || 'conflict', BLOODY_NOTES[result.detail] || 'Сервер отклонил действие'); loadServer('after'); return; }
+    if (result && result.kind === 'fatal') { fail('fatal', result.text); return; }
+    fail(result ? result.kind : 'network', result ? 'Ответ сервера не распознан' : 'Нет связи с сервером');
+    loadServer('after');
+  } finally {
+    bl.busy = false;
+  }
+}
+
+window.addEventListener('message', (e) => {
+  const win = bl.frame && bl.frame.contentWindow;
+  if (!win || e.source !== win) return;
+  const msg = e.data;
+  if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
+  if (msg.type === 'bloody:hello') blPost({ type: 'bloody:ready', balance: srv.loaded ? srv.balance : null });
+  else if (msg.type === 'bloody:call') blCall(msg);
+  else if (msg.type === 'bloody:haptic') haptic(SLOT_HAPTICS.includes(msg.kind) ? msg.kind : 'light');
+});
+
 // Превью карточки слота: поле 6×5 символов статичным кадром (рисунок, не кадр игры)
 const ARCADE_PREVIEW_SVG = (() => {
   const cols = 6;
@@ -203,7 +284,8 @@ EMBEDDED_GAMES.forEach((game) => {
   card.className = 'arcade-card';
   card.dataset.embedded = game.id;
   card.setAttribute('role', 'menuitem');
-  card.innerHTML = '<span class="arcade-preview" aria-hidden="true">' + ARCADE_PREVIEW_SVG + '</span><span class="arcade-name"></span><span class="arcade-hint"></span>';
+  const previewHtml = game.preview ? '<span class="arcade-pics">' + game.preview.map((n) => '<img src="games/bloody-slot/img/' + n + '.webp" alt="" width="48" height="48" loading="lazy">').join('') + '</span>' : ARCADE_PREVIEW_SVG;
+  card.innerHTML = '<span class="arcade-preview" aria-hidden="true">' + previewHtml + '</span><span class="arcade-name"></span><span class="arcade-hint"></span>';
   card.querySelector('.arcade-name').textContent = game.label;
   card.querySelector('.arcade-hint').textContent = game.hint || '';
   card.addEventListener('click', () => openEmbedded(game.id));
