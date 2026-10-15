@@ -1,0 +1,181 @@
+{
+ "_comment": "Результаты tools/simulate_bloody_slot.py на 5 000 000 раундов на режим (настоящий движок и конфиг bot/bloody_config.py на момент записи); base и xbet1 запущены со вторым сидом после финальной подгонки LEVEL_HIGH_SCALE, gibbet, reign и xbet2 не зависят от этих двух чисел.",
+ "rounds_per_mode": 5000000,
+ "target_rtp_pct": {
+  "base": 94.01,
+  "gibbet": 94.12,
+  "reign": 94.01,
+  "xbet1": 94.15,
+  "xbet2": 94.08
+ },
+ "results": [
+  {
+   "mode": "base",
+   "rounds": 5000000,
+   "cost_bets": 1.0,
+   "rtp_pct": 94.328,
+   "se_pct": 0.185,
+   "ci95_pct": [
+    93.966,
+    94.689
+   ],
+   "hit_rate_pct": 28.641,
+   "bonus_rounds_per_1": 42.0,
+   "candle_rounds_per_1": 42.0,
+   "reign_rounds_per_1": null,
+   "avg_spins": 1.052,
+   "capped": 0,
+   "max_win_x_bet": 905.35,
+   "buckets": [
+    3567926,
+    414670,
+    369356,
+    418098,
+    139850,
+    85540,
+    3272,
+    1286,
+    2,
+    0,
+    0
+   ]
+  },
+  {
+   "mode": "gibbet",
+   "rounds": 5000000,
+   "cost_bets": 240.0,
+   "rtp_pct": 94.141,
+   "se_pct": 0.026,
+   "ci95_pct": [
+    94.09,
+    94.192
+   ],
+   "hit_rate_pct": 100.0,
+   "bonus_rounds_per_1": 1.0,
+   "candle_rounds_per_1": 1.0,
+   "reign_rounds_per_1": 3499.0,
+   "avg_spins": 7.281,
+   "capped": 0,
+   "max_win_x_bet": 4087.6,
+   "buckets": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    7001,
+    338466,
+    4353993,
+    293062,
+    7478,
+    0
+   ]
+  },
+  {
+   "mode": "reign",
+   "rounds": 5000000,
+   "cost_bets": 100.0,
+   "rtp_pct": 93.971,
+   "se_pct": 0.024,
+   "ci95_pct": [
+    93.925,
+    94.017
+   ],
+   "hit_rate_pct": 100.0,
+   "bonus_rounds_per_1": 1.0,
+   "candle_rounds_per_1": null,
+   "reign_rounds_per_1": null,
+   "avg_spins": 10.108,
+   "capped": 0,
+   "max_win_x_bet": 2715.0,
+   "buckets": [
+    4,
+    0,
+    11,
+    187,
+    2086,
+    794265,
+    2427665,
+    1772759,
+    2894,
+    129,
+    0
+   ]
+  },
+  {
+   "mode": "xbet1",
+   "rounds": 5000000,
+   "cost_bets": 2.5,
+   "rtp_pct": 93.686,
+   "se_pct": 0.19,
+   "ci95_pct": [
+    93.314,
+    94.058
+   ],
+   "hit_rate_pct": 43.514,
+   "bonus_rounds_per_1": 44.2,
+   "candle_rounds_per_1": 44.2,
+   "reign_rounds_per_1": 5000000.0,
+   "avg_spins": 1.057,
+   "capped": 0,
+   "max_win_x_bet": 865.8,
+   "buckets": [
+    2824322,
+    719943,
+    354393,
+    583343,
+    290493,
+    191276,
+    22860,
+    13293,
+    77,
+    0,
+    0
+   ]
+  },
+  {
+   "mode": "xbet2",
+   "rounds": 5000000,
+   "cost_bets": 66.0,
+   "rtp_pct": 94.002,
+   "se_pct": 0.073,
+   "ci95_pct": [
+    93.857,
+    94.146
+   ],
+   "hit_rate_pct": 71.988,
+   "bonus_rounds_per_1": null,
+   "candle_rounds_per_1": null,
+   "reign_rounds_per_1": null,
+   "avg_spins": 1.0,
+   "capped": 0,
+   "max_win_x_bet": 7013.5,
+   "buckets": [
+    1400580,
+    0,
+    0,
+    81352,
+    215654,
+    1497980,
+    871768,
+    884223,
+    41304,
+    7131,
+    8
+   ]
+  }
+ ],
+ "bucket_labels": [
+  "0",
+  "0-1",
+  "1-2",
+  "2-5",
+  "5-10",
+  "10-50",
+  "50-100",
+  "100-500",
+  "500-1000",
+  "1000-5000",
+  ">=5000"
+ ]
+}

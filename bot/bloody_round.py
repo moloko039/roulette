@@ -54,13 +54,16 @@ class Round:
         self.spins = 0                       # сыграно спинов (стартовый и бонусные)
         self.capped = False
         self.finished = False
-        self.point_mult = 1                  # множитель очков полоски (Ритуальный буст, этап 4)
-        self.no_reign = False                # спин покупки xBet 2: Reign не запускается (этап 4)
+        self.point_mult = 1                  # множитель очков полоски (Ритуальный буст xBet 1)
+        self.no_reign = False                # спин покупки xBet 2: Reign не запускается
+        self.buy = None                      # покупка функции: gibbet, reign, xbet1, xbet2 или None
+        self.upgrade_cells = 0               # Виселица: сколько низких и средних символов первого поля заменить высокими
+        self.guarantee_xsplit = False        # xBet 2: на первом поле гарантированы Dagger и Guillotine
 
     def next_mode(self):
         if self.finished:
             return None
-        if self.spins == 0:
+        if self.spins == 0 and self.buy != "reign":
             return BASE
         if self.reign_left > 0:
             return REIGN
@@ -71,7 +74,8 @@ class Round:
     def to_dict(self):
         return {"bar": {"level": self.bar.level, "progress": self.bar.progress}, "candle_left": self.candle_left, "reign_left": self.reign_left,
                 "reign_started": self.reign_started, "sticky": list(self.sticky), "units": self.units, "spins": self.spins, "capped": self.capped,
-                "finished": self.finished, "point_mult": self.point_mult, "no_reign": self.no_reign}
+                "finished": self.finished, "point_mult": self.point_mult, "no_reign": self.no_reign, "buy": self.buy,
+                "upgrade_cells": self.upgrade_cells, "guarantee_xsplit": self.guarantee_xsplit}
 
     @classmethod
     def from_dict(cls, d):
@@ -81,6 +85,7 @@ class Round:
         r.sticky, r.units, r.spins = list(d["sticky"]), d["units"], d["spins"]
         r.capped, r.finished = d["capped"], d["finished"]
         r.point_mult, r.no_reign = d.get("point_mult", 1), d.get("no_reign", False)
+        r.buy, r.upgrade_cells, r.guarantee_xsplit = d.get("buy"), d.get("upgrade_cells", 0), d.get("guarantee_xsplit", False)
         return r
 
     def to_json(self):
@@ -89,6 +94,45 @@ class Round:
     @classmethod
     def from_json(cls, text):
         return cls.from_dict(json.loads(text))
+
+
+def new_round(buy=None):
+    """Раунд с учётом покупки функции (None: обычная ставка)."""
+    r = Round()
+    if buy is None:
+        return r
+    if buy not in cfg.BUY_COST_UNITS:
+        raise BadBet()
+    r.buy = buy
+    if buy == "gibbet":
+        r.bar = eng.BarState(cfg.GIBBET_LEVEL, 0)
+        r.candle_left = cfg.GIBBET_CANDLE_SPINS
+        r.upgrade_cells = cfg.GIBBET_UPGRADED_CELLS
+    elif buy == "reign":
+        r.bar = eng.BarState(cfg.BAR_MAX_LEVEL, 0)
+        r.reign_left = cfg.REIGN_BUY_SPINS
+        r.reign_started = True
+    elif buy == "xbet1":
+        r.bar = eng.BarState(cfg.XBET1_START_LEVEL, 0)
+        r.point_mult = cfg.XBET1_POINT_MULT
+    elif buy == "xbet2":
+        r.bar = eng.BarState(cfg.XBET2_LEVEL, 0)
+        r.no_reign = True
+        r.guarantee_xsplit = True
+    return r
+
+
+def buy_cost_chips(bet, buy):
+    """Цена покупки в фишках (для обычной ставки равна ставке)."""
+    return bet if buy is None else bet * cfg.BUY_COST_UNITS[buy] // cfg.UNITS_PER_BET
+
+
+_LOG = [True]
+
+
+def set_logging(on):
+    """Симулятор отключает сборку лога шагов (снимки поля), движок и деньги не затрагиваются."""
+    _LOG[0] = bool(on)
 
 
 class Field:
@@ -110,18 +154,29 @@ def payout_chips(units, bet):
 def pool_for(rnd, mode):
     """Таблица падения: основная игра и Candle Spins по уровню полоски; Reign только высокие символы. xSplit по уровню (в Reign всегда)."""
     if mode == REIGN:
-        pool = eng.make_pool({h: cfg.SYMBOL_WEIGHTS[h] for h in cfg.HIGH})
+        pool = eng.make_pool(cfg.REIGN_WEIGHTS, cfg.WILD_WEIGHT_REIGN, cfg.SCATTER_WEIGHT_REIGN)
+        xs_weight = cfg.XSPLIT_WEIGHT_REIGN
         xsplit = True
     else:
-        pool = eng.pool_for_level(rnd.bar.level)
+        wild = cfg.WILD_WEIGHT_CANDLE if mode == CANDLE else cfg.WILD_WEIGHT
+        if rnd.buy == "xbet2":
+            wild = cfg.WILD_WEIGHT_REIGN
+        if rnd.buy == "xbet2":
+            pool = eng.make_pool(cfg.XBET2_WEIGHTS, cfg.WILD_WEIGHT_REIGN, 0)
+            xs_weight = cfg.XSPLIT_WEIGHT_XBET2
+        else:
+            sc = cfg.LEVEL_HIGH_SCALE[rnd.bar.level]
+            pool = eng.pool_for_level(rnd.bar.level, weights={k: (w * sc if k in cfg.HIGH else w) for k, w in cfg.SYMBOL_WEIGHTS.items()}, wild_weight=wild,
+                                      scatter_weight=cfg.SCATTER_WEIGHT_CANDLE if mode == CANDLE else cfg.SCATTER_WEIGHT)
+            xs_weight = cfg.XSPLIT_WEIGHT
         xsplit = rnd.bar.level >= cfg.XSPLIT_MIN_LEVEL
-    if xsplit and cfg.XSPLIT_WEIGHT > 0:
-        pool = pool + [(cfg.XDAGGER, cfg.XSPLIT_WEIGHT), (cfg.XGUILLOTINE, cfg.XSPLIT_WEIGHT)]
+    if xsplit and xs_weight > 0:
+        pool = pool + [(cfg.XDAGGER, xs_weight), (cfg.XGUILLOTINE, xs_weight)]
     return pool
 
 
 def _wilds_open(rnd, mode):
-    return cfg.REIGN_WILDS_OPEN if mode == REIGN else rnd.bar.level
+    return cfg.REIGN_WILDS_OPEN if (mode == REIGN or rnd.buy == "xbet2") else rnd.bar.level
 
 
 def _new_field(rnd, mode, rng, pool):
@@ -174,6 +229,8 @@ def _sink(field):
 
 
 def _step(kind, field, **extra):
+    if not _LOG[0]:
+        return None
     grid, mults = field.snap()
     d = {"type": kind, "grid": grid, "mults": mults}
     d.update(extra)
@@ -256,6 +313,24 @@ def _level_up(field, rnd, rng):
                  moves=moves, fills=fills, units=0, bar=state.to_dict(), candle_left=rnd.candle_left, reign_left=rnd.reign_left, **extra)
 
 
+def _apply_start_buy(field, rnd, rng):
+    """Первое поле покупки: Виселица заменяет несколько низких и средних символов высокими, xBet 2 кладёт Dagger и Guillotine."""
+    cells = [(r, row) for r, col in enumerate(field.grid) for row in range(len(col))]
+    if rnd.upgrade_cells:
+        weak = [c for c in cells if field.grid[c[0]][c[1]] in cfg.LOW or field.grid[c[0]][c[1]] in cfg.MID]
+        rng_pick = list(weak)
+        for _ in range(min(rnd.upgrade_cells, len(rng_pick))):
+            i = int(rng.random() * len(rng_pick))
+            r, row = rng_pick.pop(i)
+            field.grid[r][row] = eng.draw_symbol(rng, [(h, cfg.SYMBOL_WEIGHTS[h]) for h in cfg.HIGH])
+    if rnd.guarantee_xsplit:
+        free = list(cells)
+        for sym in (cfg.XDAGGER, cfg.XGUILLOTINE):
+            i = int(rng.random() * len(free))
+            r, row = free.pop(i)
+            field.grid[r][row] = sym
+
+
 def play_spin(rnd, rng):
     """Один спин раунда. Меняет rnd; возвращает лог спина {mode, index, start, steps, units, total_units, ...} для клиента."""
     mode = rnd.next_mode()
@@ -268,19 +343,29 @@ def play_spin(rnd, rng):
         rnd.candle_left -= 1
     pool = pool_for(rnd, mode)
     field = _new_field(rnd, mode, rng, pool)
-    start_grid, start_mults = field.snap()
+    if rnd.spins == 1:
+        _apply_start_buy(field, rnd, rng)
+    start_grid, start_mults = field.snap() if _LOG[0] else (None, None)
     steps = []
     spin_units = 0
     fixed_wild_paid = False
+    cascades = 0
+    key = "xbet2" if rnd.buy == "xbet2" else mode
+    max_cascades = cfg.MAX_CASCADES.get(key, 0)
+    min_length = cfg.WIN_MIN_LENGTH.get(key, cfg.MIN_WIN_LENGTH)
     for _ in range(cfg.MAX_CASCADE_STEPS * 4):
         pool = pool_for(rnd, mode)
         _settle(field, rnd, mode, rng, pool, steps)
-        wins = eng.evaluate(field.grid, _wilds_open(rnd, mode), field.mults)
+        wins = eng.evaluate(field.grid, _wilds_open(rnd, mode), field.mults, min_length)
         if fixed_wild_paid:
             wins = [w for w in wins if not (w.sym == cfg.WILD and not w.cells)]
         elif any(w.sym == cfg.WILD and not w.cells for w in wins):
             fixed_wild_paid = True
+        limit = max_cascades if mode == REIGN or rnd.buy == "xbet2" else cfg.MAX_CASCADES_BY_LEVEL[rnd.bar.level] or max_cascades
+        if wins and limit and cascades >= limit:
+            break
         if wins:
+            cascades += 1
             units = sum(w.units for w in wins)
             capped = rnd.units + spin_units + units >= CAP_UNITS
             if capped:
@@ -310,6 +395,7 @@ def play_spin(rnd, rng):
         rnd.finished = True
     if rnd.finished:
         rnd.candle_left = rnd.reign_left = 0
+    steps = [x for x in steps if x is not None]
     return {"mode": mode, "index": rnd.spins, "start": {"grid": start_grid, "mults": start_mults, "bar": None}, "steps": steps, "units": spin_units,
             "total_units": rnd.units, "bar": rnd.bar.to_dict(), "candle_left": rnd.candle_left, "reign_left": rnd.reign_left, "sticky": list(rnd.sticky),
             "finished": rnd.finished, "capped": rnd.capped}

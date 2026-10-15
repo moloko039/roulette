@@ -122,7 +122,7 @@ try:
     check("конец раунда: выплата накопленного 300 ед. = 300 фишек", (r3["status"], r3["payout"], bal(A)), ("finished", 300, 100000 - BET + 300))
     check("после конца активной игры нет", active_game_of(A, db_path=path), None)
     check("спин после конца запрещён", raises(br.NoActiveRound, bloody_db.bloody_spin, A, rid(), now=NOW + 40, db_path=path), True)
-    check("опыт и учёт ставок", sql(path, "SELECT xp, total_staked FROM players WHERE telegram_id = ?", (A,))[0], (BET * cfg.XP_LOSE_X1000 // 1000, BET))
+    check("опыт и учёт ставок", sql(path, "SELECT xp, total_staked FROM players WHERE telegram_id = ?", (A,))[0], (BET * cfg.XP_LOSE_X1000[None] // 1000, BET))
     check("счётчики игр", sql(path, "SELECT game, rounds, wins, staked, paid FROM player_game_stats WHERE telegram_id = ? AND game = 'bloody'", (A,)), [("bloody", 1, 1, BET, 300)])
     check("личный рекорд: чистый выигрыш 200", sql(path, "SELECT game, net_amount FROM player_best_win WHERE telegram_id = ?", (A,)), [("bloody", 200)])
 

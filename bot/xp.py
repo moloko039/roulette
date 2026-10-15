@@ -77,9 +77,10 @@ def slot_xp(cost, bought):
     return cost * slot_lose_x1000(bought) // 1000
 
 
-def bloody_xp(cost):
-    """Опыт раунда Bloody slot: cost * вероятность потерять всю ставку раунда (bloody_config.XP_LOSE_X1000, тысячные); cost: списанное за раунд."""
+def bloody_xp(cost, buy=None):
+    """Опыт раунда Bloody slot: cost * вероятность не получить за раунд ничего (bloody_config.XP_LOSE_X1000 по режиму, тысячные; покупки Виселица и Reign без
+    проигрыша опыта не дают). cost: списанное за раунд."""
     import bloody_config
     if type(cost) is not int or cost < 0:
         raise ValueError("cost must be a non-negative integer")
-    return cost * bloody_config.XP_LOSE_X1000 // 1000
+    return cost * bloody_config.XP_LOSE_X1000[buy] // 1000

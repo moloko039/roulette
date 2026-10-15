@@ -62,7 +62,7 @@ def _finish(conn, row, rnd, status, now):
                            (status, paid, rnd.to_json(), now, now, row["id"])).rowcount
     if changed == 0:
         return
-    pay_and_xp(conn, row["telegram_id"], paid, xp.bloody_xp(row["cost"]), "bloody", row["cost"], now)
+    pay_and_xp(conn, row["telegram_id"], paid, xp.bloody_xp(row["cost"], row["buy"]), "bloody", row["cost"], now)
 
 
 def _settle_in(conn, telegram_id, now):
@@ -108,10 +108,13 @@ def _play(conn, row, rnd, rng, now):
     return _response(conn, row["telegram_id"], row["id"])
 
 
-def bloody_start(telegram_id, request_id, bet, now=None, db_path=None, rng=None):
-    """Старт раунда: нет активного, ставка списывается через wallet, играется стартовый спин (бонусные спины игрок запускает сам: bloody_spin)."""
+def bloody_start(telegram_id, request_id, bet, buy=None, now=None, db_path=None, rng=None):
+    """Старт раунда: нет активного, ставка (или цена покупки функции buy: gibbet, reign, xbet1, xbet2) списывается через wallet, играется стартовый спин
+    (бонусные спины игрок запускает сам: bloody_spin)."""
     validate_bet(bet)
-    cost = bet
+    if buy is not None and buy not in cfg.BUY_COST_UNITS:
+        raise br.BadBet()
+    cost = br.buy_cost_chips(bet, buy)
 
     def body(conn, now_):
         if _active(conn, telegram_id) is not None:
@@ -120,13 +123,13 @@ def bloody_start(telegram_id, request_id, bet, now=None, db_path=None, rng=None)
         if wallet.get_balance(conn, telegram_id) + br.payout_chips(br.CAP_UNITS, bet) > MAX_SAFE_INT:
             raise BalanceLimit()
         add_staked(conn, telegram_id, cost, now_)
-        rnd = br.Round()
+        rnd = br.new_round(buy)
         cur = conn.execute("INSERT INTO bloody_games (telegram_id, bet, cost, buy, state_json, last_json, units, spins, status, payout, created_at, updated_at) "
-                           "VALUES (?, ?, ?, NULL, ?, NULL, 0, 0, 'active', 0, ?, ?)", (telegram_id, bet, cost, rnd.to_json(), now_, now_))
+                           "VALUES (?, ?, ?, ?, ?, NULL, 0, 0, 'active', 0, ?, ?)", (telegram_id, bet, cost, buy, rnd.to_json(), now_, now_))
         row = conn.execute("SELECT * FROM bloody_games WHERE id = ?", (cur.lastrowid,)).fetchone()
         return _play(conn, row, rnd, rng if rng is not None else _system_rng(), now_)
 
-    return _run(telegram_id, request_id, "start", {"bet": bet}, body, now, db_path)
+    return _run(telegram_id, request_id, "start", {"bet": bet, "buy": buy}, body, now, db_path)
 
 
 def bloody_spin(telegram_id, request_id, now=None, db_path=None, rng=None):
