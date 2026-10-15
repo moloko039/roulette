@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "bot"))
 import bloody_config as cfg  # noqa: E402
 import bloody_round as br  # noqa: E402
 
-MODES = ("base", "gibbet", "reign", "xbet1", "xbet2")
-TARGET_RTP = {"base": 94.01, "gibbet": 94.12, "reign": 94.01, "xbet1": 94.15, "xbet2": 94.08}   # из задания (в процентах)
+MODES = ("base", "gibbet", "reign", "xbet1", "xbet2", "lucky")
+TARGET_RTP = {"base": 94.01, "gibbet": 94.12, "reign": 94.01, "xbet1": 94.15, "xbet2": 94.08, "lucky": 94.01}   # из задания (в процентах)
 RANGE = (93.5, 94.5)
 BUCKETS = (0, 1, 2, 5, 10, 50, 100, 500, 1000, 5000)     # границы выплат в ставках
 CHUNK = 20000
@@ -36,9 +36,9 @@ def run_chunk(args):
     rng = random.Random(seed)
     buy = None if mode == "base" else mode
     cost = cost_units(mode)
-    agg = {"n": 0, "win": 0, "win_sq": 0.0, "hits": 0, "bonus": 0, "candle": 0, "reign": 0, "spins": 0, "capped": 0, "max": 0, "buckets": [0] * (len(BUCKETS) + 1)}
+    agg = {"n": 0, "win": 0, "win_sq": 0.0, "hits": 0, "bonus": 0, "candle": 0, "reign": 0, "spins": 0, "capped": 0, "max": 0, "w100": 0, "buckets": [0] * (len(BUCKETS) + 1)}
     for _ in range(n):
-        rnd = br.new_round(buy)
+        rnd = br.new_round(buy, rng)
         while not rnd.finished:
             br.play_spin(rnd, rng)
         agg["n"] += 1
@@ -56,6 +56,8 @@ def run_chunk(args):
             agg["candle"] += 1
         if rnd.capped:
             agg["capped"] += 1
+        if rnd.units >= 100 * cfg.UNITS_PER_BET:
+            agg["w100"] += 1
         agg["max"] = max(agg["max"], rnd.units)
         x = rnd.units / cfg.UNITS_PER_BET          # выплата в ставках
         i = 0
@@ -66,9 +68,9 @@ def run_chunk(args):
 
 
 def merge(parts):
-    out = {"n": 0, "win": 0, "win_sq": 0.0, "hits": 0, "bonus": 0, "candle": 0, "reign": 0, "spins": 0, "capped": 0, "max": 0, "buckets": [0] * (len(BUCKETS) + 1)}
+    out = {"n": 0, "win": 0, "win_sq": 0.0, "hits": 0, "bonus": 0, "candle": 0, "reign": 0, "spins": 0, "capped": 0, "max": 0, "w100": 0, "buckets": [0] * (len(BUCKETS) + 1)}
     for a in parts:
-        for k in ("n", "win", "win_sq", "hits", "bonus", "candle", "reign", "spins", "capped"):
+        for k in ("n", "win", "win_sq", "hits", "bonus", "candle", "reign", "spins", "capped", "w100"):
             out[k] += a[k]
         out["max"] = max(out["max"], a["max"])
         out["buckets"] = [x + y for x, y in zip(out["buckets"], a["buckets"])]
@@ -85,7 +87,7 @@ def summarize(mode, a):
             "ci95_pct": [round((rtp - 1.96 * se) * 100, 3), round((rtp + 1.96 * se) * 100, 3)], "hit_rate_pct": round(a["hits"] / n * 100, 3),
             "bonus_rounds_per_1": round(n / a["bonus"], 1) if a["bonus"] else None, "candle_rounds_per_1": round(n / a["candle"], 1) if a["candle"] else None,
             "reign_rounds_per_1": round(n / a["reign"], 1) if a["reign"] else None, "avg_spins": round(a["spins"] / n, 3),
-            "capped": a["capped"], "max_win_x_bet": round(a["max"] / cfg.UNITS_PER_BET, 2), "buckets": a["buckets"]}
+            "capped": a["capped"], "win100_per_1": round(n / a["w100"], 1) if a["w100"] else None, "max_win_x_bet": round(a["max"] / cfg.UNITS_PER_BET, 2), "buckets": a["buckets"]}
 
 
 def bucket_labels():
@@ -126,9 +128,9 @@ def main():
             results.append(summarize(mode, merge(parts)))
             r = results[-1]
             ok = RANGE[0] <= r["rtp_pct"] <= RANGE[1]
-            print("%-7s RTP %.3f%% (±%.3f, 95%% ДИ %s)  цель %.2f%%  %s  | выигрыш в %.2f%% раундов, бонус 1 на %s, Reign 1 на %s, потолок %d раз, макс ×%s, %.0f с" % (
+            print("%-7s RTP %.3f%% (±%.3f, 95%% ДИ %s)  цель %.2f%%  %s  | выигрыш в %.2f%% раундов, бонус 1 на %s, Reign 1 на %s, ×100 и больше 1 на %s, потолок %d раз, макс ×%s, %.0f с" % (
                 mode, r["rtp_pct"], r["se_pct"], r["ci95_pct"], TARGET_RTP[mode], "в диапазоне" if ok else "ВНЕ ДИАПАЗОНА", r["hit_rate_pct"], r["bonus_rounds_per_1"],
-                r["reign_rounds_per_1"], r["capped"], r["max_win_x_bet"], time.time() - t0), flush=True)
+                r["reign_rounds_per_1"], r["win100_per_1"], r["capped"], r["max_win_x_bet"], time.time() - t0), flush=True)
     print("\nРаспределение выплат (число раундов по ставкам выигрыша): " + " | ".join(bucket_labels()))
     for r in results:
         print("%-7s %s" % (r["mode"], " | ".join(str(x) for x in r["buckets"])))

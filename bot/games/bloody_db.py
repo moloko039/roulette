@@ -36,7 +36,7 @@ def _view(row, balance, level, xp_total, replayed=False):
         "cost": row["cost"],
         "buy": row["buy"],
         "round": {"spins": rnd.spins, "units": rnd.units, "win": br.payout_chips(rnd.units, row["bet"]), "next": rnd.next_mode(), "candle_left": rnd.candle_left,
-                  "reign_left": rnd.reign_left, "bar": rnd.bar.to_dict(), "sticky": rnd.sticky, "capped": rnd.capped,
+                  "reign_left": rnd.reign_left, "bar": rnd.bar.to_dict(), "sticky": rnd.sticky, "capped": rnd.capped, "draw": rnd.draw,
                   "expires_at": row["updated_at"] + cfg.IDLE_SECONDS if active else None},
         "spin": json.loads(row["last_json"]) if row["last_json"] else None,
         "payout": None if active else row["payout"],
@@ -123,7 +123,7 @@ def bloody_start(telegram_id, request_id, bet, buy=None, now=None, db_path=None,
         if wallet.get_balance(conn, telegram_id) + br.payout_chips(br.CAP_UNITS, bet) > MAX_SAFE_INT:
             raise BalanceLimit()
         add_staked(conn, telegram_id, cost, now_)
-        rnd = br.new_round(buy)
+        rnd = br.new_round(buy, rng if rng is not None else _system_rng())
         cur = conn.execute("INSERT INTO bloody_games (telegram_id, bet, cost, buy, state_json, last_json, units, spins, status, payout, created_at, updated_at) "
                            "VALUES (?, ?, ?, ?, ?, NULL, 0, 0, 'active', 0, ?, ?)", (telegram_id, bet, cost, buy, rnd.to_json(), now_, now_))
         row = conn.execute("SELECT * FROM bloody_games WHERE id = ?", (cur.lastrowid,)).fetchone()

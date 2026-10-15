@@ -353,3 +353,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .app[data-active-wilds="0"] .wslot.open::before { filter: grayscale(0.7) brightness(0.45); }
 .wslot .lock { z-index: 1; }
 .wslot.open { filter: none; box-shadow: 0 0 10px rgba(220, 40, 40, 0.6); }
+
+/* Reign of Terror Spins: поле 5×5 из высоких символов, нижний ряд Wild и камни убраны (высота почти та же: ряд вместо Wild и камней) */
+[data-rows="5"] .board { height: calc(var(--cell) * 5); }
+[data-rows="5"] .wildrow, [data-rows="5"] .runes { display: none; }
