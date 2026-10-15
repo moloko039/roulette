@@ -978,3 +978,8 @@ core/schema.py (611 строк) разделён: core/schema_tables.py (CREATE 
 
 - Ветка `feature/bloody-slot` (в main не вливается без решения владельца). Файлы: bot/bloody_config.py (все числа и допущения), bot/bloody_engine.py (поле 5×4 + закреплённый ряд Wild, выигрыши способами слева направо с первого барабана от 3, только самая длинная комбинация символа, Wild-подстановка, Scatter не заменяется, каскады: взрыв, падение, новые символы, потолок цепочки), bot/test_bloody_engine.py, docs/BLOODY_SLOT.md (разбор архитектуры и допущения).
 - Допущение, которое задание не закрывало: закреплённый ряд Wild не создаёт комбинацию сам (`MIN_REAL_REELS` = 3 настоящих барабана), иначе цепочки бесконечны. Wild за 5 платит один раз за цепочку. Остальное см. docs/BLOODY_SLOT.md.
+
+## 2026-10-15: Bloody slot, этап 2 (Ritual bar)
+
+- Допущение владельца подтверждено: закреплённые Wild не создают комбинацию сами (MIN_REAL_REELS = 3).
+- bot/bloody_engine.py: BarState, pool_for_level, bar_points, level_up, play_spin; конфиг BAR_* (пороги, очки, порядок удаления низких и превращения средних); bot/test_bloody_bar.py. Описание правил в docs/BLOODY_SLOT.md. Ветка feature/bloody-slot, в main не вливалось.

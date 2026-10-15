@@ -112,14 +112,113 @@ def cascade(grid, wins, rng, pool):
     return new_grid_, moves, fills
 
 
-def play_cascades(grid, wilds_open, rng, pool, limit_units=None):
-    """Каскады до отсутствия выигрышей. Возвращает {"steps": [...], "units": сумма, "grid": итоговое поле}.
-    Шаг: {"wins": [{sym, length, ways, units}], "cells": [[барабан, ряд], ...], "units": выплата шага, "moves": [...], "fills": [...]}.
-    limit_units: потолок суммы за цепочку (раунд заканчивается на 16161×); при достижении выплата обрезается до потолка и цепочка прекращается."""
+class BarState:
+    """Состояние Ritual bar: уровень (число пройденных порогов, 0..5) и очки внутри уровня. Перед каждым новым раундом создаётся заново."""
+    __slots__ = ("level", "progress")
+
+    def __init__(self, level=0, progress=0):
+        self.level, self.progress = level, progress
+
+    @property
+    def wilds_open(self):
+        return self.level
+
+    @property
+    def final(self):
+        return self.level >= cfg.BAR_MAX_LEVEL
+
+    def to_dict(self):
+        return {"level": self.level, "progress": self.progress, "threshold": None if self.final else cfg.BAR_THRESHOLDS[self.level]}
+
+    def copy(self):
+        return BarState(self.level, self.progress)
+
+
+def pool_for_level(level, weights=None, wild_weight=None, scatter_weight=None):
+    """Таблица падения на уровне полоски: убраны самые дешёвые низкие символы (по одному за уровень), их заменяют высокие вместо превращённых средних
+    (вес среднего переходит соответствующему высокому)."""
+    weights = dict(cfg.SYMBOL_WEIGHTS if weights is None else weights)
+    for sym in cfg.LOW_REMOVE_ORDER[:level]:
+        weights[sym] = 0
+    for sym in cfg.MID_TRANSFORM_ORDER[:level]:
+        weights[cfg.MID_TO_HIGH[sym]] = weights.get(cfg.MID_TO_HIGH[sym], 0) + weights.get(sym, 0)
+        weights[sym] = 0
+    return make_pool(weights, wild_weight, scatter_weight)
+
+
+def bar_points(grid, cells):
+    pts = 0
+    for reel, row in cells:
+        sym = grid[reel][row]
+        if sym in cfg.MID:
+            pts += cfg.BAR_POINTS_MID
+        elif sym in cfg.HIGH:
+            pts += cfg.BAR_POINTS_HIGH
+    return pts
+
+
+def add_points(state, pts):
+    """Добавляет очки; уровень не повышает (переход делается после цепочки каскадов)."""
+    state.progress += pts
+
+
+def level_ready(state):
+    return (not state.final) and state.progress >= cfg.BAR_THRESHOLDS[state.level]
+
+
+def level_up(grid, state, rng, weights=None, wild_weight=None, scatter_weight=None):
+    """Один переход на следующий уровень (вызывать, пока level_ready и цепочка каскадов закончена). Меняет state, возвращает (новое поле, шаг):
+    излишек очков переносится; открывается Wild номер `level`; самый дешёвый оставшийся низкий символ взрывается (ячейки уходят, остальные падают, новые
+    берутся из таблицы нового уровня); самый дорогой оставшийся средний превращается в высокий на месте."""
+    state.progress -= cfg.BAR_THRESHOLDS[state.level]
+    state.level += 1
+    lvl = state.level
+    low = cfg.LOW_REMOVE_ORDER[lvl - 1]
+    mid = cfg.MID_TRANSFORM_ORDER[lvl - 1]
+    high = cfg.MID_TO_HIGH[mid]
+    converted = [[r, row, high] for r, col in enumerate(grid) for row, c in enumerate(col) if c == mid]
+    work = [[high if c == mid else c for c in col] for col in grid]
+    gone = [(r, row) for r, col in enumerate(work) for row, c in enumerate(col) if c == low]
+    pool = pool_for_level(lvl, weights, wild_weight, scatter_weight)
+    moves, fills = [], []
+    if gone:
+        fake = [Win(low, 0, 0, 0, gone)]
+        work, moves, fills = cascade(work, fake, rng, pool)
+    step = {"type": "level_up", "level": lvl, "wild": lvl - 1, "removed": low, "transform": [mid, high], "converted": converted,
+            "cells": [list(c) for c in gone], "moves": moves, "fills": fills, "units": 0, "bar": state.to_dict()}
+    return work, step
+
+
+def play_spin(grid, state, rng, weights=None, wild_weight=None, scatter_weight=None, limit_units=None):
+    """Один розыгрыш поля от готовой сетки до конца: каскады, очки полоски, переходы уровней (после того как цепочка каскадов доиграна и выплачена,
+    Wild открывается и состав символов меняется, затем каскады продолжаются). Возвращает {"steps", "units", "grid", "final_reached": дошла ли полоска до
+    последнего уровня}. Шаги: type cascade (выигрыши, взрыв, падение; bar: состояние полоски после шага) и type level_up."""
     steps, total = [], 0
-    fixed_wild_paid = False                       # Wild на всех 5 барабанах без единой взрываемой ячейки (весь ряд открыт) платит один раз за цепочку
+    final_reached = state.final
     for _ in range(cfg.MAX_CASCADE_STEPS):
-        wins = evaluate(grid, wilds_open)
+        pool = pool_for_level(state.level, weights, wild_weight, scatter_weight)
+        remaining = None if limit_units is None else limit_units - total
+        chain = play_cascades_bar(grid, state, rng, pool, remaining)
+        steps.extend(chain["steps"])
+        total += chain["units"]
+        grid = chain["grid"]
+        if limit_units is not None and total >= limit_units:
+            break
+        if not level_ready(state):
+            break
+        grid, step = level_up(grid, state, rng, weights, wild_weight, scatter_weight)
+        steps.append(step)
+        if state.final:
+            final_reached = True
+    return {"steps": steps, "units": total, "grid": grid, "final_reached": final_reached}
+
+
+def play_cascades_bar(grid, state, rng, pool, limit_units=None):
+    """Каскады текущей цепочки с начислением очков полоски (по взорванным ячейкам до удаления)."""
+    steps, total = [], 0
+    fixed_wild_paid = False
+    for _ in range(cfg.MAX_CASCADE_STEPS):
+        wins = evaluate(grid, state.wilds_open)
         if fixed_wild_paid:
             wins = [w for w in wins if not (w.sym == cfg.WILD and not w.cells)]
         elif any(w.sym == cfg.WILD and not w.cells for w in wins):
@@ -131,11 +230,20 @@ def play_cascades(grid, wilds_open, rng, pool, limit_units=None):
         if limit_units is not None and total + step_units >= limit_units:
             step_units = limit_units - total
             capped = True
-        nxt, moves, fills = cascade(grid, wins, rng, pool)
         cells = sorted({cell for w in wins for cell in w.cells})
-        steps.append({"wins": [w.as_dict() for w in wins], "cells": [list(c) for c in cells], "units": step_units, "moves": moves, "fills": fills})
+        if not state.final:
+            add_points(state, bar_points(grid, cells))
+        nxt, moves, fills = cascade(grid, wins, rng, pool)
+        steps.append({"type": "cascade", "wins": [w.as_dict() for w in wins], "cells": [list(c) for c in cells], "units": step_units,
+                      "moves": moves, "fills": fills, "bar": state.to_dict()})
         total += step_units
         grid = nxt
         if capped:
             break
     return {"steps": steps, "units": total, "grid": grid}
+
+
+def play_cascades(grid, wilds_open, rng, pool, limit_units=None):
+    """Каскады без переходов уровней (для проверок движка поля): полоска стоит на уровне wilds_open, очки не влияют на ход."""
+    chain = play_cascades_bar(grid, BarState(wilds_open), rng, pool, limit_units)
+    return chain
