@@ -165,8 +165,7 @@ def pool_for(rnd, mode):
             pool = eng.make_pool(cfg.XBET2_WEIGHTS, cfg.WILD_WEIGHT_REIGN, 0)
             xs_weight = cfg.XSPLIT_WEIGHT_XBET2
         else:
-            sc = cfg.LEVEL_HIGH_SCALE[rnd.bar.level]
-            pool = eng.pool_for_level(rnd.bar.level, weights={k: (w * sc if k in cfg.HIGH else w) for k, w in cfg.SYMBOL_WEIGHTS.items()}, wild_weight=wild,
+            pool = eng.pool_for_level(rnd.bar.level, wild_weight=wild, high_scale=cfg.LEVEL_HIGH_SCALE[rnd.bar.level], mid_scale=cfg.LEVEL_MID_SCALE[rnd.bar.level],
                                       scatter_weight=cfg.SCATTER_WEIGHT_CANDLE if mode == CANDLE else cfg.SCATTER_WEIGHT)
             xs_weight = cfg.XSPLIT_WEIGHT
         xsplit = rnd.bar.level >= cfg.XSPLIT_MIN_LEVEL
@@ -322,7 +321,8 @@ def _apply_start_buy(field, rnd, rng):
         for _ in range(min(rnd.upgrade_cells, len(rng_pick))):
             i = int(rng.random() * len(rng_pick))
             r, row = rng_pick.pop(i)
-            field.grid[r][row] = eng.draw_symbol(rng, [(h, cfg.SYMBOL_WEIGHTS[h]) for h in cfg.HIGH])
+            unlocked = [cfg.MID_TO_HIGH[m] for m in cfg.MID_TRANSFORM_ORDER[:rnd.bar.level]] or list(cfg.HIGH)       # какие высокие уже открыты на уровне покупки
+            field.grid[r][row] = eng.draw_symbol(rng, [(h, 1) for h in unlocked])
     if rnd.guarantee_xsplit:
         free = list(cells)
         for sym in (cfg.XDAGGER, cfg.XGUILLOTINE):
