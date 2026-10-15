@@ -62,10 +62,10 @@ w = one(eng.evaluate(g), "W")
 check("Wild на всех 5 барабанах платит 5.00 × способы", (w.length, w.ways, w.units), (5, 1, 500))
 
 # ---- закреплённый нижний ряд Wild: закрытые не работают, открытые слева направо
-g = grid("H3 L1 L2 L3", "L4 L1 L2 H3", "L5 L1 L2 L3", "M1 M2 M3 M4", "M5 M5 M5 M5")
+g = grid("H3 L1 L2 L3", "L4 L1 L2 H3", "L5 L1 L2 L3", "H3 M2 M3 M4", "M5 M5 M5 M5")
 check("закрытые Wild не участвуют", one(eng.evaluate(g, wilds_open=0), "H3"), None)
 w = one(eng.evaluate(g, wilds_open=3), "H3")
-check("открытые Wild с первого барабана", (w.length, w.ways) if w else None, (3, 2 * 2 * 1))
+check("открытые Wild с первого барабана", (w.length, w.ways) if w else None, (4, 2 * 2 * 1 * 1))
 check("открытый Wild нижнего ряда не имеет ячейки для взрыва", all(row < cfg.WORKING_ROWS for _, row in w.cells), True)
 check("Wild на барабане справа от открытых не работает", one(eng.evaluate(g, wilds_open=1), "H3"), None)
 w5 = one(eng.evaluate(grid("L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4"), wilds_open=5), "W")
@@ -132,9 +132,10 @@ for _ in range(300):
     assert res["units"] == sum(s["units"] for s in res["steps"])
 # ---- закреплённые Wild не делают цепочку вечной: нужны настоящие символы минимум на MIN_REAL_REELS барабанах
 g = grid("H3 L1 L2 L3", "L4 L5 M1 M2", "M3 M4 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 L1")
-check("открытые Wild + один настоящий символ: выигрыша нет", [w.sym for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [])
-g = grid("H3 L1 L2 L3", "L4 L5 M1 M2", "H3 M4 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 L1")
-check("открытые Wild + два настоящих барабана: платит", [(w.length, w.ways) for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [(3, 2)])
+check("открытые Wild + один настоящий барабан: выигрыша нет", [w.sym for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [])
+check("два настоящих барабана и открытые Wild: выигрыша нет (нужно 3 настоящих)", [w.sym for w in eng.evaluate(grid("H3 L1 L2 L3", "L4 L5 M1 M2", "H3 M4 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 L1"), wilds_open=2) if w.sym == "H3"], [])
+g = grid("H3 L1 L2 L3", "L4 L5 M1 M2", "H3 M4 L1 L2", "H3 L4 L5 M1", "M2 M3 M4 L1")
+check("три настоящих барабана: платит, закреплённый Wild заполняет второй", [(w.length, w.ways) for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [(4, 2)])
 rng = random.Random(11)
 for opened in (0, 1, 2, 3, 4, 5):
     for _ in range(200):
