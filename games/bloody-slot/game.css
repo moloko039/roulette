@@ -354,6 +354,12 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .wslot .lock { z-index: 1; }
 .wslot.open { filter: none; box-shadow: 0 0 10px rgba(220, 40, 40, 0.6); }
 
-/* Reign of Terror Spins: поле 5×5 из высоких символов, нижний ряд Wild и камни убраны (высота почти та же: ряд вместо Wild и камней) */
-[data-rows="5"] .board { height: calc(var(--cell) * 5); }
-[data-rows="5"] .wildrow, [data-rows="5"] .runes { display: none; }
+/* правила v3: поле на 5 рядов; у барабана 4 ячейки, пока его Wild нижнего ряда закрыт (под ними замок в терновнике), открытый Wild становится пятой ячейкой */
+.board-area { position: relative; }
+.board { height: calc(var(--cell) * 5); }
+.board-area .wildrow { position: absolute; left: 0; top: calc(var(--cell) * 4); width: calc(var(--cell) * 5); height: var(--cell); margin: 0; z-index: 1; pointer-events: none; }
+.board-area .wslot { margin: 3px 2px; }
+.board-area .wslot.open { opacity: 0; transition: opacity 0.5s ease-out 0.3s; animation: none; }
+.board-area .wslot.just { opacity: 1; animation: wild-open 0.9s ease-out; }
+.sym.sticky::before { content: ""; position: absolute; left: 6%; right: 6%; bottom: 3px; height: 7px; z-index: 1; border-radius: 3px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #8d949b 0 6px, #3f454b 6px 8px); box-shadow: 0 1px 0 #000; opacity: 0.9; }

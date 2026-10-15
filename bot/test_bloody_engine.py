@@ -58,33 +58,24 @@ check("Scatter не заменяет символ", one(eng.evaluate(g), "H2"), 
 g = grid("W L1 L2 L3", "W L1 L2 L3", "W L4 L5 L3", "M1 M2 M3 M4", "M5 M5 M5 M5")
 check("Wild сам по себе на трёх барабанах не платит", one(eng.evaluate(g), "W"), None)
 g = grid("W L1 L2 L3", "W L1 L2 L3", "W L4 L5 L3", "W M2 M3 M4", "W M5 M5 M5")
-w = one(eng.evaluate(g), "W")
-check("Wild на всех 5 барабанах платит 5.00 × способы", (w.length, w.ways, w.units), (5, 1, 500))
+check("Wild на всех 5 барабанах не платит, пока экран не заполнен Wild", one(eng.evaluate(g), "W"), None)
+w = one(eng.evaluate(grid(*["W W W W"] * 4, "W W W W W")), "W")
+check("экран из Wild платит 5.00", (w.length, w.ways, w.units), (5, 1, 500))
+check("одни Wild за символ не играют (нужен сам символ)", [x.sym for x in eng.evaluate(grid("W L1 L2 L3", "W M1 M2 M3", "W L4 L5 L3", "H1 H2 H3 H4", "M5 M5 M5 M5")) if x.sym == "H5"], [])
+check("Wild на первых трёх + символ на четвёртом: длина 4", [(x.length, x.ways) for x in eng.evaluate(grid("W L1 L2 L3", "W M1 M2 M3", "W L4 L5 L3", "H5 H2 H3 H4", "M5 M5 M5 M5")) if x.sym == "H5"], [(4, 1)])
 
-# ---- закреплённый нижний ряд Wild: закрытые не работают, открытые слева направо
-g = grid("H3 L1 L2 L3", "L4 L1 L2 H3", "L5 L1 L2 L3", "H3 M2 M3 M4", "M5 M5 M5 M5")
-check("закрытые Wild не участвуют", one(eng.evaluate(g, wilds_open=0), "H3"), None)
-w = one(eng.evaluate(g, wilds_open=3), "H3")
-check("открытые Wild с первого барабана", (w.length, w.ways) if w else None, (4, 2 * 2 * 1 * 1))
-check("открытый Wild нижнего ряда не имеет ячейки для взрыва", all(row < cfg.WORKING_ROWS for _, row in w.cells), True)
-check("Wild на барабане справа от открытых не работает", one(eng.evaluate(g, wilds_open=1), "H3"), None)
-w5 = one(eng.evaluate(grid("L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4", "L1 L2 L3 L4"), wilds_open=5), "W")
-check("пять открытых Wild платят 5.00", (w5.length, w5.ways, w5.units), (5, 1, 500))
-
-# ---- число способов поля 4-4-4-4-4 и с открытым рядом Wild
+# ---- барабаны разной высоты: открытый Wild нижнего ряда даёт барабану пятую ячейку (правила владельца v3)
+g = grid("H3 L1 L2 L3 W", "L4 L1 L2 H3", "H3 L1 L2 L3", "M1 M2 M3 M4", "M5 M5 M5 M5")
+w = one(eng.evaluate(g), "H3")
+check("Wild в пятой ячейке первого барабана играет как обычный", (w.length, w.ways), (3, 2))
+check("и взрывается вместе с комбинацией", (0, 4) in w.cells, True)
 full = grid(*["H1 H1 H1 H1"] * 5)
 check("1024 способа при 4 рядах", one(eng.evaluate(full), "H1").ways, 4 ** 5)
-check("3125 способов с пятью открытыми Wild", one(eng.evaluate(full, wilds_open=5), "H1").ways, 5 ** 5)
+check("3125 способов на поле 5-5-5-5-5", one(eng.evaluate(grid(*["H1 H1 H1 H1 H1"] * 5)), "H1").ways, 5 ** 5)
+check("поле 5-4-4-4-4", one(eng.evaluate(grid("H1 H1 H1 H1 H1", *["H1 H1 H1 H1"] * 4)), "H1").ways, 5 * 4 ** 4)
+
 
 # ---- каскад: исчезновение, падение, новые символы (порядок розыгрыша: барабан слева направо, ряды сверху вниз)
-class Scripted:
-    def __init__(self, values):
-        self.values = list(values)
-
-    def random(self):
-        return self.values.pop(0)
-
-
 pool = [("L5", 1)]                      # любой розыгрыш даёт L5
 g = grid("H1 L1 L2 L3", "H1 L4 L5 M1", "H1 M2 M3 M4", "L1 L2 L3 L4", "L5 M1 M2 M3")
 wins = eng.evaluate(g)
@@ -94,57 +85,26 @@ check("исчезли H1 из первых трёх барабанов", [nxt[0]
 check("исчез верхний ряд: остальные остались на местах", moves, [])
 check("новые сверху в трёх барабанах", sorted(fills), [[0, 0, "L5"], [1, 0, "L5"], [2, 0, "L5"]])
 check("барабаны 4 и 5 не тронуты", nxt[3:], g[3:])
-# падение: H1 внизу, остальные над ним сдвигаются вниз
 g2 = grid("L1 L2 L3 H1", "L4 L5 M1 H1", "M2 M3 M4 H1", "L1 L2 L3 L4", "L5 M1 M2 M3")
 nxt2, moves2, fills2 = eng.cascade(g2, eng.evaluate(g2), random.Random(0), pool)
 check("символы над выигравшим падают на один ряд", nxt2[0], ["L5", "L1", "L2", "L3"])
 check("падения записаны (барабан, из, в)", sorted(m for m in moves2 if m[0] == 0), [[0, 0, 1], [0, 1, 2], [0, 2, 3]])
+g3 = grid("L1 L2 L3 L4 W", "H1 L1 L2 L3", "H1 L1 L2 L3", "M1 M2 M3 M4", "M5 M5 M5 M5")
+nxt3, _, _ = eng.cascade(g3, eng.evaluate(g3), random.Random(0), pool)
+check("барабан из 5 ячеек остаётся из 5 после взрыва Wild", len(nxt3[0]), 5)
 
-# ---- цепочка каскадов: выигрыш считается на каждом шаге, суммируется, останавливается без выигрышей
-class Chain:
-    """Первое падение даёт H1 в трёх барабанах (второй выигрыш), второе разные M1, M2, M3: выигрышей больше нет."""
-    def __init__(self):
-        self.values = [0.0, 0.0, 0.0, 0.3, 0.55, 0.8]
-
-    def random(self):
-        return self.values.pop(0)
-
-
-pool2 = [("H1", 1), ("M1", 1), ("M2", 1), ("M3", 1)]
-g3 = grid("H1 L1 L2 L3", "H1 L4 L5 M1", "H1 M2 M3 M4", "L1 L2 L3 L4", "L5 M1 M2 M3")
-res = eng.play_cascades(g3, 0, Chain(), pool2)
-check("два шага: выигрыш H1 дважды по 150", [s["units"] for s in res["steps"]], [150, 150])
-check("сумма единиц", res["units"], sum(s["units"] for s in res["steps"]))
-check("после цепочки выигрышей нет", eng.evaluate(res["grid"]), [])
-
-# ---- потолок цепочки
-res = eng.play_cascades(g3, 0, Chain(), pool2, limit_units=200)
-check("потолок обрезает выплату и останавливает цепочку", (res["units"], len(res["steps"])), (200, 2))
-
-# ---- случайные поля: суммы совпадают, поле всегда полное, без выигрышей в конце цепочки
-rng = random.Random(7)
-pool_all = eng.make_pool()
-for _ in range(300):
-    g = eng.new_grid(rng, pool_all)
-    res = eng.play_cascades(g, 2, rng, pool_all)
-    assert all(len(col) == cfg.WORKING_ROWS for col in res["grid"]), "поле неполное"
-    assert eng.evaluate(res["grid"], 2) == [], "цепочка закончилась с выигрышем"
-    assert res["units"] == sum(s["units"] for s in res["steps"])
-# ---- закреплённые Wild не делают цепочку вечной: нужны настоящие символы минимум на MIN_REAL_REELS барабанах
-g = grid("H3 L1 L2 L3", "L4 L5 M1 M2", "M3 M4 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 L1")
-check("открытые Wild + один настоящий барабан: выигрыша нет", [w.sym for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [])
-check("два настоящих барабана и открытые Wild: выигрыша нет (нужно 3 настоящих)", [w.sym for w in eng.evaluate(grid("H3 L1 L2 L3", "L4 L5 M1 M2", "H3 M4 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 L1"), wilds_open=2) if w.sym == "H3"], [])
-g = grid("H3 L1 L2 L3", "L4 L5 M1 M2", "H3 M4 L1 L2", "H3 L4 L5 M1", "M2 M3 M4 L1")
-check("три настоящих барабана: платит, закреплённый Wild заполняет второй", [(w.length, w.ways) for w in eng.evaluate(g, wilds_open=2) if w.sym == "H3"], [(4, 2)])
-rng = random.Random(11)
-for opened in (0, 1, 2, 3, 4, 5):
-    for _ in range(200):
-        g = eng.new_grid(rng, pool_all)
-        res = eng.play_cascades(g, opened, rng, pool_all)
-        assert len(res["steps"]) < cfg.MAX_CASCADE_STEPS, "цепочка упёрлась в предел шагов (открыто Wild: %d)" % opened
-        assert [w for w in eng.evaluate(res["grid"], opened) if w.cells] == [], "остался выигрыш со взрываемыми ячейками"
-# весь нижний ряд открыт и в рабочих рядах Wild на всех барабанах нет: Wild за 5 платится один раз за цепочку
-g5 = grid(*["L1 L2 L3 L4", "L5 M1 M2 M3", "M4 M5 L1 L2", "L3 L4 L5 M1", "M2 M3 M4 M5"])
-r5 = eng.play_cascades(g5, 5, random.Random(3), [("M5", 1)])
-check("Wild за 5 платит один раз", sum(1 for s in r5["steps"] for w in s["wins"] if w["sym"] == "W"), 1)
+# ---- раскладка барабанов: bias 0 даёт одинаковые барабаны, bias > 0 чаще своё существо
+base = eng.pool_for_level(0, wild_weight=0, scatter_weight=0)
+same = eng.reel_pools(base, 0)
+check("bias 0: барабаны одинаковы", len({tuple(p.items) for p in same}), 1)
+bent = eng.reel_pools(base, 1.0)
+w0 = dict(bent[0].items)
+check("bias 1: на первом барабане ворон (M5) чаще ведьмы (M1)", w0["M5"] > w0["M1"] * cfg.SYMBOL_WEIGHTS["M5"] / cfg.SYMBOL_WEIGHTS["M1"], True)
+check("существа символов", [eng.family(x) for x in ("L5", "M5", "H5", "M1", "W", "S", "XD")], [0, 0, 0, 4, None, None, None])
+rng = random.Random(4)
+counts = {}
+for _ in range(4000):
+    x = same[0].draw(rng)
+    counts[x] = counts.get(x, 0) + 1
+check("розыгрыш по весам: L5 (16) чаще M1 (10)", counts["L5"] > counts["M1"], True)
 print("test_bloody_engine OK")

@@ -1,16 +1,19 @@
-"""Bloody slot: движок поля (стадия 1): сетка 5 барабанов, выигрыши «способами», Wild, каскады. Чистые функции без базы.
+"""Bloody slot: движок поля: 5 барабанов, выигрыши «способами», Wild, каскады, Ritual bar. Чистые функции без базы.
 
-Поле: барабан = список символов сверху вниз (рабочие ряды); закреплённый нижний ряд Wild хранится отдельно как число открытых Wild
-`wilds_open` (открыты первые N барабанов слева, остальные закрыты и в расчёте не участвуют).
-Выигрыш: для каждого платящего символа комбинация идёт слева направо с первого барабана, минимум 3 барабана; число способов = произведение
-числа подходящих ячеек (символ или Wild) на каждом барабане комбинации; платится только самая длинная комбинация символа. Scatter ничем не
-заменяется и в выигрышах не участвует. Единицы: см. bloody_config.UNITS_PER_BET.
-Случайность: объект с random() в [0, 1) (random.SystemRandom на сервере, random.Random(seed) в тестах)."""
+Поле: барабан = список символов сверху вниз. Высота барабана 4 или 5: пятая (нижняя) ячейка появляется, когда открыт Wild нижнего ряда этого барабана
+(открытый Wild лежит в этой ячейке как обычный Wild поля; сыграв, он исчезает, ячейка остаётся свободной, правила владельца v3).
+Выигрыш: для каждого платящего символа комбинация идёт слева направо с первого барабана, минимум 3 барабана подряд; число способов = произведение
+числа подходящих ячеек (символ или Wild, с множителями xSplit) на каждом барабане комбинации; платится самая длинная комбинация символа; хотя бы одна
+ячейка комбинации должна быть самим символом (одни Wild за символ не играют). Scatter ничем не заменяется и в выигрышах не участвует.
+Единицы: см. bloody_config.UNITS_PER_BET. Случайность: объект с random() в [0, 1) (random.SystemRandom на сервере, random.Random(seed) в тестах)."""
+import bisect
+import math
+
 import bloody_config as cfg
 
 
 class Win:
-    """Выигрыш по символу: sym, длина, способы, выплата в единицах, ячейки (барабан, ряд) рабочих рядов, участвующие в комбинации."""
+    """Выигрыш по символу: sym, длина, способы, выплата в единицах, ячейки (барабан, ряд), которые взрываются (символ и Wild на барабанах комбинации)."""
     __slots__ = ("sym", "length", "ways", "units", "cells")
 
     def __init__(self, sym, length, ways, units, cells):
@@ -20,8 +23,27 @@ class Win:
         return {"sym": self.sym, "length": self.length, "ways": self.ways, "units": self.units}
 
 
+class Pool:
+    """Таблица падения одного барабана: символы и накопленные веса (быстрый розыгрыш делением пополам)."""
+    __slots__ = ("items", "syms", "cum", "total")
+
+    def __init__(self, items):
+        self.items = [(s, w) for s, w in items if w > 0]
+        self.syms = [s for s, _ in self.items]
+        self.cum = []
+        acc = 0.0
+        for _, w in self.items:
+            acc += w
+            self.cum.append(acc)
+        self.total = acc
+
+    def draw(self, rng):
+        i = bisect.bisect_right(self.cum, rng.random() * self.total)
+        return self.syms[min(i, len(self.syms) - 1)]
+
+
 def make_pool(weights=None, wild_weight=None, scatter_weight=None):
-    """Таблица падения: список (символ, вес) с ненулевым весом. Стадия 2 меняет её по уровню Ritual bar."""
+    """Таблица падения: список (символ, вес) с ненулевым весом."""
     weights = cfg.SYMBOL_WEIGHTS if weights is None else weights
     pool = [(s, w) for s, w in weights.items() if w > 0]
     ww = cfg.WILD_WEIGHT if wild_weight is None else wild_weight
@@ -34,6 +56,8 @@ def make_pool(weights=None, wild_weight=None, scatter_weight=None):
 
 
 def draw_symbol(rng, pool):
+    if isinstance(pool, Pool):
+        return pool.draw(rng)
     total = sum(w for _, w in pool)
     x = rng.random() * total
     acc = 0
@@ -44,57 +68,71 @@ def draw_symbol(rng, pool):
     return pool[-1][0]
 
 
+def family(sym):
+    """Существо символа 0..4 (ворон, змея, козёл, волк, ведьма): у L5, M5, H5 это ворон, ... у L1, M1, H1 ведьма. Для Wild, Scatter, xSplit None."""
+    if len(sym) == 2 and sym[0] in "LMH" and sym[1].isdigit():
+        return 5 - int(sym[1])
+    return None
+
+
+def reel_pools(pool, bias):
+    """Раскладка барабанов (аналог лент настоящего слота): на барабане r чаще выпадает существо r, остальные реже с множителем exp(-bias * расстояние по кругу).
+    bias = 0: все барабаны одинаковы. Wild, Scatter и xSplit не меняются."""
+    out = []
+    for reel in range(cfg.REELS):
+        items = []
+        for sym, w in pool:
+            f = family(sym)
+            if f is not None and bias:
+                w *= math.exp(-bias * ((f - reel) % cfg.REELS))
+            items.append((sym, w))
+        out.append(Pool(items))
+    return out
+
+
 def new_grid(rng, pool, rows=None):
     rows = cfg.WORKING_ROWS if rows is None else rows
     return [[draw_symbol(rng, pool) for _ in range(rows)] for _ in range(cfg.REELS)]
 
 
-def _reel_count(grid, reel, sym, wilds_open, mults=None):
-    """(настоящие, всего): сколько ячеек барабана подходит символу (с учётом множителей xSplit: разделённая ячейка считается за 2, 4, ... способов).
-    Настоящие: сам символ и Wild рабочих рядов (взрываются); всего: плюс открытый закреплённый Wild (только подставляется, не исчезает)."""
-    if mults is None:
-        real = sum(1 for c in grid[reel] if c == sym or c == cfg.WILD)
-    else:
-        real = sum(mults[reel][row] for row, c in enumerate(grid[reel]) if c == sym or c == cfg.WILD)
-    return real, real + (1 if reel < wilds_open else 0)
-
-
-def evaluate(grid, wilds_open=0, mults=None, min_length=None, min_real=None):
+def evaluate(grid, mults=None, min_length=None):
     """Список Win по полю (порядок: по убыванию выплаты, затем по коду символа). Платит только самая длинная комбинация каждого символа."""
+    min_length = cfg.MIN_WIN_LENGTH if min_length is None else min_length
+    present = {c for col in grid for c in col}
     wins = []
     for sym in cfg.PAY_SYMBOLS:
-        ways = 1
-        counts, reals = [], 0
-        for reel in range(cfg.REELS):
-            real, total = _reel_count(grid, reel, sym, wilds_open, mults)
-            if total == 0:
-                break
-            counts.append(total)
-            reals += 1 if real > 0 else 0
-        length = len(counts)
-        if length < (cfg.MIN_WIN_LENGTH if min_length is None else min_length) or reals < (cfg.MIN_REAL_REELS if min_real is None else min_real):
+        if sym not in present:
             continue
+        counts = []
+        for reel in range(cfg.REELS):
+            col = grid[reel]
+            if mults is None:
+                n = sum(1 for c in col if c == sym or c == cfg.WILD)
+            else:
+                n = sum(mults[reel][row] for row, c in enumerate(col) if c == sym or c == cfg.WILD)
+            if n == 0:
+                break
+            counts.append(n)
+        length = len(counts)
+        if length < min_length or not any(c == sym for r in range(length) for c in grid[r]):
+            continue
+        ways = 1
         for n in counts:
             ways *= n
-        units = cfg.PAYTABLE_UNITS[sym][length] * ways
         cells = [(r, row) for r in range(length) for row, c in enumerate(grid[r]) if c == sym or c == cfg.WILD]
-        wins.append(Win(sym, length, ways, units, cells))
-    # Wild платит сам по себе только за 5 барабанов: на каждом барабане есть Wild (в рабочих рядах или открытый нижний)
-    wild_counts = [(sum(1 for c in grid[r] if c == cfg.WILD) if mults is None else sum(mults[r][row] for row, c in enumerate(grid[r]) if c == cfg.WILD)) + (1 if r < wilds_open else 0)
-                   for r in range(cfg.REELS)]
-    if all(n > 0 for n in wild_counts):
-        ways = 1
-        for n in wild_counts:
-            ways *= n
-        cells = [(r, row) for r in range(cfg.REELS) for row, c in enumerate(grid[r]) if c == cfg.WILD]
-        wins.append(Win(cfg.WILD, cfg.REELS, ways, cfg.WILD_PAY_UNITS[5] * ways, cells))
+        wins.append(Win(sym, length, ways, cfg.PAYTABLE_UNITS[sym][length] * ways, cells))
+    # Wild платит сам по себе только когда весь экран из Wild (гайд владельца): 5.00 ставки за экран
+    if all(c == cfg.WILD for col in grid for c in col):
+        cells = [(r, row) for r in range(cfg.REELS) for row in range(len(grid[r]))]
+        wins.append(Win(cfg.WILD, cfg.REELS, 1, cfg.WILD_PAY_UNITS[5], cells))
     wins.sort(key=lambda w: (-w.units, w.sym))
     return wins
 
 
 def cascade(grid, wins, rng, pool):
     """Один шаг каскада: выигравшие ячейки исчезают, остальные падают вниз, сверху падают новые. Возвращает (новое поле, падения, новые):
-    падения [[барабан, из ряда, в ряд], ...] для существующих символов, новые [[барабан, ряд, символ], ...]. Поле на входе не меняется."""
+    падения [[барабан, из ряда, в ряд], ...] для существующих символов, новые [[барабан, ряд, символ], ...]. Поле на входе не меняется.
+    pool: одна таблица на все барабаны или список таблиц по барабанам."""
     gone = {cell for w in wins for cell in w.cells}
     new_grid_ = []
     moves, fills = [], []
@@ -108,8 +146,9 @@ def cascade(grid, wins, rng, pool):
             out[to] = c
             if to != row:
                 moves.append([reel, row, to])
+        p = pool[reel] if isinstance(pool, list) and pool and isinstance(pool[0], Pool) else pool
         for row in range(shift):
-            sym = draw_symbol(rng, pool)
+            sym = draw_symbol(rng, p)
             out[row] = sym
             fills.append([reel, row, sym])
         new_grid_.append(out)
@@ -124,10 +163,6 @@ class BarState:
         self.level, self.progress = level, progress
 
     @property
-    def wilds_open(self):
-        return self.level
-
-    @property
     def final(self):
         return self.level >= cfg.BAR_MAX_LEVEL
 
@@ -138,16 +173,14 @@ class BarState:
         return BarState(self.level, self.progress)
 
 
-def pool_for_level(level, weights=None, wild_weight=None, scatter_weight=None, high_scale=1.0, mid_scale=1.0):
+def pool_for_level(level, weights=None, wild_weight=None, scatter_weight=None):
     """Таблица падения на уровне полоски: убраны самые дешёвые низкие символы (по одному за уровень); высокие символы в начале раунда не падают совсем и появляются
-    только как улучшение среднего (M5 → H5 на уровне 1, M4 → H4 на уровне 2, ...): вес среднего переходит высокому (умножается на high_scale), среднего больше нет."""
+    только как улучшение среднего (M5 → H5 на уровне 1, M4 → H4 на уровне 2, ...): вес среднего переходит высокому, среднего больше нет."""
     weights = dict(cfg.SYMBOL_WEIGHTS if weights is None else weights)
-    for sym in cfg.MID:
-        weights[sym] = weights.get(sym, 0) * mid_scale
     for sym in cfg.LOW_REMOVE_ORDER[:level]:
         weights[sym] = 0
     for sym in cfg.MID_TRANSFORM_ORDER[:level]:
-        weights[cfg.MID_TO_HIGH[sym]] = weights.get(cfg.MID_TO_HIGH[sym], 0) + weights.get(sym, 0) * high_scale
+        weights[cfg.MID_TO_HIGH[sym]] = weights.get(cfg.MID_TO_HIGH[sym], 0) + weights.get(sym, 0)
         weights[sym] = 0
     return make_pool(weights, wild_weight, scatter_weight)
 
@@ -170,86 +203,3 @@ def add_points(state, pts):
 
 def level_ready(state):
     return (not state.final) and state.progress >= cfg.BAR_THRESHOLDS[state.level]
-
-
-def level_up(grid, state, rng, weights=None, wild_weight=None, scatter_weight=None):
-    """Один переход на следующий уровень (вызывать, пока level_ready и цепочка каскадов закончена). Меняет state, возвращает (новое поле, шаг):
-    излишек очков переносится; открывается Wild номер `level`; самый дешёвый оставшийся низкий символ взрывается (ячейки уходят, остальные падают, новые
-    берутся из таблицы нового уровня); самый дорогой оставшийся средний превращается в высокий на месте."""
-    state.progress -= cfg.BAR_THRESHOLDS[state.level]
-    state.level += 1
-    lvl = state.level
-    low = cfg.LOW_REMOVE_ORDER[lvl - 1]
-    mid = cfg.MID_TRANSFORM_ORDER[lvl - 1]
-    high = cfg.MID_TO_HIGH[mid]
-    converted = [[r, row, high] for r, col in enumerate(grid) for row, c in enumerate(col) if c == mid]
-    work = [[high if c == mid else c for c in col] for col in grid]
-    gone = [(r, row) for r, col in enumerate(work) for row, c in enumerate(col) if c == low]
-    pool = pool_for_level(lvl, weights, wild_weight, scatter_weight)
-    moves, fills = [], []
-    if gone:
-        fake = [Win(low, 0, 0, 0, gone)]
-        work, moves, fills = cascade(work, fake, rng, pool)
-    step = {"type": "level_up", "level": lvl, "wild": lvl - 1, "removed": low, "transform": [mid, high], "converted": converted,
-            "cells": [list(c) for c in gone], "moves": moves, "fills": fills, "units": 0, "bar": state.to_dict()}
-    return work, step
-
-
-def play_spin(grid, state, rng, weights=None, wild_weight=None, scatter_weight=None, limit_units=None):
-    """Один розыгрыш поля от готовой сетки до конца: каскады, очки полоски, переходы уровней (после того как цепочка каскадов доиграна и выплачена,
-    Wild открывается и состав символов меняется, затем каскады продолжаются). Возвращает {"steps", "units", "grid", "final_reached": дошла ли полоска до
-    последнего уровня}. Шаги: type cascade (выигрыши, взрыв, падение; bar: состояние полоски после шага) и type level_up."""
-    steps, total = [], 0
-    final_reached = state.final
-    for _ in range(cfg.MAX_CASCADE_STEPS):
-        pool = pool_for_level(state.level, weights, wild_weight, scatter_weight)
-        remaining = None if limit_units is None else limit_units - total
-        chain = play_cascades_bar(grid, state, rng, pool, remaining)
-        steps.extend(chain["steps"])
-        total += chain["units"]
-        grid = chain["grid"]
-        if limit_units is not None and total >= limit_units:
-            break
-        if not level_ready(state):
-            break
-        grid, step = level_up(grid, state, rng, weights, wild_weight, scatter_weight)
-        steps.append(step)
-        if state.final:
-            final_reached = True
-    return {"steps": steps, "units": total, "grid": grid, "final_reached": final_reached}
-
-
-def play_cascades_bar(grid, state, rng, pool, limit_units=None):
-    """Каскады текущей цепочки с начислением очков полоски (по взорванным ячейкам до удаления)."""
-    steps, total = [], 0
-    fixed_wild_paid = False
-    for _ in range(cfg.MAX_CASCADE_STEPS):
-        wins = evaluate(grid, state.wilds_open)
-        if fixed_wild_paid:
-            wins = [w for w in wins if not (w.sym == cfg.WILD and not w.cells)]
-        elif any(w.sym == cfg.WILD and not w.cells for w in wins):
-            fixed_wild_paid = True
-        if not wins:
-            break
-        step_units = sum(w.units for w in wins)
-        capped = False
-        if limit_units is not None and total + step_units >= limit_units:
-            step_units = limit_units - total
-            capped = True
-        cells = sorted({cell for w in wins for cell in w.cells})
-        if not state.final:
-            add_points(state, bar_points(grid, cells))
-        nxt, moves, fills = cascade(grid, wins, rng, pool)
-        steps.append({"type": "cascade", "wins": [w.as_dict() for w in wins], "cells": [list(c) for c in cells], "units": step_units,
-                      "moves": moves, "fills": fills, "bar": state.to_dict()})
-        total += step_units
-        grid = nxt
-        if capped:
-            break
-    return {"steps": steps, "units": total, "grid": grid}
-
-
-def play_cascades(grid, wilds_open, rng, pool, limit_units=None):
-    """Каскады без переходов уровней (для проверок движка поля): полоска стоит на уровне wilds_open, очки не влияют на ход."""
-    chain = play_cascades_bar(grid, BarState(wilds_open), rng, pool, limit_units)
-    return chain

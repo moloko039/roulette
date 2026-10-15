@@ -20,8 +20,8 @@ import bloody_config as cfg  # noqa: E402
 import bloody_round as br  # noqa: E402
 
 MODES = ("base", "gibbet", "reign", "xbet1", "xbet2", "lucky")
-TARGET_RTP = {"base": 94.01, "gibbet": 94.12, "reign": 94.01, "xbet1": 94.15, "xbet2": 94.08, "lucky": 94.01}   # из задания (в процентах)
-RANGE = (93.5, 94.5)
+TARGET_RTP = {"base": 96.0, "gibbet": 96.0, "reign": 96.0, "xbet1": 96.0, "xbet2": 96.0, "lucky": 96.0}   # решение владельца: RTP 95-97% (в процентах)
+RANGE = (95.0, 97.0)                     # допустимый диапазон RTP (решение владельца)
 BUCKETS = (0, 1, 2, 5, 10, 50, 100, 500, 1000, 5000)     # границы выплат в ставках
 CHUNK = 20000
 
