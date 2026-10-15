@@ -138,14 +138,16 @@ class BarState:
         return BarState(self.level, self.progress)
 
 
-def pool_for_level(level, weights=None, wild_weight=None, scatter_weight=None):
-    """Таблица падения на уровне полоски: убраны самые дешёвые низкие символы (по одному за уровень), их заменяют высокие вместо превращённых средних
-    (вес среднего переходит соответствующему высокому)."""
+def pool_for_level(level, weights=None, wild_weight=None, scatter_weight=None, high_scale=1.0, mid_scale=1.0):
+    """Таблица падения на уровне полоски: убраны самые дешёвые низкие символы (по одному за уровень); высокие символы в начале раунда не падают совсем и появляются
+    только как улучшение среднего (M5 → H5 на уровне 1, M4 → H4 на уровне 2, ...): вес среднего переходит высокому (умножается на high_scale), среднего больше нет."""
     weights = dict(cfg.SYMBOL_WEIGHTS if weights is None else weights)
+    for sym in cfg.MID:
+        weights[sym] = weights.get(sym, 0) * mid_scale
     for sym in cfg.LOW_REMOVE_ORDER[:level]:
         weights[sym] = 0
     for sym in cfg.MID_TRANSFORM_ORDER[:level]:
-        weights[cfg.MID_TO_HIGH[sym]] = weights.get(cfg.MID_TO_HIGH[sym], 0) + weights.get(sym, 0)
+        weights[cfg.MID_TO_HIGH[sym]] = weights.get(cfg.MID_TO_HIGH[sym], 0) + weights.get(sym, 0) * high_scale
         weights[sym] = 0
     return make_pool(weights, wild_weight, scatter_weight)
 

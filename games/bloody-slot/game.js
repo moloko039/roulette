@@ -6,7 +6,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var els = {
     app: $('app'), board: $('board'), boardWrap: $('board-wrap'), wildrow: $('wildrow'), fx: $('fx'), fxtop: $('fxtop'), floor: $('floor'), balance: $('balance'),
-    modeTitle: $('mode-title'), modeNote: $('mode-note'), bar: $('bar'), barLevels: $('bar-levels'), barFill: $('bar-fill'), barLevel: $('bar-level'), barPoints: $('bar-points'),
+    modeTitle: $('mode-title'), modeNote: $('mode-note'), bar: $('bar'), runes: $('runes'), barFill: $('bar-fill'), barPoints: $('bar-points'),
     winline: $('winline'), winTotal: $('win-total'), winMult: $('win-mult'), betValue: $('bet-value'), costBox: $('cost-box'), costLabel: $('cost-label'),
     costValue: $('cost-value'), spin: $('btn-spin'), spinLabel: $('spin-label'), minus: $('bet-minus'), plus: $('bet-plus'), star: $('btn-star'), buy: $('btn-buy'),
     auto: $('btn-auto'), turbo: $('btn-turbo'), bets: $('btn-bets'), menu: $('btn-menu'), toast: $('toast'), banner: $('banner'), cut: $('cut'), intro: $('intro'),
@@ -24,7 +24,7 @@
     xbet2: { name: 'xBet 2', text: 'Один спин на последнем уровне с гарантированными Dagger и Guillotine.' }
   };
   var LOCK_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3" fill="none" stroke="#6c6258" stroke-width="2"/><rect x="5" y="11" width="14" height="10" rx="2" fill="#6c6258"/></svg>';
-  var DEMO = [['L1', 'M2', 'H3', 'L4'], ['M1', 'L2', 'H1', 'L5'], ['L3', 'H4', 'M5', 'L2'], ['M3', 'H2', 'L1', 'M4'], ['L5', 'M2', 'H5', 'L3']];
+  var DEMO = [['L1', 'M2', 'M3', 'L4'], ['M1', 'L2', 'L3', 'L5'], ['L3', 'M4', 'M5', 'L2'], ['M3', 'M2', 'L1', 'M4'], ['L5', 'M1', 'L4', 'L3']];   // заставка до первого раунда: высоких символов в начале нет
 
   var st = {
     settings: null, bet: 20, buy: null, view: null, busy: false, auto: false, turbo: false, balance: null, cell: 70, cells: [], grid: null,
@@ -83,8 +83,13 @@
 
   // ---------- геометрия ----------
   function measure() {
+    // клетка по ширине и по высоте окна: всё (шапка, поле, ряд Wild, камни, шкала, панель) должно помещаться без прокрутки
+    var byW = (window.innerWidth - 40) / REELS;
+    var byH = (window.innerHeight - 262) / 5.1;
+    var cell = Math.max(44, Math.min(byW, byH, 84));
+    document.documentElement.style.setProperty('--cell', cell.toFixed(1) + 'px');
     var w = els.board.clientWidth;
-    if (w > 0) st.cell = w / REELS;
+    st.cell = w > 0 ? w / REELS : cell;
     document.documentElement.style.setProperty('--panel-h', document.querySelector('.panel').offsetHeight + 'px');
   }
   function tr(c, y) { return 'translate(' + (c * st.cell).toFixed(1) + 'px,' + y.toFixed(1) + 'px)'; }
@@ -250,37 +255,37 @@
   }
 
   // ---------- полоска, Wild, режимы ----------
+  var VINE = '<svg class="vine" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path class="sh" d="M-2 14C20 4 40 24 60 12S92 6 102 16"/><path d="M-2 12C20 2 40 22 60 10S92 4 102 14"/><path d="M-2 46C18 56 40 36 62 48S90 54 102 44"/><path d="M6 10l-2-8 7 5zM38 20l4 8-8-2zM66 8l3-7 4 7zM88 8l6-4-2 8zM12 52l-4 7 8-1zM44 40l-3-7 8 3zM74 52l4 6 3-8zM94 48l6 4-8 3z" class="th"/></svg>';
+  var RUNE_ORDER = ['L5', 'L4', 'L3', 'L2', 'L1'];     // камни: что сгорает на уровнях 1..5 (самый дешёвый низкий символ первым)
   function buildBar() {
-    els.barLevels.textContent = '';
-    for (var i = 0; i < 5; i++) {
+    els.runes.textContent = '';
+    RUNE_ORDER.forEach(function (sym) {
       var d = document.createElement('div');
-      d.className = 'lvl';
-      d.innerHTML = '<svg viewBox="0 0 22 28" aria-hidden="true"><path class="wax" d="M7 11h8v15a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"/><path class="flame" d="M11 1c2 3 4 5 4 8a4 4 0 0 1-8 0c0-1 .5-2 1.2-3 .3 1.1 1 1.6 1.8 1.6 0-3-.2-4.5 1-6.6z"/></svg><span></span>';
-      d.lastChild.textContent = String(i + 1);
-      els.barLevels.appendChild(d);
-    }
+      d.className = 'rune';
+      d.innerHTML = '<img src="img/' + sym + '.webp" alt="">';
+      els.runes.appendChild(d);
+    });
     els.wildrow.textContent = '';
     for (var j = 0; j < REELS; j++) {
       var w = document.createElement('div');
       w.className = 'wslot';
-      w.innerHTML = '<span class="lock">' + LOCK_SVG + '</span>';
+      w.innerHTML = '<span class="lock">' + LOCK_SVG + '</span>' + VINE;
       els.wildrow.appendChild(w);
     }
     els.floor.innerHTML = BFX.floorHTML();
   }
   function renderBar(bar, opts) {
     var level = bar.level;
-    var kids = els.barLevels.children;
+    var kids = els.runes.children;
     for (var i = 0; i < kids.length; i++) {
-      kids[i].classList.toggle('done', i < level);
-      kids[i].classList.toggle('now', i === level);
-      if (opts && opts.pop && i === level - 1) { kids[i].classList.remove('pop'); void kids[i].offsetWidth; kids[i].classList.add('pop'); }
+      var burned = i < level;
+      if (burned && !kids[i].classList.contains('burned') && opts && opts.pop && i === level - 1) BFX.flames(kids[i], 4);
+      kids[i].classList.toggle('burned', burned);
     }
     var thr = bar.threshold;
     var ratio = thr ? Math.min(1, bar.progress / thr) : 1;
     els.barFill.style.transform = 'scaleX(' + ratio.toFixed(3) + ')';
-    els.barLevel.textContent = level >= 5 ? 'Ритуал завершён' : 'Ритуал: уровень ' + level;
-    els.barPoints.textContent = thr ? (bar.progress + ' / ' + thr) : '';
+    els.barPoints.textContent = thr ? (bar.progress + ' / ' + thr) : 'Ритуал завершён';
   }
   function renderWilds(open, just) {
     var kids = els.wildrow.children;
@@ -740,7 +745,7 @@
     var wrap = document.createElement('div');
     var h = '<p>Игра идёт на виртуальные фишки: их нельзя вывести или обменять на деньги.</p>';
     h += '<h3>Как играть</h3><p>Выигрыш считается по способам: комбинация идёт слева направо с первого барабана, минимум ' + s.min_length + ' барабана; платится самая длинная комбинация символа. Выигравшие символы взрываются, остальные падают, сверху падают новые. Максимальный выигрыш раунда: ×' + fmt(s.max_win_bets) + ' ставки.</p>';
-    h += '<h3>Ритуальная полоска</h3><p>Средний символ в выигрыше даёт +1 очко, высокий +2, Scatter +10. Пороги уровней: ' + s.bar_thresholds.join(', ') + '. Каждый новый уровень открывает Wild в нижнем ряду, убирает самый слабый символ и превращает средний в высокий. Уровни 1–4 дают по +' + s.candle_per_level + ' Candle Spins, пятый запускает Reign of Terror Spins (+' + s.reign_spins + ').</p>';
+    h += '<h3>Ритуальная полоска</h3><p>Средний символ в выигрыше даёт +1 очко, высокий +2, Scatter +10. Пороги уровней: ' + s.bar_thresholds.join(', ') + '. Высоких символов в начале раунда нет. Каждый новый уровень открывает Wild в нижнем ряду, сжигает самый слабый знак (камни под рядом Wild) и улучшает одного среднего зверя до высокого: сначала ворон, затем змея, козёл, волк и ведьма; прежний вид пропадает полностью. Уровни 1–4 дают по +' + s.candle_per_level + ' Candle Spins, пятый запускает Reign of Terror Spins (+' + s.reign_spins + ').</p>';
     h += '<h3>Бонусы</h3><p>В бонусных спинах Wild опускается вниз барабана и остаётся, пока не станет частью выигрыша. Dagger делит свой ряд, Guillotine делит всё под собой на барабане: число способов у разделённых символов удваивается (до ×32).</p>';
     h += '<h3>Таблица выплат (в ставках за 5 / 4 / 3 барабана)</h3><table class="pt">';
     ['H1', 'H2', 'H3', 'H4', 'H5', 'M1', 'M2', 'M3', 'M4', 'M5', 'L1', 'L2', 'L3', 'L4', 'L5'].forEach(function (sym) {
