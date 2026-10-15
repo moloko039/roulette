@@ -1,5 +1,6 @@
-"""Bloody slot, этап 3: раунд целиком. Scatter (очки и спины), Sticky Wild, xSplit (множители до ×32), Candle Spins и Reign of Terror Spins, лимит 16161×,
-сохранение состояния раунда (JSON), конец раунда. Поле подставляется в тестах (_new_field), случайность задаётся списком."""
+"""Bloody slot: раунд целиком (правила владельца v3). Scatter (очки и спины), Sticky Wild во всех режимах, переход уровня (взрыв низкого, улучшение среднего,
+открытие Wild пятой ячейкой барабана), одноразовый Wild, xSplit (множители до ×32), Candle Spins и Reign of Terror Spins (+10), лимит 16161×, сохранение
+состояния раунда (JSON), конец раунда. Поле подставляется в тестах (_new_field), случайность задаётся списком."""
 import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import random
 
@@ -27,7 +28,7 @@ class Cycle:
         return v
 
 
-POOL5 = [("L1", 1), ("L2", 1), ("L3", 1), ("L4", 1), ("L5", 1)]
+POOL5 = eng.reel_pools([("L1", 1), ("L2", 1), ("L3", 1), ("L4", 1), ("L5", 1)], 0)
 
 
 def spin(rnd, field_grid, rng=None, pool=POOL5, field_mults=None):
@@ -125,10 +126,10 @@ g[0] = ["W", "M1", "M2", "M3"]
 log = spin(rnd, g)
 check("Wild упал вниз барабана и остался (не часть выигрыша)", (log["sticky"][0], [s["type"] for s in log["steps"]][:1]), (1, ["sink"]))
 check("прилипший Wild сохранён для следующего спина", rnd.sticky[0], 1)
-# в основной игре Wild не прилипает
+# правила владельца v3: Wild прилипает и в основной игре (до первого выигрыша с ним)
 rnd = br.Round()
 log = spin(rnd, [["W", "M1", "M2", "M3"]] + [list(c) for c in QUIET[1:]])
-check("в основной игре Wild не опускается и не сохраняется", ([s["type"] for s in log["steps"] if s["type"] == "sink"], rnd.sticky), ([], [0] * 5))
+check("в основной игре Wild тоже опускается и сохраняется", ([s["type"] for s in log["steps"] if s["type"] == "sink"], rnd.sticky), (["sink"], [1, 0, 0, 0, 0]))
 
 # ---- xSplit: Dagger делит свой ряд, Guillotine делит всё под собой на барабане, результат ≤ ×32
 rnd = br.Round()
@@ -163,7 +164,7 @@ res = spin(rnd, g, field_mults=[[16] * 4 for _ in range(5)])
 xs = [s for s in res["steps"] if s["type"] == "xsplit"][0]
 check("множитель не больше ×32", max(m for col in xs["mults"] for m in col), cfg.XSPLIT_MAX_MULT)
 # множители участвуют в способах: ячейка с множителем 2 считается за два способа
-ev = eng.evaluate(grid("H1 L1 L2 L3", "H1 L1 L2 L3", "H1 L4 L5 M1", "M2 M3 M4 M5", "L1 L2 L3 L4"), 0, [[2, 1, 1, 1], [1, 1, 1, 1], [4, 1, 1, 1], [1] * 4, [1] * 4])
+ev = eng.evaluate(grid("H1 L1 L2 L3", "H1 L1 L2 L3", "H1 L4 L5 M1", "M2 M3 M4 M5", "L1 L2 L3 L4"), [[2, 1, 1, 1], [1, 1, 1, 1], [4, 1, 1, 1], [1] * 4, [1] * 4])
 w = [x for x in ev if x.sym == "H1"][0]
 check("способы с множителями: 2 * 1 * 4", (w.ways, w.units), (8, 150 * 8))
 
@@ -184,20 +185,41 @@ rnd.spins, rnd.candle_left = 1, 5
 rnd.bar = eng.BarState(4, 80)
 log = spin(rnd, QUIET)
 lu = [s for s in log["steps"] if s["type"] == "level_up"][0]
-check("пятый уровень: +6 Reign, Candle Spins сгорают, полоска стоит", (rnd.bar.level, rnd.reign_left, rnd.candle_left, rnd.reign_started, lu["reign_spins"]), (5, 6, 0, True, 6))
+check("пятый уровень: +10 Reign, оставшиеся 4 Candle Spins переходят в Reign", (rnd.bar.level, rnd.reign_left, rnd.candle_left, rnd.reign_started, lu["reign_spins"]), (5, 14, 0, True, 10))
+check("после пятого уровня поле 5-5-5-5-5", br.heights(rnd), [5] * 5)
 check("следующий спин Reign", rnd.next_mode(), br.REIGN)
 # Reign: пул только из высоких (+ Wild, Scatter, xSplit)
-pool = br.pool_for(rnd, br.REIGN)
-check("Reign: символы поля только высокие и особые", sorted({s for s, _ in pool}), sorted(set(cfg.HIGH) | {"W", "S", "XD", "XG"}))
+pools = br.pool_for(rnd, br.REIGN)
+check("Reign: символы поля только высокие и особые", sorted({s for p in pools for s, _ in p.items}), sorted(set(cfg.HIGH) | {"W", "S", "XD", "XG"}))
 # повторно пятый уровень Reign не запускает
 rnd.reign_left = 0
 check("после Reign раунд заканчивается", (rnd.next_mode()), None)
+
+# ---- переход уровня (правила владельца v3): низкий L5 взрывается, ворон M5 становится H5, Wild нижнего ряда первого барабана открывается пятой ячейкой
+rnd = br.Round()
+rnd.bar = eng.BarState(0, 20)
+g = grid("M5 L5 M1 M2", "M3 M4 L5 H4", "M3 H3 H2 M4", "H1 H2 H3 H4", "H5 H1 H2 H3")    # выигрышей нет; после перехода Wild + M3/M4 на барабанах 2-3
+log = spin(rnd, g)
+lu = [s for s in log["steps"] if s["type"] == "level_up"][0]
+check("переход: убран L5, ворон M5 → H5, Wild открыт на первом барабане", (lu["removed"], lu["transform"], lu["wild"], lu["opened"]), ("L5", ["M5", "H5"], 0, [0, 4]))
+check("ячейки M5 стали H5 на месте", lu["converted"], [[0, 0, "H5"]])
+check("в шаге перехода первый барабан из 5 ячеек, Wild внизу", (len(lu["grid"][0]), lu["grid"][0][4]), (5, "W"))
+cas = [s for s in log["steps"] if s["type"] == "cascade"]
+check("после перехода Wild подцепил выигрыш (сыграл и исчез)", (len(cas) > 0, any(c == [0, 4] for s in cas for c in s["cells"])), (True, True))
+check("барабан остался из 5 ячеек, Wild больше нет", (len(log["steps"][-1]["grid"][0]), "W" in log["steps"][-1]["grid"][0]), (5, False))
+check("высота барабанов после уровня 1: 5-4-4-4-4", br.heights(rnd), [5, 4, 4, 4, 4])
+check("уровень 1 даёт 2 фриспина", rnd.candle_left, 2)
+rnd = br.Round()
+rnd.bar = eng.BarState(2, 0)
+rnd.spins, rnd.candle_left = 1, 1
+check("уровень 2: барабаны 5-5-4-4-4", br.heights(rnd), [5, 5, 4, 4, 4])
+check("новое поле по высотам", [len(c) for c in br._new_field(rnd, br.CANDLE, random.Random(1), br.pool_for(rnd, br.CANDLE)).grid], [5, 5, 4, 4, 4])
 
 # ---- лимит 16161×
 rnd = br.Round()
 rnd.units = br.CAP_UNITS - 50
 big = grid("H1 H1 H1 H1", "H1 H1 H1 H1", "H1 H1 H1 H1", "H1 H1 H1 H1", "H1 H1 H1 H1")
-log = spin(rnd, big, random.Random(3), pool=[("H1", 1)])
+log = spin(rnd, big, random.Random(3), pool=eng.reel_pools([("H1", 1)], 0))
 check("потолок: выплата обрезана, раунд закончен", (rnd.units, rnd.capped, rnd.finished, log["units"]), (br.CAP_UNITS, True, True, 50))
 check("потолок: бонусные спины сгорают", (rnd.candle_left, rnd.reign_left), (0, 0))
 check("выплата в фишках: 16161 ставок", br.payout_chips(br.CAP_UNITS, 200), 16161 * 200)
@@ -213,11 +235,12 @@ for _ in range(400):
     while not r.finished:
         log = br.play_spin(r, rng)
         for s in log["steps"]:
-            assert all(len(c) == cfg.WORKING_ROWS for c in s["grid"]), "поле неполное"
+            assert all(len(c) in (4, 5) for c in s["grid"]), "поле неполное"
             if s["mults"]:
                 mult_seen = max(mult_seen, max(m for c in s["mults"] for m in c))
         assert r.units <= br.CAP_UNITS
         assert r.candle_left >= 0 and r.reign_left >= 0
+        assert [len(c) for c in (log["steps"][-1]["grid"] if log["steps"] else log["start"]["grid"])] == br.heights(r), "высота барабанов не по уровню"
         assert br.Round.from_json(r.to_json()).to_dict() == r.to_dict()
     assert mult_seen <= cfg.XSPLIT_MAX_MULT
     total += r.units

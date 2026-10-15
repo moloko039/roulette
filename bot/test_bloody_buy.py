@@ -1,4 +1,4 @@
-"""Bloody slot, этап 4: покупки функций (Виселица, Reign of Terror Spins, Ритуальный буст xBet 1 и xBet 2): цены, стартовое состояние, первый спин, списание в базе.
+"""Bloody slot: покупки функций (Виселица, Reign of Terror Spins, Lucky Draw, Ритуальный буст xBet 1 и xBet 2): цены, стартовое состояние, первый спин, списание в базе.
 RTP покупок проверяет не этот тест, а симулятор tools/simulate_bloody_slot.py (миллионы раундов)."""
 import testenv  # noqa: F401  (первым: очищает окружение проекта и отключает .env)
 import os
@@ -74,7 +74,7 @@ r = br.new_round("gibbet")
 first = br.play_spin(r, rng)
 check("Виселица: первый спин уже Candle Spin, осталось не меньше 5", (first["mode"], r.candle_left >= 5 or r.finished), (br.CANDLE, True))
 
-# ---- Lucky Draw: 40% уровень 3 (6 спинов), 40% уровень 4 (8 спинов), 20% Reign (6 спинов)
+# ---- Lucky Draw: 40% уровень 3 (6 спинов), 40% уровень 4 (8 спинов), 20% Reign (10 спинов)
 class Fixed:
     def __init__(self, v):
         self.v = v
@@ -88,7 +88,7 @@ r4 = br.new_round("lucky", Fixed(0.5))
 r5 = br.new_round("lucky", Fixed(0.9))
 check("Lucky Draw: уровень 3, 6 Candle Spins, Wild 1-3 открыты", (r3.draw, r3.bar.level, r3.candle_left, r3.reign_left, r3.next_mode()), (3, 3, 6, 0, br.CANDLE))
 check("Lucky Draw: уровень 4, 8 Candle Spins (улучшен и волк)", (r4.draw, r4.bar.level, r4.candle_left, r4.next_mode()), (4, 4, 8, br.CANDLE))
-check("Lucky Draw: Reign of Terror Spins", (r5.draw, r5.reign_left, r5.reign_started, r5.next_mode()), (5, 6, True, br.REIGN))
+check("Lucky Draw: Reign of Terror Spins, 10 спинов", (r5.draw, r5.reign_left, r5.reign_started, r5.next_mode()), (5, 10, True, br.REIGN))
 check("Lucky Draw: доли 40/40/20", [round(x[0], 2) for x in cfg.LUCKY_DRAW], [0.4, 0.4, 0.2])
 rng_l = random.Random(12)
 draws = [br.new_round("lucky", rng_l).draw for _ in range(20000)]
@@ -98,23 +98,16 @@ while not r.finished:
     br.play_spin(r, rng_l)
 check("Lucky Draw: раунд доигрывается", r.finished, True)
 
-# ---- Reign of Terror Spins: поле 5×5 только из высоких символов, нижний ряд Wild не подставляется
+# ---- покупка начинается так, будто уровни пройдены и их Wild уже сыграли: барабаны 1..N из 5 свободных ячеек
 br.set_logging(True)
 rr = br.new_round("reign")
 log = br.play_spin(rr, random.Random(8))
-check("Reign: 5 барабанов по 5 рядов", [len(c) for c in log["start"]["grid"]], [5] * 5)
+check("Reign: поле 5-5-5-5-5", [len(c) for c in log["start"]["grid"]], [5] * 5)
 check("Reign: на поле только высокие, Wild, Scatter и xSplit", set(s for c in log["start"]["grid"] for s in c) <= set(cfg.HIGH) | {cfg.WILD, cfg.SCATTER, cfg.XDAGGER, cfg.XGUILLOTINE}, True)
-check("Reign: закреплённый ряд Wild не используется", br._wilds_open(rr, br.REIGN), 0)
-rc = br.Round()
-rc.candle_left, rc.spins = 1, 1
-check("Candle: 4 ряда", [len(c) for c in br.play_spin(rc, random.Random(9))["start"]["grid"]], [4] * 5)
-
-# ---- закреплённые Wild не создают комбинацию: на уровне полоски нужны настоящие символы на MIN_REAL_BY_LEVEL барабанах
-import bloody_engine as eng  # noqa: E402
-g = [["M1", "L1", "L2", "L3"], ["M1", "L1", "L2", "L3"], ["M1", "L1", "L2", "L3"], ["L4", "L4", "L4", "L4"], ["L4", "L4", "L4", "L4"]]
-check("M1 на трёх барабанах + 5 открытых Wild: при минимуме 3 длина 5", [w.length for w in eng.evaluate(g, 5, None, 3, 3) if w.sym == "M1"], [5])
-check("... при минимуме 4 выигрыша нет", [w for w in eng.evaluate(g, 5, None, 3, 4) if w.sym == "M1"], [])
-check("минимум по уровням не убывает и начинается с 3", (cfg.MIN_REAL_BY_LEVEL[0], list(cfg.MIN_REAL_BY_LEVEL) == sorted(cfg.MIN_REAL_BY_LEVEL)), (3, True))
+rg = br.new_round("gibbet")
+check("Виселица: барабаны 5-5-5-4-4 без несыгравших Wild", (br.heights(rg), rg.sticky), ([5, 5, 5, 4, 4], [0] * 5))
+check("xBet 1: барабаны 5-4-4-4-4", br.heights(br.new_round("xbet1")), [5, 4, 4, 4, 4])
+check("Lucky Draw уровня 4: барабаны 5-5-5-5-4", br.heights(r4), [5, 5, 5, 5, 4])
 
 # ---- база: списание цены покупки
 fd, path = tempfile.mkstemp(suffix=".db")

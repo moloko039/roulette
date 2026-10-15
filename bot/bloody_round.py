@@ -1,13 +1,14 @@
-"""Bloody slot, этап 3: раунд целиком (чистая логика, без базы). Раунд = стартовый спин и серия бонусных спинов (Candle Spins, Reign of Terror Spins), ставка
+"""Bloody slot: раунд целиком (чистая логика, без базы). Раунд = стартовый спин и серия бесплатных спинов (Candle Spins, Reign of Terror Spins), ставка
 списывается один раз, выплата накапливается в единицах (bloody_config.UNITS_PER_BET) и выплачивается в конце раунда. Состояние раунда (Round) целиком
 сериализуется в JSON: после перезагрузки Mini App игрок продолжает с того же места.
 
-Один вызов play_spin = один спин (стартовый или бонусный) от падения символов до конца всех каскадов. Порядок внутри спина:
-  1. «устоявшееся» поле: в бонусах Wild опускаются вниз барабанов и прилипают (Sticky Wild), Scatter срабатывает (+очки полоски, в Reign +спин) и исчезает,
-     xSplit (Dagger, Guillotine) разделяет ячейки и становится Wild; повторяется, пока поле не устоится;
-  2. выигрыши способами; взорванные ячейки дают очки полоски, остальные падают, сверху падают новые (и снова п. 1);
-  3. когда выигрышей нет и полоска набрала порог, переход на уровень (Wild открывается, символы меняются), затем снова п. 1-2.
-Уровни 1-4 дают +2 Candle Spins, пятый запускает Reign of Terror Spins (+6, полоски нет, поле из высоких символов)."""
+Правила владельца (v3), одинаковые во всех режимах. Один вызов play_spin = один спин от падения символов до конца всех каскадов:
+  1. поле «устаивается»: Wild, которые не сыграли, опускаются вниз барабана и закрепляются (Sticky Wild); Scatter срабатывает (+очки полоски, в Reign +спин) и
+     исчезает; xSplit (Dagger, Guillotine) разделяет ячейки и становится Wild; повторяется, пока поле не устоится;
+  2. выигрыши способами (3+ барабана подряд с первого); сыгравшие символы и Wild исчезают, остальные падают, сверху падают новые (и снова п. 1), пока выигрыши есть;
+  3. когда выигрышей нет и полоска набрала порог, переход на уровень N: самый дешёвый низкий символ взрывается, средний символ существа N превращается в высокий,
+     открывается Wild нижнего ряда на барабане N (барабан становится из 5 ячеек, Wild в нижней), +2 фриспина; на уровне 5 Reign of Terror Spins (+10 спинов).
+Высота барабана: 5, если его Wild нижнего ряда открыт (уровень полоски > номера барабана), иначе 4."""
 import json
 
 import bloody_config as cfg
@@ -141,6 +142,12 @@ def new_round(buy=None, rng=None):
     return r
 
 
+def heights(rnd):
+    """Высота барабанов: 5, если Wild нижнего ряда этого барабана открыт, иначе 4. Покупка, стартующая с уровня N (Виселица, Lucky Draw, xBet 1, Reign,
+    xBet 2), начинается так, будто уровни уже пройдены и их Wild уже сыграли (ДОПУЩЕНИЕ): барабаны 1..N из 5 свободных ячеек."""
+    return [cfg.WORKING_ROWS + (1 if r < rnd.bar.level else 0) for r in range(cfg.REELS)]
+
+
 def buy_cost_chips(bet, buy):
     """Цена покупки в фишках (для обычной ставки равна ставке)."""
     return bet if buy is None else bet * cfg.BUY_COST_UNITS[buy] // cfg.UNITS_PER_BET
@@ -170,39 +177,41 @@ def payout_chips(units, bet):
     return units * bet // cfg.UNITS_PER_BET
 
 
+_POOLS = {}
+
+
 def pool_for(rnd, mode):
-    """Таблица падения: основная игра и Candle Spins по уровню полоски; Reign только высокие символы. xSplit по уровню (в Reign всегда)."""
+    """Таблицы падения по барабанам (список из REELS штук): состав символов по уровню полоски (на уровне 5 только высокие), раскладка барабанов REEL_BIAS,
+    Wild, Scatter и xSplit по режиму. Кэш по всем числам, от которых таблица зависит."""
+    level = rnd.bar.level
+    xbet2 = rnd.buy == "xbet2"
     if mode == REIGN:
-        pool = eng.make_pool(cfg.REIGN_WEIGHTS, cfg.WILD_WEIGHT_REIGN, cfg.SCATTER_WEIGHT_REIGN)
-        xs_weight = cfg.XSPLIT_WEIGHT_REIGN
-        xsplit = True
+        wild, scatter, xs = cfg.WILD_WEIGHT_REIGN, cfg.SCATTER_WEIGHT_REIGN, cfg.XSPLIT_WEIGHT_REIGN
+    elif xbet2:
+        wild, scatter, xs = cfg.WILD_WEIGHT_REIGN, 0, cfg.XSPLIT_WEIGHT_XBET2
+    elif mode == CANDLE:
+        wild, scatter, xs = cfg.WILD_WEIGHT_CANDLE, cfg.SCATTER_WEIGHT_CANDLE[level], cfg.XSPLIT_WEIGHT
     else:
-        wild = cfg.WILD_WEIGHT_CANDLE if mode == CANDLE else cfg.WILD_WEIGHT
-        if rnd.buy == "xbet2":
-            wild = cfg.WILD_WEIGHT_REIGN
-        if rnd.buy == "xbet2":
-            pool = eng.make_pool(cfg.XBET2_WEIGHTS, cfg.WILD_WEIGHT_REIGN, 0)
-            xs_weight = cfg.XSPLIT_WEIGHT_XBET2
-        else:
-            pool = eng.pool_for_level(rnd.bar.level, wild_weight=wild, high_scale=cfg.LEVEL_HIGH_SCALE[rnd.bar.level], mid_scale=cfg.LEVEL_MID_SCALE[rnd.bar.level],
-                                      scatter_weight=cfg.SCATTER_WEIGHT_CANDLE[rnd.bar.level] if mode == CANDLE else cfg.SCATTER_WEIGHT)
-            xs_weight = cfg.XSPLIT_WEIGHT
-        xsplit = rnd.bar.level >= cfg.XSPLIT_MIN_LEVEL
-    if xsplit and xs_weight > 0:
-        pool = pool + [(cfg.XDAGGER, xs_weight), (cfg.XGUILLOTINE, xs_weight)]
-    return pool
+        wild, scatter, xs = cfg.WILD_WEIGHT, cfg.SCATTER_WEIGHT, cfg.XSPLIT_WEIGHT
+    if not (mode == REIGN or level >= cfg.XSPLIT_MIN_LEVEL):
+        xs = 0
+    bias = cfg.REEL_BIAS_XBET2 if xbet2 else cfg.REEL_BIAS[level]
+    key = (level, wild, scatter, xs, bias)
+    pools = _POOLS.get(key)
+    if pools is None:
+        base = eng.pool_for_level(level, wild_weight=wild, scatter_weight=scatter)
+        if xs > 0:
+            base = base + [(cfg.XDAGGER, xs), (cfg.XGUILLOTINE, xs)]
+        pools = _POOLS[key] = eng.reel_pools(base, bias)
+    return pools
 
 
-def _wilds_open(rnd, mode):
-    return cfg.REIGN_WILDS_OPEN if (mode == REIGN or rnd.buy == "xbet2") else rnd.bar.level
-
-
-def _new_field(rnd, mode, rng, pool):
-    rows = cfg.REIGN_ROWS if mode == REIGN else cfg.WORKING_ROWS
+def _new_field(rnd, mode, rng, pools):
+    """Новое поле спина: прилипшие Wild остаются внизу своих барабанов, остальные ячейки падают заново."""
     grid = []
-    for reel in range(cfg.REELS):
-        k = rnd.sticky[reel] if mode in (CANDLE, REIGN) else 0
-        col = [eng.draw_symbol(rng, pool) for _ in range(rows - k)] + [cfg.WILD] * k
+    for reel, h in enumerate(heights(rnd)):
+        k = min(rnd.sticky[reel], h)
+        col = [pools[reel].draw(rng) for _ in range(h - k)] + [cfg.WILD] * k
         grid.append(col)
     return Field(grid)
 
@@ -223,7 +232,7 @@ def _remove(field, cells, rng, pool):
             if to != row:
                 moves.append([reel, row, to])
         for row in range(shift):
-            sym = eng.draw_symbol(rng, pool)
+            sym = pool[reel].draw(rng)
             out[row] = sym
             fills.append([reel, row, sym])
         field.grid[reel], field.mults[reel] = out, mout
@@ -256,13 +265,11 @@ def _step(kind, field, **extra):
 
 
 def _settle(field, rnd, mode, rng, pool, steps):
-    """Поле устаивается: Sticky Wild, Scatter, xSplit. Повторяется, пока что-то происходит."""
-    bonus = mode in (CANDLE, REIGN)
+    """Поле устаивается: Sticky Wild (во всех режимах), Scatter, xSplit. Повторяется, пока что-то происходит."""
     for _ in range(cfg.MAX_CASCADE_STEPS):
-        if bonus:
-            moves = _sink(field)
-            if moves:
-                steps.append(_step("sink", field, moves=moves, units=0))
+        moves = _sink(field)
+        if moves:
+            steps.append(_step("sink", field, moves=moves, units=0))
         scatters = [(r, row) for r, col in enumerate(field.grid) for row, c in enumerate(col) if c == cfg.SCATTER]
         if scatters:
             n = len(scatters)
@@ -284,7 +291,7 @@ def _settle(field, rnd, mode, rng, pool, steps):
             splits = []
             for reel, row, kind in specials:
                 if kind == cfg.XDAGGER:
-                    cells = [(c, row) for c in range(cfg.REELS)]
+                    cells = [(c, row) for c in range(cfg.REELS) if row < len(field.grid[c])]
                 else:
                     cells = [(reel, j) for j in range(row + 1, len(field.grid[reel]))]
                 cells = [c for c in cells if c not in special_cells]
@@ -300,8 +307,9 @@ def _settle(field, rnd, mode, rng, pool, steps):
 
 
 def _level_up(field, rnd, rng):
-    """Переход полоски на следующий уровень (после доигранных каскадов): излишек переносится, открывается Wild, низкий символ взрывается, средний превращается в
-    высокий на месте; Candle Spins за уровни 1-4, на пятом запуск Reign of Terror Spins."""
+    """Переход полоски на следующий уровень N (после доигранных каскадов): излишек очков переносится, самый дешёвый низкий символ взрывается, средний символ
+    существа N превращается в высокий (на поле и в таблице падения), открывается Wild нижнего ряда на барабане N: барабан вырастает до 5 ячеек, Wild в нижней.
+    Уровни 1-4: +2 Candle Spins; уровень 5: Reign of Terror Spins +10 (оставшиеся Candle Spins переходят в Reign)."""
     state = rnd.bar
     state.progress -= cfg.BAR_THRESHOLDS[state.level]
     state.level += 1
@@ -314,21 +322,24 @@ def _level_up(field, rnd, rng):
             if c == mid:
                 col[row] = high
                 converted.append([r, row, high])
+    opened = lvl - 1
+    field.grid[opened].append(cfg.WILD)
+    field.mults[opened].append(1)
     gone = [(r, row) for r, col in enumerate(field.grid) for row, c in enumerate(col) if c == low]
-    pool = pool_for(rnd, BASE)
-    moves, fills = _remove(field, gone, rng, pool) if gone else ([], [])
+    pools = pool_for(rnd, BASE)
+    moves, fills = _remove(field, gone, rng, pools) if gone else ([], [])
     extra = {}
     if lvl <= cfg.CANDLE_MAX_LEVEL:
         rnd.candle_left += cfg.CANDLE_SPINS_PER_LEVEL
         extra["candle_spins"] = cfg.CANDLE_SPINS_PER_LEVEL
     elif state.final and not rnd.no_reign and not rnd.reign_started:
         rnd.reign_started = True
-        rnd.reign_left += cfg.REIGN_SPINS
-        if cfg.CANDLE_CANCELLED_ON_REIGN:
-            rnd.candle_left = 0
+        rnd.reign_left += cfg.REIGN_SPINS + rnd.candle_left
+        rnd.candle_left = 0
         extra["reign_spins"] = cfg.REIGN_SPINS
-    return _step("level_up", field, level=lvl, wild=lvl - 1, removed=low, transform=[mid, high], converted=converted, cells=[list(c) for c in gone],
-                 moves=moves, fills=fills, units=0, bar=state.to_dict(), candle_left=rnd.candle_left, reign_left=rnd.reign_left, **extra)
+    return _step("level_up", field, level=lvl, wild=opened, opened=[opened, len(field.grid[opened]) - 1], removed=low, transform=[mid, high],
+                 converted=converted, cells=[list(c) for c in gone], moves=moves, fills=fills, units=0, bar=state.to_dict(), candle_left=rnd.candle_left,
+                 reign_left=rnd.reign_left, **extra)
 
 
 def _apply_start_buy(field, rnd, rng):
@@ -360,32 +371,18 @@ def play_spin(rnd, rng):
         rnd.reign_left -= 1
     elif mode == CANDLE:
         rnd.candle_left -= 1
-    pool = pool_for(rnd, mode)
-    field = _new_field(rnd, mode, rng, pool)
+    pools = pool_for(rnd, mode)
+    field = _new_field(rnd, mode, rng, pools)
     if rnd.spins == 1:
         _apply_start_buy(field, rnd, rng)
     start_grid, start_mults = field.snap() if _LOG[0] else (None, None)
     steps = []
     spin_units = 0
-    fixed_wild_paid = False
-    cascades = 0
-    key = "xbet2" if rnd.buy == "xbet2" else mode
-    max_cascades = cfg.MAX_CASCADES.get(key, 0)
-    min_length = cfg.WIN_MIN_LENGTH.get(key, cfg.MIN_WIN_LENGTH)
-    for _ in range(cfg.MAX_CASCADE_STEPS * 4):
-        pool = pool_for(rnd, mode)
-        _settle(field, rnd, mode, rng, pool, steps)
-        min_real = cfg.MIN_REAL_REELS if (mode == REIGN or rnd.buy == "xbet2") else cfg.MIN_REAL_BY_LEVEL[rnd.bar.level]
-        wins = eng.evaluate(field.grid, _wilds_open(rnd, mode), field.mults, min_length, min_real)
-        if fixed_wild_paid:
-            wins = [w for w in wins if not (w.sym == cfg.WILD and not w.cells)]
-        elif any(w.sym == cfg.WILD and not w.cells for w in wins):
-            fixed_wild_paid = True
-        limit = max_cascades if mode == REIGN or rnd.buy == "xbet2" else cfg.MAX_CASCADES_BY_LEVEL[rnd.bar.level] or max_cascades
-        if wins and limit and cascades >= limit:
-            break
+    for _ in range(cfg.MAX_CASCADE_STEPS):
+        pools = pool_for(rnd, mode)
+        _settle(field, rnd, mode, rng, pools, steps)
+        wins = eng.evaluate(field.grid, field.mults)
         if wins:
-            cascades += 1
             units = sum(w.units for w in wins)
             capped = rnd.units + spin_units + units >= CAP_UNITS
             if capped:
@@ -394,7 +391,7 @@ def play_spin(rnd, rng):
             if mode != REIGN and not rnd.bar.final:
                 eng.add_points(rnd.bar, eng.bar_points(field.grid, cells) * rnd.point_mult)
             wins_log = [w.as_dict() for w in wins]
-            moves, fills = _remove(field, cells, rng, pool)
+            moves, fills = _remove(field, cells, rng, pools)
             spin_units += units
             steps.append(_step("cascade", field, wins=wins_log, cells=[list(c) for c in cells], units=units, moves=moves, fills=fills,
                                bar=rnd.bar.to_dict()))
@@ -402,15 +399,12 @@ def play_spin(rnd, rng):
                 rnd.capped = True
                 break
             continue
-        if mode != REIGN and eng.level_ready(rnd.bar):
+        if eng.level_ready(rnd.bar):
             steps.append(_level_up(field, rnd, rng))
             continue
         break
     rnd.units += spin_units
-    if mode in (CANDLE, REIGN):
-        rnd.sticky = [sum(1 for c in col if c == cfg.WILD) for col in field.grid]
-    else:
-        rnd.sticky = [0] * cfg.REELS
+    rnd.sticky = [sum(1 for c in col if c == cfg.WILD) for col in field.grid]
     if rnd.capped or rnd.spins >= cfg.MAX_SPINS_PER_ROUND or (rnd.reign_left <= 0 and rnd.candle_left <= 0):
         rnd.finished = True
     if rnd.finished:
@@ -418,4 +412,4 @@ def play_spin(rnd, rng):
     steps = [x for x in steps if x is not None]
     return {"mode": mode, "index": rnd.spins, "start": {"grid": start_grid, "mults": start_mults, "bar": None}, "steps": steps, "units": spin_units,
             "total_units": rnd.units, "bar": rnd.bar.to_dict(), "candle_left": rnd.candle_left, "reign_left": rnd.reign_left, "sticky": list(rnd.sticky),
-            "finished": rnd.finished, "capped": rnd.capped}
+            "heights": heights(rnd), "finished": rnd.finished, "capped": rnd.capped}

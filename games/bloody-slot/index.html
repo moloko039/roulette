@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
   <meta name="theme-color" content="#0b0809">
   <title>Bloody Slot</title>
-  <link rel="stylesheet" href="game.css?v=10a21cac">
+  <link rel="stylesheet" href="game.css?v=1d39025b">
 </head>
 <body>
   <div class="app" id="app" aria-live="polite">
@@ -24,8 +24,10 @@
 
     <div class="floor" id="floor" aria-hidden="true"></div>
     <section class="board-wrap" id="board-wrap">
-      <div class="board" id="board" role="img" aria-label="Игровое поле 5 на 4"></div>
-      <div class="wildrow" id="wildrow" aria-label="Закреплённый ряд Wild"></div>
+      <div class="board-area">
+        <div class="board" id="board" role="img" aria-label="Игровое поле: 5 барабанов, по 4 ячейки и пятая, когда открыт Wild"></div>
+        <div class="wildrow" id="wildrow" aria-label="Закреплённый ряд Wild"></div>
+      </div>
       <div class="runes" id="runes" aria-label="Символы, которые сгорают с уровнями"></div>
       <div class="meter" id="bar" aria-label="Ритуальная шкала"><i id="bar-fill"></i><b id="bar-points">0 / 20</b></div>
       <div class="fx" id="fx" aria-hidden="true"></div>
@@ -75,6 +77,6 @@
     </div>
   </div>
   <script src="fx.js?v=eaa5e9b6"></script>
-  <script src="game.js?v=7612400c"></script>
+  <script src="game.js?v=558c788f"></script>
 </body>
 </html>
