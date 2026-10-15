@@ -59,7 +59,7 @@ def _reel_count(grid, reel, sym, wilds_open, mults=None):
     return real, real + (1 if reel < wilds_open else 0)
 
 
-def evaluate(grid, wilds_open=0, mults=None, min_length=None):
+def evaluate(grid, wilds_open=0, mults=None, min_length=None, min_real=None):
     """Список Win по полю (порядок: по убыванию выплаты, затем по коду символа). Платит только самая длинная комбинация каждого символа."""
     wins = []
     for sym in cfg.PAY_SYMBOLS:
@@ -72,7 +72,7 @@ def evaluate(grid, wilds_open=0, mults=None, min_length=None):
             counts.append(total)
             reals += 1 if real > 0 else 0
         length = len(counts)
-        if length < (cfg.MIN_WIN_LENGTH if min_length is None else min_length) or reals < cfg.MIN_REAL_REELS:
+        if length < (cfg.MIN_WIN_LENGTH if min_length is None else min_length) or reals < (cfg.MIN_REAL_REELS if min_real is None else min_real):
             continue
         for n in counts:
             ways *= n

@@ -19,7 +19,8 @@
   var HIGH = { H1: 1, H2: 1, H3: 1, H4: 1, H5: 1 };
   var BUY_INFO = {
     gibbet: { name: 'Виселица', text: 'Полоска сразу на уровне 3, +6 Candle Spins, три слабых символа первого поля становятся высокими.' },
-    reign: { name: 'Reign of Terror Spins', text: 'Сразу 10 бесплатных спинов: поле только из высоких символов.' },
+    reign: { name: 'Reign of Terror Spins', text: 'Сразу 10 бесплатных спинов на поле 5×5 только из высоких символов.' },
+    lucky: { name: 'Lucky Draw', text: 'Случайный бонус: 40% уровень 3 и 6 Candle Spins, 40% уровень 4 и 8 Candle Spins, 20% Reign of Terror Spins.' },
     xbet1: { name: 'Ритуальный буст', text: 'Полоска стартует с уровня 1 и копит очки быстрее.' },
     xbet2: { name: 'xBet 2', text: 'Один спин на последнем уровне с гарантированными Dagger и Guillotine.' }
   };
@@ -131,12 +132,19 @@
     if (b.textContent !== '×' + mult) { b.textContent = '×' + mult; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; }
   }
   function place(el, c, r) { el.dataset.c = c; el.dataset.r = r; el.style.transform = posT(c, r); }
+  // высота поля по снимку сервера: 4 рабочих ряда, в Reign of Terror Spins 5 (ряд Wild и камни тогда скрыты, см. [data-rows="5"] в game.css)
+  function setRows(grid) {
+    ROWS = grid && grid[0] ? grid[0].length : 4;
+    els.app.dataset.rows = String(ROWS);
+    els.board.setAttribute('aria-label', 'Игровое поле 5 на ' + ROWS);
+  }
   function clearBoard() {
     els.board.textContent = '';
     st.cells = [];
     for (var c = 0; c < REELS; c++) st.cells.push(new Array(ROWS).fill(null));
   }
   function setGridStatic(grid, mults) {
+    setRows(grid);
     clearBoard();
     st.grid = grid;
     for (var c = 0; c < REELS; c++) {
@@ -165,6 +173,7 @@
     return a.finished.catch(function () {});
   }
   function dealGrid(grid, mults) {
+    setRows(grid);
     clearBoard();
     st.grid = grid;
     var waits = [];
@@ -206,6 +215,7 @@
 
   // приводит поле к снимку сервера после шага (страховка: всё, что не сошлось, исправляется)
   function reconcile(grid, mults) {
+    if (grid[0].length !== ROWS) { setGridStatic(grid, mults); return; }
     st.grid = grid;
     for (var c = 0; c < REELS; c++) {
       for (var r = 0; r < ROWS; r++) {
@@ -516,6 +526,26 @@
       setTimeout(finish, Math.max(900, 2600 * speed()));
     });
   }
+  // сколько барабанов с настоящим символом нужно по уровням полоски (одинаковые уровни склеиваются: «уровни 0–1: 3»)
+  function realRule(s) {
+    var arr = (s.min_real_by_level || []).slice(0, 5);
+    var parts = [];
+    for (var i = 0; i < arr.length; i++) {
+      var j = i;
+      while (j + 1 < arr.length && arr[j + 1] === arr[i]) j++;
+      parts.push((i === j ? 'на уровне ' + i : 'на уровнях ' + i + '–' + j) + ' минимум ' + arr[i]);
+      i = j;
+    }
+    return parts.join(', ') || 'минимум 3';
+  }
+  // итог розыгрыша Lucky Draw (сервер выбрал уровень при покупке): Reign показывается своей заставкой
+  function showLuckyDraw(view) {
+    var level = view.round.draw;
+    var spins = view.spin && view.spin.mode === 'reign' ? view.round.reign_left + 1 : null;
+    if (level >= 5) return showReignIntro(spins || 6);
+    var item = ((st.settings && st.settings.lucky_draw) || []).filter(function (d) { return d.level === level; })[0];
+    return showBanner('', 'Lucky Draw', 'Уровень полоски <b>' + level + '</b><br>Candle Spins: ' + (item ? item.spins : ''));
+  }
   function bigWin(payout, mult) {
     var scenes = mult >= 100 ? 3 : mult >= 30 ? 2 : 1;
     els.cut.className = 'cut';
@@ -616,6 +646,7 @@
     st.view = view;
     if (!active) st.buy = null;
     if (!active && wasBuy === 'reign') await showReignIntro(view.round.reign_left + 1);
+    if (!active && wasBuy === 'lucky') await showLuckyDraw(view);
     var prevMode = st.mode;
     await playSpin(view);
     if (ended) {
@@ -744,9 +775,9 @@
     var s = st.settings;
     var wrap = document.createElement('div');
     var h = '<p>Игра идёт на виртуальные фишки: их нельзя вывести или обменять на деньги.</p>';
-    h += '<h3>Как играть</h3><p>Выигрыш считается по способам: комбинация идёт слева направо с первого барабана, минимум ' + s.min_length + ' барабана; платится самая длинная комбинация символа. Выигравшие символы взрываются, остальные падают, сверху падают новые. Максимальный выигрыш раунда: ×' + fmt(s.max_win_bets) + ' ставки.</p>';
+    h += '<h3>Как играть</h3><p>Выигрыш считается по способам: комбинация идёт слева направо с первого барабана, минимум ' + s.min_length + ' барабана; платится самая длинная комбинация символа. Выигравшие символы взрываются, остальные падают, сверху падают новые. Открытые Wild нижнего ряда достраивают комбинацию и умножают способы, но сам символ (или Wild на поле) должен стоять на нескольких барабанах: ' + realRule(s) + '. Максимальный выигрыш раунда: ×' + fmt(s.max_win_bets) + ' ставки.</p>';
     h += '<h3>Ритуальная полоска</h3><p>Средний символ в выигрыше даёт +1 очко, высокий +2, Scatter +10. Пороги уровней: ' + s.bar_thresholds.join(', ') + '. Высоких символов в начале раунда нет. Каждый новый уровень открывает Wild в нижнем ряду, сжигает самый слабый знак (камни под рядом Wild) и улучшает одного среднего зверя до высокого: сначала ворон, затем змея, козёл, волк и ведьма; прежний вид пропадает полностью. Уровни 1–4 дают по +' + s.candle_per_level + ' Candle Spins, пятый запускает Reign of Terror Spins (+' + s.reign_spins + ').</p>';
-    h += '<h3>Бонусы</h3><p>В бонусных спинах Wild опускается вниз барабана и остаётся, пока не станет частью выигрыша. Dagger делит свой ряд, Guillotine делит всё под собой на барабане: число способов у разделённых символов удваивается (до ×32).</p>';
+    h += '<h3>Бонусы</h3><p>В бонусных спинах Wild опускается вниз барабана и остаётся, пока не станет частью выигрыша. Dagger делит свой ряд, Guillotine делит всё под собой на барабане: число способов у разделённых символов удваивается (до ×32). Reign of Terror Spins идут на поле 5×' + (s.reign_rows || 5) + ' только из высоких символов, полоски и нижнего ряда Wild в них нет.</p>';
     h += '<h3>Таблица выплат (в ставках за 5 / 4 / 3 барабана)</h3><table class="pt">';
     ['H1', 'H2', 'H3', 'H4', 'H5', 'M1', 'M2', 'M3', 'M4', 'M5', 'L1', 'L2', 'L3', 'L4', 'L5'].forEach(function (sym) {
       var p = s.paytable[sym];

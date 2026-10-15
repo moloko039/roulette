@@ -18,7 +18,9 @@ def settings():
     return {"bets": list(cfg.BET_LADDER), "buys": {k: v / cfg.UNITS_PER_BET for k, v in cfg.BUY_COST_UNITS.items()}, "max_win_bets": cfg.MAX_WIN_BETS,
             "reels": cfg.REELS, "rows": cfg.WORKING_ROWS, "bar_thresholds": list(cfg.BAR_THRESHOLDS), "idle_days": cfg.IDLE_SECONDS // 86400,
             "paytable": {sym: {str(n): v / cfg.UNITS_PER_BET for n, v in pays.items()} for sym, pays in cfg.PAYTABLE_UNITS.items()},
-            "wild_pay": cfg.WILD_PAY_UNITS[5] / cfg.UNITS_PER_BET, "min_length": cfg.MIN_WIN_LENGTH, "candle_per_level": cfg.CANDLE_SPINS_PER_LEVEL, "reign_spins": cfg.REIGN_SPINS}
+            "wild_pay": cfg.WILD_PAY_UNITS[5] / cfg.UNITS_PER_BET, "min_length": cfg.MIN_WIN_LENGTH, "candle_per_level": cfg.CANDLE_SPINS_PER_LEVEL, "reign_spins": cfg.REIGN_SPINS,
+            "lucky_draw": [{"chance": c, "level": lvl, "spins": n} for c, lvl, n in cfg.LUCKY_DRAW], "reign_buy_spins": cfg.REIGN_BUY_SPINS,
+            "min_real_by_level": list(cfg.MIN_REAL_BY_LEVEL), "reign_rows": cfg.REIGN_ROWS}
 
 
 def register(app, ctx):

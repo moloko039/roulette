@@ -59,11 +59,12 @@ class Round:
         self.buy = None                      # покупка функции: gibbet, reign, xbet1, xbet2 или None
         self.upgrade_cells = 0               # Виселица: сколько низких и средних символов первого поля заменить высокими
         self.guarantee_xsplit = False        # xBet 2: на первом поле гарантированы Dagger и Guillotine
+        self.draw = None                     # Lucky Draw: выпавший уровень бонуса (3, 4 или 5)
 
     def next_mode(self):
         if self.finished:
             return None
-        if self.spins == 0 and self.buy != "reign":
+        if self.spins == 0 and self.buy not in ("reign",) + cfg.BONUS_START_BUYS:
             return BASE
         if self.reign_left > 0:
             return REIGN
@@ -75,7 +76,7 @@ class Round:
         return {"bar": {"level": self.bar.level, "progress": self.bar.progress}, "candle_left": self.candle_left, "reign_left": self.reign_left,
                 "reign_started": self.reign_started, "sticky": list(self.sticky), "units": self.units, "spins": self.spins, "capped": self.capped,
                 "finished": self.finished, "point_mult": self.point_mult, "no_reign": self.no_reign, "buy": self.buy,
-                "upgrade_cells": self.upgrade_cells, "guarantee_xsplit": self.guarantee_xsplit}
+                "upgrade_cells": self.upgrade_cells, "guarantee_xsplit": self.guarantee_xsplit, "draw": self.draw}
 
     @classmethod
     def from_dict(cls, d):
@@ -86,6 +87,7 @@ class Round:
         r.capped, r.finished = d["capped"], d["finished"]
         r.point_mult, r.no_reign = d.get("point_mult", 1), d.get("no_reign", False)
         r.buy, r.upgrade_cells, r.guarantee_xsplit = d.get("buy"), d.get("upgrade_cells", 0), d.get("guarantee_xsplit", False)
+        r.draw = d.get("draw")
         return r
 
     def to_json(self):
@@ -96,8 +98,8 @@ class Round:
         return cls.from_dict(json.loads(text))
 
 
-def new_round(buy=None):
-    """Раунд с учётом покупки функции (None: обычная ставка)."""
+def new_round(buy=None, rng=None):
+    """Раунд с учётом покупки функции (None: обычная ставка). Для Lucky Draw нужен rng: розыгрыш бонуса делается здесь, на сервере."""
     r = Round()
     if buy is None:
         return r
@@ -119,6 +121,23 @@ def new_round(buy=None):
         r.bar = eng.BarState(cfg.XBET2_LEVEL, 0)
         r.no_reign = True
         r.guarantee_xsplit = True
+    elif buy == "lucky":
+        u = rng.random()
+        acc = 0.0
+        pick = cfg.LUCKY_DRAW[-1]
+        for item in cfg.LUCKY_DRAW:
+            acc += item[0]
+            if u < acc:
+                pick = item
+                break
+        level, spins = pick[1], pick[2]
+        r.draw = level
+        r.bar = eng.BarState(level, 0)
+        if level >= cfg.BAR_MAX_LEVEL:
+            r.reign_left = spins
+            r.reign_started = True
+        else:
+            r.candle_left = spins
     return r
 
 
@@ -166,7 +185,7 @@ def pool_for(rnd, mode):
             xs_weight = cfg.XSPLIT_WEIGHT_XBET2
         else:
             pool = eng.pool_for_level(rnd.bar.level, wild_weight=wild, high_scale=cfg.LEVEL_HIGH_SCALE[rnd.bar.level], mid_scale=cfg.LEVEL_MID_SCALE[rnd.bar.level],
-                                      scatter_weight=cfg.SCATTER_WEIGHT_CANDLE if mode == CANDLE else cfg.SCATTER_WEIGHT)
+                                      scatter_weight=cfg.SCATTER_WEIGHT_CANDLE[rnd.bar.level] if mode == CANDLE else cfg.SCATTER_WEIGHT)
             xs_weight = cfg.XSPLIT_WEIGHT
         xsplit = rnd.bar.level >= cfg.XSPLIT_MIN_LEVEL
     if xsplit and xs_weight > 0:
@@ -179,7 +198,7 @@ def _wilds_open(rnd, mode):
 
 
 def _new_field(rnd, mode, rng, pool):
-    rows = cfg.WORKING_ROWS
+    rows = cfg.REIGN_ROWS if mode == REIGN else cfg.WORKING_ROWS
     grid = []
     for reel in range(cfg.REELS):
         k = rnd.sticky[reel] if mode in (CANDLE, REIGN) else 0
@@ -356,7 +375,8 @@ def play_spin(rnd, rng):
     for _ in range(cfg.MAX_CASCADE_STEPS * 4):
         pool = pool_for(rnd, mode)
         _settle(field, rnd, mode, rng, pool, steps)
-        wins = eng.evaluate(field.grid, _wilds_open(rnd, mode), field.mults, min_length)
+        min_real = cfg.MIN_REAL_REELS if (mode == REIGN or rnd.buy == "xbet2") else cfg.MIN_REAL_BY_LEVEL[rnd.bar.level]
+        wins = eng.evaluate(field.grid, _wilds_open(rnd, mode), field.mults, min_length, min_real)
         if fixed_wild_paid:
             wins = [w for w in wins if not (w.sym == cfg.WILD and not w.cells)]
         elif any(w.sym == cfg.WILD and not w.cells for w in wins):
