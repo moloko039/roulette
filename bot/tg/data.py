@@ -58,6 +58,8 @@ async def mydata(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "crash_games": export["crash_games"],
         "crash_active": export["crash_active"],
         "hilo_games": export["hilo_games"],
+        "bloody_games": export["bloody_games"],
+        "bloody_active": export["bloody_active"],
         "hilo_active": export["hilo_active"],
         "transfers": export["transfers"],
         "cosmetics": export["cosmetics"],

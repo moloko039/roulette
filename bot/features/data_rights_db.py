@@ -83,6 +83,14 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             hilo_active = conn.execute(
                 "SELECT 1 FROM hilo_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
             ).fetchone() is not None
+            bloody_games = conn.execute(
+                "SELECT created_at, bet, cost, buy, units, spins, status, payout, finished_at FROM bloody_games "
+                "WHERE telegram_id = ? AND status != 'active' ORDER BY created_at DESC, id DESC LIMIT ?",
+                (telegram_id, rounds_limit),
+            ).fetchall()
+            bloody_active = conn.execute(
+                "SELECT bet, cost, buy, units, spins, state_json FROM bloody_games WHERE telegram_id = ? AND status = 'active'", (telegram_id,)
+            ).fetchone()
             transfer_rows = conn.execute(
                 "SELECT sender, recipient, amount, fee, created_at FROM transfers WHERE sender = ? OR recipient = ? "
                 "ORDER BY created_at DESC, id DESC LIMIT ?", (telegram_id, telegram_id, rounds_limit)).fetchall()
@@ -138,7 +146,7 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             conn.execute("COMMIT")
     finally:
         conn.close()
-    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not race_rounds and not race_live_bets and not game_stats and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None and not crash_live_bets:
+    if player is None and not rounds and not chats and not purchases and not games and not keno_rounds and not slot_rounds and not race_rounds and not race_live_bets and not game_stats and not bloody_games and bloody_active is None and not bj_games and not bj_active and not crash_games and not crash_active and not hilo_games and not hilo_active and not transfer_items and not cosmetic_items and not cosmetic_equipped and cosmetic_pref is None and not purchase_rows and best_win is None and not crash_live_bets:
         return None
     return {
         "player": dict(player) if player is not None else None,
@@ -179,6 +187,13 @@ def get_player_export(telegram_id, rounds_limit=100, db_path=None):
             for g in hilo_games
         ],
         "hilo_active": hilo_active,
+        # Bloody slot: завершённые раунды и состояние незавершённого (ставка, число спинов, накопленный выигрыш, оставшиеся бонусные спины; колоды и поля нет)
+        "bloody_games": [{"created_at": g["created_at"], "bet": g["bet"], "cost": g["cost"], "buy": g["buy"], "spins": g["spins"], "units": g["units"],
+                          "status": g["status"], "payout": g["payout"], "finished_at": g["finished_at"]} for g in bloody_games],
+        "bloody_active": None if bloody_active is None else {"bet": bloody_active["bet"], "cost": bloody_active["cost"], "buy": bloody_active["buy"],
+                                                            "spins": bloody_active["spins"], "units": bloody_active["units"],
+                                                            "candle_left": json.loads(bloody_active["state_json"])["candle_left"],
+                                                            "reign_left": json.loads(bloody_active["state_json"])["reign_left"]},
         # идентификаторы Telegram других игроков не включаются: только имя второй стороны как в рейтинге
         "transfers": transfer_items,
         # без платёжных идентификаторов: payment_ref в выгрузку не входит
@@ -281,6 +296,8 @@ def delete_player_data(telegram_id, db_path=None, now=None):
             counts["crash_games"] = conn.execute(
                 "DELETE FROM crash_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённый вместе со ставкой
             conn.execute("DELETE FROM crash_actions WHERE telegram_id = ?", (telegram_id,))
+            counts["bloody_games"] = conn.execute("DELETE FROM bloody_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённый вместе со ставкой
+            conn.execute("DELETE FROM bloody_actions WHERE telegram_id = ?", (telegram_id,))
             counts["hilo_games"] = conn.execute(
                 "DELETE FROM hilo_games WHERE telegram_id = ?", (telegram_id,)).rowcount   # и незавершённая вместе со ставкой
             conn.execute("DELETE FROM hilo_actions WHERE telegram_id = ?", (telegram_id,))

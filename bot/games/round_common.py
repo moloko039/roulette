@@ -16,7 +16,7 @@ from roulette import MAX_SAFE_INT
 from core.db_conn import _connect, logger
 from core.kernel import _accrue_write, _add_xp, _credit_capped, _register_player, _round_finished
 
-GAMES = ("mines", "blackjack", "crash", "hilo")
+GAMES = ("mines", "blackjack", "crash", "hilo", "bloody")
 CLOSE_BATCH = 200   # сколько брошенных партий закрывает один проход фоновой задачи
 
 

@@ -983,3 +983,8 @@ core/schema.py (611 строк) разделён: core/schema_tables.py (CREATE 
 
 - Допущение владельца подтверждено: закреплённые Wild не создают комбинацию сами (MIN_REAL_REELS = 3).
 - bot/bloody_engine.py: BarState, pool_for_level, bar_points, level_up, play_spin; конфиг BAR_* (пороги, очки, порядок удаления низких и превращения средних); bot/test_bloody_bar.py. Описание правил в docs/BLOODY_SLOT.md. Ветка feature/bloody-slot, в main не вливалось.
+
+## 2026-10-15: Bloody slot, этап 3 (бонусы и хранение раунда)
+
+- bot/bloody_round.py (раунд, спин, Scatter, Sticky Wild, xSplit, Candle и Reign, потолок 16161×), games/bloody_db.py (партия по шаблону round_common: старт, спин, состояние, автозакрытие 7 дней), таблицы bloody_games и bloody_actions, интеграция: рекорды (код bloody), счётчики игр, xp.bloody_xp (временный коэффициент XP_LOSE_X1000, уточнит симулятор), active_game, выгрузка и удаление данных, очистка, round_counts, статистика владельца. Тесты test_bloody_round.py и test_bloody_db.py; существующие тесты обновлены под новые поля.
+- Допущения (docs/BLOODY_SLOT.md): Reign раньше Candle, Candle сгорают при запуске Reign, закреплённый ряд открыт целиком в Reign, xSplit падают с уровня 4, множитель xSplit = число способов ячейки. privacy.html обновится на этапе 5 вместе с запуском.

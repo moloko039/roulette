@@ -10,4 +10,5 @@ ROUND_COUNT_SQL = (
     "SELECT COUNT(*) FROM crash_games WHERE telegram_id = ? AND finished_at IS NOT NULL AND COALESCE(result, '') != 'refund'",
     "SELECT COUNT(*) FROM crash_bets WHERE telegram_id = ? AND status != 'open'",      # живой краш: закрытые ставки
     "SELECT COUNT(*) FROM hilo_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
+    "SELECT COUNT(*) FROM bloody_games WHERE telegram_id = ? AND finished_at IS NOT NULL",
 )

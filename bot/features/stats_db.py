@@ -10,7 +10,7 @@ from core.db_conn import _connect
 
 DAY = 86400
 GAME_TABLES = (("рулетка", "roulette_rounds"), ("кено", "keno_rounds"), ("слот", "slot_rounds"), ("мины", "mines_games"), ("блэкджек", "blackjack_games"),
-               ("краш", "crash_games"), ("хило", "hilo_games"))
+               ("краш", "crash_games"), ("хило", "hilo_games"), ("bloody", "bloody_games"))
 WINDOWS = (("24 ч", DAY), ("7 дней", 7 * DAY))
 
 

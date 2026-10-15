@@ -23,6 +23,17 @@
 - Достижение уровня 5 (порог 80) помечается `final_reached`: на этапе 3 запускает Reign of Terror Spins; на последнем уровне очки не копятся.
 - Формат шагов лога: `cascade` (wins, cells, units, moves, fills, bar) и `level_up` (level, wild, removed, transform, converted, cells, moves, fills, bar).
 
+## Раунд, бонусы, хранение (этап 3, решения)
+- Раунд = стартовый спин + бонусные спины; ставка списывается один раз при старте, выигрыш копится в единицах в состоянии раунда и платится один раз при конце. Каждый спин игрок запускает отдельным действием (bloody_start, затем bloody_spin), состояние и последний спин лежат в `bloody_games` (JSON), повтор по request_id в `bloody_actions`.
+- Порядок режимов: Reign of Terror Spins раньше Candle Spins. Candle Spins: +2 за каждый новый уровень 1-4 (и внутри Candle Spins полоска продолжает копиться). Reign: +6 при достижении 5-го уровня, оставшиеся Candle Spins сгорают (`CANDLE_CANCELLED_ON_REIGN`), полоски нет, поле из высоких символов, закреплённый ряд открыт целиком (`REIGN_WILDS_OPEN`), Scatter +1 спин.
+- Scatter: +10 очков за каждый (основная игра и Candle Spins), в Reign +1 спин; исчезает сразу, на его месте падают новые символы. Очки и спины Scatter считаются до оценки выигрышей.
+- Sticky Wild (Candle и Reign): любой Wild на барабане опускается вниз и остаётся, пока не станет частью выигрыша; прилипшие переходят в следующий бонусный спин. В основной игре Wild обычный.
+- xSplit: символы XD (Dagger: делит свой ряд) и XG (Guillotine: делит все символы под собой на барабане). Разделение удваивает число способов ячейки (множитель ячейки ×2, при повторных ×4 ... до ×32), сам xSplit-символ становится Wild. Множитель едет вместе с ячейкой при падении и сбрасывается, когда ячейка взорвана. Падают с уровня полоски `XSPLIT_MIN_LEVEL` = 4 (в Reign всегда), вес `XSPLIT_WEIGHT`.
+- Потолок 16161×: сумма выигрыша раунда обрезается, раунд сразу закрывается, оставшиеся бонусные спины сгорают.
+- Автозакрытие: раунд без действий 7 дней закрывается с выплатой накопленного (`IDLE_SECONDS`), через `settle_expired_bloody` при обращении игрока и `close_expired_bloody` (фоновый проход).
+- Данные: `/mydata` (bloody_games, bloody_active), удаление с профилем, очистка завершённых раундов через 30 дней, учёт в статистике и счётчиках игр, рекорды выигрыша (код `bloody`), `active_game` = `bloody`.
+- Формат ответа раунда (будущий API, этап 5): {status, bet, cost, buy, round: {spins, units, win, next, candle_left, reign_left, bar, sticky, capped, expires_at}, spin: лог последнего спина, payout, balance, level, xp, replayed}. Спин: {mode, index, start, steps: [cascade | level_up | scatter | xsplit | sink], units, total_units, ...}, у каждого шага `grid` и `mults` после шага.
+
 ## Состояние этапов
 1. Движок поля (ways, Wild, каскады, тесты): сделан (bot/bloody_engine.py, test_bloody_engine.py).
 2. Ritual bar, уровни, открытие Wild, удаление и превращение символов: сделан (bot/bloody_engine.py: BarState, pool_for_level, level_up, play_spin; test_bloody_bar.py).

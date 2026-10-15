@@ -26,7 +26,7 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
     conn = _connect(db_path)
     deleted = {"roulette_rounds": 0, "farm_purchases": 0, "mines_games": 0, "mines_actions": 0,
                "keno_rounds": 0, "slot_rounds": 0, "blackjack_games": 0, "blackjack_actions": 0, "crash_games": 0, "crash_actions": 0,
-               "crash_bets": 0, "crash_rounds": 0, "race_live_bets": 0, "race_live_rounds": 0, "hilo_games": 0, "hilo_actions": 0,
+               "crash_bets": 0, "crash_rounds": 0, "race_live_bets": 0, "race_live_rounds": 0, "hilo_games": 0, "hilo_actions": 0, "bloody_games": 0, "bloody_actions": 0,
                "transfers": 0, "chat_members": 0,
                "deletion_tombstones": 0}
     try:
@@ -118,6 +118,13 @@ def purge_old_data(now=None, db_path=None, rounds_days=30, member_days=90, batch
                 "DELETE FROM race_live_rounds WHERE id IN (SELECT id FROM race_live_rounds WHERE settled_at_ms < ? "
                 "AND id NOT IN (SELECT round_id FROM race_live_bets) LIMIT ?)",
                 ((now - rounds_days * 86400) * 1000, batch))
+        if "bloody_games" in present:  # Bloody slot: завершённые старше срока раундов; активные не удаляются (их закрывает автозакрытие через 7 дней)
+            deleted["bloody_games"] = batches(
+                "DELETE FROM bloody_games WHERE id IN (SELECT id FROM bloody_games WHERE status != 'active' AND finished_at IS NOT NULL AND finished_at < ? LIMIT ?)",
+                (now - rounds_days * 86400, batch))
+        if "bloody_actions" in present:
+            deleted["bloody_actions"] = batches(
+                "DELETE FROM bloody_actions WHERE rowid IN (SELECT rowid FROM bloody_actions WHERE created_at < ? LIMIT ?)", (now - rounds_days * 86400, batch))
         if "hilo_games" in present:  # завершённые старше срока раундов; активные не удаляются никогда
             deleted["hilo_games"] = batches(
                 "DELETE FROM hilo_games WHERE id IN "

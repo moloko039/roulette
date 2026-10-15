@@ -49,21 +49,24 @@ def new_grid(rng, pool, rows=None):
     return [[draw_symbol(rng, pool) for _ in range(rows)] for _ in range(cfg.REELS)]
 
 
-def _reel_count(grid, reel, sym, wilds_open):
-    """(настоящие, всего): сколько ячеек барабана подходит символу. Настоящие: сам символ и Wild рабочих рядов (взрываются);
-    всего: плюс открытый закреплённый Wild (только подставляется, не исчезает)."""
-    real = sum(1 for c in grid[reel] if c == sym or c == cfg.WILD)
+def _reel_count(grid, reel, sym, wilds_open, mults=None):
+    """(настоящие, всего): сколько ячеек барабана подходит символу (с учётом множителей xSplit: разделённая ячейка считается за 2, 4, ... способов).
+    Настоящие: сам символ и Wild рабочих рядов (взрываются); всего: плюс открытый закреплённый Wild (только подставляется, не исчезает)."""
+    if mults is None:
+        real = sum(1 for c in grid[reel] if c == sym or c == cfg.WILD)
+    else:
+        real = sum(mults[reel][row] for row, c in enumerate(grid[reel]) if c == sym or c == cfg.WILD)
     return real, real + (1 if reel < wilds_open else 0)
 
 
-def evaluate(grid, wilds_open=0):
+def evaluate(grid, wilds_open=0, mults=None):
     """Список Win по полю (порядок: по убыванию выплаты, затем по коду символа). Платит только самая длинная комбинация каждого символа."""
     wins = []
     for sym in cfg.PAY_SYMBOLS:
         ways = 1
         counts, reals = [], 0
         for reel in range(cfg.REELS):
-            real, total = _reel_count(grid, reel, sym, wilds_open)
+            real, total = _reel_count(grid, reel, sym, wilds_open, mults)
             if total == 0:
                 break
             counts.append(total)
@@ -77,7 +80,8 @@ def evaluate(grid, wilds_open=0):
         cells = [(r, row) for r in range(length) for row, c in enumerate(grid[r]) if c == sym or c == cfg.WILD]
         wins.append(Win(sym, length, ways, units, cells))
     # Wild платит сам по себе только за 5 барабанов: на каждом барабане есть Wild (в рабочих рядах или открытый нижний)
-    wild_counts = [sum(1 for c in grid[r] if c == cfg.WILD) + (1 if r < wilds_open else 0) for r in range(cfg.REELS)]
+    wild_counts = [(sum(1 for c in grid[r] if c == cfg.WILD) if mults is None else sum(mults[r][row] for row, c in enumerate(grid[r]) if c == cfg.WILD)) + (1 if r < wilds_open else 0)
+                   for r in range(cfg.REELS)]
     if all(n > 0 for n in wild_counts):
         ways = 1
         for n in wild_counts:

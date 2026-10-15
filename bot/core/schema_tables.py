@@ -304,6 +304,42 @@ def create_game_tables(conn):
             )
             """
     )
+    # Bloody slot: партия (стартовый спин и бонусные спины): состояние раунда JSON, последний спин для продолжения после перезагрузки; не больше одной активной
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS bloody_games (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                bet         INTEGER NOT NULL,
+                cost        INTEGER NOT NULL,
+                buy         TEXT,
+                state_json  TEXT    NOT NULL,
+                last_json   TEXT,
+                units       INTEGER NOT NULL DEFAULT 0,
+                spins       INTEGER NOT NULL DEFAULT 0,
+                status      TEXT    NOT NULL,
+                payout      INTEGER NOT NULL DEFAULT 0,
+                created_at  INTEGER NOT NULL,
+                updated_at  INTEGER NOT NULL,
+                finished_at INTEGER
+            )
+            """
+    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bloody_active ON bloody_games(telegram_id) WHERE status = 'active'")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_bloody_history ON bloody_games(telegram_id, finished_at)")
+    conn.execute(
+        """
+            CREATE TABLE IF NOT EXISTS bloody_actions (
+                telegram_id   INTEGER NOT NULL,
+                request_id    TEXT    NOT NULL,
+                action        TEXT    NOT NULL,
+                params        TEXT    NOT NULL,
+                response_json TEXT    NOT NULL,
+                created_at    INTEGER NOT NULL,
+                PRIMARY KEY (telegram_id, request_id)
+            )
+            """
+    )
     # раунды «Забега свинок»: ключ (игрок, request_id) защищает от повторного списания при повторе запроса
     conn.execute(
         """

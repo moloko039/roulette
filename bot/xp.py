@@ -75,3 +75,11 @@ def slot_xp(cost, bought):
     if type(cost) is not int or cost < 0:
         raise ValueError("cost must be a non-negative integer")
     return cost * slot_lose_x1000(bought) // 1000
+
+
+def bloody_xp(cost):
+    """Опыт раунда Bloody slot: cost * вероятность потерять всю ставку раунда (bloody_config.XP_LOSE_X1000, тысячные); cost: списанное за раунд."""
+    import bloody_config
+    if type(cost) is not int or cost < 0:
+        raise ValueError("cost must be a non-negative integer")
+    return cost * bloody_config.XP_LOSE_X1000 // 1000
