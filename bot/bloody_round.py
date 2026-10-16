@@ -117,6 +117,7 @@ def new_round(buy=None, rng=None):
         r.reign_started = True
     elif buy == "xbet1":
         r.bar = eng.BarState(cfg.XBET1_START_LEVEL, 0)
+        r.sticky = [1] + [0] * (cfg.REELS - 1)        # решение владельца: у Ритуального буста на первом барабане сразу стоит несыгравший Wild
         r.point_mult = cfg.XBET1_POINT_MULT
     elif buy == "xbet2":
         r.bar = eng.BarState(cfg.XBET2_LEVEL, 0)
@@ -143,8 +144,9 @@ def new_round(buy=None, rng=None):
 
 
 def heights(rnd):
-    """Высота барабанов: 5, если Wild нижнего ряда этого барабана открыт, иначе 4. Покупка, стартующая с уровня N (Виселица, Lucky Draw, xBet 1, Reign,
-    xBet 2), начинается так, будто уровни уже пройдены и их Wild уже сыграли (ДОПУЩЕНИЕ): барабаны 1..N из 5 свободных ячеек."""
+    """Высота барабанов: 5, если Wild нижнего ряда этого барабана открыт, иначе 4. Покупка, стартующая с уровня N (Виселица, Lucky Draw, Reign, xBet 2),
+    начинается так, будто уровни уже пройдены и их Wild уже сыграли (решение владельца): барабаны 1..N из 5 свободных ячеек. Исключение xBet 1: Wild
+    первого барабана стоит несыгравшим (Round.sticky)."""
     return [cfg.WORKING_ROWS + (1 if r < rnd.bar.level else 0) for r in range(cfg.REELS)]
 
 
@@ -192,7 +194,7 @@ def pool_for(rnd, mode):
     elif mode == CANDLE:
         wild, scatter, xs = cfg.WILD_WEIGHT_CANDLE, cfg.SCATTER_WEIGHT_CANDLE[level], cfg.XSPLIT_WEIGHT
     else:
-        wild, scatter, xs = cfg.WILD_WEIGHT, cfg.SCATTER_WEIGHT, cfg.XSPLIT_WEIGHT
+        wild, scatter, xs = cfg.WILD_WEIGHT, cfg.XBET1_SCATTER_WEIGHT if rnd.buy == "xbet1" else cfg.SCATTER_WEIGHT, cfg.XSPLIT_WEIGHT
     if not (mode == REIGN or level >= cfg.XSPLIT_MIN_LEVEL):
         xs = 0
     bias = cfg.REEL_BIAS_XBET2 if xbet2 else cfg.REEL_BIAS[level]
@@ -216,15 +218,23 @@ def _new_field(rnd, mode, rng, pools):
     return Field(grid)
 
 
-def _remove(field, cells, rng, pool):
-    """Ячейки исчезают, остальные (с множителями) падают, сверху падают новые (множитель 1). Возвращает (падения, новые)."""
-    gone = set(cells)
+def _holes(field, cells):
+    """Ячейки исчезают (на их месте None), множители сбрасываются; досыпка отдельно (_refill)."""
+    for reel, row in cells:
+        field.grid[reel][row] = None
+        field.mults[reel][row] = 1
+
+
+def _refill(field, rng, pool):
+    """Досыпка: оставшиеся символы (с множителями) падают вниз на место пустых ячеек, сверху падают новые (множитель 1). Возвращает (падения, новые)."""
     moves, fills = [], []
     for reel, col in enumerate(field.grid):
         mcol = field.mults[reel]
-        keep = [(row, c, mcol[row]) for row, c in enumerate(col) if (reel, row) not in gone]
+        keep = [(row, c, mcol[row]) for row, c in enumerate(col) if c is not None]
         height = len(col)
         shift = height - len(keep)
+        if not shift:
+            continue
         out, mout = [None] * height, [1] * height
         for i, (row, c, m) in enumerate(keep):
             to = shift + i
@@ -237,6 +247,30 @@ def _remove(field, cells, rng, pool):
             fills.append([reel, row, sym])
         field.grid[reel], field.mults[reel] = out, mout
     return moves, fills
+
+
+def _remove(field, cells, rng, pool):
+    """Ячейки исчезают, остальные падают, сверху падают новые. Возвращает (падения, новые)."""
+    _holes(field, cells)
+    return _refill(field, rng, pool)
+
+
+def _vanish(field, rnd, mode, rng, cells, steps, make_step):
+    """Сыгравшие (или сработавшие) ячейки исчезают. Если полоска набрала порог, переход уровня делается сразу, до досыпки (правило владельца): шаг
+    make_step пишется без падений, затем шаги level_up, у последнего падения и новые символы уже из таблицы нового уровня."""
+    _holes(field, cells)
+    if mode == REIGN or not eng.level_ready(rnd.bar):
+        moves, fills = _refill(field, rng, pool_for(rnd, mode))
+        steps.append(make_step(moves, fills))
+        return
+    steps.append(make_step([], []))
+    while eng.level_ready(rnd.bar):
+        steps.append(_level_up(field, rnd, rng, mode, refill=False))
+    moves, fills = _refill(field, rng, pool_for(rnd, mode))
+    last = steps[-1]
+    if last is not None:
+        last["moves"], last["fills"] = moves, fills
+        last["grid"], last["mults"] = field.snap()
 
 
 def _sink(field):
@@ -281,9 +315,9 @@ def _settle(field, rnd, mode, rng, pool, steps):
                 pts = n * cfg.BAR_POINTS_SCATTER * rnd.point_mult
                 eng.add_points(rnd.bar, pts)
                 extra["points"] = pts
-            moves, fills = _remove(field, scatters, rng, pool)
-            steps.append(_step("scatter", field, cells=[list(c) for c in scatters], moves=moves, fills=fills, units=0, bar=rnd.bar.to_dict(),
-                               reign_left=rnd.reign_left, **extra))
+            bar_now = rnd.bar.to_dict()
+            _vanish(field, rnd, mode, rng, scatters, steps, lambda mv, fl: _step("scatter", field, cells=[list(c) for c in scatters], moves=mv, fills=fl,
+                                                                                   units=0, bar=bar_now, reign_left=rnd.reign_left, **extra))
             continue
         specials = [(r, row, c) for r, col in enumerate(field.grid) for row, c in enumerate(col) if c in (cfg.XDAGGER, cfg.XGUILLOTINE)]
         if specials:
@@ -306,7 +340,7 @@ def _settle(field, rnd, mode, rng, pool, steps):
         break
 
 
-def _level_up(field, rnd, rng):
+def _level_up(field, rnd, rng, mode=None, refill=True):
     """Переход полоски на следующий уровень N (после доигранных каскадов): излишек очков переносится, самый дешёвый низкий символ взрывается, средний символ
     существа N превращается в высокий (на поле и в таблице падения), открывается Wild нижнего ряда на барабане N: барабан вырастает до 5 ячеек, Wild в нижней.
     Уровни 1-4: +2 Candle Spins; уровень 5: Reign of Terror Spins +10 (оставшиеся Candle Spins переходят в Reign)."""
@@ -326,8 +360,8 @@ def _level_up(field, rnd, rng):
     field.grid[opened].append(cfg.WILD)
     field.mults[opened].append(1)
     gone = [(r, row) for r, col in enumerate(field.grid) for row, c in enumerate(col) if c == low]
-    pools = pool_for(rnd, BASE)
-    moves, fills = _remove(field, gone, rng, pools) if gone else ([], [])
+    _holes(field, gone)
+    moves, fills = _refill(field, rng, pool_for(rnd, mode or BASE)) if refill else ([], [])
     extra = {}
     if lvl <= cfg.CANDLE_MAX_LEVEL:
         rnd.candle_left += cfg.CANDLE_SPINS_PER_LEVEL
@@ -391,16 +425,16 @@ def play_spin(rnd, rng):
             if mode != REIGN and not rnd.bar.final:
                 eng.add_points(rnd.bar, eng.bar_points(field.grid, cells) * rnd.point_mult)
             wins_log = [w.as_dict() for w in wins]
-            moves, fills = _remove(field, cells, rng, pools)
             spin_units += units
-            steps.append(_step("cascade", field, wins=wins_log, cells=[list(c) for c in cells], units=units, moves=moves, fills=fills,
-                               bar=rnd.bar.to_dict()))
+            bar_now = rnd.bar.to_dict()
+            _vanish(field, rnd, mode, rng, cells, steps, lambda mv, fl: _step("cascade", field, wins=wins_log, cells=[list(c) for c in cells], units=units,
+                                                                            moves=mv, fills=fl, bar=bar_now))
             if capped:
                 rnd.capped = True
                 break
             continue
         if eng.level_ready(rnd.bar):
-            steps.append(_level_up(field, rnd, rng))
+            steps.append(_level_up(field, rnd, rng, mode))
             continue
         break
     rnd.units += spin_units

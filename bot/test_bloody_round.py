@@ -215,6 +215,30 @@ rnd.spins, rnd.candle_left = 1, 1
 check("уровень 2: барабаны 5-5-4-4-4", br.heights(rnd), [5, 5, 4, 4, 4])
 check("новое поле по высотам", [len(c) for c in br._new_field(rnd, br.CANDLE, random.Random(1), br.pool_for(rnd, br.CANDLE)).grid], [5, 5, 4, 4, 4])
 
+# ---- правило владельца: полоска набрала порог выигрышем, переход уровня сразу, до досыпки (досыпаются уже символы нового уровня)
+rnd = br.Round()
+rnd.bar = eng.BarState(0, 18)
+g = grid("M1 L5 M5 L4", "M1 L5 L4 M2", "M1 M3 L3 L2", "L4 L3 M4 M2", "M3 L2 M4 M5")   # M1 на трёх барабанах: +3 очка = 21, порог 20
+orig_field = br._new_field
+br._new_field = lambda r, mode, rg, p: br.Field([list(c) for c in g])
+try:
+    log = br.play_spin(rnd, random.Random(4))
+finally:
+    br._new_field = orig_field
+kinds = [s["type"] for s in log["steps"]]
+check("сначала выигрыш, сразу за ним переход", kinds[:2], ["cascade", "level_up"])
+first = log["steps"][0]
+check("после выигрыша досыпки нет (переход раньше)", (first["moves"], first["fills"], first["bar"]["progress"]), ([], [], 21))
+lu = log["steps"][1]
+check("в переходе взрываются L5, M5 превращаются в H5", (lu["removed"], lu["transform"], sorted(lu["cells"])), ("L5", ["M5", "H5"], [[0, 1], [1, 1]]))
+check("досыпка в шаге перехода и уже без L5 и M5", (len(lu["fills"]) > 0, [f[2] for f in lu["fills"] if f[2] in ("L5", "M5")]), (True, []))
+check("после перехода поле полное", all(c is not None for col in lu["grid"] for c in col), True)
+
+# ---- xBet 1: на первом барабане сразу несыгравший Wild (решение владельца)
+r1 = br.new_round("xbet1")
+check("xBet 1: Wild первого барабана на месте", (r1.sticky, br.heights(r1)), ([1, 0, 0, 0, 0], [5, 4, 4, 4, 4]))
+check("xBet 1: первое поле с Wild внизу первого барабана", br._new_field(r1, br.BASE, random.Random(2), br.pool_for(r1, br.BASE)).grid[0][4], "W")
+
 # ---- лимит 16161×
 rnd = br.Round()
 rnd.units = br.CAP_UNITS - 50
