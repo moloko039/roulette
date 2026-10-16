@@ -4,11 +4,29 @@ import testenv  # noqa: F401  (первым: очищает окружение �
 import asyncio
 import os
 import shutil
+import site
 import sqlite3
+import sys
 import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
+
+# Подключение site-packages виртуального окружения при запуске системным python3
+for _candidate in (
+    Path("/home/pool/.venv/lib/python3.12/site-packages"),
+    Path(__file__).resolve().parent.parent / ".venv/lib/python3.12/site-packages",
+    Path(__file__).resolve().parent / ".venv/lib/python3.12/site-packages",
+):
+    if _candidate.is_dir() and str(_candidate) not in sys.path:
+        sys.path.insert(0, str(_candidate))
+        try:
+            _user_site = Path(site.getusersitepackages())
+            _user_site.mkdir(parents=True, exist_ok=True)
+            (_user_site / "venv.pth").write_text(str(_candidate) + "\n", encoding="utf-8")
+        except Exception:
+            pass
+        break
 
 from fastapi.testclient import TestClient
 
