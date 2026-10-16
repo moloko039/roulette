@@ -260,8 +260,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .cut .counter { position: absolute; left: 0; right: 0; bottom: 18%; text-align: center; font-size: 58px; font-weight: 900; color: #fff; -webkit-text-stroke: 3px #000; paint-order: stroke fill; text-shadow: 0 5px 0 #000, 0 0 26px rgba(255, 60, 40, 0.8); font-variant-numeric: lining-nums tabular-nums; animation: jitter 0.09s steps(2) infinite; }
 .cut .counter small { display: block; font-size: 16px; letter-spacing: 0.1em; -webkit-text-stroke: 1px #000; color: #ffd9a8; }
 .cut .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
-.cut .skip { position: absolute; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); padding: 6px 12px; border-radius: 10px; border: 1px solid #5a4a4a; background: rgba(0, 0, 0, 0.6); color: #ddd; font-size: 13px; }
-.cut .okbtn { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); padding: 12px 36px; border-radius: 12px; border: 1px solid var(--gold-dim); background: linear-gradient(#7a1818, #3a0a0a); color: #fff; font-size: 16px; font-weight: 800; }
 
 /* кнопка спина: счётчик бонусных спинов, белая линия по кругу */
 .spin.count .num { display: block; font-size: 30px; font-weight: 900; line-height: 1; }
@@ -377,3 +375,26 @@ button.betbox:disabled { opacity: 0.55; }
 .auto-form .stopx { display: flex; align-items: center; gap: 8px; }
 .auto-form input { width: 110px; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: #0d0a0b; color: var(--ink); font-size: 17px; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
 .auto-form .go { width: 100%; margin-top: 14px; height: 44px; border-radius: 10px; border: 1px solid var(--blood); background: linear-gradient(#7a1a1a, #3a0909); color: #fff; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+
+/* ряд кнопок без звёздочки (решение владельца): ставка занимает освободившееся место слева, спин на прежнем месте справа, чуть крупнее; размеры
+   фиксированы, надпись спина не двигает кнопку */
+.row-main { display: grid; grid-template-columns: minmax(0, 1fr) 94px 46px; align-items: center; gap: 10px; }
+.row-main .betbox { min-height: 62px; justify-content: center; }
+.row-main .spin { width: 94px; height: 94px; justify-self: center; margin: 0; }
+.row-main .spin svg { inset: 6px; width: 82px; height: 82px; }
+.row-main #btn-buy { justify-self: end; }
+.spin span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 84px; padding: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.spin.count span { white-space: normal; }
+.cut .tap-hint { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); margin: 0; text-align: center; font-size: 12px; letter-spacing: 0.08em; color: rgba(230, 220, 205, 0.55); pointer-events: none; }
+
+/* карточка итога раунда: мягко появляется и гаснет, игру не перекрывает (нажатия проходят насквозь) */
+.total-card { position: absolute; left: 50%; top: 42%; width: min(78vw, 300px); aspect-ratio: 1; transform: translate(-50%, -50%); display: grid; place-items: center; z-index: 40; pointer-events: none; }
+.total-card .octagram { position: absolute; inset: 0; width: 100%; height: 100%; }
+.total-card .octagram * { fill: none; stroke: rgba(200, 40, 40, 0.38); stroke-width: 1.6; }
+.total-card .octagram path { stroke: rgba(220, 50, 50, 0.5); stroke-width: 2.2; filter: drop-shadow(0 0 6px rgba(200, 30, 30, 0.45)); }
+.total-card .tc-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 18px; border-radius: 14px; background: radial-gradient(rgba(20, 8, 9, 0.88), rgba(20, 8, 9, 0.55) 70%, transparent); }
+.total-card small { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.total-card b { font-size: 34px; line-height: 1.05; color: var(--gold); text-shadow: 0 2px 0 #000, 0 0 14px rgba(230, 184, 92, 0.35); font-variant-numeric: lining-nums tabular-nums; }
+.total-card i { font-style: normal; font-size: 16px; font-weight: 800; color: #e86a5a; }
+@media (prefers-reduced-motion: reduce) { .total-card .octagram path { filter: none; } }
+.app { position: relative; }

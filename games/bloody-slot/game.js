@@ -8,7 +8,7 @@
     app: $('app'), board: $('board'), boardWrap: $('board-wrap'), wildrow: $('wildrow'), fx: $('fx'), fxtop: $('fxtop'), floor: $('floor'), balance: $('balance'),
     modeTitle: $('mode-title'), modeNote: $('mode-note'), bar: $('bar'), runes: $('runes'), barFill: $('bar-fill'), barPoints: $('bar-points'),
     winline: $('winline'), winTotal: $('win-total'), winMult: $('win-mult'), betValue: $('bet-value'), costBox: $('cost-box'), costLabel: $('cost-label'),
-    costValue: $('cost-value'), spin: $('btn-spin'), spinLabel: $('spin-label'), betOpen: $('bet-open'), boostBadge: $('boost-badge'), star: $('btn-star'), buy: $('btn-buy'),
+    costValue: $('cost-value'), spin: $('btn-spin'), spinLabel: $('spin-label'), betOpen: $('bet-open'), boostBadge: $('boost-badge'), buy: $('btn-buy'),
     auto: $('btn-auto'), turbo: $('btn-turbo'), bets: $('btn-bets'), menu: $('btn-menu'), toast: $('toast'), banner: $('banner'), cut: $('cut'), intro: $('intro'),
     sheet: $('sheet'), sheetTitle: $('sheet-title'), sheetBody: $('sheet-body'), sheetClose: $('sheet-close'), sheetDim: $('sheet-dim')
   };
@@ -29,15 +29,16 @@
 
   var st = {
     settings: null, bet: 20, buy: null, view: null, busy: false, auto: false, turbo: false, balance: null, cell: 70, cells: [], grid: null,
-    favs: [], mode: null, ready: false, sheet: null,
+    mode: null, ready: false, sheet: null,
     boost: null,                                      // включённый бустер (xBet 1 или xBet 2): работает на каждом спине, пока не выключат
     autoLeft: 0, autoStopX: 50                        // автоигра: сколько раундов осталось и множитель выигрыша, на котором она останавливается
   };
   var BOOSTS = ['xbet1', 'xbet2'];                    // бустеры; остальные покупки (Виселица, Reign, Lucky Draw) разовые, с подтверждением
   var BOOST_SHORT = { xbet1: 'xBet 1', xbet2: 'xBet 2' };
   var AUTO_COUNTS = [10, 25, 50, 100];
+  var BIG_WIN_X = 20;                                 // большая анимация от ×20 ставки за одну сыгровку (решение владельца)
   try { st.turbo = localStorage.getItem('bloody_turbo') === '1'; } catch (e) { /* без хранилища */ }
-  try { st.favs = JSON.parse(localStorage.getItem('bloody_favs') || '[]'); } catch (e) { st.favs = []; }
+  try { localStorage.removeItem('bloody_favs'); } catch (e) { /* быстрых ставок (звёздочки) больше нет: убираем их след в браузере */ }
   try { st.boost = BOOSTS.indexOf(localStorage.getItem('bloody_boost')) >= 0 ? localStorage.getItem('bloody_boost') : null; } catch (e) { st.boost = null; }
   try { var sx = Number(localStorage.getItem('bloody_auto_x')); if (sx >= 1) st.autoStopX = sx; } catch (e) { /* по умолчанию 50 */ }
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -317,7 +318,7 @@
     var thr = bar.threshold;
     var ratio = thr ? Math.min(1, bar.progress / thr) : 1;
     els.barFill.style.transform = 'scaleX(' + ratio.toFixed(3) + ')';
-    els.barPoints.textContent = thr ? (bar.progress + ' / ' + thr) : 'Ритуал завершён';
+    els.barPoints.textContent = thr ? (Math.floor(bar.progress) + ' / ' + thr) : 'Ритуал завершён';
   }
   // open: сколько барабанов слева уже из 5 ячеек (их замок снят); just: барабан, чей Wild открылся только что (пламя, замок рассыпается)
   function renderWilds(open, just) {
@@ -380,7 +381,7 @@
       els.spinLabel.textContent = st.buy && !active ? 'Купить' : 'Крутить';
     }
     var lock = st.busy || active;
-    els.betOpen.disabled = els.bets.disabled = els.star.disabled = els.buy.disabled = lock;
+    els.betOpen.disabled = els.bets.disabled = els.buy.disabled = lock;
     els.auto.setAttribute('aria-pressed', String(st.auto));
     els.auto.textContent = st.auto ? 'Стоп · ' + st.autoLeft : 'Авто';
     els.turbo.setAttribute('aria-pressed', String(st.turbo));
@@ -436,6 +437,7 @@
     setWin(chips(ctx.units), ctx.units / 100);
     if (step.bar) renderBar(step.bar);
     await sleep(300);
+    if (step.units / 100 >= BIG_WIN_X) { haptic('success'); await bigWin(chips(step.units), step.units / 100); }
     removeCells(cells);
     await applyMovesFills(step.moves, step.fills);
   }
@@ -563,6 +565,20 @@
       setTimeout(finish, Math.max(900, 2600 * speed()));
     });
   }
+  // конец раунда с выигрышем: мягкая карточка с общим выигрышем и множителем на бледной красной октограмме; игру не останавливает и закрывается сама
+  function showTotal(payout, mult) {
+    var el = document.createElement('div');
+    el.className = 'total-card';
+    el.setAttribute('role', 'status');
+    el.innerHTML = BFX.octagram() + '<div class="tc-body"><small>Общий выигрыш</small><b></b><i></i></div>';
+    el.querySelector('b').textContent = fmt(payout);
+    el.querySelector('i').textContent = '×' + (Math.round(mult * 100) / 100);
+    els.app.appendChild(el);
+    var hold = Math.max(900, 1700 * speed());
+    var a = el.animate([{ opacity: 0, transform: 'translate(-50%, -50%) scale(0.92)' }, { opacity: 1, transform: 'translate(-50%, -50%) scale(1)', offset: 0.18 },
+      { opacity: 1, transform: 'translate(-50%, -50%) scale(1)', offset: 0.8 }, { opacity: 0, transform: 'translate(-50%, -50%) scale(1.03)' }], { duration: hold + 700, easing: 'ease-out', fill: 'forwards' });
+    a.finished.catch(function () {}).then(function () { el.remove(); });
+  }
   // итог розыгрыша Lucky Draw (сервер выбрал уровень при покупке): Reign показывается своей заставкой
   function showLuckyDraw(view) {
     var level = view.round.draw;
@@ -571,11 +587,15 @@
     var item = ((st.settings && st.settings.lucky_draw) || []).filter(function (d) { return d.level === level; })[0];
     return showBanner('', 'Lucky Draw', 'Уровень полоски <b>' + level + '</b><br>Candle Spins: ' + (item ? item.spins : ''));
   }
+  // большая комбинация (одна сыгровка от BIG_WIN_X ставки, решение владельца). Картинки идут по счётчику множителя: с ×20 культисты, с ×40 «TIME HAS COME»
+  // (монахиня), с ×80 монахиня превращается в ведьму, с ×120 «OH, GUILLOTINE». Нажатие по экрану перескакивает к следующему порогу, после последнего порога к итоговой
+  // сумме, ещё одно нажатие закрывает окно; без нажатий окно закрывается само
+  var BIG_TIERS = [20, 40, 80, 120];
   function bigWin(payout, mult) {
-    var scenes = mult >= 100 ? 3 : mult >= 30 ? 2 : 1;
+    var scenes = mult >= 120 ? 3 : mult >= 40 ? 2 : 1;
     els.cut.className = 'cut';
     els.cut.innerHTML = '<div class="scene s1 on">' + BFX.scene1() + '</div>' + (scenes >= 2 ? '<div class="scene s2">' + BFX.scene2() + '</div>' : '') + (scenes >= 3 ? '<div class="scene s3">' + BFX.scene3() + '</div>' : '') +
-      '<div class="caption"></div><div class="counter"><span></span><small></small></div><div class="flash"></div><button type="button" class="skip">Пропустить</button>';
+      '<div class="caption"></div><div class="counter"><span></span><small></small></div><div class="flash"></div><p class="tap-hint">Нажмите, чтобы ускорить</p>';
     els.cut.hidden = false;
     var counter = els.cut.querySelector('.counter span');
     var sub = els.cut.querySelector('.counter small');
@@ -584,46 +604,66 @@
     var sceneEls = els.cut.querySelectorAll('.scene');
     var total = (2400 * scenes + 800) * speed();
     var t0 = performance.now();
+    var shift = 0;                                    // перескок по нажатию: доля анимации, добавленная к прошедшему времени
     var cur = 0;
     var finished = false;
-    var bladeDone = false;
+    var closed = false;
+    function ease(t) { return 1 - Math.pow(1 - t, 3); }
+    function tOf(x) { return 1 - Math.pow(1 - Math.min(1, x / mult), 1 / 3); }    // доля анимации, на которой счётчик доходит до ×x
     function showScene(i, cap) {
+      if (cur === i) return;
       cur = i;
-      sceneEls.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+      sceneEls.forEach(function (sc, k) { sc.classList.toggle('on', k === i); });
       caption.textContent = cap || '';
       flash.animate([{ opacity: 0.95 }, { opacity: 0 }], { duration: 260 * speed(), easing: 'ease-out' });
       haptic('medium');
     }
+    function stage(x) {
+      if (x >= 40 && scenes >= 2 && cur === 0) showScene(1, 'TIME HAS COME');
+      if (x >= 80 && cur === 1 && !els.cut.classList.contains('morph')) { els.cut.classList.add('morph'); flash.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420 * speed() }); }
+      if (x >= 120 && scenes >= 3 && cur === 1) showScene(2, 'OH, GUILLOTINE');
+    }
+    function draw(t) {
+      var x = mult * ease(t);
+      counter.textContent = fmt(payout * ease(t));
+      sub.textContent = '×' + (Math.round(x * 100) / 100);
+      stage(x);
+    }
     return new Promise(function (resolve) {
+      function close() {
+        if (closed) return;
+        closed = true;
+        els.cut.hidden = true;
+        els.cut.onclick = null;
+        resolve();
+      }
       function end() {
         if (finished) return;
         finished = true;
+        draw(1);
         counter.textContent = fmt(payout);
         sub.textContent = '×' + (Math.round(mult * 100) / 100);
-        if (scenes === 3) { showScene(2, 'OH, GUILLOTINE'); if (!bladeDone) { els.cut.classList.add('drop'); bladeDone = true; } }
+        if (scenes === 3) els.cut.classList.add('drop');
         flash.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400 * speed(), easing: 'ease-out' });
         BFX.shake(els.cut, 12, 500);
         haptic('heavy');
-        var ok = document.createElement('button');
-        ok.type = 'button';
-        ok.className = 'okbtn';
-        ok.textContent = 'Забрать';
-        els.cut.appendChild(ok);
-        var close = function () { els.cut.hidden = true; resolve(); };
-        ok.onclick = close;
-        if (st.auto) setTimeout(close, 900 * speed() + 300);
+        els.cut.querySelector('.tap-hint').textContent = 'Нажмите, чтобы закрыть';
+        setTimeout(close, 1100 * speed() + 500);          // игра не стоит: окно закрывается само (фриспины и автоигра идут дальше)
       }
-      els.cut.querySelector('.skip').onclick = function () { if (!finished) end(); };
+      els.cut.onclick = function () {
+        if (finished) { close(); return; }
+        var now = Math.min(1, (performance.now() - t0) / total + shift);
+        var shown = mult * ease(now);
+        var next = BIG_TIERS.filter(function (x) { return x > shown + 0.01 && x < mult; })[0];
+        if (next === undefined) { end(); return; }
+        shift += tOf(next) - now;
+        draw(tOf(next));
+        haptic('light');
+      };
       (function tick(now) {
         if (finished) return;
-        var t = Math.min(1, (now - t0) / total);
-        var v = payout * (1 - Math.pow(1 - t, 3));
-        counter.textContent = fmt(v);
-        sub.textContent = '×' + (Math.round(mult * (1 - Math.pow(1 - t, 3)) * 100) / 100);
-        if (scenes === 2 && cur === 0 && t > 0.45) { showScene(1, 'TIME HAS COME'); }
-        if (scenes === 3 && cur === 0 && t > 0.28) { showScene(1, 'TIME HAS COME'); }
-        if (scenes >= 2 && cur === 1 && t > (scenes === 2 ? 0.78 : 0.5) && !els.cut.classList.contains('morph')) { els.cut.classList.add('morph'); flash.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 420 * speed() }); }
-        if (scenes === 3 && cur === 1 && t > 0.64) { showScene(2, 'OH, GUILLOTINE'); }
+        var t = Math.min(1, (now - t0) / total + shift);
+        draw(t);
         if (t >= 1) { end(); return; }
         requestAnimationFrame(tick);
       })(t0);
@@ -679,8 +719,7 @@
       if (view.payout > 0) {
         haptic('success');
         var xm = view.round.units / 100;
-        if (xm >= 10) await bigWin(view.payout, xm);
-        else await showBanner(view.round.capped ? 'reign' : '', 'Итог раунда', 'Выигрыш<br><b>' + fmt(view.payout) + '</b><br>×' + (Math.round(xm * 100) / 100));
+        showTotal(view.payout, xm);
         if (st.auto && xm >= st.autoStopX) stopAuto('Автоигра остановлена: выигрыш ×' + (Math.round(xm * 100) / 100));
       } else { haptic('error'); }
       if (st.auto && st.autoLeft <= 0) stopAuto('Автоигра закончена');
@@ -798,12 +837,11 @@
     els.sheet.hidden = false;
   }
   function closeSheet() { els.sheet.hidden = true; st.sheet = null; }
-  function betsSheet(favOnly) {
+  function betsSheet() {
     var wrap = document.createElement('div');
     var grid = document.createElement('div');
     grid.className = 'bets-grid';
-    var list = favOnly ? st.favs.filter(function (b) { return st.settings.bets.indexOf(b) >= 0; }) : st.settings.bets;
-    list.forEach(function (b) {
+    st.settings.bets.forEach(function (b) {
       var o = document.createElement('button');
       o.type = 'button';
       o.className = 'opt';
@@ -812,23 +850,7 @@
       o.onclick = function () { setBet(b); closeSheet(); };
       grid.appendChild(o);
     });
-    if (favOnly && !list.length) { var p = document.createElement('p'); p.className = 'note'; p.textContent = 'Пока пусто: добавьте текущую ставку.'; wrap.appendChild(p); }
     wrap.appendChild(grid);
-    if (favOnly) {
-      var add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'opt';
-      var has = st.favs.indexOf(st.bet) >= 0;
-      add.innerHTML = '<b></b>';
-      add.firstChild.textContent = has ? '★ Убрать текущую ставку' : '★ Добавить текущую ставку (' + fmt(st.bet) + ')';
-      add.style.marginTop = '10px';
-      add.onclick = function () {
-        st.favs = has ? st.favs.filter(function (b) { return b !== st.bet; }) : st.favs.concat([st.bet]).slice(-6);
-        try { localStorage.setItem('bloody_favs', JSON.stringify(st.favs)); } catch (e) { /* не страшно */ }
-        closeSheet();
-      };
-      wrap.appendChild(add);
-    }
     return wrap;
   }
   function buyOption(k, pressed, stateText, onclick) {
@@ -951,9 +973,8 @@
 
   // ---------- события ----------
   els.spin.onclick = onSpinPress;
-  els.betOpen.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet(false)); };
-  els.bets.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet(false)); };
-  els.star.onclick = function () { if (st.settings) openSheet('Быстрые ставки', betsSheet(true)); };
+  els.betOpen.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet()); };
+  els.bets.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet()); };
   els.buy.onclick = function () { if (st.settings) openSheet('Купить функцию', buySheet()); };
   els.menu.onclick = function () { if (st.settings) openSheet('Правила и выплаты', menuSheet()); };
   els.auto.onclick = function () { if (st.auto) { stopAuto('Автоигра остановлена'); return; } if (st.settings) openSheet('Автоигра', autoSheet()); };
@@ -962,7 +983,7 @@
   els.sheetDim.onclick = function () { closeSheet(); bonusNext(); };
   window.addEventListener('resize', function () { measure(); if (!st.busy) for (var c = 0; c < REELS; c++) for (var r = 0; st.cells[c] && r < st.cells[c].length; r++) if (st.cells[c][r]) place(st.cells[c][r], c, r); });
 
-  if (/[?&]debug=1/.test(window.location.search)) window.__bloody = { st: st, playSpin: playSpin, bigWin: bigWin, showReignIntro: showReignIntro, confirmBuy: confirmBuy, setMode: setMode, renderBar: renderBar, renderWilds: renderWilds, playStep: playStep, setGridStatic: setGridStatic, dealGrid: dealGrid, plunge: plunge, startBlur: startBlur };   // помощники для проверки анимаций
+  if (/[?&]debug=1/.test(window.location.search)) window.__bloody = { st: st, playSpin: playSpin, bigWin: bigWin, showTotal: showTotal, showReignIntro: showReignIntro, confirmBuy: confirmBuy, setMode: setMode, renderBar: renderBar, renderWilds: renderWilds, playStep: playStep, setGridStatic: setGridStatic, dealGrid: dealGrid, plunge: plunge, startBlur: startBlur };   // помощники для проверки анимаций
   buildBar();
   clearBoard();
   setGridStatic(DEMO, null);
