@@ -363,3 +363,17 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .board-area .wslot.just { opacity: 1; animation: wild-open 0.9s ease-out; }
 .sym.sticky::before { content: ""; position: absolute; left: 6%; right: 6%; bottom: 3px; height: 7px; z-index: 1; border-radius: 3px; pointer-events: none;
   background: repeating-linear-gradient(90deg, #8d949b 0 6px, #3f454b 6px 8px); box-shadow: 0 1px 0 #000; opacity: 0.9; }
+
+/* панель v3: ставка меняется только выбором из списка (кнопка «Ставка» или нажатие на ставку), бустер на кнопке спина, окно автоигры */
+button.betbox { border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(#211b1e, #121011); padding: 5px 4px; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+button.betbox > b { font-size: 18px; font-variant-numeric: lining-nums tabular-nums; }
+button.betbox:disabled { opacity: 0.55; }
+.boost-badge { position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); padding: 2px 7px; border-radius: 9px; border: 1px solid var(--gold-dim); background: linear-gradient(#3b2a0c, #1b1305); color: var(--gold); font-size: 10px; font-style: normal; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7); z-index: 2; }
+.boost-badge[hidden] { display: none; }
+#btn-buy.on { box-shadow: 0 0 0 2px var(--gold-dim), 0 0 12px rgba(230, 184, 92, 0.6); }
+.sheet .group { margin: 12px 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.sheet .opt .state { font-size: 11px; font-weight: 800; color: var(--gold); text-transform: uppercase; }
+.auto-form label { display: block; margin: 12px 0 6px; font-size: 12px; color: var(--muted); }
+.auto-form .stopx { display: flex; align-items: center; gap: 8px; }
+.auto-form input { width: 110px; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: #0d0a0b; color: var(--ink); font-size: 17px; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.auto-form .go { width: 100%; margin-top: 14px; height: 44px; border-radius: 10px; border: 1px solid var(--blood); background: linear-gradient(#7a1a1a, #3a0909); color: #fff; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
