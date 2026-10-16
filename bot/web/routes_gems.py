@@ -3,6 +3,7 @@
 Баланс кристаллов отдаёт /api/me (поле gems). Оплату принимает бот (pre_checkout_query и successful_payment, tg/payments.py)."""
 import json
 import logging
+import os
 import time
 
 from fastapi import Header, Request
@@ -65,6 +66,9 @@ def register(app, ctx):
             if last[1] == request_id:
                 return {"invoice_url": last[2], "replayed": True}
             return JSONResponse({"error": "too_many_requests"}, status_code=429, headers={"Retry-After": str(max(1, int(GEM_INVOICE_INTERVAL - (now - last[0]))))})
+        env_mode = getattr(app.state, "env", None) or getattr(ctx, "env", None)
+        if env_mode == "staging" and os.environ.get("STAGING_ALLOW_PAYMENTS") != "1":
+            return JSONResponse({"detail": "staging_payments_disabled"}, status_code=403)
         title = ("Кристаллы: %d" % gems)[:32]
         text = "Пакет кристаллов (%d). Кристаллы тратятся на предметы оформления, на шансы в играх не влияют." % gems
         try:
