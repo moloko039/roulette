@@ -302,7 +302,8 @@
     RUNE_ORDER.forEach(function (sym) {
       var d = document.createElement('div');
       d.className = 'rune';
-      d.innerHTML = '<img src="img/' + sym + '.webp" alt="">';
+      d.dataset.sym = sym;
+      d.innerHTML = '<i class="glyph"></i>';            // только сам знак (маска img/rune-*.webp), без плитки: серый, на сгоревшем уровне горит оранжевым
       els.runes.appendChild(d);
     });
     els.wildrow.textContent = '';
