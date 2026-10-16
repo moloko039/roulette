@@ -57,10 +57,17 @@ RIBBON_CSS = """\
 API_URL_RE = re.compile(r"const API_URL = '[^']*';")
 
 
+def _read_env(mapping, key: str):
+    """Чтение переменной из переданного словаря настроек."""
+    if mapping is None:
+        return None
+    return mapping.get(key)
+
+
 def is_staging(env) -> bool:
     """Проверяет, включён ли тестовый режим (APP_ENV == 'staging')."""
     global _warned_app_env
-    app_env = env.get("APP_ENV")
+    app_env = _read_env(env, "APP_ENV")
     if not app_env:
         return False
     if app_env == "staging":
@@ -73,13 +80,17 @@ def is_staging(env) -> bool:
 
 def find_client_dir(env) -> Path:
     """Находит директорию клиента: CLIENT_DIR или папка-родитель bot/."""
-    client_dir_str = env.get("CLIENT_DIR")
+    client_dir_str = _read_env(env, "CLIENT_DIR")
     if client_dir_str:
         client_dir = Path(client_dir_str).resolve()
     else:
         # Папка-родитель bot/
         client_dir = Path(__file__).resolve().parent.parent
-    if not (client_dir / "index.html").is_file():
+    index_path = (client_dir / "index.html").resolve()
+    try:
+        if not index_path.is_relative_to(client_dir.resolve()) or not index_path.is_file():
+            raise SystemExit(f"Не найден index.html в папке клиента: {client_dir}")
+    except (ValueError, AttributeError):
         raise SystemExit(f"Не найден index.html в папке клиента: {client_dir}")
     return client_dir
 
@@ -116,17 +127,27 @@ def patch_index_html(html_text: str) -> str:
 
 def validate_client(client_dir: Path):
     """Проверяет при старте наличие и корректность файлов клиента для подмены."""
-    index_file = client_dir / "index.html"
-    if not index_file.is_file():
+    resolved_client = client_dir.resolve()
+    index_file = (client_dir / "index.html").resolve()
+    try:
+        if not index_file.is_relative_to(resolved_client) or not index_file.is_file():
+            raise SystemExit(f"Не найден index.html в папке клиента: {client_dir}")
+    except (ValueError, AttributeError):
         raise SystemExit(f"Не найден index.html в папке клиента: {client_dir}")
     index_content = index_file.read_text(encoding="utf-8")
     patch_index_html(index_content)
 
-    config_file = client_dir / "js" / "00-config.js"
-    if not config_file.is_file():
+    config_file = (client_dir / "js" / "00-config.js").resolve()
+    try:
+        if not config_file.is_relative_to(resolved_client) or not config_file.is_file():
+            raise SystemExit(f"Не найден js/00-config.js в папке клиента: {client_dir}")
+    except (ValueError, AttributeError):
         raise SystemExit(f"Не найден js/00-config.js в папке клиента: {client_dir}")
     config_content = config_file.read_text(encoding="utf-8")
     patch_config_js(config_content)
+
+
+ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 
 
 def register(app, client_dir: Path):
@@ -134,12 +155,16 @@ def register(app, client_dir: Path):
     client_dir = Path(client_dir).resolve()
     validate_client(client_dir)
 
-    @app.api_route("/_staging/ribbon.css", methods=["GET", "HEAD"])
+    @app.api_route("/_staging/ribbon.css", methods=ALL_METHODS)
     def staging_ribbon(request: Request):
+        if request.method not in ("GET", "HEAD"):
+            return Response(status_code=404)
         return Response(RIBBON_CSS, media_type="text/css; charset=utf-8", headers=STAGING_HEADERS)
 
-    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"])
+    @app.api_route("/{full_path:path}", methods=ALL_METHODS)
     def serve_staging(request: Request, full_path: str):
+        if request.method not in ("GET", "HEAD"):
+            return Response(status_code=404)
         raw_path = request.scope.get("raw_path") or b""
         path_str = request.url.path
         unquoted = unquote(path_str)
@@ -168,22 +193,33 @@ def register(app, client_dir: Path):
             return Response(status_code=404)
 
         # 2. Корневые разрешённые файлы
+        resolved_client = client_dir.resolve()
+
         if path_str in ("/", "/index.html"):
-            index_path = client_dir / "index.html"
-            if not index_path.is_file():
+            index_path = (client_dir / "index.html").resolve()
+            try:
+                if not index_path.is_relative_to(resolved_client) or not index_path.is_file():
+                    return Response(status_code=404)
+            except (ValueError, AttributeError):
                 return Response(status_code=404)
             patched = patch_index_html(index_path.read_text(encoding="utf-8"))
             return Response(patched, media_type="text/html; charset=utf-8", headers=STAGING_HEADERS)
 
         if path_str == "/privacy.html":
-            target = client_dir / "privacy.html"
-            if not target.is_file():
+            target = (client_dir / "privacy.html").resolve()
+            try:
+                if not target.is_relative_to(resolved_client) or not target.is_file():
+                    return Response(status_code=404)
+            except (ValueError, AttributeError):
                 return Response(status_code=404)
             return Response(target.read_text(encoding="utf-8"), media_type="text/html; charset=utf-8", headers=STAGING_HEADERS)
 
         if path_str == "/terms.html":
-            target = client_dir / "terms.html"
-            if not target.is_file():
+            target = (client_dir / "terms.html").resolve()
+            try:
+                if not target.is_relative_to(resolved_client) or not target.is_file():
+                    return Response(status_code=404)
+            except (ValueError, AttributeError):
                 return Response(status_code=404)
             return Response(target.read_text(encoding="utf-8"), media_type="text/html; charset=utf-8", headers=STAGING_HEADERS)
 

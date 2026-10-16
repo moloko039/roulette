@@ -252,6 +252,12 @@ try:
     check("сырой запрос /../ дает 404", raw_get(app_staging, "/../", b"/../"), 404)
     check("сырой запрос с нулевым байтом дает 404", raw_get(app_staging, "/css/test\x00.css", b"/css/test\x00.css"), 404)
 
+    # Проверка методов отличных от GET/HEAD (строго 404, а не 405)
+    for bad_method_url in ("/bot/.env", "/index.html", "/_staging/ribbon.css", "/unknown", "/api/nonexistent", "/css/00-fonts-tokens.css"):
+        check(f"POST {bad_method_url} дает 404", client_staging.post(bad_method_url).status_code, 404)
+        check(f"PUT {bad_method_url} дает 404", client_staging.put(bad_method_url).status_code, 404)
+        check(f"DELETE {bad_method_url} дает 404", client_staging.delete(bad_method_url).status_code, 404)
+
     # Символьные ссылки наружу на временной копии клиента
     symlink_dir = tempfile.mkdtemp(dir=tmp_dir)
     try:
@@ -259,17 +265,33 @@ try:
         shutil.copytree(client_dir / "js", Path(symlink_dir) / "js")
         os.makedirs(Path(symlink_dir) / "css", exist_ok=True)
         # Символьная ссылка на файл наружу (/etc/passwd или bot/.env)
-        secret_file = Path(symlink_dir) / "outside_secret.txt"
+        secret_file = Path(tmp_dir) / "outside_secret.txt"
         secret_file.write_text("SUPER_SECRET")
         os.symlink(secret_file, Path(symlink_dir) / "css" / "leak.css")
         # Символьная ссылка на файл внутри клиента, но не из css/ (например index.html)
         os.symlink(Path(symlink_dir) / "index.html", Path(symlink_dir) / "css" / "internal_leak.html")
+        # Символьные ссылки на privacy.html и terms.html наружу
+        os.symlink(secret_file, Path(symlink_dir) / "privacy.html")
+        os.symlink(secret_file, Path(symlink_dir) / "terms.html")
 
         client_sym = TestClient(create_app(TOKEN, [], db_path=path_db, client_dir=symlink_dir))
         check("символьная ссылка наружу дает 404", client_sym.get("/css/leak.css").status_code, 404)
         check("символьная ссылка на чужой каталог внутри дает 404", client_sym.get("/css/internal_leak.html").status_code, 404)
+        check("символьная ссылка privacy.html наружу дает 404", client_sym.get("/privacy.html").status_code, 404)
+        check("символьная ссылка terms.html наружу дает 404", client_sym.get("/terms.html").status_code, 404)
     finally:
         shutil.rmtree(symlink_dir, ignore_errors=True)
+
+    # Символьная ссылка index.html наружу при старте вызывает SystemExit
+    symlink_index_dir = tempfile.mkdtemp(dir=tmp_dir)
+    try:
+        secret_index = Path(tmp_dir) / "outside_index.html"
+        secret_index.write_text("<!DOCTYPE html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"connect-src 'none';\"></head><body></body></html>")
+        os.symlink(secret_index, Path(symlink_index_dir) / "index.html")
+        shutil.copytree(client_dir / "js", Path(symlink_index_dir) / "js")
+        raises(SystemExit, create_app, TOKEN, [], db_path=path_db, client_dir=symlink_index_dir)
+    finally:
+        shutil.rmtree(symlink_index_dir, ignore_errors=True)
 
     # ================= 9. Оплата в staging (403 и STAGING_ALLOW_PAYMENTS=1) =================
     fake_bot = FakeBot()
