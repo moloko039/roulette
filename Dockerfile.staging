@@ -21,6 +21,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app/bot
 
+# Railway создаёт том с правами root: в переменных сервиса нужна RAILWAY_RUN_UID=0 (см. docs/STAGING.md), иначе appuser не запишет базу в /data
 USER appuser
 
 # Shell-форма запуска для автоматической подстановки переменной окружения $PORT от Railway

@@ -75,11 +75,8 @@
 
 ---
 
-### Шаг 2. Создать ветку staging в Git
-На компьютере выполните команду, которая создаст ветку `staging` на GitHub из текущей `main`:
-```bash
-git push origin main:staging
-```
+### Шаг 2. Ветка staging в Git
+Ветку `staging` на GitHub создаёт ведущий разработчик (из текущей `main`), вам делать ничего не нужно. Если её по какой-то причине нет, команда такая: `git push origin main:staging`.
 
 ---
 
@@ -122,6 +119,9 @@ git push origin main:staging
 | `TOMBSTONE_SECRET` | Новый случайный ключ (сгенерируйте командой `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`) |
 | `MEMBER_REF_SECRET` | Новый случайный ключ (сгенерируйте командой `python3 -c "import secrets; print(secrets.token_hex(32))"`) |
 | `OWNER_CHAT_ID` | Ваш числовой Telegram ID (чтобы вам были доступны скрытые команды начисления) |
+| `RAILWAY_RUN_UID` | `0` (образ запускается не от root, а Railway создаёт том с правами root; с этой переменной база сможет записаться в `/data`, это приём из документации Railway, **не проверено** на этом проекте) |
+
+Если после запуска в логе сервиса есть ошибка записи в `/data`, проверьте, что `RAILWAY_RUN_UID=0` задана и том подключён к сервису `staging`.
 
 **Чего делать НЕЛЬЗЯ:**
 - НЕ вставляйте боевой `BOT_TOKEN`;
