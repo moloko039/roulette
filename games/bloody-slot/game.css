@@ -316,11 +316,19 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 
 /* камни с низкими символами: сгорают по уровням */
 .runes { display: grid; grid-template-columns: repeat(5, var(--cell)); height: calc(var(--cell) * 0.42); }
+/* камни-руны (решение владельца): цельные каменные плитки, в каждой только знак младшего символа своего тира по порядку (глаз, хвост, рога, клыки, крест),
+   высеченный тёмным; когда тир собран и символ ушёл с поля, знак разгорается оранжевым, как горящая руна (плитка остаётся каменной) */
 .rune { position: relative; margin: 0 2px; overflow: hidden; border-radius: 5px; border: 1px solid #1d1a1c; background: linear-gradient(#4a4a4f, #2c2c30); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 -6px 10px rgba(0, 0, 0, 0.5); }
-.rune img { position: absolute; left: 50%; top: 50%; width: 120%; height: auto; transform: translate(-50%, -50%); filter: grayscale(1) brightness(0.55) contrast(1.3); opacity: 0.55; }
-.rune.burned { background: linear-gradient(#1a0a0a, #0a0505); }
-.rune.burned img { opacity: 0.12; filter: grayscale(1) brightness(0.25); }
-.rune.burned::after { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 46%, rgba(220, 50, 40, 0.55) 49%, transparent 54%), linear-gradient(45deg, transparent 46%, rgba(220, 50, 40, 0.35) 49%, transparent 54%); }
+.rune .glyph { position: absolute; left: 50%; top: 50%; height: 88%; aspect-ratio: 1; transform: translate(-50%, -50%); background: #17141a;
+  -webkit-mask: var(--rune) center / contain no-repeat; mask: var(--rune) center / contain no-repeat; filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.12)); transition: background 0.6s ease-out, filter 0.6s ease-out; }
+.rune[data-sym="L5"] { --rune: url(img/rune-L5.webp); }
+.rune[data-sym="L4"] { --rune: url(img/rune-L4.webp); }
+.rune[data-sym="L3"] { --rune: url(img/rune-L3.webp); }
+.rune[data-sym="L2"] { --rune: url(img/rune-L2.webp); }
+.rune[data-sym="L1"] { --rune: url(img/rune-L1.webp); }
+.rune.burned .glyph { background: radial-gradient(circle at 50% 55%, #fff3c4, #ffb03a 35%, #ff6a12 70%, #c23a06); filter: drop-shadow(0 0 3px rgba(255, 140, 40, 0.95)) drop-shadow(0 0 7px rgba(255, 90, 20, 0.6)); animation: rune-burn 2.2s ease-in-out infinite alternate; }
+@keyframes rune-burn { from { filter: drop-shadow(0 0 2px rgba(255, 130, 35, 0.8)) drop-shadow(0 0 5px rgba(255, 80, 15, 0.45)); } to { filter: drop-shadow(0 0 4px rgba(255, 170, 60, 1)) drop-shadow(0 0 10px rgba(255, 100, 25, 0.75)); } }
+@media (prefers-reduced-motion: reduce) { .rune.burned .glyph { animation: none; } }
 
 /* шкала крови в металлической раме */
 .meter { position: relative; height: 26px; overflow: hidden; border-radius: 6px; border: 2px solid #62666d; background: #0a0707; box-shadow: 0 0 0 1px #000, inset 0 0 8px #000; }
