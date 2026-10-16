@@ -62,6 +62,19 @@
 
 ---
 
+## Что уже настроено (ведущий, 2026-10-17)
+
+Шаги 2-5 ниже ведущий выполнил сам, повторять не нужно:
+- ветка `staging` создана; в Railway (проект игры) есть окружение `staging`, в нём сервис `roulette-staging` со своим томом `staging-data` (`/data`, 500 МБ) и сборкой по `Dockerfile.staging` из ветки `staging`; каждый push в ветку `staging` выкатывается автоматически;
+- адрес тестового сервиса: `https://roulette-staging-staging.up.railway.app/` (его вставляют в BotFather как адрес Mini App);
+- заданы `APP_ENV`, `DB_PATH`, `PORT`, `RAILWAY_RUN_UID`, `RAILWAY_DOCKERFILE_PATH`, `ALLOWED_ORIGINS`, `WEBAPP_URL`, новые случайные `TOMBSTONE_SECRET`, `MEMBER_REF_SECRET`, `WEBHOOK_SECRET`, `OWNER_CHAT_ID` (ваш, скопирован из боевого);
+- `BOT_TOKEN` пока заглушка: сервер работает в режиме «только API» (бота нет, страница открывается, вход в игру не проходит, потому что подпись Telegram проверяется токеном);
+- боевое окружение не менялось (проверено: тот же сервис, том и переменные).
+
+**Что осталось вам:** создать тестового бота в @BotFather (шаг 1), в Railway → окружение `staging` → сервис `roulette-staging` → Variables заменить `BOT_TOKEN` на токен тестового бота и добавить `PUBLIC_URL` = `https://roulette-staging-staging.up.railway.app` (это включает бота), затем настроить кнопку Mini App в BotFather (шаг 6). Токен никому не присылайте.
+
+---
+
 ## Пошаговая инструкция для владельца (настройка один раз)
 
 Вам понадобится выполнить эту процедуру один раз.
