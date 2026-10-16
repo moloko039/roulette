@@ -32,6 +32,8 @@ def register(app, ctx):
 
     @app.get("/health")
     def health():
+        if getattr(app.state, "env", None) == "staging" or getattr(ctx, "env", None) == "staging":
+            return {"ok": True, "env": "staging"}
         return {"ok": True}
 
     @app.get("/api/me")
