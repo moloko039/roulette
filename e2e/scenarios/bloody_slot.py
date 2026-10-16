@@ -24,7 +24,7 @@ async def run(w):
     start = await p.ev("Number(%s.getElementById('balance').dataset.n)" % IF)
     await p.ev("%s.getElementById('btn-spin').click()" % IF)
     await p.wait("%s.getElementById('btn-spin').disabled" % IF, 5, "спин пошёл")
-    # раунд идёт до конца: в бонусах нажимаем спин, баннеры закрываем
+    # раунд идёт до конца: фриспины крутятся сами (решение владельца), баннеры закрываем
     for _ in range(60):
         await p.wait("!%s.getElementById('btn-spin').disabled || !%s.getElementById('banner').hidden" % (IF, IF), 40, "спин доигран")
         if await p.ev("!%s.getElementById('banner').hidden" % IF):
@@ -33,7 +33,7 @@ async def run(w):
             continue
         if await p.ev("%s.getElementById('spin-label').textContent" % IF) in ("Крутить",):
             break
-        await p.ev("%s.getElementById('btn-spin').click()" % IF)
+        await p.wait("%s.getElementById('btn-spin').disabled || !%s.getElementById('banner').hidden" % (IF, IF), 5, "фриспин запустился сам")
     check("раунд закончен: снова основная игра", await p.ev("%s.getElementById('mode-title').textContent" % IF), "Основная игра")
     srv_balance = await p.ev("srv.balance")
     shown = await p.ev("Number(%s.getElementById('balance').dataset.n)" % IF)
@@ -42,4 +42,4 @@ async def run(w):
     status_closed = w.sql_value("SELECT status != 'active' FROM bloody_games WHERE telegram_id = ?", (uid,))
     check("раунд записан и закрыт", (status_closed, w.sql_value("SELECT bet FROM bloody_games WHERE telegram_id = ?", (uid,)), w.sql_value("SELECT cost FROM bloody_games WHERE telegram_id = ?", (uid,))), (1, 100, 100))
     check("баланс = было - ставка + выплата", shown, start - 100 + w.sql_value("SELECT payout FROM bloody_games WHERE telegram_id = ?", (uid,)))
-    check("поле после раунда полное", await p.ev("%s.querySelectorAll('#board .sym').length" % IF), 20)
+    check("поле после раунда полное (4 ячейки на барабан, 5 с открытым Wild)", await p.ev("%s.querySelectorAll('#board .sym').length >= 20" % IF), True)

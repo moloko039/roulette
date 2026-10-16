@@ -8,7 +8,7 @@
     app: $('app'), board: $('board'), boardWrap: $('board-wrap'), wildrow: $('wildrow'), fx: $('fx'), fxtop: $('fxtop'), floor: $('floor'), balance: $('balance'),
     modeTitle: $('mode-title'), modeNote: $('mode-note'), bar: $('bar'), runes: $('runes'), barFill: $('bar-fill'), barPoints: $('bar-points'),
     winline: $('winline'), winTotal: $('win-total'), winMult: $('win-mult'), betValue: $('bet-value'), costBox: $('cost-box'), costLabel: $('cost-label'),
-    costValue: $('cost-value'), spin: $('btn-spin'), spinLabel: $('spin-label'), minus: $('bet-minus'), plus: $('bet-plus'), star: $('btn-star'), buy: $('btn-buy'),
+    costValue: $('cost-value'), spin: $('btn-spin'), spinLabel: $('spin-label'), betOpen: $('bet-open'), boostBadge: $('boost-badge'), star: $('btn-star'), buy: $('btn-buy'),
     auto: $('btn-auto'), turbo: $('btn-turbo'), bets: $('btn-bets'), menu: $('btn-menu'), toast: $('toast'), banner: $('banner'), cut: $('cut'), intro: $('intro'),
     sheet: $('sheet'), sheetTitle: $('sheet-title'), sheetBody: $('sheet-body'), sheetClose: $('sheet-close'), sheetDim: $('sheet-dim')
   };
@@ -29,10 +29,17 @@
 
   var st = {
     settings: null, bet: 20, buy: null, view: null, busy: false, auto: false, turbo: false, balance: null, cell: 70, cells: [], grid: null,
-    favs: [], mode: null, ready: false, sheet: null
+    favs: [], mode: null, ready: false, sheet: null,
+    boost: null,                                      // включённый бустер (xBet 1 или xBet 2): работает на каждом спине, пока не выключат
+    autoLeft: 0, autoStopX: 50                        // автоигра: сколько раундов осталось и множитель выигрыша, на котором она останавливается
   };
+  var BOOSTS = ['xbet1', 'xbet2'];                    // бустеры; остальные покупки (Виселица, Reign, Lucky Draw) разовые, с подтверждением
+  var BOOST_SHORT = { xbet1: 'xBet 1', xbet2: 'xBet 2' };
+  var AUTO_COUNTS = [10, 25, 50, 100];
   try { st.turbo = localStorage.getItem('bloody_turbo') === '1'; } catch (e) { /* без хранилища */ }
   try { st.favs = JSON.parse(localStorage.getItem('bloody_favs') || '[]'); } catch (e) { st.favs = []; }
+  try { st.boost = BOOSTS.indexOf(localStorage.getItem('bloody_boost')) >= 0 ? localStorage.getItem('bloody_boost') : null; } catch (e) { st.boost = null; }
+  try { var sx = Number(localStorage.getItem('bloody_auto_x')); if (sx >= 1) st.autoStopX = sx; } catch (e) { /* по умолчанию 50 */ }
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- утилиты ----------
@@ -56,9 +63,17 @@
     clearTimeout(toast.t);
     toast.t = setTimeout(function () { els.toast.hidden = true; }, 3000);
   }
+  // что уходит на сервер при старте раунда: разовая покупка важнее включённого бустера
+  function startBuy() { return st.buy || st.boost || null; }
   function betCost() {
-    var mult = st.buy && st.settings ? st.settings.buys[st.buy] : 1;
+    var k = startBuy();
+    var mult = k && st.settings ? st.settings.buys[k] : 1;
     return Math.round(st.bet * mult);
+  }
+  function setBoost(k) {
+    st.boost = k;
+    try { localStorage.setItem('bloody_boost', k || ''); } catch (e) { /* не страшно */ }
+    renderControls();
   }
   function raf() { return new Promise(function (r) { requestAnimationFrame(r); }); }
 
@@ -347,25 +362,29 @@
     var active = !!v && v.status === 'active';
     var next = active ? v.round.next : null;
     els.betValue.textContent = fmt(st.bet);
-    var showCost = !!st.buy && !active;
+    var showCost = !!startBuy() && !active;
     els.costBox.hidden = !showCost;
-    if (showCost) { els.costLabel.textContent = 'Общая стоимость'; els.costValue.textContent = fmt(betCost()); }
+    if (showCost) { els.costLabel.textContent = st.buy ? 'Цена покупки' : 'Общая ставка'; els.costValue.textContent = fmt(betCost()); }
+    var badge = st.boost && !st.buy ? BOOST_SHORT[st.boost] : null;
+    els.boostBadge.hidden = !badge;
+    if (badge) els.boostBadge.textContent = badge;
     els.spin.disabled = st.busy;
     els.spin.classList.toggle('bonus', next === 'candle');
     els.spin.classList.toggle('reign', next === 'reign');
-    els.spin.classList.toggle('buy', showCost);
+    els.spin.classList.toggle('buy', !!st.buy && !active);
     els.spin.classList.toggle('count', !!next);
     if (next) {
       var n = next === 'reign' ? v.round.reign_left : v.round.candle_left;
       els.spinLabel.innerHTML = '<b class="num">' + n + '</b><small>' + (next === 'reign' ? 'Reign' : 'Candle') + '</small>';
     } else {
-      els.spinLabel.textContent = showCost ? 'Купить' : 'Крутить';
+      els.spinLabel.textContent = st.buy && !active ? 'Купить' : 'Крутить';
     }
     var lock = st.busy || active;
-    els.minus.disabled = els.plus.disabled = els.bets.disabled = els.star.disabled = els.buy.disabled = lock;
+    els.betOpen.disabled = els.bets.disabled = els.star.disabled = els.buy.disabled = lock;
     els.auto.setAttribute('aria-pressed', String(st.auto));
+    els.auto.textContent = st.auto ? 'Стоп · ' + st.autoLeft : 'Авто';
     els.turbo.setAttribute('aria-pressed', String(st.turbo));
-    els.buy.classList.toggle('on', !!st.buy);
+    els.buy.classList.toggle('on', !!startBuy());
   }
 
   // ---------- шаги спина ----------
@@ -625,12 +644,12 @@
     if (st.busy) return;
     var v = st.view;
     var active = !!v && v.status === 'active';
-    if (!active && betCost() > (st.balance || 0)) { toast('Не хватает фишек'); st.auto = false; renderControls(); return; }
+    if (!active && betCost() > (st.balance || 0)) { toast('Не хватает фишек'); stopAuto(); renderControls(); return; }
     st.busy = true;
     renderControls();
     haptic('medium');
     if (!active) { setWin(0, 0); }
-    var req = active ? call('spin', {}) : call('start', { bet: st.bet, buy: st.buy });
+    var req = active ? call('spin', {}) : call('start', { bet: st.bet, buy: startBuy() });
     await plunge();
     startBlur();
     var res = await req;
@@ -638,7 +657,7 @@
     stopBlur();
     if (!res.ok) {
       toast(errorText(res));
-      st.auto = false;
+      stopAuto();
       st.busy = false;
       if (res.code === 'active_round' || res.code === 'no_active_round') await resync();
       else if (st.view && st.view.spin) { var sp = st.view.spin; var ls = sp.steps.length ? sp.steps[sp.steps.length - 1] : null; setGridStatic(ls ? ls.grid : sp.start.grid, ls ? ls.mults : sp.start.mults); }
@@ -662,7 +681,9 @@
         var xm = view.round.units / 100;
         if (xm >= 10) await bigWin(view.payout, xm);
         else await showBanner(view.round.capped ? 'reign' : '', 'Итог раунда', 'Выигрыш<br><b>' + fmt(view.payout) + '</b><br>×' + (Math.round(xm * 100) / 100));
+        if (st.auto && xm >= st.autoStopX) stopAuto('Автоигра остановлена: выигрыш ×' + (Math.round(xm * 100) / 100));
       } else { haptic('error'); }
+      if (st.auto && st.autoLeft <= 0) stopAuto('Автоигра закончена');
       setMode(null, view);
       renderBar({ level: 0, progress: 0, threshold: st.settings ? st.settings.bar_thresholds[0] : 20 });
     } else {
@@ -672,6 +693,15 @@
     st.busy = false;
     renderControls();
     if (st.auto) autoNext();
+    else if (!ended) bonusNext();
+  }
+  // решение владельца: фриспины (Candle и Reign) крутятся сами, пока не кончатся
+  function bonusNext() {
+    setTimeout(function () {
+      var v = st.view;
+      if (st.busy || st.auto || !st.ready || !v || v.status !== 'active' || !els.sheet.hidden) return;
+      onSpin();
+    }, 650 * speed() + 150);
   }
   function onSpinPress() {
     if (!st.ready || st.busy) return;
@@ -680,15 +710,82 @@
     if (!active && st.buy) { confirmBuy(); return; }
     onSpin();
   }
+  // автоигра: каждый новый раунд списывает один из выбранных; бонусные спины раунда идут сами и в счёт не входят. Разовые покупки в автоигре не повторяются,
+  // включённый бустер работает на каждом раунде
   function autoNext() {
     setTimeout(function () {
       if (!st.auto || st.busy) return;
       var v = st.view;
       var active = !!v && v.status === 'active';
-      if (!active && betCost() > (st.balance || 0)) { st.auto = false; toast('Автоигра остановлена: не хватает фишек'); renderControls(); return; }
-      if (!active && st.buy) { st.buy = null; }
+      if (!active) {
+        if (st.buy) st.buy = null;
+        if (st.autoLeft <= 0) { stopAuto('Автоигра закончена'); return; }
+        if (betCost() > (st.balance || 0)) { stopAuto('Автоигра остановлена: не хватает фишек'); return; }
+        st.autoLeft -= 1;
+      }
       onSpin();
     }, 450 * speed() + 100);
+  }
+  function stopAuto(text) {
+    if (!st.auto) return;
+    st.auto = false;
+    st.autoLeft = 0;
+    if (text) toast(text);
+    renderControls();
+  }
+  function startAuto(count, stopX) {
+    st.autoStopX = stopX;
+    try { localStorage.setItem('bloody_auto_x', String(stopX)); } catch (e) { /* не страшно */ }
+    st.autoLeft = count;
+    st.auto = true;
+    renderControls();
+    if (!st.busy) autoNext();
+  }
+  function autoSheet() {
+    var wrap = document.createElement('div');
+    wrap.className = 'auto-form';
+    var pick = AUTO_COUNTS[0];
+    var lab = document.createElement('label');
+    lab.textContent = 'Сколько раундов сыграть';
+    wrap.appendChild(lab);
+    var grid = document.createElement('div');
+    grid.className = 'bets-grid';
+    AUTO_COUNTS.forEach(function (n) {
+      var o = document.createElement('button');
+      o.type = 'button';
+      o.className = 'opt';
+      o.textContent = String(n);
+      o.setAttribute('aria-pressed', String(n === pick));
+      o.onclick = function () { pick = n; grid.querySelectorAll('.opt').forEach(function (b) { b.setAttribute('aria-pressed', String(b === o)); }); };
+      grid.appendChild(o);
+    });
+    wrap.appendChild(grid);
+    var lab2 = document.createElement('label');
+    lab2.textContent = 'Остановить при выигрыше раунда от';
+    lab2.setAttribute('for', 'auto-stop-x');
+    wrap.appendChild(lab2);
+    var row = document.createElement('div');
+    row.className = 'stopx';
+    row.innerHTML = '<span>×</span><input id="auto-stop-x" type="number" inputmode="decimal" min="1" step="1">';
+    var input = row.querySelector('input');
+    input.value = String(st.autoStopX);
+    wrap.appendChild(row);
+    var note = document.createElement('p');
+    note.className = 'note';
+    note.textContent = 'Бонусные спины раунда идут автоматически и в счёт не входят. ' + (st.boost ? 'Бустер ' + BOOST_SHORT[st.boost] + ' работает на каждом раунде: ' + fmt(betCost()) + ' за раунд.' : 'Ставка за раунд: ' + fmt(st.bet) + '.');
+    wrap.appendChild(note);
+    var go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'go';
+    go.textContent = 'Запустить';
+    go.onclick = function () {
+      var x = Number(String(input.value).replace(',', '.'));
+      if (!(x >= 1)) { input.focus(); toast('Множитель остановки: от ×1'); return; }
+      closeSheet();
+      startAuto(pick, x);
+    };
+    wrap.appendChild(go);
+    return wrap;
   }
 
   // ---------- шторки и окна ----------
@@ -734,34 +831,47 @@
     }
     return wrap;
   }
+  function buyOption(k, pressed, stateText, onclick) {
+    var info = BUY_INFO[k] || { name: k, text: '' };
+    var o = document.createElement('button');
+    o.type = 'button';
+    o.className = 'opt';
+    o.innerHTML = '<span><b></b><small></small></span><span class="price"></span>';
+    o.querySelector('b').textContent = info.name;
+    o.querySelector('small').textContent = info.text;
+    var cost = Math.round(st.bet * st.settings.buys[k]);
+    o.querySelector('.price').innerHTML = (stateText ? '<span class="state"></span><br>' : '') + fmt(cost);
+    if (stateText) o.querySelector('.state').textContent = stateText;
+    o.setAttribute('aria-pressed', String(pressed));
+    o.onclick = onclick;
+    return o;
+  }
   function buySheet() {
     var wrap = document.createElement('div');
-    var none = document.createElement('button');
-    none.type = 'button';
-    none.className = 'opt';
-    none.innerHTML = '<span><b>Без покупки</b><small>Обычная ставка</small></span><span class="price"></span>';
-    none.querySelector('.price').textContent = fmt(st.bet);
-    none.setAttribute('aria-pressed', String(!st.buy));
-    none.onclick = function () { st.buy = null; renderControls(); closeSheet(); };
-    wrap.appendChild(none);
-    Object.keys(st.settings.buys).forEach(function (k) {
-      var info = BUY_INFO[k] || { name: k, text: '' };
-      var o = document.createElement('button');
-      o.type = 'button';
-      o.className = 'opt';
-      o.innerHTML = '<span><b></b><small></small></span><span class="price"></span>';
-      o.querySelector('b').textContent = info.name;
-      o.querySelector('small').textContent = info.text;
-      var cost = Math.round(st.bet * st.settings.buys[k]);
-      o.querySelector('.price').textContent = fmt(cost);
-      o.setAttribute('aria-pressed', String(st.buy === k));
-      o.disabled = cost > (st.balance || 0);
-      o.onclick = function () { st.buy = k; renderControls(); closeSheet(); };
+    var g1 = document.createElement('p');
+    g1.className = 'group';
+    g1.textContent = 'Бустеры: работают на каждом спине, пока не выключите';
+    wrap.appendChild(g1);
+    BOOSTS.filter(function (k) { return st.settings.buys[k]; }).forEach(function (k) {
+      var on = st.boost === k;
+      wrap.appendChild(buyOption(k, on, on ? 'включён' : 'выключен', function () {
+        setBoost(on ? null : k);
+        toast(on ? BOOST_SHORT[k] + ' выключен' : BOOST_SHORT[k] + ' включён: каждый спин ' + fmt(betCost()));
+        closeSheet();
+      }));
+    });
+    var g2 = document.createElement('p');
+    g2.className = 'group';
+    g2.textContent = 'Купить бонус (один раз)';
+    wrap.appendChild(g2);
+    Object.keys(st.settings.buys).filter(function (k) { return BOOSTS.indexOf(k) < 0; }).forEach(function (k) {
+      var o = buyOption(k, st.buy === k, null, function () { st.buy = st.buy === k ? null : k; renderControls(); closeSheet(); });
+      o.disabled = Math.round(st.bet * st.settings.buys[k]) > (st.balance || 0);
       wrap.appendChild(o);
     });
     var n = document.createElement('p');
     n.className = 'note';
-    n.textContent = 'Цена считается от текущей ставки (' + fmt(st.bet) + '). После выбора нажмите «Купить».';
+    n.textContent = 'Цены от текущей ставки (' + fmt(st.bet) + '). Бонус покупается кнопкой «Купить» с подтверждением; пока выбран бонус, бустер не действует.';
     wrap.appendChild(n);
     return wrap;
   }
@@ -801,12 +911,6 @@
     try { localStorage.setItem('bloody_bet', String(b)); } catch (e) { /* не страшно */ }
     renderControls();
   }
-  function stepBet(dir) {
-    var list = st.settings.bets;
-    var i = list.indexOf(st.bet);
-    var j = Math.max(0, Math.min(list.length - 1, i + dir));
-    if (j !== i) { setBet(list[j]); haptic('light'); }
-  }
   function applyState(view, first) {
     st.view = view;
     if (view.settings) st.settings = view.settings;
@@ -842,20 +946,20 @@
     st.bet = st.settings.bets.indexOf(saved) >= 0 ? saved : st.settings.bets[2];
     applyState(r.data, true);
     st.ready = true;
+    if (st.view && st.view.status === 'active') bonusNext();     // раунд с фриспинами после перезагрузки продолжается сам
   }
 
   // ---------- события ----------
   els.spin.onclick = onSpinPress;
-  els.minus.onclick = function () { stepBet(-1); };
-  els.plus.onclick = function () { stepBet(1); };
+  els.betOpen.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet(false)); };
   els.bets.onclick = function () { if (st.settings) openSheet('Ставка', betsSheet(false)); };
   els.star.onclick = function () { if (st.settings) openSheet('Быстрые ставки', betsSheet(true)); };
   els.buy.onclick = function () { if (st.settings) openSheet('Купить функцию', buySheet()); };
   els.menu.onclick = function () { if (st.settings) openSheet('Правила и выплаты', menuSheet()); };
-  els.auto.onclick = function () { st.auto = !st.auto; renderControls(); if (st.auto && !st.busy) autoNext(); };
+  els.auto.onclick = function () { if (st.auto) { stopAuto('Автоигра остановлена'); return; } if (st.settings) openSheet('Автоигра', autoSheet()); };
   els.turbo.onclick = function () { st.turbo = !st.turbo; try { localStorage.setItem('bloody_turbo', st.turbo ? '1' : '0'); } catch (e) { /* не страшно */ } renderControls(); };
-  els.sheetClose.onclick = closeSheet;
-  els.sheetDim.onclick = closeSheet;
+  els.sheetClose.onclick = function () { closeSheet(); bonusNext(); };
+  els.sheetDim.onclick = function () { closeSheet(); bonusNext(); };
   window.addEventListener('resize', function () { measure(); if (!st.busy) for (var c = 0; c < REELS; c++) for (var r = 0; st.cells[c] && r < st.cells[c].length; r++) if (st.cells[c][r]) place(st.cells[c][r], c, r); });
 
   if (/[?&]debug=1/.test(window.location.search)) window.__bloody = { st: st, playSpin: playSpin, bigWin: bigWin, showReignIntro: showReignIntro, confirmBuy: confirmBuy, setMode: setMode, renderBar: renderBar, renderWilds: renderWilds, playStep: playStep, setGridStatic: setGridStatic, dealGrid: dealGrid, plunge: plunge, startBlur: startBlur };   // помощники для проверки анимаций
