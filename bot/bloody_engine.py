@@ -167,7 +167,8 @@ class BarState:
         return self.level >= cfg.BAR_MAX_LEVEL
 
     def to_dict(self):
-        return {"level": self.level, "progress": self.progress, "threshold": None if self.final else cfg.BAR_THRESHOLDS[self.level]}
+        """Для игрока и лога: очки целые (ускорение xBet 1 даёт дробные, внутри они копятся точно; пороги целые, поэтому переход тот же)."""
+        return {"level": self.level, "progress": math.floor(self.progress), "threshold": None if self.final else cfg.BAR_THRESHOLDS[self.level]}
 
     def copy(self):
         return BarState(self.level, self.progress)

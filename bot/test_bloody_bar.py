@@ -56,4 +56,8 @@ check("Wild и Scatter остаются в таблице", {s for s, _ in eng.p
 # предел: после последнего порога переходов больше нет (сами переходы проверяет test_bloody_round.py: они делаются в раунде)
 st = eng.BarState(5, 1000)
 check("на последнем уровне переходов нет", (st.final, eng.level_ready(st)), (True, False))
+# ускорение xBet 1 даёт дробные очки: игроку показываются целые, внутри точное значение
+st = eng.BarState(1, 15.918000000000001)
+check("очки для игрока целые", st.to_dict()["progress"], 15)
+check("внутреннее значение не округлено", st.progress, 15.918000000000001)
 print("test_bloody_bar OK")

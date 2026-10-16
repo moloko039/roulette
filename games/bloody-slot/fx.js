@@ -207,4 +207,8 @@
   BFX.ticket = function () {
     return '<svg viewBox="0 0 140 90" class="ticket"><path d="M6 14q0-8 8-8h112q8 0 8 8v14a10 10 0 0 0 0 20v28q0 8-8 8H14q-8 0-8-8V48a10 10 0 0 0 0-20z" fill="#e6b85c" stroke="#8c6a2c" stroke-width="3"/><path d="M70 22l7 14 15 2-11 10 3 15-14-8-14 8 3-15-11-10 15-2z" fill="#7a1010"/><path d="M22 74h96" stroke="#8c6a2c" stroke-width="2" stroke-dasharray="5 4"/></svg>';
   };
+  // бледная красная октограмма {8/3} для карточки итога раунда
+  BFX.octagram = function () {
+    return '<svg viewBox="0 0 200 200" class="octagram" aria-hidden="true"><circle cx="100" cy="100" r="94"/><circle cx="100" cy="100" r="58"/><path d="M100.0 12.0 L162.2 162.2 L12.0 100.0 L162.2 37.8 L100.0 188.0 L37.8 37.8 L188.0 100.0 L37.8 162.2Z"/></svg>';
+  };
 })();
