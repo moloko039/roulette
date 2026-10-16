@@ -1,0 +1,27 @@
+# Dockerfile для тестового контура (staging)
+# Честно: данный образ локально не собирался и не запускался (в среде разработки нет docker).
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Слой кеша зависимостей: устанавливаем пакеты до копирования всего репозитория
+COPY bot/requirements.txt ./bot/requirements.txt
+RUN pip install --no-cache-dir -r bot/requirements.txt
+
+# Копируем проект целиком (клиентские файлы в корне и код сервера в bot/)
+COPY . .
+
+# Создаём пользователя appuser и подготавливаем папку тома для SQLite
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /data && \
+    chown -R appuser:appuser /app /data
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app/bot
+
+USER appuser
+
+# Shell-форма запуска для автоматической подстановки переменной окружения $PORT от Railway
+CMD uvicorn api:create_app_from_env --factory --host 0.0.0.0 --port ${PORT:-8080} --no-access-log --no-server-header
