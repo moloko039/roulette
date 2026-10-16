@@ -4,29 +4,12 @@ import testenv  # noqa: F401  (первым: очищает окружение �
 import asyncio
 import os
 import shutil
-import site
 import sqlite3
 import sys
 import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
-
-# Подключение site-packages виртуального окружения при запуске системным python3
-for _candidate in (
-    Path("/home/pool/.venv/lib/python3.12/site-packages"),
-    Path(__file__).resolve().parent.parent / ".venv/lib/python3.12/site-packages",
-    Path(__file__).resolve().parent / ".venv/lib/python3.12/site-packages",
-):
-    if _candidate.is_dir() and str(_candidate) not in sys.path:
-        sys.path.insert(0, str(_candidate))
-        try:
-            _user_site = Path(site.getusersitepackages())
-            _user_site.mkdir(parents=True, exist_ok=True)
-            (_user_site / "venv.pth").write_text(str(_candidate) + "\n", encoding="utf-8")
-        except Exception:
-            pass
-        break
 
 from fastapi.testclient import TestClient
 
@@ -121,6 +104,56 @@ try:
     # ================= 3. Боевой режим: клиент не раздаётся (404) =================
     for p in ("/", "/index.html", "/js/00-config.js", "/privacy.html", "/terms.html", "/robots.txt", "/_staging/ribbon.css"):
         check(f"в бою {p} даёт 404", client_prod.get(p).status_code, 404)
+
+    # ================= 3а. Слои белого списка проверяются по отдельности (временный клиент с «ловушками») =================
+    trap = Path(tempfile.mkdtemp(dir=tmp_dir))
+    (trap / "css").mkdir()
+    (trap / "fonts").mkdir()
+    (trap / "games").mkdir()
+    (trap / "skins").mkdir()
+    (trap / "bot").mkdir()
+    (trap / "docs").mkdir()
+    (trap / "js").mkdir()
+    (trap / "index.html").write_text("<!DOCTYPE html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"connect-src https://x.example;\"></head><body></body></html>", encoding="utf-8")
+    (trap / "js" / "00-config.js").write_text("const API_URL = 'https://x.example';\n", encoding="utf-8")
+    (trap / "js" / "ok.js").write_text("var ok = 1;\n", encoding="utf-8")
+    (trap / "js" / ".hidden.js").write_text("var secret = 1;\n", encoding="utf-8")        # точечный файл в РАЗРЕШЁННОЙ папке
+    (trap / "js" / "leak.py").write_text("SECRET = 1\n", encoding="utf-8")                 # запрещённое расширение в разрешённой папке
+    (trap / "js" / "players.db").write_bytes(b"SQLite format 3\x00")
+    (trap / "js" / "env").write_text("TOKEN=1\n", encoding="utf-8")                        # без расширения
+    (trap / "bot" / "leak.js").write_text("var leak = 1;\n", encoding="utf-8")             # разрешённое расширение в ЗАПРЕЩЁННОЙ папке
+    (trap / "docs" / "leak.html").write_text("<p>leak</p>", encoding="utf-8")
+    (trap / "secret.html").write_text("<p>secret</p>", encoding="utf-8")                    # в корне, но не из списка
+    outside = Path(tempfile.mkdtemp(dir=tmp_dir)) / "outside.js"
+    outside.write_text("var outside = 1;\n", encoding="utf-8")
+    try:
+        os.symlink(outside, trap / "js" / "link.js")                                         # символьная ссылка наружу
+        symlink_ok = True
+    except OSError:
+        symlink_ok = False
+    client_trap = TestClient(create_app(TOKEN, [], db_path=path_db, client_dir=trap))
+    check("ловушки: обычный файл отдаётся", client_trap.get("/js/ok.js").status_code, 200)
+    for p_bad in ("/js/.hidden.js", "/js/leak.py", "/js/players.db", "/js/env", "/bot/leak.js", "/docs/leak.html", "/secret.html", "/.env", "/.git/config"):
+        check(f"ловушки: {p_bad} даёт 404", client_trap.get(p_bad).status_code, 404)
+    if symlink_ok:
+        check("ловушки: символьная ссылка наружу даёт 404", client_trap.get("/js/link.js").status_code, 404)
+
+    # сырой путь с «..» напрямую в ASGI (клиентская библиотека такие пути нормализует до отправки)
+    async def raw_get(application, raw):
+        sent = []
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http", "path": raw, "raw_path": raw.encode(),
+                 "query_string": b"", "headers": [], "client": ("127.0.0.1", 1), "server": ("test", 80)}
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            sent.append(message)
+        await application(scope, receive, send)
+        return next(m["status"] for m in sent if m["type"] == "http.response.start")
+    app_trap = create_app(TOKEN, [], db_path=path_db, client_dir=trap)
+    for raw in ("/js/../index.html", "/js/../bot/leak.js", "/js/../../etc/passwd", "/js/%2e%2e/bot/leak.js", "/js//ok.js", "/js\\ok.js", "/js/ok.js%00.png"):
+        check(f"сырой путь {raw!r} даёт 404", asyncio.run(raw_get(app_trap, raw)), 404)
 
     # ================= 4. Раздача в staging: GET / и /index.html с подменой =================
     r_root = client_staging.get("/")
