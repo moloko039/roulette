@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+.venv
+**/__pycache__
+**/*.db
+**/*.db-*
+bot/testdata
+e2e
+docs
+tools
+*.enc
+*.key
+node_modules
