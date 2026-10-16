@@ -381,7 +381,9 @@ button.betbox:disabled { opacity: 0.55; }
 .row-main { display: grid; grid-template-columns: minmax(0, 1fr) 94px 46px; align-items: center; gap: 10px; }
 .row-main .betbox { min-height: 62px; justify-content: center; }
 .row-main .spin { width: 94px; height: 94px; justify-self: center; margin: 0; }
-.row-main .spin svg { inset: 6px; width: 82px; height: 82px; }
+.row-main .spin svg, .row-main .spin .ringrun { left: 50%; top: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); }   /* всё по центру внешнего обода */
+.row-main .spin svg { width: 86%; height: 86%; }
+.row-main .spin .ringrun { width: calc(100% - 6px); height: calc(100% - 6px); }
 .row-main #btn-buy { justify-self: end; }
 .spin span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 84px; padding: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .spin.count span { white-space: normal; }
@@ -398,3 +400,5 @@ button.betbox:disabled { opacity: 0.55; }
 .total-card i { font-style: normal; font-size: 16px; font-weight: 800; color: #e86a5a; }
 @media (prefers-reduced-motion: reduce) { .total-card .octagram path { filter: none; } }
 .app { position: relative; }
+.row-main .spin.count .ringrun { animation-name: ring-turn-c; }
+@keyframes ring-turn-c { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }

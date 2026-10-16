@@ -36,6 +36,8 @@
   var BOOSTS = ['xbet1', 'xbet2'];                    // бустеры; остальные покупки (Виселица, Reign, Lucky Draw) разовые, с подтверждением
   var BOOST_SHORT = { xbet1: 'xBet 1', xbet2: 'xBet 2' };
   var AUTO_COUNTS = [10, 25, 50, 100];
+  var TOTAL_MIN_X = 10;                               // карточка итога раунда: в обычных раундах, xBet 1 и xBet 2 только от ×10 (решение владельца)
+  var TOTAL_ALWAYS = ['gibbet', 'reign', 'lucky'];   // после купленного бонуса показывается всегда
   var BIG_WIN_X = 20;                                 // большая анимация от ×20 ставки за одну сыгровку (решение владельца)
   try { st.turbo = localStorage.getItem('bloody_turbo') === '1'; } catch (e) { /* без хранилища */ }
   try { localStorage.removeItem('bloody_favs'); } catch (e) { /* быстрых ставок (звёздочки) больше нет: убираем их след в браузере */ }
@@ -719,7 +721,7 @@
       if (view.payout > 0) {
         haptic('success');
         var xm = view.round.units / 100;
-        showTotal(view.payout, xm);
+        if (xm >= TOTAL_MIN_X || TOTAL_ALWAYS.indexOf(view.buy) >= 0) showTotal(view.payout, xm);
         if (st.auto && xm >= st.autoStopX) stopAuto('Автоигра остановлена: выигрыш ×' + (Math.round(xm * 100) / 100));
       } else { haptic('error'); }
       if (st.auto && st.autoLeft <= 0) stopAuto('Автоигра закончена');
