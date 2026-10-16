@@ -498,7 +498,7 @@ casinch с пресетом original-like): 6 барабанов высотой 
 
 ### POST /api/gems/invoice
 Группа write. Оплата пакета Telegram Stars. Тело: `{"request_id", "pack_code"}`. 200: `{"invoice_url", "replayed"}` (ссылка из `createInvoiceLink`, валюта XTR, пустой `provider_token`, одна цена; в `payload` подписанная метка без личных данных).
-Не чаще одной ссылки на игрока и пакет за 10 секунд (429 `too_many_requests`, `Retry-After`; тот же `request_id` возвращает ту же ссылку). Ошибки: 400; 404 `unknown_pack`; 502 `invoice_failed`; 503 `payments_unavailable`.
+Не чаще одной ссылки на игрока и пакет за 10 секунд (429 `too_many_requests`, `Retry-After`; тот же `request_id` возвращает ту же ссылку). Ошибки: 400; 403 `staging_payments_disabled` (в режиме staging без STAGING_ALLOW_PAYMENTS=1); 404 `unknown_pack`; 502 `invoice_failed`; 503 `payments_unavailable`.
 Оплату принимает бот: `pre_checkout_query` (цена пакета должна совпасть), `successful_payment` (одна транзакция: запись в `gem_purchases` с уникальным `charge_id` и начисление, повторная доставка ничего не создаёт), потолок баланса `economy_config.GEMS_MAX_BALANCE` (оплата возвращается автоматически).
 Возврат пакета: `/refund <платёж>` (владелец) возможен, пока кристаллы пакета не потрачены (после платежа не было списаний и баланс не меньше пакета); потраченные возвращает только `/refund <платёж> force`. Примеры: `docs/examples/gems.json`.
 

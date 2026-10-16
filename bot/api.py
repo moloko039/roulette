@@ -42,7 +42,7 @@ configure_logging()
 # ВАЖНО: SQLite рассчитана на один экземпляр сервиса (см. db.py), число реплик = 1.
 def create_app(bot_token, allowed_origins, db_path=None, mode="api",
                public_url=None, webhook_secret=None, application=None, maintenance=None,
-               rate_limiter=None):
+               rate_limiter=None, client_dir=None):
     app = FastAPI(
         docs_url=None, redoc_url=None, openapi_url=None,
         lifespan=make_lifespan(mode, bot_token, public_url, webhook_secret, application, maintenance),
@@ -63,6 +63,12 @@ def create_app(bot_token, allowed_origins, db_path=None, mode="api",
     ctx = Ctx(bot_token, db_path, rate_limiter, webhook_secret)
     for routes in (routes_bloody, routes_account, routes_chat, routes_crash_live, routes_farm, routes_cosmetics, routes_gems, routes_chips, routes_gifts, routes_race, routes_race_live, routes_referral, routes_streak, routes_games, routes_transfers, routes_webhook):
         routes.register(app, ctx)
+
+    if client_dir is not None:
+        import staging
+        app.state.env = "staging"
+        staging.register(app, client_dir)
+
     return app
 
 
@@ -115,11 +121,16 @@ def create_app_from_env():
     backup_send.warn_config(send_config)
     rate_config = ratelimit.load_config(os.environ)
     ratelimit.warn_config(rate_config)
+    client_dir = None
+    import staging
+    if staging.is_staging(os.environ):
+        client_dir = staging.find_client_dir(os.environ)
     return create_app(s["token"], s["origins"], mode=s["mode"],
                       public_url=s["public_url"], webhook_secret=s["secret"],
                       rate_limiter=ratelimit.RateLimiter(rate_config),
                       maintenance={"config": config, "db_path": db_path, "owner_id": owner_id,
-                                       "send_config": send_config})
+                                       "send_config": send_config},
+                      client_dir=client_dir)
 
 
 if __name__ == "__main__":
