@@ -10,6 +10,7 @@ async function openCollection(code) {
 
 (() => {
   const collectionsEls = {
+    profileScreen: document.querySelector('[data-screen="profile"]'),
     card: document.getElementById('collections-card'),
     allBtn: document.getElementById('collections-all-btn'),
     feedWrap: document.getElementById('collections-feed-wrap'),
@@ -26,6 +27,7 @@ async function openCollection(code) {
   };
 
   let lastActiveBeforeSheet = null;
+  let currentSheetCode = null;
 
   // Определение слота предмета по его коду (SKIN_CODES из js/13a-wardrobe-catalog.js)
   function skinSlotOf(code) {
@@ -82,6 +84,9 @@ async function openCollection(code) {
 
   // Отрисовка блока коллекций в профиле
   function renderCollections() {
+    const profileScreen = collectionsEls.profileScreen || document.querySelector('[data-screen="profile"]');
+    if (profileScreen && profileScreen.hidden) return;
+
     const card = collectionsEls.card;
     const feed = collectionsEls.feed;
     if (!card || !feed) return;
@@ -170,7 +175,11 @@ async function openCollection(code) {
   // Открытие шторки коллекции
   function openCollectionSheet(col) {
     if (!col || !collectionsEls.sheet) return;
-    lastActiveBeforeSheet = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    currentSheetCode = col.code || null;
+    const active = document.activeElement;
+    if (active && active !== document.body && !collectionsEls.sheet.contains(active)) {
+      lastActiveBeforeSheet = active;
+    }
 
     collectionsEls.title.textContent = col.name;
     collectionsEls.progress.textContent = 'Собрано ' + col.owned + ' из ' + col.total;
@@ -256,10 +265,21 @@ async function openCollection(code) {
     if (!sheet || sheet.hidden) return;
     sheet.hidden = true;
     if (collectionsEls.panel) collectionsEls.panel.classList.remove('flash');
-    if (lastActiveBeforeSheet && lastActiveBeforeSheet.isConnected && !lastActiveBeforeSheet.hidden) {
+
+    const canRestoreLast = lastActiveBeforeSheet &&
+      lastActiveBeforeSheet.isConnected &&
+      !lastActiveBeforeSheet.closest('[hidden]');
+
+    if (canRestoreLast) {
       lastActiveBeforeSheet.focus({ preventScroll: true });
+    } else if (currentSheetCode && collectionsEls.feed) {
+      const card = collectionsEls.feed.querySelector('[data-code="' + currentSheetCode + '"]');
+      if (card && typeof card.focus === 'function' && !card.closest('[hidden]')) {
+        card.focus({ preventScroll: true });
+      }
     }
     lastActiveBeforeSheet = null;
+    currentSheetCode = null;
   }
 
   // Загрузка гардероба для коллекций (только если ещё нет в памяти)

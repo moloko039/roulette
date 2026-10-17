@@ -189,7 +189,7 @@
   background: var(--accent);
 }
 
-.col-card.col-complete .col-segment.done {
+.collection-card.col-complete .col-segment.done {
   background: var(--gold);
 }
 
@@ -203,7 +203,7 @@
   white-space: nowrap;
 }
 
-.col-card.col-complete .col-card-status {
+.collection-card.col-complete .col-card-status {
   color: var(--gold);
 }
 
