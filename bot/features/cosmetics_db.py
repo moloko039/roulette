@@ -105,11 +105,9 @@ def grant_dacha_parts(telegram_id, now=None, db_path=None):
         conn.close()
 
 
-def cosmetics_mine(telegram_id, now=None, db_path=None):
-    """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге."""
-    if isinstance(now, str) and db_path is None:
-        db_path = now
-        now = None
+def cosmetics_mine(telegram_id, db_path=None, now=None):
+    """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге, коллекции с прогрессом
+    (now: время для тестов, по умолчанию текущее; от него зависят «московский день» и days_left сезонных коллекций)."""
     if now is None:
         now = int(time.time())
     grant_dacha_parts(telegram_id, now=now, db_path=db_path)      # лениво: части «Дачного сезона» тем, у кого уровень фермы уже выше порогов
