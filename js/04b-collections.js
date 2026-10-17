@@ -282,14 +282,17 @@ async function openCollection(code) {
     currentSheetCode = null;
   }
 
-  // Загрузка гардероба для коллекций (только если ещё нет в памяти)
+  // Загрузка гардероба для коллекций: данные не старше COLLECTIONS_MAX_AGE_MS берутся из памяти, иначе перезагружаются (прогресс меняется
+  // после награды серии входов и улучшений фермы, а магазин обновляет данные при каждом открытии)
+  const COLLECTIONS_MAX_AGE_MS = 20000;
+  let collectionsLoadedAt = 0;
   async function ensureCollectionsLoaded() {
-    if (typeof wd === 'object' && wd && wd.catalog && wd.mine) return;
-    if (typeof loadWardrobe === 'function') {
-      try {
-        await loadWardrobe(false);
-      } catch (e) {}
-    }
+    const fresh = typeof wd === 'object' && wd && wd.catalog && wd.mine && Date.now() - collectionsLoadedAt < COLLECTIONS_MAX_AGE_MS;
+    if (fresh || typeof loadWardrobe !== 'function') return;
+    try {
+      await loadWardrobe(true);
+      if (wd && wd.catalog && wd.mine) collectionsLoadedAt = Date.now();
+    } catch (e) {}
   }
 
   // Внутренняя функция перехода и открытия шторки коллекции
@@ -337,11 +340,8 @@ async function openCollection(code) {
   if (profileScreen) {
     new MutationObserver(() => {
       if (!profileScreen.hidden) {
-        if (typeof wd === 'object' && wd && wd.catalog && wd.mine) {
-          renderCollections();
-        } else {
-          ensureCollectionsLoaded().then(renderCollections);
-        }
+        if (typeof wd === 'object' && wd && wd.catalog && wd.mine) renderCollections();      // сразу показываем имеющееся, затем обновляем
+        ensureCollectionsLoaded().then(renderCollections);
       }
     }).observe(profileScreen, { attributes: true, attributeFilter: ['hidden'] });
     if (!profileScreen.hidden) {
