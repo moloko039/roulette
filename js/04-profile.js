@@ -335,7 +335,6 @@ let refLastRequest = -Infinity;    // performance.now() последнего з�
 let refData = null;
 let refError = false;
 
-const REF_MILESTONE_NAMES = { ref_scout: 'значок «Камень»', ref_beacon: 'рамка «Колонна»', ref_arch: 'рамка «Арка»' };
 const REF_MILESTONE_SHORT = { ref_scout: ['Камень', 'значок'], ref_beacon: ['Колонна', 'рамка'], ref_arch: ['Арка', 'рамка'] };
 
 function validReferral(d) {

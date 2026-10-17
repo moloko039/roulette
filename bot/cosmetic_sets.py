@@ -41,14 +41,6 @@ SETS = {
 }
 
 
-def set_of(code):
-    """Код набора, к которому относится часть, или None."""
-    for set_code, s in SETS.items():
-        if code in s["parts"]:
-            return set_code
-    return None
-
-
 def parts(set_code):
     """Части набора по коду или пустой кортеж."""
     return SETS[set_code]["parts"] if set_code in SETS else ()

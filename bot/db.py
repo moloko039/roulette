@@ -20,7 +20,6 @@ import blackjack
 import crash
 import hilo
 import farm
-import hmac as _hmac
 import keno
 import mines
 import transfers
@@ -51,10 +50,9 @@ from features.give_db import GIVE_MAX_AMOUNT, PlayerMissing, give_owner
 from features.chat_db import TOP_SIZE, touch_chat_member, chat_top, chat_best_wins, best_win_of, game_stats_of
 from features.active_game_db import active_game_of
 from features.gifts_db import GiftError, gift_recipients, send_gift
-from features.streak_db import StreakError, claim_streak, streak_status
+from features.streak_db import claim_streak, streak_status
 from features.stats_db import economy_stats, stats_text
 from features.chips_db import ChipsError, UnknownChipPack, chips_in_pack, chip_packs_state, buy_chip_pack
-from features.chips_db import pack as chip_pack
 from features.gems_db import (
     GemsError, UnknownPack, pack, packs_view, gems_state, record_gem_payment, gem_purchase_by_charge, refund_check, finish_gem_refund, owner_grant_gems,
 )

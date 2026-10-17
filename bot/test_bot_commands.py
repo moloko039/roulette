@@ -272,7 +272,7 @@ try:
 
         # ---------- /help ----------
         t = run(bot.help_command, FakeUpdate("private")).replies[0]["text"]
-        for c in ("/start", "/play", "/balance", "/help" if False else "/privacy", "/developer_info", "/mydata", "/deletemydata"):
+        for c in ("/start", "/play", "/balance", "/privacy", "/developer_info", "/mydata", "/deletemydata"):
             assert c in t, "в /help (private) нет " + c
         t = run(bot.help_command, FakeUpdate("group", chat_id=-3)).sent[0]["text"]
         assert "/play" in t and "/help" in t

@@ -44,7 +44,7 @@ old_level = root.level
 root.setLevel(logging.DEBUG)
 root.addHandler(cap)
 
-tmp = tempfile.mkdtemp()
+tmp = tempfile.mkdtemp(dir="/var/tmp" if os.path.isdir("/var/tmp") and os.access("/var/tmp", os.W_OK) else None)
 try:
     main_db = os.path.join(tmp, "players.db")
     bdir = os.path.join(tmp, "backups")

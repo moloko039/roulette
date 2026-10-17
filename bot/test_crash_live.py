@@ -70,7 +70,7 @@ try:
         def __init__(self, seed_bytes):
             self.bytes = seed_bytes
             self.idx = 0
-        def randrange(self, mx):
+        def randrange(self, _mx):
             val = self.bytes[self.idx % 32]
             self.idx += 1
             return val

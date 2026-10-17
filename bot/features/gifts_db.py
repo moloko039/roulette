@@ -151,11 +151,3 @@ def send_gift(sender, chat_instance, request_id, ref, item_code, sender_name, no
             raise
     finally:
         conn.close()
-
-
-def gift_sender_names(conn, telegram_id):
-    """{код предмета: имя отправителя} для подаренных предметов игрока (для «подарок от …» в /api/cosmetics/mine)."""
-    out = {}
-    for r in conn.execute("SELECT item_code, from_name FROM gifts WHERE to_user = ? ORDER BY id", (telegram_id,)):
-        out[r["item_code"]] = r["from_name"]
-    return out

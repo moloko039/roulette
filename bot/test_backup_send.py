@@ -430,6 +430,10 @@ try:
     os.makedirs(home)
     env = {k: v for k, v in os.environ.items() if k not in _ENV_KEYS}
     env["HOME"] = home
+    if "PYTHONPATH" not in env:
+        site_dirs = [p for p in sys.path if "site-packages" in p]
+        if site_dirs:
+            env["PYTHONPATH"] = os.pathsep.join(site_dirs)
 
     def script(name, *args, **kw):
         r = subprocess.run([sys.executable, os.path.join(HERE, name)] + list(args), stdout=subprocess.PIPE,
