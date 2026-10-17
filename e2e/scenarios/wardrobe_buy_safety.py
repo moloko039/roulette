@@ -42,7 +42,7 @@ async def run(w):
     await p.tap(".tab[data-tab=shop]")
     await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && wd.catalog !== null && wd.mine !== null", 10, "гардероб")
-    await p.tap("#wd-tabs .wd-tab:nth-child(8)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(9)")
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.dataset.code, c.querySelector('.wd-status').textContent.replace(/\\s/g, ' ')])"
     check("карточки: у стартового и «Скоро» цены нет, у «Пики» цена, неизвестный код пропущен", await p.ev(cards),
           [["badge_none", "Надето"], ["badge_spade", "150 кристаллов"], ["badge_flame", "Скоро"]])

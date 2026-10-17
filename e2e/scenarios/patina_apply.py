@@ -34,7 +34,7 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden", 10, "магазин")
     await p.tap("#shop-pages [data-page=look]")
     await p.wait("document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
-    await p.tap("#wd-tabs .wd-tab:nth-child(1)")            # рубашка карт
+    await p.tap("#wd-tabs .wd-tab:nth-child(7)")            # рубашка карт
     await tap_card(p, "Патина")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр патины рубашки")
     await p.tap("#wd-prev-act")

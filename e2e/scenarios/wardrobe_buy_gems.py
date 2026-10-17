@@ -23,7 +23,7 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.getElementById('shop-gems').textContent.replace(/\\s/g, '') === '200'", 10, "магазин, 200 кристаллов")
     await p.tap("#shop-pages [data-page=look]")
     await p.wait("document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
-    await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол
+    await p.tap("#wd-tabs .wd-tab:nth-child(4)")           # стол
     check("карточка «Лагуна»: цена в кристаллах из каталога", await p.ev("(%s)(document.querySelector('#wd-grid .wd-card:nth-child(2) .wd-status').textContent)" % NBSP), "150 кристаллов")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
@@ -47,7 +47,7 @@ async def run(w):
     await p.tap("#wd-prev-close")
     check("на странице магазина баланс кристаллов обновился без перезагрузки", await p.ev("document.getElementById('shop-gems').textContent.replace(/\\s/g, '')"), "50")
     # нехватка: «Сумерки» недоступны, берём предмет из другого слота за 100 кристаллов (неоновый краш), у игрока осталось 50
-    await p.tap("#wd-tabs .wd-tab:nth-child(6)")           # краш
+    await p.tap("#wd-tabs .wd-tab:nth-child(1)")           # краш
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     check("цена 100 кристаллов", await p.ev("(%s)(document.getElementById('wd-prev-act').textContent)" % NBSP), "Купить за 100 кристаллов")

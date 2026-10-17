@@ -45,9 +45,9 @@ async def run(w):
     await p.ev(OVERRIDE)
     n = NBSP
     cards = "[...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, (%s)(c.querySelector('.wd-status').textContent), c.getBoundingClientRect().height])" % n
-    await p.tap("#wd-tabs .wd-tab:nth-child(8)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(9)")
     got = await p.ev(cards)
-    check("слот «Значок»: цена из каталога вместо «Не получено», «Скоро» без цены", [[c[0], c[1]] for c in got], [["Без значка", "Надето"], ["Пика", "20 000 фишек"], ["Черновик", "100 кристаллов"], ["Пустота", "300 кристаллов"], ["Банка огурцов", ""], ["Камень", "Не получено"], ["Патина", "400 кристаллов"], ["Тыква", ""], ["Шлем", "150 кристаллов"], ["Пламя", "Скоро"]])
+    check("слот «Значок»: цена из каталога вместо «Не получено», «Скоро» без цены", [[c[0], c[1]] for c in got], [["Без значка", "Надето"], ["Пика", "20 000 фишек"], ["Черновик", "100 кристаллов"], ["Пустота", "300 кристаллов"], ["Банка огурцов", "Из коллекции «Дачный сезон»"], ["Камень", "Не получено"], ["Патина", "400 кристаллов"], ["Тыква", "Из коллекции «Листопад»"], ["Шлем", "150 кристаллов"], ["Пламя", "Скоро"]])
     check("размеры карточек не зависят от статуса", len({c[2] for c in got}), 1)
     check("в клиенте нет цен: подписи берутся из ответа каталога", await p.ev("typeof WD_PRICES === 'undefined' && !/20000|40000|60000|100000/.test(String(wdNormalizeCatalog) + String(wdPriceText))"), True)
     # подтверждение
@@ -81,7 +81,7 @@ async def run(w):
     check("после покупки предмет надевается", await p.ev("document.getElementById('wd-prev-act').textContent"), "Снять")
     await p.tap("#wd-prev-close")
     # повтор при сбое сети с тем же request_id: фишки списаны один раз
-    await p.tap("#wd-tabs .wd-tab:nth-child(2)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(5)")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.ev("window.__bodies = []; window.__buyMode = 'failonce'")
@@ -92,7 +92,7 @@ async def run(w):
     check("баланс 80000 - 40000", [w.sql_value("SELECT balance FROM players WHERE telegram_id = ?", (uid,)), await p.ev("srv.balance")], [40000, 40000])
     await p.tap("#wd-prev-close")
     # нехватка с разницей
-    await p.tap("#wd-tabs .wd-tab:nth-child(4)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(6)")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.tap("#wd-prev-act")
@@ -103,7 +103,7 @@ async def run(w):
     await p.tap("#wd-prev-close")
     # уже есть (клиент не знает): предмет выдан в базе
     w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, 'frame_thin', 'owner_gift', ?)", (uid, int(time.time())))
-    await p.tap("#wd-tabs .wd-tab:nth-child(7)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(8)")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.tap("#wd-prev-act")

@@ -2,14 +2,14 @@
 // ----- раздел «Оформление» магазина (гардероб) -----
 const wdEls = {
   tabs: document.getElementById('wd-tabs'), grid: document.getElementById('wd-grid'), vis: document.getElementById('wd-vis'),
-  msg: document.getElementById('wd-msg'), collections: document.getElementById('wd-collections'),
+  msg: document.getElementById('wd-msg'), season: document.getElementById('wd-season'),
   pSheet: document.getElementById('wd-prev-sheet'), pDim: document.getElementById('wd-prev-dim'), pTitle: document.getElementById('wd-prev-title'),
   pStatus: document.getElementById('wd-prev-status'), pScene: document.getElementById('wd-prev-scene'), pDesc: document.getElementById('wd-prev-desc'),
   pMsg: document.getElementById('wd-prev-msg'), pNote: document.getElementById('wd-prev-note'), pClose: document.getElementById('wd-prev-close'), pAct: document.getElementById('wd-prev-act'),
   terms: document.getElementById('wd-terms'),
   setBox: document.getElementById('wd-set-box'), setDesc: document.getElementById('wd-set-desc'), setAct: document.getElementById('wd-set-act')
 };
-const wd = { open: false, catalog: null, sets: null, mine: null, slot: 'card_back', busy: false, loading: false, preview: null, confirm: false, prevMsg: '', setConfirm: false, setMsg: '' };
+const wd = { open: false, catalog: null, sets: null, mine: null, slot: 'crash', busy: false, loading: false, preview: null, confirm: false, prevMsg: '', setConfirm: false, setMsg: '' };
 
 const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
 const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
@@ -71,8 +71,16 @@ function wdNormalizeCollections(list) {
   (Array.isArray(list) ? list : []).forEach((c) => {
     if (!c || typeof c.code !== 'string' || typeof c.name !== 'string' || !Array.isArray(c.parts)) return;
     if (!Number.isSafeInteger(c.owned) || !Number.isSafeInteger(c.total) || c.total < 1 || c.owned < 0 || c.owned > c.total) return;
-    out.push({ code: c.code.slice(0, 30), name: c.name.slice(0, 40), how: typeof c.how === 'string' ? c.how.slice(0, 160) : '',
-      parts: c.parts.filter((x) => typeof x === 'string').slice(0, 20), owned: c.owned, total: c.total, complete: c.owned === c.total });
+    const item = {
+      code: c.code.slice(0, 30), name: c.name.slice(0, 40), how: typeof c.how === 'string' ? c.how.slice(0, 160) : '',
+      parts: c.parts.filter((x) => typeof x === 'string').slice(0, 20), owned: c.owned, total: c.total, complete: c.owned === c.total,
+      season: Array.isArray(c.season) ? c.season.filter((x) => typeof x === 'string').slice(0, 2) : (c.season || null)
+    };
+    if (c.status === 'active' || c.status === 'complete' || c.status === 'ended') item.status = c.status;
+    if (Number.isSafeInteger(c.days_left) && c.days_left >= 0) item.days_left = c.days_left;
+    else if (c.days_left === null) item.days_left = null;
+    if (typeof c.source === 'string') item.source = c.source.slice(0, 20);
+    out.push(item);
   });
   return out;
 }
@@ -94,7 +102,8 @@ function wdStatus(item) {
   if (wdWorn(item)) return 'Надето';
   if (!item.available) return 'Скоро';
   if (wdOwns(item)) return 'Есть';
-  if (wdCollectionOf(item)) return '';        // часть коллекции: без подписи (раньше было «Коллекция»)
+  const col = wdCollectionOf(item);
+  if (col && !item.price) return 'Из коллекции «' + col.name.slice(0, 24) + '»';
   return item.price ? wdPriceText(item.price) : 'Не получено';
 }
 // что делает главная кнопка листа: надеть, снять, купить или ничего
@@ -167,22 +176,38 @@ function wdScene(slot, code, mini) {
 function setWdMsg(text) { wdEls.msg.textContent = text; }
 const wdToast = (text) => showToast(text, wdEls.pSheet.hidden ? 'wd-toast' : 'wd-prev-toast');
 
-// Полоса коллекций над слотами: название, сколько частей собрано, как получить; собранная коллекция помечена
-function renderWdCollections() {
-  wdEls.collections.textContent = '';
-  const list = wd.mine ? wd.mine.collections : [];
-  list.forEach((c) => {
-    const box = document.createElement('div');
-    box.className = 'wd-collection' + (c.complete ? ' complete' : '');
-    box.dataset.code = c.code;
-    const head = document.createElement('strong');
-    head.textContent = c.name + ': ' + c.owned + ' из ' + c.total + (c.complete ? ' (собрана)' : '');
-    const how = document.createElement('small');
-    how.textContent = c.how;
-    box.append(head, how);
-    wdEls.collections.appendChild(box);
+function wdDaysLeftText(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  let word = 'дней';
+  if (mod100 < 11 || mod100 > 14) {
+    if (mod10 === 1) word = 'день';
+    else if (mod10 >= 2 && mod10 <= 4) word = 'дня';
+  }
+  return n + ' ' + word;
+}
+
+// Тонкая строка активного сезона над вкладками скинов
+function renderWdSeason() {
+  if (!wdEls.season) return;
+  wdEls.season.textContent = '';
+  const c = wd.mine && Array.isArray(wd.mine.collections)
+    ? wd.mine.collections.find((x) => x && x.season !== null && x.season !== undefined && x.status === 'active' && Number.isSafeInteger(x.days_left) && x.days_left >= 1)
+    : null;
+  if (!c) {
+    wdEls.season.hidden = true;
+    return;
+  }
+  wdEls.season.hidden = false;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'wd-season-btn';
+  btn.textContent = c.name + ': осталось ' + wdDaysLeftText(c.days_left) + ' →';
+  btn.addEventListener('click', () => {
+    if (typeof openCollection === 'function') openCollection(c.code);
+    else wdToast('Коллекции скоро переедут в профиль');
   });
-  renderSetEffect();
+  wdEls.season.appendChild(btn);
 }
 
 // Эффект полного набора: все части собранной коллекции надеты, у корня появляется атрибут data-set-complete (лёгкое мерцание названия, только визуально, без бонусов)
@@ -193,22 +218,38 @@ function renderSetEffect() {
 }
 
 function renderWardrobe() {
-  renderWdCollections();
+  renderWdSeason();
+  renderSetEffect();
   const tabsLeft = wdEls.tabs.scrollLeft;
   const gridTop = wdEls.grid.scrollTop;
   wdEls.tabs.textContent = '';
-  WD_SLOTS.forEach(({ slot, label }) => {
+  const tabs = [];
+  WD_SLOTS.forEach((s) => {
+    tabs.push({ key: s.slot, label: s.label });
+    (typeof WD_PLACEHOLDER_TABS !== 'undefined' ? WD_PLACEHOLDER_TABS : []).forEach((p) => {
+      if (p.after === s.slot) tabs.push({ key: p.key, label: p.label });
+    });
+  });
+  tabs.forEach(({ key, label }) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'wd-tab';
     b.setAttribute('role', 'tab');
-    b.setAttribute('aria-selected', String(slot === wd.slot));
+    b.setAttribute('aria-selected', String(key === wd.slot));
     b.textContent = label;
-    b.addEventListener('click', () => { if (wd.slot !== slot) { wd.slot = slot; renderWardrobe(); } });
+    b.addEventListener('click', () => { if (wd.slot !== key) { wd.slot = key; renderWardrobe(); } });
     wdEls.tabs.appendChild(b);
   });
   wdEls.grid.textContent = '';
-  if (!wd.catalog || !wd.mine) {
+  if (wd.slot === 'pigs') {
+    const card = document.createElement('div');
+    card.className = 'wd-placeholder';
+    const text = document.createElement('p');
+    text.className = 'wd-placeholder-text';
+    text.textContent = 'Скины для свинок скоро';
+    card.appendChild(text);
+    wdEls.grid.appendChild(card);
+  } else if (!wd.catalog || !wd.mine) {
     if (!wd.loading) {
       const retry = document.createElement('button');
       retry.type = 'button';
@@ -282,10 +323,26 @@ function renderWdPreview() {
   if (kind === 'unequip') act = 'Снять';
   else if (kind === 'equip') act = 'Надеть';
   else if (kind === 'buy') act = confirming ? 'Потратить' : 'Купить за ' + wdPriceText(item.price);
-  let hint = '';
-  if (confirming) hint = 'Потратить ' + wdPriceText(item.price) + '? Вернуть предмет нельзя';
-  else if (!act) hint = !item.available ? 'Этот предмет появится позже' : (wdCollectionOf(item) ? 'Часть коллекции «' + wdCollectionOf(item).name + '»: ' + wdCollectionOf(item).how : 'Этого предмета у вас пока нет');
-  wdEls.pMsg.textContent = wd.prevMsg || hint;
+  const col = wdCollectionOf(item);
+  wdEls.pMsg.textContent = '';
+  if (confirming) {
+    wdEls.pMsg.textContent = wd.prevMsg || ('Потратить ' + wdPriceText(item.price) + '? Вернуть предмет нельзя');
+  } else if (wd.prevMsg) {
+    wdEls.pMsg.textContent = wd.prevMsg;
+  } else if (!act && col && !item.price) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dialog-change wd-col-link';
+    btn.textContent = 'Открыть коллекцию';
+    btn.addEventListener('click', () => {
+      closeWdPreview();
+      if (typeof openCollection === 'function') openCollection(col.code);
+      else wdToast('Коллекции скоро переедут в профиль');
+    });
+    wdEls.pMsg.appendChild(btn);
+  } else if (!act) {
+    wdEls.pMsg.textContent = !item.available ? 'Этот предмет появится позже' : 'Этого предмета у вас пока нет';
+  }
   wdEls.pNote.hidden = kind !== 'buy';
   wdEls.pAct.hidden = !act;
   wdEls.pAct.textContent = act;
