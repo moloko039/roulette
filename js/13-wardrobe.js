@@ -14,6 +14,7 @@ const wd = { open: false, catalog: null, sets: null, mine: null, slot: 'crash', 
 const validWdCatalog = (d) => !!d && Array.isArray(d.items) && Array.isArray(d.slots);
 const validWdMine = (d) => !!d && Array.isArray(d.owned) && !!d.equipped && typeof d.equipped === 'object' && typeof d.show_in_rating === 'boolean';
 const validWdEquip = (d) => !!d && typeof d.slot === 'string' && !!d.equipped && typeof d.equipped === 'object';
+const validWdEquipSet = (d) => !!d && typeof d.collection === 'string' && Array.isArray(d.equipped_parts) && !!d.equipped && typeof d.equipped === 'object';
 const validWdVisibility = (d) => !!d && typeof d.show_in_rating === 'boolean';
 
 // Каталог: только известные коды своего слота; тексты ограничены по длине (выводятся через textContent)
@@ -408,16 +409,16 @@ function wdErrorText(r) {
 async function wdPostOnce(path, payload, validate) {
   try {
     const res = await postJson(path, payload);
-    if (res.status === 401) return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота' };
-    if (res.status === 429) return { kind: 'fatal', text: 'Слишком часто: подождите секунду и повторите' };
-    if (res.status === 404) return { kind: 'conflict', detail: 'unknown_item' };
-    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры' };
+    if (res.status === 401) return { kind: 'fatal', text: 'Не удалось подтвердить Telegram. Закройте игру и откройте её заново через бота', status: 401 };
+    if (res.status === 429) return { kind: 'fatal', text: 'Слишком часто: подождите секунду и повторите', status: 429 };
+    if (res.status === 404) return { kind: 'conflict', detail: 'unknown_item', status: 404 };
+    if (res.status === 400) return { kind: 'fatal', text: 'Неверные параметры', status: 400 };
     if (res.status === 409) {
       let body = {};
       try { body = await res.json(); } catch (e) { body = {}; }
-      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '' };
+      return { kind: 'conflict', detail: typeof body.detail === 'string' ? body.detail : '', status: 409 };
     }
-    if (!res.ok) return isServerError(res) ? { kind: 'retry', status: res.status } : { kind: 'fatal', text: 'Не удалось выполнить действие' };
+    if (!res.ok) return isServerError(res) ? { kind: 'retry', status: res.status } : { kind: 'fatal', text: 'Не удалось выполнить действие', status: res.status };
     const body = await readJsonBody(res);
     return body.ok && validate(body.data) ? { kind: 'ok', data: body.data } : { kind: 'invalid' };
   } catch (e) {
@@ -426,7 +427,7 @@ async function wdPostOnce(path, payload, validate) {
 }
 
 // Действие гардероба: защита от повторного нажатия, один request_id на действие, до 3 попыток при сбоях сети и 5xx
-async function wdAct(path, body, validate, onOk) {
+async function wdAct(path, body, validate, onOk, errorFn) {
   if (wd.busy) return;
   wd.prevMsg = '';
   if (!(tg && tg.initData)) { wdToast('Откройте игру через бота в Telegram'); return; }
@@ -439,9 +440,24 @@ async function wdAct(path, body, validate, onOk) {
   if (result && result.kind === 'ok') {
     try { onOk(result.data); haptic('light'); } catch (e) { wdToast('Не удалось показать результат. Обновите экран'); }
   } else {
-    wdToast(wdErrorText(result || { kind: 'retry' }));
+    const errText = typeof errorFn === 'function' ? errorFn(result || { kind: 'retry' }) : wdErrorText(result || { kind: 'retry' });
+    wdToast(errText);
   }
   renderWardrobe();
+}
+
+function wdEquipSetErrorText(r) {
+  if (r && r.status === 429) return 'Подождите секунду';
+  if (r && (r.status === 409 || r.kind === 'conflict') && r.detail === 'nothing_to_equip') return 'Нет частей для надевания';
+  return wdErrorText(r);
+}
+
+async function wdEquipSet(collectionCode, onOk) {
+  return wdAct('/api/cosmetics/equip-set', { collection: collectionCode }, validWdEquipSet, (d) => {
+    wdApplyEquipped(d.equipped, d.patina, d.patina_info || {});
+    if (typeof onOk === 'function') onOk(d);
+    wdToast('Набор надет');
+  }, wdEquipSetErrorText);
 }
 
 function wdApplyEquipped(equipped, patina, info) {
@@ -456,6 +472,10 @@ function wdApplyEquipped(equipped, patina, info) {
   }
   applySkins(wd.mine.equipped, ownPatina, info || ownPatinaInfo);
   setOwnCosmetics({ equipped: wd.mine.equipped, patina: ownPatina, patina_info: info || ownPatinaInfo });
+  renderSetEffect();
+  if (typeof window.refreshCollectionSheet === 'function') {
+    window.refreshCollectionSheet();
+  }
 }
 
 function wdEquip(item) {

@@ -266,6 +266,14 @@
   gap: 4px;
   text-align: center;
   min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
 }
 
 .collection-part-thumb {
@@ -313,6 +321,16 @@
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+/* кнопка «Надеть набор» */
+.collection-equip-btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+.collection-equip-btn[hidden] {
+  display: none;
 }
 
 /* строка-ссылка «Где получить» */

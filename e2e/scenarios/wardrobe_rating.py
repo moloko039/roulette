@@ -60,3 +60,33 @@ async def run(w):
     await p.wait("!document.getElementById('profile-data').hidden", 15, "профиль")
     check("рамка и значок в профиле", await p.ev("[document.getElementById('profile-avatar').getAttribute('data-skin-avatar_frame'), !document.getElementById('profile-badge').hidden]"), ["frame_thin", True])
     check("размер аватара в профиле прежний", await p.ev("[document.getElementById('profile-avatar').getBoundingClientRect().width, document.getElementById('profile-avatar').getBoundingClientRect().height]"), [44, 44])
+
+    # 4.4 Значок собранных коллекций в рейтинге («✦ N») и профиле
+    now = int(time.time())
+    for part in ("ref_scout", "ref_beacon", "ref_arch"):
+        w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'referral', ?)", (ids["bob"], part, now))
+        w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'referral', ?)", (ids["me"], part, now))
+    await w.reload()
+    await open_rating(w)
+    bob_badge_text = await p.ev("(() => { const li = [...document.querySelectorAll('#rating-list li')].find(li => li.querySelector('.rating-name').textContent === 'bob'); return li && li.querySelector('.rating-set-badge') ? li.querySelector('.rating-set-badge').textContent : null; })()")
+    check("bob: значок числа коллекций в рейтинге ✦ 1", bob_badge_text, "✦ 1")
+    bob_badge_aria = await p.ev("(() => { const li = [...document.querySelectorAll('#rating-list li')].find(li => li.querySelector('.rating-name').textContent === 'bob'); return li && li.querySelector('.rating-set-badge') ? li.querySelector('.rating-set-badge').getAttribute('aria-label') : null; })()")
+    check("bob: aria-label значка коллекций", bob_badge_aria, "Собрано коллекций: 1")
+
+    # нажатие по чужому значку в рейтинге: тост «Собрана коллекция: Название»
+    await p.ev("(() => { const li = [...document.querySelectorAll('#rating-list li')].find(li => li.querySelector('.rating-name').textContent === 'bob'); if (li) li.querySelector('.rating-set-badge').click(); })()")
+    check("тост по чужому значку", await p.ev("document.getElementById('soon-toast').textContent"), "Собрана коллекция: Основатель")
+
+    # значок у своей строки в рейтинге
+    my_badge_text = await p.ev("(() => { const li = document.querySelector('#rating-list li.me'); return li && li.querySelector('.rating-set-badge') ? li.querySelector('.rating-set-badge').textContent : null; })()")
+    check("у себя: значок числа коллекций в рейтинге ✦ 1", my_badge_text, "✦ 1")
+
+    # нажатие у своей строки открывает профиль
+    await p.ev("document.querySelector('#rating-list li.me .rating-set-badge').click()")
+    await p.wait("!document.getElementById('profile-data').hidden", 10, "профиль по нажатию на свой значок")
+    check("свой значок переключил на профиль", await p.ev("!document.querySelector('[data-screen=profile]').hidden"), True)
+
+    # значок в шапке профиля рядом с именем
+    check("значок в профиле виден", await p.ev("!document.getElementById('profile-set-badge').hidden"), True)
+    check("текст значка в профиле ✦ 1", await p.ev("document.getElementById('profile-set-badge').textContent"), "✦ 1")
+    check("aria-label значка в профиле", await p.ev("document.getElementById('profile-set-badge').getAttribute('aria-label')"), "Собрано коллекций: 1")

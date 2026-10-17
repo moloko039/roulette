@@ -13,7 +13,8 @@ const srv = {
   level: null,        // уровень профиля из /api/me
   farm: null,         // блок фермы из /api/me: {income_per_hour, per_minute_estimate, next_tick_in_s, hours_cap, accrued_now}
   activeGame: null,   // незавершённая игра из /api/me: "mines" | "blackjack" | "crash" | "hilo" | null
-  chat: null          // атрибуция и бонусы беседы из /api/me: {in_chat, bonus_pct, active_today, boost_until, boost_gems} | null
+  chat: null,         // атрибуция и бонусы беседы из /api/me: {in_chat, bonus_pct, active_today, boost_until, boost_gems} | null
+  completeSets: []    // коды собранных коллекций из d.cosmetics.complete_sets
 };
 let lobbyStartDecided = false;   // при запуске выбор «титульный экран или активная игра» делается один раз
 
@@ -28,6 +29,7 @@ const profileEls = {
   skel: document.getElementById('profile-skel'),
   name: document.getElementById('profile-name'),
   avatar: document.getElementById('profile-avatar'),
+  setBadge: document.getElementById('profile-set-badge'),
   msg: document.getElementById('profile-msg'),
   code: document.getElementById('profile-code'),
   retry: document.getElementById('profile-retry')
@@ -99,12 +101,27 @@ function renderProfile() {
 // в localStorage не пишутся; картинок нет, аватар — круг с первой буквой имени
 const initialOf = (name) => (Array.from(String(name || '').trim())[0] || '·');
 
+function renderProfileSets() {
+  const el = profileEls.setBadge;
+  if (!el) return;
+  const sets = Array.isArray(srv.completeSets) ? srv.completeSets : [];
+  const count = sets.length;
+  if (count >= 1) {
+    el.hidden = false;
+    el.textContent = '✦ ' + count;
+    el.setAttribute('aria-label', 'Собрано коллекций: ' + count);
+  } else {
+    el.hidden = true;
+  }
+}
+
 function renderProfileIdentity() {
   const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
   const name = user && typeof user.first_name === 'string' ? user.first_name : '';
   profileEls.name.textContent = name;
   profileEls.avatar.textContent = initialOf(name);
   profileEls.name.parentElement.hidden = !name;
+  renderProfileSets();
 }
 
 // renderKeno и renderLobby появляются ниже по файлу (до их объявления остаются null)
@@ -236,6 +253,7 @@ async function loadServer(reason) {
     }
     applySkins(d.cosmetics && d.cosmetics.equipped, patinaObj, d.cosmetics && d.cosmetics.patina_info);       // внешний вид по надетому (только оформление)
     skinSetOwnSets(d.cosmetics && d.cosmetics.complete_sets);       // собранные коллекции: эффекты полного набора в сценах
+    srv.completeSets = Array.isArray(d.cosmetics && d.cosmetics.complete_sets) ? d.cosmetics.complete_sets : [];
     setOwnCosmetics(d.cosmetics);                           // рамка и значок у себя (профиль, рейтинг)
     const f = d.farm;
     srv.farm = f && isCount(f.income_per_hour) && typeof f.per_minute_estimate === 'string' && /^\d+\.\d$/.test(f.per_minute_estimate)
@@ -273,6 +291,21 @@ async function loadServer(reason) {
 }
 
 profileEls.retry.addEventListener('click', () => loadServer('manual'));
+if (profileEls.setBadge) {
+  const scrollCol = () => {
+    const card = document.getElementById('collections-card');
+    if (card && typeof card.scrollIntoView === 'function') {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  profileEls.setBadge.addEventListener('click', scrollCol);
+  profileEls.setBadge.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      scrollCol();
+    }
+  });
+}
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') loadServer('visible');
 });
