@@ -93,6 +93,10 @@ COSMETICS_MINE = {"owned": [{"code": str, "source": str, "acquired_at": int}],
                                "avatar_frame": str, "badge": str},
                   "show_in_rating": bool,
                   "collections": [COLLECTION_ITEM]}
+EQUIP_SET = {"collection": str, "equipped_parts": [str],
+             "equipped": {"card_back": str, "chip": str, "table": str, "mine_icons": str, "keno_ball": str, "crash": str,
+                          "avatar_frame": str, "badge": str},
+             "replayed": bool, "patina": dict, "patina_info": dict}
 SPIN = {"number": int, "stake_total": int, "payout_total": int, "net": int, "balance": int, "replayed": bool}
 TOP_ITEM = {"rank": int, "name": str, "balance": int, "is_me": bool, "staked": int, "level": int,
             "cosmetics": dict,     # публичные слоты {слот: код}; пусто, если ничего не надето или игрок скрыл показ
@@ -207,6 +211,30 @@ try:
     assert r.status_code == 401
     contract("GET /api/cosmetics/mine 401", r.json(), ERR_DETAIL)
     assert r.json() == {"detail": "Unauthorized"}
+
+    # ================= POST /api/cosmetics/equip-set =================
+    db.grant_item(U, "ref_scout", "owner_gift", now=NOW, db_path=path)
+    db.grant_item(U, "ref_arch", "owner_gift", now=NOW, db_path=path)
+    body_set = {"request_id": rid(99), "collection": "founder"}
+    r = client.post("/api/cosmetics/equip-set", headers=auth(U), json=body_set)
+    assert r.status_code == 200, r.text
+    contract("POST /api/cosmetics/equip-set 200", r.json(), EQUIP_SET)
+    assert r.json()["replayed"] is False
+    assert r.json()["collection"] == "founder"
+    assert r.json()["equipped_parts"] == ["ref_scout", "ref_arch"]
+    r = client.post("/api/cosmetics/equip-set", headers=auth(U), json=body_set)
+    assert r.status_code == 200
+    contract("POST /api/cosmetics/equip-set replayed", r.json(), EQUIP_SET)
+    assert r.json()["replayed"] is True
+    r = client.post("/api/cosmetics/equip-set", headers=auth(U), json={"request_id": rid(98), "collection": "nope"})
+    assert r.status_code == 404
+    contract("POST /api/cosmetics/equip-set 404", r.json(), ERR_DETAIL)
+    r = client.post("/api/cosmetics/equip-set", headers=auth(U), json={"request_id": rid(97), "collection": "leaves"})
+    assert r.status_code == 409
+    contract("POST /api/cosmetics/equip-set 409", r.json(), ERR_DETAIL)
+    r = client.post("/api/cosmetics/equip-set")
+    assert r.status_code == 401
+    contract("POST /api/cosmetics/equip-set 401", r.json(), ERR_DETAIL)
 
     # ================= POST /api/roulette/spin =================
     body = {"request_id": rid(1), "bets": [bet("red", None, 10), bet("number", 17, 5)]}
@@ -510,6 +538,7 @@ try:
         assert example["active_game"] in (None, "mines", "blackjack", "crash", "hilo")
     cosmetics_examples = _json.load(open(os.path.join(os.path.dirname(HERE_DIR), "docs", "examples", "cosmetics.json"), encoding="utf-8"))
     assert not shape_errors(COSMETICS_MINE, cosmetics_examples["mine"]), ("пример /api/cosmetics/mine не совпадает с контрактом", shape_errors(COSMETICS_MINE, cosmetics_examples["mine"]))
+    assert not shape_errors(EQUIP_SET, cosmetics_examples["equip_set"]), ("пример /api/cosmetics/equip-set не совпадает с контрактом", shape_errors(EQUIP_SET, cosmetics_examples["equip_set"]))
     for uid, expected in ((5002, "mines"), (5004, "crash"), (5005, "crash")):
         r = ca.get("/api/me", headers=auth(uid))
         contract("GET /api/me %s" % expected, r.json(), ME)

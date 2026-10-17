@@ -482,6 +482,11 @@ casinch с пресетом original-like): 6 барабанов высотой 
 ### POST /api/cosmetics/unequip
 Группа write. Тело: `{"request_id", "slot"}`. 200: `{"slot", "code" (стартовый), "equipped", "replayed"}`. Слот без надетого предмета не ошибка. Ошибки те же (кроме `unknown_item`, `slot_mismatch`, `not_owned`).
 
+### POST /api/cosmetics/equip-set
+Группа write. Кнопка «Надеть набор» в шторке коллекции: надевает все полученные части коллекции одним запросом. Тело: `{"request_id", "collection"}`. 200: `{"collection", "equipped_parts": [коды надетых частей в порядке parts], "equipped": {слот: код}, "replayed": bool}` (при наличии патины у надетых предметов добавляются поля `patina` и `patina_info`).
+Для каждого слота берётся последняя из полученных частей в порядке `parts` коллекции (например, в «Основателе» при наличии и «Колонны», и «Арки» надевается «Арка» в слоте `avatar_frame`). Недоступные (`available: false`), стартовые или не принадлежащие игроку предметы пропускаются. Уже надетые предметы других слотов не меняются.
+Ошибки: 400 `invalid_request`; 404 `unknown_collection`; 409 `nothing_to_equip` (у игрока нет ни одной подходящей части этой коллекции, состояние не меняется), `request_conflict`; 429 (не чаще одной смены в секунду на игрока, `Retry-After: 1`, тело `{"error": "too_many_requests"}`).
+
 ### POST /api/cosmetics/visibility
 Группа write. Тело: `{"request_id", "show_in_rating": bool}`. 200: `{"show_in_rating", "replayed"}`. Выключенный показ скрывает рамку и значок игрока в рейтинге беседы. Ошибки: 400, 409 `request_conflict`, 429.
 
