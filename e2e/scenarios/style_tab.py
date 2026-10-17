@@ -11,7 +11,7 @@ from scenarios.desktop_scroll import desktop, metrics, phone, to_end, wheel
 NAME = "style_tab"
 CLOCK_MOD = 5      # минутная граница начисления далеко (55 с): лишний /api/me по таймеру не вклинивается в сетевой эталон
 USERS = {"me": {"rate": 0}}
-LABELS = ["Рубашка карт", "Жетоны", "Стол", "Иконки мин", "Шарики кено", "Краш", "Рамка аватара", "Значок"]
+LABELS = ["Краш", "Свинки", "Шарики кено", "Стол", "Жетоны", "Иконки мин", "Рубашка карт", "Рамка аватара", "Значок"]
 READY = "!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0"
 
 
@@ -35,7 +35,7 @@ async def run(w):
     await p.wait(READY, 15, "раздел «Оформление» магазина открыта")
     check("после открытия по одному запросу каталога и «моего»", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [1, 1])
     check("заголовок и подпись вкладки", await p.ev("[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.querySelector('.tab[data-tab=shop]').getAttribute('aria-current')]"), ["Магазин", "page"])
-    check("восемь слотов с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
+    check("девять вкладок с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     check("переключатель показа, «Условия покупки» и строка про игру на месте", await p.ev(
         "[document.getElementById('wd-vis').textContent.trim(), document.getElementById('wd-terms').textContent.trim(), document.querySelector('.wd-foot-note').textContent.trim()]"),
         ["Показывать мои рамку и значок в рейтинге", "Условия покупки", "Предметы не влияют на игру."])
@@ -47,7 +47,7 @@ async def run(w):
     await p.tap("#wd-prev-close")
 
     # --- слот помнится на сессию
-    await p.tap("#wd-tabs .wd-tab:nth-child(5)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(3)")
     check("выбран слот «Шарики кено»", await p.ev("[wd.slot, document.querySelector('#wd-tabs .wd-tab[aria-selected=true]').textContent]"), ["keno_ball", "Шарики кено"])
     await p.tap(".tab[data-tab=rating]")
     await p.wait("!document.querySelector('[data-screen=rating]').hidden", 5, "рейтинг")

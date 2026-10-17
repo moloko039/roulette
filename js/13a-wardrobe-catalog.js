@@ -3,10 +3,11 @@
 // Коды с сервера проверяются по белому списку SKIN_CODES: неизвестные игнорируются; тексты каталога выводятся только через textContent,
 // разметка (SVG) берётся из констант клиента по проверенному коду. Покупок и цен нет: предметы выдаёт владелец.
 const WD_SLOTS = [
-  { slot: 'card_back', label: 'Рубашка карт' }, { slot: 'chip', label: 'Жетоны' }, { slot: 'table', label: 'Стол' },
-  { slot: 'mine_icons', label: 'Иконки мин' }, { slot: 'keno_ball', label: 'Шарики кено' }, { slot: 'crash', label: 'Краш' },
+  { slot: 'crash', label: 'Краш' }, { slot: 'keno_ball', label: 'Шарики кено' }, { slot: 'table', label: 'Стол' },
+  { slot: 'chip', label: 'Жетоны' }, { slot: 'mine_icons', label: 'Иконки мин' }, { slot: 'card_back', label: 'Рубашка карт' },
   { slot: 'avatar_frame', label: 'Рамка аватара' }, { slot: 'badge', label: 'Значок' }
 ];
+const WD_PLACEHOLDER_TABS = [{ key: 'pigs', label: 'Свинки', after: 'crash' }];
 // первый код каждого слота стартовый (ничего не рисует / вид по умолчанию)
 const SKIN_CODES = {
   card_back: ['back_classic', 'back_midnight', 'back_ember', 'back_leaves', 'back_rug', 'back_patina', 'draft_back', 'void_back', 'back_deep'], chip: ['chip_plain', 'chip_ring', 'chip_gold', 'void_chip', 'chip_cork', 'chip_patina', 'chip_pearl', 'chip_leaf', 'draft_chip'],

@@ -38,6 +38,8 @@ async def run(w):
     check("надета рубашка Черновик", await p.ev("document.documentElement.getAttribute('data-skin-card_back')"), "draft_back")
 
     # 2. Проверяем изоляцию: миниатюра «Уголь» не наследует фон «Черновика»
+    await p.tap("#wd-tabs .wd-tab:nth-child(7)")
+    await p.wait("document.querySelectorAll('#wd-grid .wd-card').length > 0", 5, "слот рубашка карт открыт")
     bg_ember = await p.ev("getComputedStyle(document.querySelector('.wd-mini[data-skin-card_back=back_ember] .bj-card.back')).backgroundImage")
     bg_draft = await p.ev("getComputedStyle(document.querySelector('.wd-mini[data-skin-card_back=draft_back] .bj-card.back')).backgroundImage")
     var_a_ember = await p.ev("getComputedStyle(document.querySelector('.wd-mini[data-skin-card_back=back_ember]')).getPropertyValue('--card-back-a').trim()")
@@ -48,7 +50,7 @@ async def run(w):
     check("миниатюра Черновик имеет собственный цвет фона --card-back-a", var_a_draft, "#5B7DB8")
 
     # 3. Переходим во вкладку «Краш» и проверяем совпадение миниатюр со сценами
-    await p.tap("#wd-tabs .wd-tab:nth-child(6)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(1)")
     await p.wait("document.querySelectorAll('#wd-grid .wd-card').length > 0", 5, "слот краш открыт")
 
     patina_has_dial = await p.ev("document.querySelector('.wd-mini[data-skin-crash=crash_patina] svg').innerHTML.includes('САМОПИСЕЦЪ')")

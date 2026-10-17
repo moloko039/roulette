@@ -9,12 +9,12 @@ VIEWPORT = (390, 760)
 CLOCK_MOD = 5
 
 SLOTS = [  # (номер вкладки, код предмета, что должно появиться в образце за ~3.5 секунды)
-    (2, "chip_ring", "document.querySelectorAll('#wd-prev-scene .stack.drop').length > 0"),
-    (1, "back_midnight", "document.querySelectorAll('#wd-prev-scene .bj-card.flip').length > 0"),
-    (3, "table_blue", "document.querySelectorAll('#wd-prev-scene .cell.hit').length > 0"),
-    (4, "mine_star", "document.querySelectorAll('#wd-prev-scene .mines-cell.safe').length > 1"),
-    (5, "keno_hex", "document.querySelectorAll('#wd-prev-scene .keno-ball.press').length > 0"),
-    (6, "crash_neon", "/^×(?!1\\.00)/.test((document.querySelector('#wd-prev-scene .cr-mult') || {}).textContent || '')"),
+    (5, "chip_ring", "document.querySelectorAll('#wd-prev-scene .stack.drop').length > 0"),
+    (7, "back_midnight", "document.querySelectorAll('#wd-prev-scene .bj-card.flip').length > 0"),
+    (4, "table_blue", "document.querySelectorAll('#wd-prev-scene .cell.hit').length > 0"),
+    (6, "mine_star", "document.querySelectorAll('#wd-prev-scene .mines-cell.safe').length > 1"),
+    (3, "keno_hex", "document.querySelectorAll('#wd-prev-scene .keno-ball.press').length > 0"),
+    (1, "crash_neon", "/^×(?!1\\.00)/.test((document.querySelector('#wd-prev-scene .cr-mult') || {}).textContent || '')"),
 ]
 
 
@@ -39,7 +39,7 @@ async def run(w):
         await p.tap("#wd-prev-close")
         check(code + ": закрытие останавливает примерку", await p.ev("document.getElementById('wd-prev-sheet').hidden"), True)
     # у рамки и значка примерки нет
-    await p.tap("#wd-tabs .wd-tab:nth-child(7)")
+    await p.tap("#wd-tabs .wd-tab:nth-child(8)")
     await p.wait("document.querySelectorAll('#wd-grid .wd-card').length > 0", 5, "рамки")
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "окно рамки")

@@ -15,14 +15,14 @@ OVERRIDE = """
     const url = String(u);
     if (url.includes('/api/cosmetics/catalog')) {
       return json({ slots: [], items: [
-        { code: 'back_classic', slot: 'card_back', name: evil, description: evil, rarity: 'starter', price_stars: 0, starter: true, available: true },
-        { code: 'evil_code', slot: 'card_back', name: 'Чужой', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
-        { code: 'back_midnight', slot: 'chip', name: 'Не тот слот', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
-        { code: '__proto__', slot: 'card_back', name: 'Прото', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
-        { code: 'back_midnight', slot: 'card_back', name: 'Полночь', description: '<script>window.__pwn=2</script>', rarity: 'common', price_stars: 50, starter: false, available: true } ] });
+        { code: 'crash_line', slot: 'crash', name: evil, description: evil, rarity: 'starter', price_stars: 0, starter: true, available: true },
+        { code: 'evil_code', slot: 'crash', name: 'Чужой', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
+        { code: 'crash_neon', slot: 'chip', name: 'Не тот слот', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
+        { code: '__proto__', slot: 'crash', name: 'Прото', description: '', rarity: 'common', price_stars: 1, starter: false, available: true },
+        { code: 'crash_neon', slot: 'crash', name: 'Полночь', description: '<script>window.__pwn=2</script>', rarity: 'common', price_stars: 50, starter: false, available: true } ] });
     }
     if (url.includes('/api/cosmetics/mine')) {
-      return json({ owned: [{ code: 'back_midnight', source: 'owner_gift', acquired_at: 1 }, { code: evil, source: 'x', acquired_at: 2 }], equipped: { card_back: evil, chip: 'chip_ring', table: ['x'] }, show_in_rating: true });
+      return json({ owned: [{ code: 'crash_neon', source: 'owner_gift', acquired_at: 1 }, { code: evil, source: 'x', acquired_at: 2 }], equipped: { crash: evil, chip: 'chip_ring', table: ['x'] }, show_in_rating: true });
     }
     if (url.includes('/api/chat/top')) {
       const row = (rank, name, me, cos) => ({ rank, name, balance: 1000 - rank, is_me: me, staked: 0, level: 1, member_ref: me ? null : '0'.repeat(32), cosmetics: cos });
@@ -47,7 +47,7 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "гардероб")
     check("в карточках нет разметки из ответа сервера", await p.ev("[document.querySelectorAll('#wd-grid img, #wd-grid b, #wd-grid script').length, window.__pwn || 0]"), [0, 0])
     check("название выведено текстом", await p.ev("document.querySelector('#wd-grid .wd-card .wd-name').textContent"), EVIL[:40])
-    check("неизвестные коды и предметы чужого слота пропущены", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].map(c => c.dataset.code)"), ["back_classic", "back_midnight"])
+    check("неизвестные коды и предметы чужого слота пропущены", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].map(c => c.dataset.code)"), ["crash_line", "crash_neon"])
     await p.tap("#wd-grid .wd-card:nth-child(1)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     check("описание в предпросмотре текстом, без элементов", await p.ev("[document.querySelectorAll('#wd-prev-sheet img, #wd-prev-sheet b, #wd-prev-sheet script').length, document.getElementById('wd-prev-desc').textContent === %s, window.__pwn || 0]" % json.dumps(EVIL)), [0, True, 0])
