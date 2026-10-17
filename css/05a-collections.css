@@ -1,0 +1,372 @@
+/* ---------- блок «Коллекции» в профиле и шторка коллекции (docs/UI_REVIEW.md, раздел 4) ---------- */
+
+/* шапка блока: заголовок и кнопка переключения вида */
+.collections-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.collections-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.collections-all-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  margin: -8px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.collections-all-btn:active {
+  color: var(--accent);
+}
+
+/* контейнер ленты с подсказкой прокрутки справа */
+.collections-feed-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.collections-feed-wrap.more {
+  -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, #000 86%, transparent);
+}
+
+/* лента карточек (вид по умолчанию со scroll-snap) */
+.collections-feed {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  padding: 2px 2px 4px;
+}
+
+/* карточка коллекции */
+.collection-card {
+  flex: 0 0 132px;
+  width: 132px;
+  min-height: 44px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.collection-card:active {
+  background: var(--surface-3);
+}
+
+/* собрана: тонкая золотая рамка */
+.collection-card.col-complete {
+  border-color: var(--gold);
+}
+
+/* сезон завершён: бледная карточка */
+.collection-card.col-ended {
+  opacity: 0.55;
+}
+
+/* переключение на сетку во всю ширину */
+.profile-card.collections.grid-view .collections-feed-wrap {
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.profile-card.collections.grid-view .collections-feed {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  overflow-x: visible;
+  scroll-snap-type: none;
+  padding: 2px 0;
+}
+
+.profile-card.collections.grid-view .collection-card {
+  width: 100%;
+  flex: none;
+}
+
+/* обложка карточки: статичный коллаж из 3 первых миниатюр */
+.col-card-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: linear-gradient(135deg, #2A2A2D 0%, #3E3E42 100%);
+}
+
+.col-card-cover[data-col="leaves"] {
+  background: linear-gradient(135deg, #7A2800 0%, #C44E15 50%, #E65100 100%);
+}
+
+.col-card-cover[data-col="dacha"] {
+  background: linear-gradient(135deg, #243E15 0%, #3F6724 50%, #7A6F33 100%);
+}
+
+.col-card-cover[data-col="founder"] {
+  background: linear-gradient(135deg, #2A2926 0%, #464542 50%, #6E6C68 100%);
+}
+
+.col-card-collage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.col-card-collage .wd-mini {
+  width: 38px;
+  height: 48px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transform: scale(0.72);
+}
+
+/* название на карточке */
+.col-card-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* прогресс сегментами */
+.col-card-segments {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  height: 4px;
+}
+
+.col-segment {
+  flex: 1;
+  height: 100%;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.col-segment.done {
+  background: var(--accent);
+}
+
+.col-card.col-complete .col-segment.done {
+  background: var(--gold);
+}
+
+/* строка статуса */
+.col-card-status {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-card.col-complete .col-card-status {
+  color: var(--gold);
+}
+
+/* ---------- Шторка коллекции ---------- */
+.collection-panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + var(--inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* крестик закрытия */
+.collection-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.collection-close:active {
+  color: var(--text);
+  background: none;
+}
+
+/* строка прогресса */
+.collection-progress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* сетка частей в шторке */
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.collection-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  min-width: 0;
+}
+
+.collection-part-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 64px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* неполученные серыми силуэтами: grayscale, brightness 0.5, opacity, без blur */
+.collection-part-thumb.unowned {
+  filter: grayscale(1) brightness(0.5);
+  opacity: 0.65;
+}
+
+.collection-part-name {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.collection-part-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 14px;
+}
+
+.collection-part-how {
+  font-size: 10px;
+  line-height: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* строка-ссылка «Где получить» */
+.collection-source-box {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
+.collection-source-box[hidden] {
+  display: none;
+}
+
+.collection-source-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+  color: var(--accent);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  width: 100%;
+}
+
+.collection-source-btn:active {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
+/* вспышка по рамке при первом открытии собранного набора */
+.collection-panel.flash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 2px solid var(--gold);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  animation: col-panel-flash 0.8s ease-out;
+}
+
+@keyframes col-panel-flash {
+  0% { opacity: 0; }
+  35% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collection-panel.flash::before {
+    animation: none;
+    opacity: 0;
+  }
+}

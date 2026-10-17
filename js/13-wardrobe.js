@@ -612,26 +612,36 @@ function openTerms() {
   else window.open(url, '_blank', 'noopener');
 }
 
-async function loadWardrobe() {
-  if (wd.loading) return;
-  if (!(tg && tg.initData)) { setWdMsg('Откройте игру через бота в Telegram'); return; }
+let wdLoadPromise = null;
+
+async function loadWardrobe(force = true) {
+  if (wdLoadPromise) return wdLoadPromise;
+  if (!force && wd.catalog && wd.mine) return Promise.resolve();
+  if (!(tg && tg.initData)) { setWdMsg('Откройте игру через бота в Telegram'); return Promise.resolve(); }
   wd.loading = true;
   setWdMsg('Загрузка…');
   renderWardrobe();
-  try {
-    const [cat, mine] = await Promise.all([
-      fetchGameState('/api/cosmetics/catalog', validWdCatalog), fetchGameState('/api/cosmetics/mine', validWdMine)
-    ]);
-    wd.catalog = wdNormalizeCatalog(cat);
-    wd.sets = wdNormalizeSets(cat);
-    wd.mine = wdNormalizeMine(mine);
-    setWdMsg('');
-  } catch (e) {
-    setWdMsg(e && e.text ? e.text : 'Нет связи с сервером');
-  } finally {
-    wd.loading = false;
-    renderWardrobe();
-  }
+  wdLoadPromise = (async () => {
+    try {
+      const [cat, mine] = await Promise.all([
+        fetchGameState('/api/cosmetics/catalog', validWdCatalog), fetchGameState('/api/cosmetics/mine', validWdMine)
+      ]);
+      wd.catalog = wdNormalizeCatalog(cat);
+      wd.sets = wdNormalizeSets(cat);
+      wd.mine = wdNormalizeMine(mine);
+      setWdMsg('');
+    } catch (e) {
+      setWdMsg(e && e.text ? e.text : 'Нет связи с сервером');
+    } finally {
+      wd.loading = false;
+      wdLoadPromise = null;
+      renderWardrobe();
+      if (typeof window.renderProfileCollections === 'function') {
+        window.renderProfileCollections();
+      }
+    }
+  })();
+  return wdLoadPromise;
 }
 
 // Вкладка «Стиль»: данные гардероба берутся с сервера при каждом открытии вкладки (при старте приложения их нет). Выбранный слот (wd.slot) живёт

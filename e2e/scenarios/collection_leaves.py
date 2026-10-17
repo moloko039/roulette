@@ -35,7 +35,12 @@ async def run(w):
     check("склонение 1 день", await p.ev("(() => { wd.mine.collections.find(c => c.code === 'leaves').days_left = 1; renderWardrobe(); return document.querySelector('.wd-season-btn').textContent; })()"), "Листопад: осталось 1 день →")
     check("склонение 2 дня", await p.ev("(() => { wd.mine.collections.find(c => c.code === 'leaves').days_left = 2; renderWardrobe(); return document.querySelector('.wd-season-btn').textContent; })()"), "Листопад: осталось 2 дня →")
     await p.tap(".wd-season-btn")
-    check("тап по сезону без openCollection даёт тост", await p.ev("document.getElementById('wd-toast').textContent"), "Коллекции скоро переедут в профиль")
+    await p.wait("!document.getElementById('collection-sheet').hidden", 5, "шторка коллекции Листопад")
+    check("тап по сезону открывает шторку в профиле", await p.ev("[!document.querySelector('[data-screen=profile]').hidden, !document.getElementById('collection-sheet').hidden, document.getElementById('collection-title').textContent]"), [True, True, "Листопад"])
+    await p.tap("#collection-close")
+    await p.wait("document.getElementById('collection-sheet').hidden", 5, "шторка закрыта")
+    await p.tap(".tab[data-tab=shop]")
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden", 5, "возврат в магазин")
     await p.ev("(() => { delete wd.mine.collections.find(c => c.code === 'leaves').status; renderWardrobe(); })()")
     await p.tap("#wd-tabs .wd-tab:nth-child(7)")           # рубашка карт
     statuses = await p.ev("Object.fromEntries([...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent]))")
@@ -47,7 +52,12 @@ async def run(w):
     check("предпросмотр части: нет кнопки покупки, кнопка «Открыть коллекцию»", await p.ev("[document.getElementById('wd-prev-act').hidden, (%s)(document.getElementById('wd-prev-msg').textContent), document.getElementById('wd-gift-open').hidden]" % SP),
           [True, "Открыть коллекцию", True])
     await p.tap("#wd-prev-msg button")
-    check("кнопка закрывает предпросмотр и показывает тост", await p.ev("[document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-toast').textContent]"), [True, "Коллекции скоро переедут в профиль"])
+    await p.wait("document.getElementById('wd-prev-sheet').hidden && !document.getElementById('collection-sheet').hidden", 5, "шторка Листопада из предпросмотра")
+    check("кнопка закрывает предпросмотр и открывает шторку в профиле", await p.ev("[document.getElementById('wd-prev-sheet').hidden, !document.querySelector('[data-screen=profile]').hidden, !document.getElementById('collection-sheet').hidden, document.getElementById('collection-title').textContent]"), [True, True, True, "Листопад"])
+    await p.tap("#collection-close")
+    await p.wait("document.getElementById('collection-sheet').hidden", 5, "шторка закрыта")
+    await p.tap(".tab[data-tab=shop]")
+    await p.wait("!document.querySelector('[data-screen=shop]').hidden", 5, "возврат в магазин")
     # полный набор: выдаём остальные части и надеваем все восемь
     for code in ("table_autumn", "mine_acorn", "chip_leaf", "keno_apple", "crash_maple", "frame_wreath", "badge_pumpkin"):
         w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'collection', ?)", (uid, code, now))
