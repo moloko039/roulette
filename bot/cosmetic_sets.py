@@ -22,6 +22,13 @@ COLLECTIONS = {
         "season": None,
         "how": "За улучшения дохода фермы",
     },
+    "founder": {
+        "name": "Основатель",
+        "parts": ("ref_scout", "ref_beacon", "ref_arch"),
+        "source": "referral",
+        "season": None,
+        "how": "За друзей, дошедших до квалификации: 3, 10 и 30",
+    },
 }
 
 PART_TO_COLLECTION = {part: code for code, c in COLLECTIONS.items() for part in c["parts"]}
@@ -56,6 +63,8 @@ def season_active(code, day_index):
     """Идёт ли сезон коллекции в «день» day_index (московская дата как число дней с 1970-01-01)."""
     if COLLECTIONS[code]["season"] is None:
         return True
+    if day_index is None:
+        return False
     start, end = COLLECTIONS[code]["season"]
     return _day(start) <= day_index <= _day(end)
 
@@ -65,14 +74,52 @@ def collection_of(part_code):
     return PART_TO_COLLECTION.get(part_code)
 
 
-def progress(owned_codes):
-    """Список коллекций с прогрессом по множеству кодов принадлежащих предметов: [{code, name, how, season: [с, по], parts, owned, total, complete}]."""
+_STATUS_ORDER = {"active": 0, "complete": 1, "ended": 2}
+
+
+def progress(owned_codes, day_index=None):
+    """Список коллекций с прогрессом по множеству кодов принадлежащих предметов:
+    [{code, name, how, season: [с, по] | None, parts, owned, total, complete, source, status, days_left}].
+    Порядок: сначала status 'active', затем 'complete', затем 'ended'; внутри группы прежний порядок COLLECTIONS.
+    day_index не задан: days_left null, status без 'ended'."""
     owned = set(owned_codes)
     out = []
     for code, c in COLLECTIONS.items():
         have = sum(1 for p in c["parts"] if p in owned)
-        out.append({"code": code, "name": c["name"], "how": c["how"], "season": list(c["season"]) if c["season"] else None, "parts": list(c["parts"]),
-                    "owned": have, "total": len(c["parts"]), "complete": have == len(c["parts"])})
+        is_complete = have == len(c["parts"])
+        season = list(c["season"]) if c["season"] else None
+
+        if is_complete:
+            status = "complete"
+            days_left = None
+        elif day_index is None:
+            status = "active"
+            days_left = None
+        elif c["season"] is not None and day_index > _day(c["season"][1]):
+            status = "ended"
+            days_left = None
+        else:
+            status = "active"
+            if c["season"] is not None and season_active(code, day_index):
+                days_left = _day(c["season"][1]) - day_index + 1
+            else:
+                days_left = None
+
+        out.append({
+            "code": code,
+            "name": c["name"],
+            "how": c["how"],
+            "season": season,
+            "parts": list(c["parts"]),
+            "owned": have,
+            "total": len(c["parts"]),
+            "complete": is_complete,
+            "source": c["source"],
+            "status": status,
+            "days_left": days_left,
+        })
+
+    out.sort(key=lambda item: _STATUS_ORDER[item["status"]])
     return out
 
 

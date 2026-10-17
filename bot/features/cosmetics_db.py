@@ -56,7 +56,7 @@ def cosmetics_state(telegram_id, db_path=None):
         if info:
             res["patina_info"] = info      # числа для рисунка надетой патины: засечки на жетоне, дни на именном жетоне
         owned = [r[0] for r in conn.execute("SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (telegram_id,))]
-        res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["complete"]]
+        res["complete_sets"] = [c["code"] for c in cosmetic_sets.progress(owned) if c["status"] == "complete"]
         res["founder_no"] = founder_no(conn, telegram_id)      # номер основателя для рамки «Арка» и значка «Камень» (null, если веху ещё не получали)
         return res
     finally:
@@ -105,9 +105,14 @@ def grant_dacha_parts(telegram_id, now=None, db_path=None):
         conn.close()
 
 
-def cosmetics_mine(telegram_id, db_path=None):
+def cosmetics_mine(telegram_id, now=None, db_path=None):
     """GET /api/cosmetics/mine: свои предметы (без стартовых и без платёжных данных), надетое, показ в рейтинге."""
-    grant_dacha_parts(telegram_id, db_path=db_path)      # лениво: части «Дачного сезона» тем, у кого уровень фермы уже выше порогов
+    if isinstance(now, str) and db_path is None:
+        db_path = now
+        now = None
+    if now is None:
+        now = int(time.time())
+    grant_dacha_parts(telegram_id, now=now, db_path=db_path)      # лениво: части «Дачного сезона» тем, у кого уровень фермы уже выше порогов
     conn = _connect(db_path)
     try:
         gift_names = {r["item_code"]: r["from_name"] for r in conn.execute("SELECT item_code, from_name FROM gifts WHERE to_user = ? ORDER BY id", (telegram_id,))} if conn.execute(
@@ -122,7 +127,8 @@ def cosmetics_mine(telegram_id, db_path=None):
             owned.append(entry)
         state = {"equipped": cosmetics.effective_equipped(_equipped_rows(conn, telegram_id)),
                  "show_in_rating": _show_in_rating(conn, telegram_id)}
-        state["collections"] = cosmetic_sets.progress([o["code"] for o in owned])
+        today = (int(now) + economy_config.STREAK_UTC_OFFSET_HOURS * 3600) // 86400
+        state["collections"] = cosmetic_sets.progress([o["code"] for o in owned], day_index=today)
         return dict({"owned": owned}, **state)
     finally:
         conn.close()
