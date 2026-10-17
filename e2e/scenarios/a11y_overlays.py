@@ -12,7 +12,7 @@ MENU_OPEN = "document.getElementById('game-menu').classList.contains('open')"
 async def run(w):
     p = w.page
     await p.wait("!!document.querySelector('.tab.main')", 10, "нижняя панель")
-    check("диалоги (проверка честности, предпросмотр в «Стиле») помечены aria-modal", await p.ev("[...document.querySelectorAll('[role=dialog]')].map(e => e.getAttribute('aria-modal'))"), ["true", "true"])   # окно «Проверка честности» краша и предпросмотр в «Стиле»
+    check("диалоги (проверка честности, предпросмотр в «Стиле», шторка коллекции) помечены aria-modal", await p.ev("[...document.querySelectorAll('[role=dialog]')].map(e => e.getAttribute('aria-modal'))"), ["true", "true", "true"])   # окно «Проверка честности» краша и предпросмотр в «Стиле»
     await p.key("Escape", "Escape", 27)
     check("Escape без окон: меню закрыто, страница жива", await p.ev(MENU_OPEN), False)
 

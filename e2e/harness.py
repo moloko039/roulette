@@ -253,7 +253,7 @@ HELPERS = r"""
   E.hs = () => document.documentElement.scrollWidth - document.documentElement.clientWidth;
   E.overflow = () => [...document.querySelectorAll('.screen:not([hidden]) *, .dialog-sheet:not([hidden]) *')].filter((e) => {
     const r = e.getBoundingClientRect(); return r.width > 0 && (r.right > window.innerWidth + 0.5 || r.left < -0.5)
-      && !e.closest('.history-list, .nav, .game-menu, .stats-scroll'); }).slice(0, 5).map((e) => e.tagName + '.' + e.className);
+      && !e.closest('.history-list, .nav, .game-menu, .stats-scroll, .collections-feed'); }).slice(0, 5).map((e) => e.tagName + '.' + e.className);
   E.rect = (sel) => { const e = document.querySelector(sel); if (!e || e.hidden) return null; const r = e.getBoundingClientRect();
     return {t: Math.round(r.top), b: Math.round(r.bottom), l: Math.round(r.left), r: Math.round(r.right)}; };
   E.center = (sel) => { const e = document.querySelector(sel); const r = e.getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; };
