@@ -28,6 +28,16 @@ class UnknownSet(CosmeticsError):
     code = "unknown_set"
 
 
+class UnknownCollection(CosmeticsError):
+    """Коллекция с таким кодом не найдена в каталоге коллекций."""
+    code = "unknown_collection"
+
+
+class NothingToEquip(CosmeticsError):
+    """У игрока нет ни одной доступной части этой коллекции для надевания."""
+    code = "nothing_to_equip"
+
+
 class NotOwned(CosmeticsError):
     code = "not_owned"
 

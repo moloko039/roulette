@@ -248,6 +248,44 @@ def unequip_item(telegram_id, request_id, slot, now=None, db_path=None):
     return _run_action(telegram_id, request_id, "unequip", {"slot": slot}, body, now, db_path)
 
 
+def equip_collection(telegram_id, request_id, collection_code, now=None, db_path=None):
+    """Надеть все полученные части коллекции одним запросом (кнопка «Надеть набор»).
+    Для каждого слота берётся последняя из полученных частей в порядке parts коллекции.
+    Ошибки: UnknownCollection, NothingToEquip, RequestConflict, TooFast."""
+    if type(collection_code) is not str:
+        raise ValueError("invalid")
+
+    def body(conn):
+        if collection_code not in cosmetic_sets.COLLECTIONS:
+            raise cosmetics.UnknownCollection()
+        parts = cosmetic_sets.COLLECTIONS[collection_code]["parts"]
+        slot_to_part = {}
+        for part_code in parts:
+            it = cosmetics.item(part_code)
+            if it is None or not it["available"] or it["starter"]:
+                continue
+            if not _owns(conn, telegram_id, part_code):
+                continue
+            slot_to_part[it["slot"]] = part_code
+        if not slot_to_part:
+            raise cosmetics.NothingToEquip()
+        for slot, part_code in slot_to_part.items():
+            conn.execute(
+                "INSERT OR REPLACE INTO cosmetic_equipped (telegram_id, slot, item_code) VALUES (?, ?, ?)",
+                (telegram_id, slot, part_code),
+            )
+        chosen = set(slot_to_part.values())
+        equipped_parts = [p for p in parts if p in chosen]
+        equipped = cosmetics.effective_equipped(_equipped_rows(conn, telegram_id))
+        return _with_patina(conn, telegram_id, {
+            "collection": collection_code,
+            "equipped_parts": equipped_parts,
+            "equipped": equipped,
+        })
+
+    return _run_action(telegram_id, request_id, "equip_set", {"collection": collection_code}, body, now, db_path)
+
+
 def set_visibility(telegram_id, request_id, show_in_rating, now=None, db_path=None):
     """Показывать ли свои публичные слоты (рамка, значок) другим в рейтинге беседы."""
     if type(show_in_rating) is not bool:
