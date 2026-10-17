@@ -12,7 +12,6 @@ const RACE_FRAME_MS_FAST = 80;     // быстрый режим ≈ 3 с, без
 const RACE_FINISH = 1000;
 const RACE_VIEW = 500;             // сколько единиц пути видно в окне камеры
 const RACE_ANCHOR = 0.6;           // лидер держится на 60% ширины окна, пока камера не упрётся в финиш
-const RACE_LANES = [3, 4];
 const RACE_PIG_W = 60;
 const RACE_SAMPLE_MS = 50;         // шаг ключевых кадров WAAPI
 const RACE_MAX_LEAD_BUZZ = 4;      // смена лидера: вибрация не чаще четырёх раз за забег

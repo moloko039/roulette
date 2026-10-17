@@ -44,20 +44,15 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 /* Ritual bar */
 .bar { padding: 6px 8px 5px; background: linear-gradient(#1d1719, #0f0b0c); border: 1px solid var(--line); border-radius: 12px; box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.7); }
 .app[data-mode="reign"] .bar { opacity: 0.35; }
-.bar-levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .lvl { position: relative; height: 34px; display: grid; place-items: center; border-radius: 8px; background: #120e10; border: 1px solid #2d2528; color: var(--muted); font-size: 14px; font-weight: 700; }
 .lvl svg { position: absolute; inset: 0; margin: auto; width: 22px; height: 28px; opacity: 0.35; }
 .lvl svg path { fill: #4b3f3a; }
 .lvl.done { border-color: var(--gold-dim); color: var(--gold); background: linear-gradient(#35200f, #160d08); }
 .lvl.done svg { opacity: 1; }
 .lvl.done svg .flame { fill: #ffb347; }
-.lvl.done svg .wax { fill: #e9ddc2; }
 .lvl.now { border-color: var(--blood); }
 .lvl.pop { animation: lvl-pop 0.6s ease-out; }
 @keyframes lvl-pop { 0% { transform: scale(1); } 35% { transform: scale(1.3); } 100% { transform: scale(1); } }
-.bar-track { position: relative; height: 6px; margin: 6px 0 3px; overflow: hidden; background: #0a0707; border-radius: 3px; border: 1px solid #2b2224; }
-.bar-track i { position: absolute; inset: 0; background: linear-gradient(90deg, #7a1212, var(--blood), #ff8a5a); transform-origin: 0 50%; transform: scaleX(0); transition: transform 0.35s ease-out; }
-.bar-text { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 
 /* поле */
 .board-wrap { position: relative; align-self: center; padding: 8px; background: linear-gradient(#2d2528, #151012); border: 2px solid #3d3236; border-radius: 14px; box-shadow: 0 0 0 1px #000, 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 0 0 2px #0c0809; }
@@ -109,7 +104,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .panel { margin-top: auto; padding: 8px 8px 6px; background: linear-gradient(#1c1618, #0e0a0b); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.6); }
 .info { display: flex; justify-content: space-around; min-height: 34px; text-align: center; }
 .info b { font-size: 18px; font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
-.row-main { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 4px 0; }
 .round-btn { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--gold-dim); background: radial-gradient(circle at 40% 30%, #3a2c27, #130d0e); color: var(--gold); }
 .round-btn svg { width: 24px; height: 24px; fill: currentColor; }
 .round-btn.bolt { color: #ffcf5a; border-color: #8c6a2c; }
@@ -120,7 +114,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .spin .ring { fill: none; stroke: rgba(230, 184, 92, 0.5); stroke-width: 1.5; stroke-dasharray: 4 5; }
 .spin .star { fill: rgba(0, 0, 0, 0.28); }
 .spin span { position: relative; font-size: 13px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; text-shadow: 0 2px 0 #000; text-align: center; line-height: 1.1; padding: 0 6px; }
-.spin:active:not(:disabled) { transform: scale(0.96); }
 .spin:disabled { filter: grayscale(0.7) brightness(0.65); cursor: default; }
 .spin.bonus { background: radial-gradient(circle at 40% 30%, #d8801f, #7a3c07 70%, #2a1203); box-shadow: 0 0 0 2px #000, 0 0 26px rgba(255, 150, 40, 0.7); }
 .spin.reign { background: radial-gradient(circle at 40% 30%, #e03a3a, #7a0b0b 70%, #260303); box-shadow: 0 0 0 2px #000, 0 0 30px rgba(255, 40, 40, 0.85); }
@@ -200,14 +193,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .bcol { position: absolute; top: 0; height: 200%; width: var(--cell); background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0 calc(var(--cell) * 0.62), rgba(60, 20, 22, 0.35) calc(var(--cell) * 0.62) var(--cell)); filter: blur(3px); animation: blur-run 0.2s linear infinite; z-index: 3; pointer-events: none; opacity: 0.85; }
 @keyframes blur-run { from { transform: translateY(-50%); } to { transform: translateY(0); } }
 
-/* шкала: кровь, свечение края */
-.bar-track i { background: repeating-linear-gradient(115deg, #6d0b0b 0 9px, #a51818 9px 18px, #c42a2a 18px 27px); background-size: 54px 100%; animation: blood-flow 1.1s linear infinite; }
-.bar-track i::after { content: ""; position: absolute; right: 0; top: -2px; bottom: -2px; width: 8px; background: radial-gradient(ellipse at 100% 50%, #fff6e8, #ff5a3a 40%, transparent 70%); filter: blur(1px); }
 @keyframes blood-flow { from { background-position: 0 0; } to { background-position: 54px 0; } }
 .lock { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; color: #6c6258; pointer-events: none; text-shadow: 0 1px 0 #000; }
 .wslot.open .lock { display: none; }
 .wslot { overflow: visible; background-clip: padding-box; }
-.wslot .wimg { position: absolute; inset: 0; border-radius: 6px; overflow: hidden; background: inherit; }
 
 /* пол бонуса */
 .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 36%; z-index: 0; opacity: 0; pointer-events: none; transition: opacity 0.6s ease-out; background: linear-gradient(transparent, rgba(60, 4, 4, 0.7)); }
@@ -281,7 +270,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .confirm-actions { display: flex; gap: 8px; margin-top: 10px; }
 .confirm-actions button { flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--gold-dim); font-size: 16px; font-weight: 800; background: rgba(0, 0, 0, 0.35); color: #fff; }
 .confirm-actions .go { background: linear-gradient(#e6b85c, #9a6e1c); color: #2a0a0a; }
-.shaking { will-change: transform; }
 
 .fxtop { position: absolute; inset: 0; z-index: 12; pointer-events: none; overflow: hidden; }
 .app > .fxtop { position: absolute; }
@@ -342,9 +330,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; }
 .round-btn { width: 44px; height: 44px; flex: none; }
 .betbox { flex: 1; min-width: 0; text-align: center; line-height: 1.1; }
 .betbox small, .cost small { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.betrow { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 1px; }
-.betrow b { min-width: 54px; font-size: 17px; font-variant-numeric: lining-nums tabular-nums; }
-.betrow .step-btn { width: 30px; height: 30px; font-size: 20px; }
 .cost { margin-top: 1px; font-size: 12px; }
 .cost b { color: var(--gold); }
 .spin { width: 84px; height: 84px; flex: none; }
@@ -407,6 +392,5 @@ button.betbox:disabled { opacity: 0.55; }
 .total-card b { font-size: 34px; line-height: 1.05; color: var(--gold); text-shadow: 0 2px 0 #000, 0 0 14px rgba(230, 184, 92, 0.35); font-variant-numeric: lining-nums tabular-nums; }
 .total-card i { font-style: normal; font-size: 16px; font-weight: 800; color: #e86a5a; }
 @media (prefers-reduced-motion: reduce) { .total-card .octagram path { filter: none; } }
-.app { position: relative; }
 .row-main .spin.count .ringrun { animation-name: ring-turn-c; }
 @keyframes ring-turn-c { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }

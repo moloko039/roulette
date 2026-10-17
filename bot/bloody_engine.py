@@ -90,11 +90,6 @@ def reel_pools(pool, bias):
     return out
 
 
-def new_grid(rng, pool, rows=None):
-    rows = cfg.WORKING_ROWS if rows is None else rows
-    return [[draw_symbol(rng, pool) for _ in range(rows)] for _ in range(cfg.REELS)]
-
-
 def evaluate(grid, mults=None, min_length=None):
     """Список Win по полю (порядок: по убыванию выплаты, затем по коду символа). Платит только самая длинная комбинация каждого символа."""
     min_length = cfg.MIN_WIN_LENGTH if min_length is None else min_length

@@ -16,10 +16,6 @@ from core.kernel import _accrue_write, _register_player
 from features.cosmetics_db import _grant_in
 
 
-class StreakError(Exception):
-    code = "streak_error"
-
-
 def day_index(now):
     """Номер «дня» (московская дата как число дней с 1970-01-01)."""
     return (int(now) + economy_config.STREAK_UTC_OFFSET_HOURS * 3600) // 86400
