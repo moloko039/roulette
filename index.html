@@ -15,8 +15,8 @@
   <link rel="stylesheet" href="css/02a-result.css?v=405f0d68">
   <link rel="stylesheet" href="css/03-table-bets.css?v=78effe9b">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
-  <link rel="stylesheet" href="css/05-profile-rating.css?v=915fc612">
-  <link rel="stylesheet" href="css/05a-collections.css?v=12266486">
+  <link rel="stylesheet" href="css/05-profile-rating.css?v=9ee88232">
+  <link rel="stylesheet" href="css/05a-collections.css?v=db31ec89">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=8c4cbb96">
   <link rel="stylesheet" href="css/07-keno.css?v=df7a5056">
   <link rel="stylesheet" href="css/08-blackjack.css?v=794d5086">
@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="css/10-hilo.css?v=e668ff8d">
   <link rel="stylesheet" href="css/11-lobby.css?v=0f4511d3">
   <link rel="stylesheet" href="css/12-wardrobe-arcade.css?v=acd94b48">
-  <link rel="stylesheet" href="css/13-shop.css?v=9c62a7c9">
+  <link rel="stylesheet" href="css/13-shop.css?v=6f3fdbab">
   <link rel="stylesheet" href="css/14-skin-scenes.css?v=976b81a8">
   <link rel="stylesheet" href="css/15b-race.css?v=d280059e">
   <!-- рамки и значки видны в рейтинге и профиле на любом экране: их css не привязан к сцене игры, поэтому подключается всегда -->
@@ -669,6 +669,7 @@
       <span class="avatar" id="profile-avatar" aria-hidden="true"></span>
       <span class="profile-name" id="profile-name"></span>
       <span class="rating-badge" id="profile-badge" hidden aria-hidden="true"></span>
+      <span class="rating-set-badge profile-set-badge" id="profile-set-badge" hidden role="button" tabindex="0"></span>
     </div>
     <section class="profile-card collections" id="collections-card" hidden>
       <div class="collections-head">
@@ -751,6 +752,21 @@
       </div>
     </section>
   </div>
+  <div class="dialog-sheet" id="collection-sheet" hidden>
+    <div class="dialog-dim" id="collection-dim"></div>
+    <section class="dialog-panel collection-panel" role="dialog" aria-modal="true" aria-label="Коллекция">
+      <div class="dialog-head">
+        <strong id="collection-title"></strong>
+        <button type="button" class="action collection-close" id="collection-close" aria-label="Закрыть">✕</button>
+      </div>
+      <p class="collection-progress" id="collection-progress"></p>
+      <div class="collection-grid" id="collection-grid"></div>
+      <button type="button" class="keno-play collection-equip-btn" id="collection-equip-btn" hidden>Надеть набор</button>
+      <div class="collection-source-box" id="collection-source-box" hidden>
+        <button type="button" class="action collection-source-btn" id="collection-source-btn">Где получить →</button>
+      </div>
+    </section>
+  </div>
   <div class="dialog-sheet" id="wd-prev-sheet" hidden>
     <div class="dialog-dim" id="wd-prev-dim"></div>
     <section class="dialog-panel wd-prev-panel" role="dialog" aria-modal="true" aria-label="Предпросмотр">
@@ -776,20 +792,6 @@
       <div class="soon-toast wd-toast" id="wd-prev-toast" role="status" aria-live="polite"></div>
     </section>
   </div>
-  <div class="dialog-sheet" id="collection-sheet" hidden>
-    <div class="dialog-dim" id="collection-dim"></div>
-    <section class="dialog-panel collection-panel" role="dialog" aria-modal="true" aria-label="Коллекция">
-      <div class="dialog-head">
-        <strong id="collection-title"></strong>
-        <button type="button" class="action collection-close" id="collection-close" aria-label="Закрыть">✕</button>
-      </div>
-      <p class="collection-progress" id="collection-progress"></p>
-      <div class="collection-grid" id="collection-grid"></div>
-      <div class="collection-source-box" id="collection-source-box" hidden>
-        <button type="button" class="action collection-source-btn" id="collection-source-btn">Где получить →</button>
-      </div>
-    </section>
-  </div>
   <div class="soon-toast" id="soon-toast" role="status" aria-live="polite">Скоро</div>
   <!-- открытая встроенная игра: во весь экран поверх приложения, iframe создаётся в js/*.js -->
   <div class="embed-view" id="embed-view" hidden>
@@ -809,8 +811,8 @@
   <script src="js/03a-roulette-wheel.js?v=d4116f8f"></script>
   <script src="js/03b-roulette-table.js?v=271efb4a"></script>
   <script src="js/03-roulette.js?v=49ba2ba4"></script>
-  <script src="js/04-profile.js?v=dbb6e8f2"></script>
-  <script src="js/05-rating.js?v=9b9a71a4"></script>
+  <script src="js/04-profile.js?v=cb8fc454"></script>
+  <script src="js/05-rating.js?v=6137d82c"></script>
   <script src="js/06-farm.js?v=66dd1fc0"></script>
   <script src="js/07-mines.js?v=c7715e5b"></script>
   <script src="js/08-keno.js?v=b1f78dfe"></script>
@@ -824,8 +826,8 @@
   <script src="js/13a-wardrobe-catalog.js?v=30525711"></script>
   <script src="js/13b-wardrobe-badges.js?v=1f1394a7"></script>
   <script src="js/13c-wardrobe-tryon.js?v=6574bdd9"></script>
-  <script src="js/13-wardrobe.js?v=23621595"></script>
-  <script src="js/04b-collections.js?v=7486722d"></script>
+  <script src="js/13-wardrobe.js?v=afe02393"></script>
+  <script src="js/04b-collections.js?v=2ec4171e"></script>
   <script src="js/14-lobby.js?v=104f0bdc"></script>
   <script src="js/14a-lobby-crash.js?v=d0e95dcf"></script>
   <script src="js/14-streak.js?v=7c03de64"></script>

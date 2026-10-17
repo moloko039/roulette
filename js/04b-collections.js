@@ -23,11 +23,13 @@ async function openCollection(code) {
     progress: document.getElementById('collection-progress'),
     grid: document.getElementById('collection-grid'),
     sourceBox: document.getElementById('collection-source-box'),
-    sourceBtn: document.getElementById('collection-source-btn')
+    sourceBtn: document.getElementById('collection-source-btn'),
+    equipBtn: document.getElementById('collection-equip-btn')
   };
 
   let lastActiveBeforeSheet = null;
   let currentSheetCode = null;
+  let currentSheetCol = null;
 
   // Определение слота предмета по его коду (SKIN_CODES из js/13a-wardrobe-catalog.js)
   function skinSlotOf(code) {
@@ -59,6 +61,48 @@ async function openCollection(code) {
       else if (mod10 >= 2 && mod10 <= 4) word = 'дня';
     }
     return n + ' ' + word;
+  }
+
+  // Полученные части коллекции, которые сервер выберет для каждого слота (последняя полученная часть по порядку parts)
+  function colEquipParts(col) {
+    if (!col || !Array.isArray(col.parts) || typeof wd !== 'object' || !wd || !wd.mine || !wd.mine.owned) return [];
+    const slotToPart = {};
+    col.parts.forEach((code) => {
+      if (!wd.mine.owned.has(code)) return;
+      const it = wd.catalog ? wd.catalog.find((i) => i && i.code === code) : null;
+      if (it && (!it.available || it.starter)) return;
+      const slot = (it && it.slot) || skinSlotOf(code);
+      if (slot) {
+        slotToPart[slot] = code;
+      }
+    });
+    return Object.entries(slotToPart);
+  }
+
+  function isColEquipped(col) {
+    const parts = colEquipParts(col);
+    if (!parts.length) return false;
+    const eq = wd && wd.mine && wd.mine.equipped ? wd.mine.equipped : {};
+    return parts.every(([slot, code]) => eq[slot] === code);
+  }
+
+  function updateCollectionEquipBtn(col) {
+    const btn = collectionsEls.equipBtn;
+    if (!btn) return;
+    const owned = Number.isInteger(col.owned) ? col.owned : 0;
+    if (owned < 1) {
+      btn.hidden = true;
+      return;
+    }
+    btn.hidden = false;
+    const fullyEquipped = isColEquipped(col);
+    if (fullyEquipped) {
+      btn.disabled = true;
+      btn.textContent = 'Набор надет';
+    } else {
+      btn.disabled = !!(typeof wd === 'object' && wd && wd.busy);
+      btn.textContent = 'Надеть набор';
+    }
   }
 
   // Текст одной строки статуса карточки коллекции
@@ -176,6 +220,7 @@ async function openCollection(code) {
   function openCollectionSheet(col) {
     if (!col || !collectionsEls.sheet) return;
     currentSheetCode = col.code || null;
+    currentSheetCol = col;
     const active = document.activeElement;
     if (active && active !== document.body && !collectionsEls.sheet.contains(active)) {
       lastActiveBeforeSheet = active;
@@ -193,9 +238,12 @@ async function openCollection(code) {
     parts.forEach((code) => {
       const isOwned = ownedSet.has(code);
       const slot = skinSlotOf(code);
-      const cell = document.createElement('div');
+      const cell = document.createElement('button');
+      cell.type = 'button';
       cell.className = 'collection-part' + (isOwned ? ' owned' : ' unowned');
       cell.dataset.code = code;
+      const partName = skinNameOf(code);
+      cell.setAttribute('aria-label', partName + ': ' + (isOwned ? 'получена' : 'не получена'));
 
       const thumb = document.createElement('div');
       thumb.className = 'collection-part-thumb' + (isOwned ? '' : ' unowned');
@@ -207,7 +255,7 @@ async function openCollection(code) {
       if (isOwned) {
         const nameEl = document.createElement('span');
         nameEl.className = 'collection-part-name';
-        nameEl.textContent = skinNameOf(code);
+        nameEl.textContent = partName;
         cell.appendChild(nameEl);
       } else {
         const labelEl = document.createElement('span');
@@ -219,8 +267,33 @@ async function openCollection(code) {
         cell.append(labelEl, howEl);
       }
 
+      cell.addEventListener('click', async () => {
+        if (typeof loadWardrobe === 'function' && (!wd || !wd.catalog || !wd.mine)) {
+          try {
+            await loadWardrobe(true);
+          } catch (e) {}
+        }
+        let item = wd && wd.catalog ? wd.catalog.find((i) => i && i.code === code) : null;
+        if (!item) {
+          item = {
+            code,
+            slot: skinSlotOf(code),
+            name: partName,
+            description: '',
+            starter: false,
+            available: true,
+            price: null
+          };
+        }
+        if (typeof openWdPreview === 'function') {
+          openWdPreview(item);
+        }
+      });
+
       grid.appendChild(cell);
     });
+
+    updateCollectionEquipBtn(col);
 
     // Строка-ссылка «Где получить» по source
     const srcBox = collectionsEls.sourceBox;
@@ -280,6 +353,7 @@ async function openCollection(code) {
     }
     lastActiveBeforeSheet = null;
     currentSheetCode = null;
+    currentSheetCol = null;
   }
 
   // Загрузка гардероба для коллекций: данные не старше COLLECTIONS_MAX_AGE_MS берутся из памяти, иначе перезагружаются (прогресс меняется
@@ -328,8 +402,30 @@ async function openCollection(code) {
     closeOnBackdropTap(collectionsEls.dim, closeCollectionSheet);
   }
 
+  if (collectionsEls.equipBtn) {
+    collectionsEls.equipBtn.addEventListener('click', async () => {
+      if (!currentSheetCol || collectionsEls.equipBtn.disabled || (typeof wd === 'object' && wd && wd.busy)) return;
+      if (typeof wdEquipSet === 'function') {
+        await wdEquipSet(currentSheetCol.code, () => {
+          const freshCol = (wd && wd.mine && wd.mine.collections && wd.mine.collections.find((c) => c && c.code === currentSheetCol.code)) || currentSheetCol;
+          currentSheetCol = freshCol;
+          openCollectionSheet(freshCol);
+        });
+      }
+    });
+  }
+
+  window.refreshCollectionSheet = function() {
+    if (!collectionsEls.sheet || collectionsEls.sheet.hidden || !currentSheetCode) return;
+    const freshCol = (wd && wd.mine && wd.mine.collections && wd.mine.collections.find((c) => c && c.code === currentSheetCode)) || currentSheetCol;
+    if (freshCol) {
+      updateCollectionEquipBtn(freshCol);
+    }
+  };
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.defaultPrevented && collectionsEls.sheet && !collectionsEls.sheet.hidden) {
+      if (typeof wdEls === 'object' && wdEls && wdEls.pSheet && !wdEls.pSheet.hidden) return;
       e.preventDefault();
       closeCollectionSheet();
     }

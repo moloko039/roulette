@@ -276,6 +276,50 @@
   color: var(--text-muted);
 }
 
+/* значок числа собранных коллекций в рейтинге и профиле (docs/UI_REVIEW.md 4.4) */
+.rating-set-badge,
+span.rating-set-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  min-height: 20px;
+  color: var(--gold);
+  background: var(--surface-3);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.rating-set-badge::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.rating-set-badge:active {
+  background: var(--surface-2);
+}
+
+.profile-set-badge {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
 /* сокращённые числа: по нажатию показывается полное значение (полное значение есть и в title) */
 .num-tap { cursor: pointer; text-decoration: underline dotted var(--text-dim); text-underline-offset: 3px; }
 .rating-bal, .farm-balance b, .farm-cost b, .farm-progress b { overflow-wrap: anywhere; }

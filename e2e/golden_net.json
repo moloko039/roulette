@@ -523,6 +523,13 @@
 "GET /api/chat/best-wins",
 "GET /api/referral",
 "GET /api/cosmetics/catalog",
+"GET /api/cosmetics/mine",
+"GET /api/me",
+"GET /api/streak",
+"GET /api/chat/top",
+"GET /api/chat/best-wins",
+"GET /api/referral",
+"GET /api/cosmetics/catalog",
 "GET /api/cosmetics/mine"
 ],
 "wardrobe_safety": [
