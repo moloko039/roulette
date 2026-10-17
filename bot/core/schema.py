@@ -21,12 +21,10 @@ from core.schema_tables import (
     create_game_tables,
     create_player_tables,
     create_referral_tables,
-    create_tables,
 )
 from core.schema_migrations import (
     cleanup_tombstones,
     drop_anti_achievements,
-    run_migrations,
 )
 
 

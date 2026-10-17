@@ -249,12 +249,6 @@ def _refill(field, rng, pool):
     return moves, fills
 
 
-def _remove(field, cells, rng, pool):
-    """Ячейки исчезают, остальные падают, сверху падают новые. Возвращает (падения, новые)."""
-    _holes(field, cells)
-    return _refill(field, rng, pool)
-
-
 def _vanish(field, rnd, mode, rng, cells, steps, make_step):
     """Сыгравшие (или сработавшие) ячейки исчезают. Если полоска набрала порог, переход уровня делается сразу, до досыпки (правило владельца): шаг
     make_step пишется без падений, затем шаги level_up, у последнего падения и новые символы уже из таблицы нового уровня."""

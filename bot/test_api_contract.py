@@ -512,7 +512,6 @@ try:
         assert r.json() == {"error": "too_many_requests"}
         assert r.headers["Retry-After"].isdigit() and int(r.headers["Retry-After"]) >= 1
     # ---------- /api/me: active_game (незавершённая игра, чтобы клиент открыл её при запуске) ----------
-    import blackjack as _bj
     from unittest import mock as _mock
     pa, ca = new_app()
     for uid in (5001, 5002, 5003, 5004, 5005):
