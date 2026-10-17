@@ -180,6 +180,24 @@
     },
     "replayed": false
   },
+  "equip_set": {
+    "collection": "founder",
+    "equipped_parts": [
+      "ref_scout",
+      "ref_arch"
+    ],
+    "equipped": {
+      "card_back": "back_classic",
+      "chip": "chip_plain",
+      "table": "table_green",
+      "mine_icons": "mine_classic",
+      "keno_ball": "keno_round",
+      "crash": "crash_line",
+      "avatar_frame": "ref_arch",
+      "badge": "ref_scout"
+    },
+    "replayed": false
+  },
   "visibility": {
     "show_in_rating": false,
     "replayed": false
@@ -190,6 +208,12 @@
     },
     "unknown_item": {
       "detail": "unknown_item"
+    },
+    "unknown_collection": {
+      "detail": "unknown_collection"
+    },
+    "nothing_to_equip": {
+      "detail": "nothing_to_equip"
     },
     "not_owned": {
       "detail": "not_owned"

@@ -27,13 +27,13 @@ async def run(w):
     head = await p.ev("(() => { const h = document.querySelector('.profile-head'); const r = h.getBoundingClientRect(); const kids = [...h.children].filter((e) => !e.hidden && e.getBoundingClientRect().width > 0);"
                       " return { kids: kids.length, last: Math.round(Math.max(...kids.map((e) => e.getBoundingClientRect().right))), right: Math.round(r.right), left: Math.round(r.left), centered: Math.abs((r.left + r.right) / 2 - innerWidth / 2) < 2 }; })()")
     check("шапка профиля: аватар и имя, по центру, пустого хвоста справа нет", [head["kids"], head["centered"], head["right"] - head["last"] <= 1], [2, True, True])
-    check("при открытии профиля гардероб не запрашивался", await p.ev("E.count('/api/cosmetics/catalog')"), 0)
+    check("при открытии профиля гардероб запрашивается один раз (для блока «Коллекции»)", await p.ev("E.count('/api/cosmetics/catalog')"), 1)
 
     # --- открытие раздела «Оформление» магазина: данные с сервера при открытии
     await p.tap(".tab[data-tab=shop]")
     await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
     await p.wait(READY, 15, "раздел «Оформление» магазина открыта")
-    check("после открытия по одному запросу каталога и «моего»", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [1, 1])
+    check("после открытия магазина ещё по одному запросу каталога и «моего» (первые два были при открытии профиля)", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [2, 2])
     check("заголовок и подпись вкладки", await p.ev("[document.querySelector('[data-screen=shop] h2').textContent.trim(), document.querySelector('.tab[data-tab=shop]').getAttribute('aria-current')]"), ["Магазин", "page"])
     check("девять вкладок с русскими названиями", await p.ev("[...document.querySelectorAll('#wd-tabs .wd-tab')].map(b => b.textContent)"), LABELS)
     check("переключатель показа, «Условия покупки» и строка про игру на месте", await p.ev(
@@ -55,7 +55,7 @@ async def run(w):
     await p.tap("#shop-pages [data-page=look]")      # гардероб на странице «Оформление»
     await p.wait(READY, 15, "вкладка открыта снова")
     check("после ухода и возврата слот прежний", await p.ev("[wd.slot, document.querySelector('#wd-tabs .wd-tab[aria-selected=true]').textContent]"), ["keno_ball", "Шарики кено"])
-    check("каждое открытие вкладки снова берёт данные с сервера", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [2, 2])
+    check("каждое открытие вкладки снова берёт данные с сервера", await p.ev("[E.count('/api/cosmetics/catalog'), E.count('/api/cosmetics/mine')]"), [3, 3])
     check("в localStorage ничего не появилось", await p.ev("Object.keys(localStorage).sort()"), keys_before)
 
     # --- узкое настольное окно: колесо, начало и конец, верх не обрезан

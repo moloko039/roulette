@@ -7,7 +7,7 @@ from starlette.concurrency import run_in_threadpool
 
 import cosmetic_sets
 import cosmetics
-from db import (buy_item, cosmetics_mine, equip_item, set_visibility, unequip_item)
+from db import (buy_item, cosmetics_mine, equip_item, equip_collection, set_visibility, unequip_item)
 from features.cosmetics_db import buy_set
 from roulette import validate_request_id
 from web.http import BodyTooLarge, read_body_limited
@@ -61,6 +61,10 @@ def register(app, ctx):
             return JSONResponse({"detail": "unknown_item"}, status_code=404)
         except cosmetics.UnknownSet:
             return JSONResponse({"detail": "unknown_set"}, status_code=404)
+        except cosmetics.UnknownCollection:
+            return JSONResponse({"detail": "unknown_collection"}, status_code=404)
+        except cosmetics.NothingToEquip:
+            return JSONResponse({"detail": "nothing_to_equip"}, status_code=409)
         except cosmetics.TooFast:
             return JSONResponse({"error": "too_many_requests"}, status_code=429, headers={"Retry-After": "1"})
         except cosmetics.CosmeticsError as exc:
@@ -70,6 +74,11 @@ def register(app, ctx):
     async def cosmetics_equip(request: Request):
         return await _cosmetics_post(request, {"request_id", "slot", "code"},
                                      lambda uid, rid, d: equip_item(uid, rid, d["slot"], d["code"], db_path=db_path))
+
+    @app.post("/api/cosmetics/equip-set")
+    async def cosmetics_equip_set(request: Request):
+        return await _cosmetics_post(request, {"request_id", "collection"},
+                                     lambda uid, rid, d: equip_collection(uid, rid, d["collection"], db_path=db_path))
 
     @app.post("/api/cosmetics/unequip")
     async def cosmetics_unequip(request: Request):
