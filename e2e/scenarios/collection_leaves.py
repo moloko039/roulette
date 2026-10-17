@@ -28,17 +28,26 @@ async def run(w):
     # оформление
     await p.tap(".tab[data-tab=shop]")
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "магазин")
-    check("полоса коллекции: название, 1 из 8, как получить", await p.ev("[...document.querySelectorAll('#wd-collections .wd-collection')].map(c => [(%s)(c.querySelector('strong').textContent), (%s)(c.querySelector('small').textContent)])" % (SP, SP)),
-          [["Листопад: 1 из 8", "Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре"], ["Дачный сезон: 0 из 8", "За улучшения дохода фермы"]])
+    check("в магазине нет плашек #wd-collections и .wd-collection", await p.ev("[!!document.getElementById('wd-collections'), document.querySelectorAll('.wd-collection').length]"), [False, 0])
+    check("сервер отдаёт у Листопада status, days_left и источник (значения зависят от даты, проверяем только тип)", await p.ev("(() => { const c = wd.mine.collections.find(c => c.code === 'leaves'); return [typeof c.status, c.days_left === null || Number.isInteger(c.days_left), c.source]; })()"), ["string", True, "streak"])
+    check("строка сезона скрыта, если нет status и days_left", await p.ev("(() => { wd.mine.collections.forEach(c => { delete c.status; delete c.days_left; }); renderWardrobe(); return document.getElementById('wd-season').hidden; })()"), True)
+    check("при активном сезоне строка показывает дни со склонением", await p.ev("(() => { const c = wd.mine.collections.find(c => c.code === 'leaves'); c.status = 'active'; c.days_left = 5; renderWardrobe(); return [document.getElementById('wd-season').hidden, document.querySelector('.wd-season-btn').textContent]; })()"), [False, "Листопад: осталось 5 дней →"])
+    check("склонение 1 день", await p.ev("(() => { wd.mine.collections.find(c => c.code === 'leaves').days_left = 1; renderWardrobe(); return document.querySelector('.wd-season-btn').textContent; })()"), "Листопад: осталось 1 день →")
+    check("склонение 2 дня", await p.ev("(() => { wd.mine.collections.find(c => c.code === 'leaves').days_left = 2; renderWardrobe(); return document.querySelector('.wd-season-btn').textContent; })()"), "Листопад: осталось 2 дня →")
+    await p.tap(".wd-season-btn")
+    check("тап по сезону без openCollection даёт тост", await p.ev("document.getElementById('wd-toast').textContent"), "Коллекции скоро переедут в профиль")
+    await p.ev("(() => { delete wd.mine.collections.find(c => c.code === 'leaves').status; renderWardrobe(); })()")
+    await p.tap("#wd-tabs .wd-tab:nth-child(7)")           # рубашка карт
     statuses = await p.ev("Object.fromEntries([...document.querySelectorAll('#wd-grid .wd-card')].map(c => [c.querySelector('.wd-name').textContent, c.querySelector('.wd-status').textContent]))")
     check("рубашки: Классика надета, Листопад есть, Уголь скоро", [statuses["Классика"], statuses["Листопад"], statuses["Уголь"]], ["Надето", "Есть", "Скоро"])
-    await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол
-    check("стол Октябрь: часть коллекции, подпись пустая (не «Не получено»)", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].filter(c => c.dataset.code === 'table_autumn').map(c => c.querySelector('.wd-status').textContent)"), [""])
+    await p.tap("#wd-tabs .wd-tab:nth-child(4)")           # стол
+    check("стол Октябрь: часть коллекции, подпись «Из коллекции «Листопад»»", await p.ev("[...document.querySelectorAll('#wd-grid .wd-card')].filter(c => c.dataset.code === 'table_autumn').map(c => c.querySelector('.wd-status').textContent)"), ["Из коллекции «Листопад»"])
     await p.tap("#wd-grid .wd-card[data-code=table_autumn]")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
-    check("предпросмотр части: нет кнопки покупки, подсказка про коллекцию", await p.ev("[document.getElementById('wd-prev-act').hidden, (%s)(document.getElementById('wd-prev-msg').textContent), document.getElementById('wd-gift-open').hidden]" % SP),
-          [True, "Часть коллекции «Листопад»: Награда дня на 3-й, 5-й и 7-й день серии входов, только в октябре", True])
-    await p.tap("#wd-prev-close")
+    check("предпросмотр части: нет кнопки покупки, кнопка «Открыть коллекцию»", await p.ev("[document.getElementById('wd-prev-act').hidden, (%s)(document.getElementById('wd-prev-msg').textContent), document.getElementById('wd-gift-open').hidden]" % SP),
+          [True, "Открыть коллекцию", True])
+    await p.tap("#wd-prev-msg button")
+    check("кнопка закрывает предпросмотр и показывает тост", await p.ev("[document.getElementById('wd-prev-sheet').hidden, document.getElementById('wd-toast').textContent]"), [True, "Коллекции скоро переедут в профиль"])
     # полный набор: выдаём остальные части и надеваем все восемь
     for code in ("table_autumn", "mine_acorn", "chip_leaf", "keno_apple", "crash_maple", "frame_wreath", "badge_pumpkin"):
         w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, acquired_at) VALUES (?, ?, 'collection', ?)", (uid, code, now))
@@ -47,4 +56,4 @@ async def run(w):
     await w.reload()
     await p.tap(".tab[data-tab=shop]")
     await p.wait("document.documentElement.getAttribute('data-set-complete') === 'leaves'", 10, "эффект полного набора")
-    check("полная коллекция: «8 из 8 (собрана)», у корня эффект", await p.ev("[(%s)(document.querySelector('#wd-collections strong').textContent), document.documentElement.getAttribute('data-set-complete')]" % SP), ["Листопад: 8 из 8 (собрана)", "leaves"])
+    check("полная коллекция: у корня эффект", await p.ev("document.documentElement.getAttribute('data-set-complete')"), "leaves")

@@ -32,7 +32,7 @@ async def run(w):
     await p.wait("document.getElementById('shop-gems').textContent.replace(/\\s/g, '') === '1000'", 10, "1000 кристаллов в шапке магазина")
 
     # ---- «Черновик»: блок набора в предпросмотре части, покупка с подтверждением
-    await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол
+    await p.tap("#wd-tabs .wd-tab:nth-child(4)")           # стол
     await tap_card(p, "Черновик")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр")
     await p.wait("!document.getElementById('wd-set-box').hidden", 5, "блок набора виден")
@@ -55,7 +55,7 @@ async def run(w):
     await p.tap("#wd-prev-close")
 
     # ---- «Пустота»: пока частей нет, блок виден; когда одна часть куплена отдельно, блока нет у другой части
-    await p.tap("#wd-tabs .wd-tab:nth-child(2)")           # фишки
+    await p.tap("#wd-tabs .wd-tab:nth-child(5)")           # фишки
     await tap_card(p, "Пустота")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр void_chip")
     await p.wait("!document.getElementById('wd-set-box').hidden", 5, "блок набора «Пустота» виден")
@@ -65,7 +65,7 @@ async def run(w):
     w.sql("INSERT INTO cosmetic_items (telegram_id, item_code, source, payment_ref, acquired_at) VALUES (?, 'void_table', 'gems', NULL, ?)", (uid, now))
     await p.tap(".tab[data-tab=play]")
     await open_wardrobe(p)
-    await p.tap("#wd-tabs .wd-tab:nth-child(2)")           # фишки
+    await p.tap("#wd-tabs .wd-tab:nth-child(5)")           # фишки
     await tap_card(p, "Пустота")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр void_chip после покупки части")
     check("часть набора уже есть у игрока: блока набора у другой части нет", await p.ev("document.getElementById('wd-set-box').hidden"), True)

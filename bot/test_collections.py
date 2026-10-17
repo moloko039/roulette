@@ -3,6 +3,7 @@ import testenv  # noqa: F401  (первым: очищает окружение �
 import os
 import sqlite3
 import tempfile
+import time
 
 import cosmetic_sets
 import cosmetics
@@ -95,7 +96,7 @@ try:
     owned = sql(path, "SELECT item_code, source FROM cosmetic_items WHERE telegram_id = ? ORDER BY item_code", (A,))
     check("предметы у игрока с источником collection", owned, [("back_leaves", "collection"), ("mine_acorn", "collection"), ("table_autumn", "collection")])
     mine = db.cosmetics_mine(A, db_path=path)
-    check("в /mine прогресс: за неделю три части из всех", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, N, False), ("dacha", 0, 8, False)])
+    check("в /mine прогресс: за неделю три части из всех", [(c["code"], c["owned"], c["total"], c["complete"]) for c in mine["collections"]], [("leaves", 3, N, False), ("dacha", 0, 8, False), ("founder", 0, 3, False)])
     r = db.claim_streak(A, now=moscow_noon(6) + 60, db_path=path)
     check("повтор сбора в тот же день: части заново нет", (r["replayed"], r["collection_part"]), (True, None))
     # описание части в ответе
@@ -121,6 +122,117 @@ try:
     for d, date in enumerate(("2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02")):
         r = db.claim_streak(A, now=moscow_noon(0, date), db_path=path5)
     check("3-й день пришёлся на 31 октября: часть выдана, на 5-й день (2 ноября) нет", sql(path5, "SELECT item_code FROM cosmetic_items"), [("back_leaves",)])
+
+    # ---- границы сезона «Листопада» и дни до конца (days_left, status)
+    d_first = cosmetic_sets._day("2026-10-01")
+    d_last = cosmetic_sets._day("2026-10-31")
+    d_after = cosmetic_sets._day("2026-11-01")
+
+    # первый день: days_left 31, status active
+    p_first = {c["code"]: c for c in cosmetic_sets.progress([], day_index=d_first)}
+    check("первый день сезона: days_left 31, status active", (p_first["leaves"]["days_left"], p_first["leaves"]["status"]), (31, "active"))
+    m_first = {c["code"]: c for c in db.cosmetics_mine(A, now=at("2026-10-01"), db_path=path)["collections"]}
+    check("mine в первый день сезона: days_left 31, status active", (m_first["leaves"]["days_left"], m_first["leaves"]["status"]), (31, "active"))
+
+    # последний день: days_left 1, status active
+    p_last = {c["code"]: c for c in cosmetic_sets.progress([], day_index=d_last)}
+    check("последний день сезона: days_left 1, status active", (p_last["leaves"]["days_left"], p_last["leaves"]["status"]), (1, "active"))
+    m_last = {c["code"]: c for c in db.cosmetics_mine(A, now=at("2026-10-31"), db_path=path)["collections"]}
+    check("mine в последний день сезона: days_left 1, status active", (m_last["leaves"]["days_left"], m_last["leaves"]["status"]), (1, "active"))
+
+    # день после окончания сезона: status ended, days_left null
+    p_after = {c["code"]: c for c in cosmetic_sets.progress([], day_index=d_after)}
+    check("день после окончания сезона: status ended, days_left null", (p_after["leaves"]["status"], p_after["leaves"]["days_left"]), ("ended", None))
+    m_after = {c["code"]: c for c in db.cosmetics_mine(A, now=at("2026-11-01"), db_path=path)["collections"]}
+    check("mine день после окончания сезона: status ended, days_left null", (m_after["leaves"]["status"], m_after["leaves"]["days_left"]), ("ended", None))
+
+    # ---- собранная коллекция: status complete и days_left null даже в сезон
+    p_comp_in = {c["code"]: c for c in cosmetic_sets.progress(list(LEAVES), day_index=d_first)}
+    check("собранная коллекция в сезон: status complete, days_left null", (p_comp_in["leaves"]["status"], p_comp_in["leaves"]["days_left"]), ("complete", None))
+
+    p_comp_after = {c["code"]: c for c in cosmetic_sets.progress(list(LEAVES), day_index=d_after)}
+    check("собранная коллекция после сезона: status complete, days_left null", (p_comp_after["leaves"]["status"], p_comp_after["leaves"]["days_left"]), ("complete", None))
+
+    # ---- коллекции без сезона (Дачный сезон, Основатель): days_left всегда null
+    for d_test in (None, d_first, d_last, d_after, cosmetic_sets._day("2025-06-15"), cosmetic_sets._day("2027-01-01")):
+        for c in cosmetic_sets.progress([], day_index=d_test):
+            if c["code"] in ("dacha", "founder"):
+                check("коллекция без сезона: days_left null (%s, d=%s)" % (c["code"], d_test), c["days_left"], None)
+                check("коллекция без сезона: season null (%s)" % c["code"], c["season"], None)
+                check("коллекция без сезона: status active (%s)" % c["code"], c["status"], "active")
+
+    # ---- порядок списка в ответе: active -> complete -> ended; внутри группы порядок COLLECTIONS
+    DACHA = cosmetic_sets.COLLECTIONS["dacha"]["parts"]
+    FOUNDER = cosmetic_sets.COLLECTIONS["founder"]["parts"]
+
+    # Все active: в сезон Листопада (leaves, dacha, founder)
+    p_order_all_act = cosmetic_sets.progress([], day_index=d_first)
+    check("порядок когда все active", [c["code"] for c in p_order_all_act], ["leaves", "dacha", "founder"])
+    check("статусы когда все active", [c["status"] for c in p_order_all_act], ["active", "active", "active"])
+
+    # active, complete, ended: после сезона Листопада, dacha собрана, founder не собран
+    # founder (active) -> dacha (complete) -> leaves (ended)
+    p_order_mix = cosmetic_sets.progress(list(DACHA), day_index=d_after)
+    check("порядок active, complete, ended", [c["code"] for c in p_order_mix], ["founder", "dacha", "leaves"])
+    check("статусы active, complete, ended", [c["status"] for c in p_order_mix], ["active", "complete", "ended"])
+
+    # dacha и founder active, leaves complete (в сезон)
+    # dacha (active), founder (active) -> leaves (complete)
+    p_order_leaves_done = cosmetic_sets.progress(list(LEAVES), day_index=d_first)
+    check("порядок dacha, founder active, leaves complete", [c["code"] for c in p_order_leaves_done], ["dacha", "founder", "leaves"])
+    check("статусы dacha, founder active, leaves complete", [c["status"] for c in p_order_leaves_done], ["active", "active", "complete"])
+
+    # все complete: leaves, dacha, founder
+    p_order_all_done = cosmetic_sets.progress(list(LEAVES) + list(DACHA) + list(FOUNDER), day_index=d_after)
+    check("порядок когда все complete", [c["code"] for c in p_order_all_done], ["leaves", "dacha", "founder"])
+    check("статусы когда все complete", [c["status"] for c in p_order_all_done], ["complete", "complete", "complete"])
+
+    # без day_index: status без ended, порядок active -> complete
+    p_order_no_day = cosmetic_sets.progress(list(LEAVES))
+    check("порядок без day_index: active затем complete", [c["code"] for c in p_order_no_day], ["dacha", "founder", "leaves"])
+    check("статусы без day_index", [c["status"] for c in p_order_no_day], ["active", "active", "complete"])
+
+    # ---- коллекция «Основатель»: 3 части, source "referral", не выдаются серией и фермой
+    f_info = cosmetic_sets.COLLECTIONS["founder"]
+    check("Основатель: name", f_info["name"], "Основатель")
+    check("Основатель: 3 части", f_info["parts"], ("ref_scout", "ref_beacon", "ref_arch"))
+    check("Основатель: source referral", f_info["source"], "referral")
+    check("Основатель: season None", f_info["season"], None)
+    check("Основатель: how", f_info["how"], "За друзей, дошедших до квалификации: 3, 10 и 30")
+
+    for part_code in f_info["parts"]:
+        it = cosmetics.item(part_code)
+        check("предмет Основателя в каталоге (%s)" % part_code, it is not None, True)
+        check("предмет Основателя доступен (%s)" % part_code, it["available"], True)
+        check("предмет Основателя без цены (%s)" % part_code, it["price"], None)
+        check("предмет Основателя не стартовый (%s)" % part_code, it["starter"], False)
+        check("принадлежность предмета коллекции (%s)" % part_code, cosmetic_sets.collection_of(part_code), "founder")
+
+    # Серия входов (streak_part_to_grant): никогда не выдаёт части «Основателя»
+    for s_day in range(1, 8):
+        for d_t in (d_first, d_last, d_after, None):
+            res = cosmetic_sets.streak_part_to_grant([], s_day, d_t)
+            if res is not None:
+                check("streak_part_to_grant не выдаёт Основателя", res[0] != "founder", True)
+                check("streak_part_to_grant не выдаёт части Основателя", res[1] not in f_info["parts"], True)
+
+    p_streak_founder_test = new_db()
+    for d in range(7):
+        r_streak = db.claim_streak(A, now=moscow_noon(d), db_path=p_streak_founder_test)
+        if r_streak.get("collection_part"):
+            check("claim_streak не выдаёт Основателя", r_streak["collection_part"]["collection"], "leaves")
+            check("claim_streak не выдаёт части Основателя", r_streak["collection_part"]["part"] not in f_info["parts"], True)
+    items_from_streak = [r[0] for r in sql(p_streak_founder_test, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (A,))]
+    for part_code in f_info["parts"]:
+        check("часть Основателя не попала в серию (%s)" % part_code, part_code in items_from_streak, False)
+
+    # Ферма (grant_dacha_parts): никогда не выдаёт части «Основателя»
+    p_farm_founder_test = new_db()
+    sql(p_farm_founder_test, "UPDATE players SET income_level = 20 WHERE telegram_id = ?", (A,))
+    db.grant_dacha_parts(A, now=int(time.time()), db_path=p_farm_founder_test)
+    items_from_farm = [r[0] for r in sql(p_farm_founder_test, "SELECT item_code FROM cosmetic_items WHERE telegram_id = ?", (A,))]
+    for part_code in f_info["parts"]:
+        check("часть Основателя не выдаётся фермой (%s)" % part_code, part_code in items_from_farm, False)
 
     # ---- нельзя купить и подарить
     path = new_db()

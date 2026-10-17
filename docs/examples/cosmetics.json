@@ -95,11 +95,58 @@
         "parts": [
           "back_leaves",
           "table_autumn",
-          "mine_acorn"
+          "mine_acorn",
+          "chip_leaf",
+          "keno_apple",
+          "crash_maple",
+          "frame_wreath",
+          "badge_pumpkin"
         ],
         "owned": 1,
+        "total": 8,
+        "complete": false,
+        "source": "streak",
+        "status": "active",
+        "days_left": 16
+      },
+      {
+        "code": "dacha",
+        "name": "Дачный сезон",
+        "how": "За улучшения дохода фермы",
+        "season": null,
+        "parts": [
+          "back_rug",
+          "chip_cork",
+          "table_oilcloth",
+          "mine_beetle",
+          "keno_lotto",
+          "crash_barrel",
+          "frame_dacha",
+          "badge_dacha"
+        ],
+        "owned": 0,
+        "total": 8,
+        "complete": false,
+        "source": "farm",
+        "status": "active",
+        "days_left": null
+      },
+      {
+        "code": "founder",
+        "name": "Основатель",
+        "how": "За друзей, дошедших до квалификации: 3, 10 и 30",
+        "season": null,
+        "parts": [
+          "ref_scout",
+          "ref_beacon",
+          "ref_arch"
+        ],
+        "owned": 0,
         "total": 3,
-        "complete": false
+        "complete": false,
+        "source": "referral",
+        "status": "active",
+        "days_left": null
       }
     ]
   },

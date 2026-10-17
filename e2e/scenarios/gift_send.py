@@ -29,13 +29,13 @@ async def run(w):
     await p.wait("!document.querySelector('[data-screen=shop]').hidden && document.querySelectorAll('#wd-grid .wd-card').length > 0", 10, "магазин")
     await p.wait("giftState.available", 10, "получатели загружены")
     # предмет за фишки: подарить нельзя
-    await p.tap("#wd-tabs .wd-tab:nth-child(8)")           # значок: «Пика» за фишки
+    await p.tap("#wd-tabs .wd-tab:nth-child(9)")           # значок: «Пика» за фишки
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр значка")
     check("предмет за фишки: кнопки подарка нет", await p.ev("document.getElementById('wd-gift-open').hidden"), True)
     await p.tap("#wd-prev-close")
     # предмет за кристаллы
-    await p.tap("#wd-tabs .wd-tab:nth-child(3)")           # стол: «Лагуна» за 150 кристаллов
+    await p.tap("#wd-tabs .wd-tab:nth-child(4)")           # стол: «Лагуна» за 150 кристаллов
     await p.tap("#wd-grid .wd-card:nth-child(2)")
     await p.wait("!document.getElementById('wd-prev-sheet').hidden", 5, "предпросмотр стола")
     check("предмет за кристаллы: кнопка подарка видна, список закрыт", await p.ev("[document.getElementById('wd-gift-open').hidden, document.getElementById('wd-gift-box').hidden, (%s)(document.getElementById('wd-gift-open').textContent)]" % SP),
