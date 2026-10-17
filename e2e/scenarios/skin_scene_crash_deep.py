@@ -99,6 +99,10 @@ async def run(w):
     await p.ev("delete document.hidden; document.dispatchEvent(new Event('visibilitychange'))")
     check("страница снова видна: пауза снята", await p.ev("document.documentElement.classList.contains('skin-paused')"), False)
 
+    # Крах наступает сам, пока идут проверки вывода (серверные часы идут и в реальном времени), а пузыри живут меньше секунды: один замер «после
+    # трещин» ловил их только при удачном тайминге. Поэтому внутри страницы работает сэмплер: максимум одновременных пузырей краша (символ bubble, не
+    # частицы балласта) и всех частиц сразу, за всё время до конца проверки.
+    await p.ev("window.__scdpMaxB = 0; window.__scdpMaxAll = 0; window.__scdpIv = setInterval(() => { window.__scdpMaxB = Math.max(window.__scdpMaxB, document.querySelectorAll('.scdp-p.on use[href=\"#scdp-bubble\"]').length); window.__scdpMaxAll = Math.max(window.__scdpMaxAll, document.querySelectorAll('.scdp-p.on').length); }, 16)")
     await p.tap("#cr-cash")
     await p.wait("!!document.querySelector('.scdp-r.cashout')", 10, "вывод: батискаф всплывает")
     seen_cashout = await p.ev(PARTICLES)
@@ -109,9 +113,9 @@ async def run(w):
     await p.wait("!!document.querySelector('.scdp-r.broken')", 10, "краш: стекло треснуло")
     await p.wait("getComputedStyle(document.querySelector('.scdp-cracks')).strokeDashoffset === '0px'", 5, "трещины проявились")
     check("трещины видны", await p.ev("getComputedStyle(document.querySelector('.scdp-cracks')).strokeDashoffset"), "0px")
-    seen = await p.ev(PARTICLES)
-    check("краш: частицы-пузыри летят (от 1 до 12)", 1 <= seen <= 12, True)
-    await p.wait("document.querySelectorAll('.scdp-p.on').length === 0", 4, "все пузыри вернулись в пул")
+    await p.wait("document.querySelectorAll('.scdp-p.on').length === 0 && window.__scdpMaxB >= 1", 6, "пузыри краша вылетели и вернулись в пул")
+    seen = await p.ev("(() => { clearInterval(window.__scdpIv); return [window.__scdpMaxB, window.__scdpMaxAll]; })()")
+    check("краш: частицы-пузыри летят (от 1 до 12, всех частиц не больше 12)", 1 <= seen[0] <= 12 and seen[1] <= 12, True)
     check("через четыре секунды частиц 0", await p.ev(PARTICLES), 0)
 
     # --- раунд 2 (×1.50): prefers-reduced-motion: ни покоя, ни частиц, краш сменой кадра
