@@ -189,17 +189,28 @@ async function loadBestWins() {
 
 let ratingSetNames = {};
 
-function ratingSetBadge(sets) {
+function ratingSetBadge(sets, isMe = false) {
   if (!Array.isArray(sets) || sets.length === 0) return null;
   const el = document.createElement('span');
   el.className = 'rating-set-badge';
-  el.textContent = '✦';                                    // значок собранной коллекции; название по нажатию (на телефоне подсказки title нет)
+  el.textContent = '✦ ' + sets.length;                     // значок с числом собранных коллекций (UI_REVIEW 4.4)
   const title = sets.map((c) => ratingSetNames[c] || c).join(', ');
   el.setAttribute('role', 'button');
   el.tabIndex = 0;
-  el.setAttribute('aria-label', 'Собрана коллекция' + (title ? ': ' + title : ''));
+  el.setAttribute('aria-label', 'Собрано коллекций: ' + sets.length);
   if (title) el.title = title;
-  const tell = (e) => { e.stopPropagation(); showToast('Собрана коллекция' + (title ? ': ' + title : '')); };
+  const tell = (e) => {
+    e.stopPropagation();
+    if (isMe) {
+      if (typeof showTab === 'function') showTab('profile');
+      const card = document.getElementById('collections-card');
+      if (card && typeof card.scrollIntoView === 'function') {
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      showToast('Собрана коллекция' + (title ? ': ' + title : ''));
+    }
+  };
   el.addEventListener('click', tell);
   el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tell(e); } });
   return el;
@@ -293,7 +304,7 @@ function showRating(d) {
     who.appendChild(name);
     const badge = badgeEl(pub.badge, pub.founder_no, pub.badge_days, pub.badge_stage);
     if (badge) who.appendChild(badge);
-    const setBadge = ratingSetBadge(e.complete_sets);
+    const setBadge = ratingSetBadge(e.complete_sets, !!e.is_me);
     if (setBadge) who.appendChild(setBadge);
     if (isCount(e.level)) who.appendChild(levelBadge(e.level)); // без поля level подписи нет
     const bal = document.createElement('span');
@@ -329,6 +340,9 @@ function showRating(d) {
   myWho.appendChild(myName);
   const myBadge = badgeEl(ownEquipped.badge, ownEquipped.founder_no, ownEquipped.badge_days, ownEquipped.badge_stage);
   if (myBadge) myWho.appendChild(myBadge);
+  const mySets = typeof srv === 'object' && srv && Array.isArray(srv.completeSets) ? srv.completeSets : [];
+  const mySetBadge = ratingSetBadge(mySets, true);
+  if (mySetBadge) myWho.appendChild(mySetBadge);
   if (isCount(d.me.level)) myWho.appendChild(levelBadge(d.me.level));
   const myBal = document.createElement('span');
   myBal.className = 'rating-bal';
