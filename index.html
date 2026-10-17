@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/03-table-bets.css?v=78effe9b">
   <link rel="stylesheet" href="css/04-nav-menu.css?v=bc9b8be9">
   <link rel="stylesheet" href="css/05-profile-rating.css?v=915fc612">
+  <link rel="stylesheet" href="css/05a-collections.css?v=12266486">
   <link rel="stylesheet" href="css/06-mines-wheel.css?v=8c4cbb96">
   <link rel="stylesheet" href="css/07-keno.css?v=df7a5056">
   <link rel="stylesheet" href="css/08-blackjack.css?v=794d5086">
@@ -669,6 +670,15 @@
       <span class="profile-name" id="profile-name"></span>
       <span class="rating-badge" id="profile-badge" hidden aria-hidden="true"></span>
     </div>
+    <section class="profile-card collections" id="collections-card" hidden>
+      <div class="collections-head">
+        <h3 class="collections-title">Коллекции</h3>
+        <button type="button" class="collections-all-btn" id="collections-all-btn" aria-expanded="false">все →</button>
+      </div>
+      <div class="collections-feed-wrap" id="collections-feed-wrap">
+        <div class="collections-feed" id="collections-feed" role="region" aria-label="Лента коллекций"></div>
+      </div>
+    </section>
     <div class="profile-card profile-income" id="profile-data" hidden>
       <div class="stat"><span class="stat-label">Доход</span><span><strong id="profile-rate"></strong> в час</span></div>
       <div class="stat" id="profile-best" hidden><span class="stat-label">Рекорд</span><strong id="profile-best-value"></strong></div>
@@ -766,6 +776,20 @@
       <div class="soon-toast wd-toast" id="wd-prev-toast" role="status" aria-live="polite"></div>
     </section>
   </div>
+  <div class="dialog-sheet" id="collection-sheet" hidden>
+    <div class="dialog-dim" id="collection-dim"></div>
+    <section class="dialog-panel collection-panel" role="dialog" aria-modal="true" aria-label="Коллекция">
+      <div class="dialog-head">
+        <strong id="collection-title"></strong>
+        <button type="button" class="action collection-close" id="collection-close" aria-label="Закрыть">✕</button>
+      </div>
+      <p class="collection-progress" id="collection-progress"></p>
+      <div class="collection-grid" id="collection-grid"></div>
+      <div class="collection-source-box" id="collection-source-box" hidden>
+        <button type="button" class="action collection-source-btn" id="collection-source-btn">Где получить →</button>
+      </div>
+    </section>
+  </div>
   <div class="soon-toast" id="soon-toast" role="status" aria-live="polite">Скоро</div>
   <!-- открытая встроенная игра: во весь экран поверх приложения, iframe создаётся в js/*.js -->
   <div class="embed-view" id="embed-view" hidden>
@@ -800,7 +824,8 @@
   <script src="js/13a-wardrobe-catalog.js?v=30525711"></script>
   <script src="js/13b-wardrobe-badges.js?v=1f1394a7"></script>
   <script src="js/13c-wardrobe-tryon.js?v=6574bdd9"></script>
-  <script src="js/13-wardrobe.js?v=6dd84f4e"></script>
+  <script src="js/13-wardrobe.js?v=23621595"></script>
+  <script src="js/04b-collections.js?v=37771591"></script>
   <script src="js/14-lobby.js?v=104f0bdc"></script>
   <script src="js/14a-lobby-crash.js?v=d0e95dcf"></script>
   <script src="js/14-streak.js?v=7c03de64"></script>
