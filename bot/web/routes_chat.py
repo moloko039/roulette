@@ -1,6 +1,4 @@
 """Рейтинг беседы, рекорды выигрыша и буст беседы."""
-import json
-
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -8,8 +6,7 @@ from starlette.concurrency import run_in_threadpool
 import wallet
 from core.chat_bonus import BoostCapReached, NoChat, NotAttributed, buy_chat_boost
 from db import chat_best_wins, chat_top
-from roulette import validate_request_id
-from web.http import BodyTooLarge, _in_group, read_body_limited
+from web.http import _in_group, read_json_object
 
 
 def register(app, ctx):
@@ -45,17 +42,10 @@ def register(app, ctx):
         limited = throttled(info["user_id"], "write")
         if limited is not None:
             return limited
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id"}:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-        except Exception:
-            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        data = await read_json_object(request, {"request_id"})
+        if isinstance(data, JSONResponse):
+            return data
+        request_id = data["request_id"]
         if not _in_group(info):
             return JSONResponse({"detail": "no_chat"}, status_code=409)
         try:

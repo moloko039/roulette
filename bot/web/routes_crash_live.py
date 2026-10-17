@@ -1,4 +1,3 @@
-import json
 import re
 
 from fastapi import Header, Request
@@ -8,9 +7,8 @@ from starlette.concurrency import run_in_threadpool
 import crash
 import crash_live
 from wallet import InsufficientFunds, BalanceLimitExceeded as BalanceLimit
-from web.http import BodyTooLarge, read_body_limited, _in_group
+from web.http import _in_group, read_json_object
 from features import crash_live_db
-from roulette import validate_request_id
 
 
 def register(app, ctx):
@@ -52,26 +50,18 @@ def register(app, ctx):
         if limited is not None:
             return limited
 
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or not ({"request_id", "bet"} <= set(data) <= {"request_id", "bet", "target_x100"}):
-                raise ValueError()
-            if "target_x100" in data and data["target_x100"] is not None and type(data["target_x100"]) is not int:
-                raise ValueError()
-            if type(data["bet"]) is not int or isinstance(data["bet"], bool):
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-            bet = data["bet"]
-            target_x100 = data.get("target_x100")
-            if target_x100 is not None and isinstance(target_x100, bool):
-                raise ValueError()
-        except Exception:
+        data = await read_json_object(request, {"request_id", "bet"}, optional={"target_x100"})
+        if isinstance(data, JSONResponse):
+            return data
+        if "target_x100" in data and data["target_x100"] is not None and type(data["target_x100"]) is not int:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        if type(data["bet"]) is not int or isinstance(data["bet"], bool):
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        target_x100 = data.get("target_x100")
+        if target_x100 is not None and isinstance(target_x100, bool):
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
+        bet = data["bet"]
 
         if _in_group(info):
             r_key = crash_live.room_key(chat_instance=info["chat_instance"])
@@ -109,18 +99,10 @@ def register(app, ctx):
         if limited is not None:
             return limited
 
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id"}:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-        except Exception:
-            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        data = await read_json_object(request, {"request_id"})
+        if isinstance(data, JSONResponse):
+            return data
+        request_id = data["request_id"]
 
         def call():
             return crash_live_db.cashout(

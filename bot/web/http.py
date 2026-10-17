@@ -1,4 +1,5 @@
 """Общее для HTTP-слоя: предел тела запроса, замеры времени, заголовки безопасности, одинаковые отказы."""
+import json
 import logging
 import time
 
@@ -6,6 +7,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
 import db
+from roulette import validate_request_id
 
 MAX_BODY_BYTES = 64 * 1024  # 47 ставок занимают около 3 КБ
 WEBHOOK_PATH = "/telegram/webhook"
@@ -32,6 +34,37 @@ async def read_body_limited(request):
             raise BodyTooLarge()
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+async def read_json_object(request, keys=(), *, optional=(), request_id=True):
+    """Тело запроса не больше MAX_BODY_BYTES, валидный JSON-объект с точным набором ключей.
+
+    При успехе возвращает dict (data['request_id'] проверен через validate_request_id, если request_id=True).
+    При ошибке возвращает готовый JSONResponse (413 payload_too_large или 400 invalid_request).
+    """
+    try:
+        raw = await read_body_limited(request)
+    except BodyTooLarge:
+        return JSONResponse({"detail": "payload_too_large"}, status_code=413)
+
+    expected = set(keys) if keys else set()
+    if request_id:
+        expected.add("request_id")
+    opt = set(optional) if optional else set()
+    allowed = expected | opt
+
+    try:
+        if not raw and not expected and not opt and not request_id:
+            data = {}
+        else:
+            data = json.loads(raw)
+        if type(data) is not dict or not (expected <= set(data) <= allowed):
+            raise ValueError()
+        if request_id:
+            data["request_id"] = validate_request_id(data["request_id"])
+        return data
+    except Exception:
+        return JSONResponse({"detail": "invalid_request"}, status_code=400)
 
 
 # ---------- замеры времени запросов ----------

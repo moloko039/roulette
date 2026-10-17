@@ -1,5 +1,4 @@
 """Ферма: статус и покупка улучшений."""
-import json
 import logging
 
 from fastapi import Header, Request
@@ -8,8 +7,8 @@ from starlette.concurrency import run_in_threadpool
 
 import farm
 from db import (buy_upgrade, farm_status, grant_dacha_parts)
-from roulette import InsufficientFunds, validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from roulette import InsufficientFunds
+from web.http import read_json_object
 
 logger = logging.getLogger("depnaya")
 
@@ -34,20 +33,13 @@ def register(app, ctx):
             return limited
 
         # любая ошибка формы тела: 400 с одним и тем же текстом
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id", "kind"}:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-            kind = data["kind"]
-            if type(kind) is not str or kind not in farm.KINDS:
-                raise ValueError()
-        except Exception:
+        data = await read_json_object(request, {"request_id", "kind"})
+        if isinstance(data, JSONResponse):
+            return data
+        kind = data["kind"]
+        if type(kind) is not str or kind not in farm.KINDS:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
 
         try:
             result = await run_in_threadpool(buy_upgrade, user_id, request_id, kind, None, db_path)

@@ -12,7 +12,7 @@ import mines
 import slot
 from db import (blackjack_action, blackjack_start, blackjack_state, hilo_cashout, hilo_guess, hilo_start, hilo_state, mines_cashout, mines_reveal, mines_start, mines_state, play_keno, play_slot, spin_roulette)
 from roulette import BalanceLimit, InsufficientFunds, InvalidBets, RequestConflict, validate_bets, validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from web.http import BodyTooLarge, read_body_limited, read_json_object
 
 
 def register(app, ctx):
@@ -27,16 +27,11 @@ def register(app, ctx):
         user_id, limited = user_of(request.headers, "write")
         if limited is not None:
             return limited
+        data = await read_json_object(request, keys, optional=optional)
+        if isinstance(data, JSONResponse):
+            return data
         try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or not (keys <= set(data) <= keys | optional):
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-            call = run(user_id, request_id, data)   # проверки типов и диапазонов: ValueError -> 400
+            call = run(user_id, data["request_id"], data)   # проверки типов и диапазонов: ValueError -> 400
         except Exception:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
         try:

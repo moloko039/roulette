@@ -1,6 +1,4 @@
 """Общий забег свинок: GET /api/race/live (состояние раунда и лента комнаты беседы) и POST /api/race/live/bet (ставка на дорожку)."""
-import json
-
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -8,8 +6,8 @@ from starlette.concurrency import run_in_threadpool
 import race
 import race_live
 from features import race_live_db
-from roulette import BalanceLimit, InsufficientFunds, validate_request_id
-from web.http import BodyTooLarge, read_body_limited, _in_group
+from roulette import BalanceLimit, InsufficientFunds
+from web.http import _in_group, read_json_object
 
 
 def register(app, ctx):
@@ -34,20 +32,13 @@ def register(app, ctx):
         limited = throttled(info["user_id"], "write")
         if limited is not None:
             return limited
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id", "lane", "bet"}:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-            lane, bet = data["lane"], data["bet"]
-            if type(lane) is not int or not 0 <= lane < race_live.LANES or type(bet) is not int or not race.RACE_MIN_BET <= bet <= race.RACE_MAX_BET:
-                raise ValueError()
-        except Exception:
+        data = await read_json_object(request, {"request_id", "lane", "bet"})
+        if isinstance(data, JSONResponse):
+            return data
+        lane, bet = data["lane"], data["bet"]
+        if type(lane) is not int or not 0 <= lane < race_live.LANES or type(bet) is not int or not race.RACE_MIN_BET <= bet <= race.RACE_MAX_BET:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
         try:
             return await run_in_threadpool(lambda: race_live_db.place_bet(info["user_id"], room_of(info), request_id, lane, bet, race_live.now_ms(), db_path))
         except race.RaceError as exc:

@@ -1,7 +1,5 @@
 """Bloody slot: GET /api/bloody/state (активный или последний раунд и настройки игры), POST /api/bloody/start (ставка или покупка функции, стартовый спин),
 POST /api/bloody/spin (следующий бонусный спин активного раунда). Правила и числа: bloody_config.py, форма ответов: docs/API.md."""
-import json
-
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -9,8 +7,8 @@ from starlette.concurrency import run_in_threadpool
 import bloody_config as cfg
 import bloody_round as br
 from games import bloody_db
-from roulette import BalanceLimit, InsufficientFunds, validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from roulette import BalanceLimit, InsufficientFunds
+from web.http import read_json_object
 
 
 def settings():
@@ -34,20 +32,6 @@ def register(app, ctx):
         res["settings"] = settings()
         return res
 
-    async def parse(request, keys):
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return None, JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or not ({"request_id"} <= set(data) <= keys):
-                raise ValueError()
-            data["request_id"] = validate_request_id(data["request_id"])
-            return data, None
-        except Exception:
-            return None, JSONResponse({"detail": "invalid_request"}, status_code=400)
-
     async def run(call):
         try:
             return await run_in_threadpool(call)
@@ -63,9 +47,9 @@ def register(app, ctx):
         user_id, limited = ctx.user_of(request.headers, "write")
         if limited is not None:
             return limited
-        data, err = await parse(request, {"request_id", "bet", "buy"})
-        if err is not None:
-            return err
+        data = await read_json_object(request, {"request_id", "bet"}, optional={"buy"})
+        if isinstance(data, JSONResponse):
+            return data
         bet, buy = data.get("bet"), data.get("buy")
         if type(bet) is not int or (buy is not None and (type(buy) is not str or buy not in cfg.BUY_COST_UNITS)):
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
@@ -76,7 +60,7 @@ def register(app, ctx):
         user_id, limited = ctx.user_of(request.headers, "write")
         if limited is not None:
             return limited
-        data, err = await parse(request, {"request_id"})
-        if err is not None:
-            return err
+        data = await read_json_object(request, {"request_id"})
+        if isinstance(data, JSONResponse):
+            return data
         return await run(lambda: bloody_db.bloody_spin(user_id, data["request_id"], db_path=db_path))

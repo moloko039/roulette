@@ -1,6 +1,4 @@
 """Косметика: только внешний вид (bot/cosmetics.py); оплата Stars через ссылку-инвойс."""
-import json
-
 from fastapi import Header, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -9,8 +7,7 @@ import cosmetic_sets
 import cosmetics
 from db import (buy_item, cosmetics_mine, equip_item, equip_collection, set_visibility, unequip_item)
 from features.cosmetics_db import buy_set
-from roulette import validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from web.http import read_json_object
 
 
 
@@ -42,17 +39,10 @@ def register(app, ctx):
         user_id, limited = user_of(request.headers, "write")
         if limited is not None:
             return limited
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != keys:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-        except Exception:
-            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        data = await read_json_object(request, keys)
+        if isinstance(data, JSONResponse):
+            return data
+        request_id = data["request_id"]
         try:
             return await run_in_threadpool(call, user_id, request_id, data)
         except ValueError:
