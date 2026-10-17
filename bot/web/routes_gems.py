@@ -1,7 +1,6 @@
 """Кристаллы: список пакетов и ссылка на оплату пакета в Telegram Stars (план экономики, этап E2).
 
 Баланс кристаллов отдаёт /api/me (поле gems). Оплату принимает бот (pre_checkout_query и successful_payment, tg/payments.py)."""
-import json
 import logging
 import os
 import time
@@ -14,8 +13,7 @@ from telegram import LabeledPrice
 import cosmetics
 from db import gems_state, pack, packs_view
 from features.gems_db import UnknownPack
-from roulette import validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from web.http import read_json_object
 
 GEM_INVOICE_INTERVAL = 10      # не чаще одной ссылки на оплату на игрока и пакет за это число секунд
 
@@ -41,17 +39,12 @@ def register(app, ctx):
         user_id, limited = user_of(request.headers, "write")
         if limited is not None:
             return limited
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id", "pack_code"} or type(data["pack_code"]) is not str:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-        except Exception:
+        data = await read_json_object(request, {"request_id", "pack_code"})
+        if isinstance(data, JSONResponse):
+            return data
+        if type(data["pack_code"]) is not str:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
         code = data["pack_code"]
         bot = getattr(getattr(app.state, "application", None), "bot", None)
         if bot is None:

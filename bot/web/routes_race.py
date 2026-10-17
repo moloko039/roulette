@@ -1,14 +1,12 @@
 """Забег свинок: маршрут POST /api/race/play (по образцу slot_spin)."""
-import json
-
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from features.race_db import play_race
 import race
-from roulette import BalanceLimit, InsufficientFunds, validate_request_id
-from web.http import BodyTooLarge, read_body_limited
+from roulette import BalanceLimit, InsufficientFunds
+from web.http import read_json_object
 
 
 def register(app, ctx):
@@ -21,28 +19,20 @@ def register(app, ctx):
         if limited is not None:
             return limited
 
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id", "lanes", "lane", "bet"}:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-            lanes = data["lanes"]
-            lane = data["lane"]
-            bet = data["bet"]
-            if type(lanes) is not int or lanes not in race.RACE_LANES:
-                raise ValueError()
-            if type(lane) is not int or not 0 <= lane < lanes:
-                raise ValueError()
-            if type(bet) is not int or not race.RACE_MIN_BET <= bet <= race.RACE_MAX_BET:
-                raise ValueError()
-            call = lambda: play_race(user_id, request_id, lanes, lane, bet, db_path=db_path)
-        except Exception:
+        data = await read_json_object(request, {"request_id", "lanes", "lane", "bet"})
+        if isinstance(data, JSONResponse):
+            return data
+        lanes = data["lanes"]
+        lane = data["lane"]
+        bet = data["bet"]
+        if type(lanes) is not int or lanes not in race.RACE_LANES:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        if type(lane) is not int or not 0 <= lane < lanes:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        if type(bet) is not int or not race.RACE_MIN_BET <= bet <= race.RACE_MAX_BET:
+            return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
+        call = lambda: play_race(user_id, request_id, lanes, lane, bet, db_path=db_path)
 
         try:
             return await run_in_threadpool(call)

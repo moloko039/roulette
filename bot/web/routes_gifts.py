@@ -1,5 +1,4 @@
 """Подарки косметикой участникам своей беседы (ECONOMY_ADDITIONS.md, п. 2): список получателей и отправка подарка за кристаллы."""
-import json
 import logging
 
 from fastapi import Header, Request
@@ -9,8 +8,8 @@ from starlette.concurrency import run_in_threadpool
 import cosmetics
 import wallet
 from db import GiftError, gift_recipients, send_gift
-from roulette import RequestConflict, validate_request_id
-from web.http import BodyTooLarge, _in_group, read_body_limited
+from roulette import RequestConflict
+from web.http import _in_group, read_json_object
 
 logger = logging.getLogger("depnaya")
 
@@ -37,18 +36,12 @@ def register(app, ctx):
         limited = throttled(info["user_id"], "write")
         if limited is not None:
             return limited
-        try:
-            raw = await read_body_limited(request)
-        except BodyTooLarge:
-            return JSONResponse({"detail": "payload_too_large"}, status_code=413)
-        try:
-            data = json.loads(raw)
-            if type(data) is not dict or set(data) != {"request_id", "ref", "item_code"} or type(data["ref"]) is not str or type(data["item_code"]) is not str \
-                    or not 1 <= len(data["ref"]) <= 64:
-                raise ValueError()
-            request_id = validate_request_id(data["request_id"])
-        except Exception:
+        data = await read_json_object(request, {"request_id", "ref", "item_code"})
+        if isinstance(data, JSONResponse):
+            return data
+        if type(data["ref"]) is not str or type(data["item_code"]) is not str or not 1 <= len(data["ref"]) <= 64:
             return JSONResponse({"detail": "invalid_request"}, status_code=400)
+        request_id = data["request_id"]
         chat = info["chat_instance"] if _in_group(info) else None
         try:
             result, notice = await run_in_threadpool(send_gift, info["user_id"], chat, request_id, data["ref"], data["item_code"], info["first_name"], None, db_path)
